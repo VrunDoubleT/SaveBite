@@ -1,0 +1,68 @@
+﻿version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: savebite-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-myapp_db}
+      POSTGRES_USER: ${POSTGRES_USER:-myapp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-myapp_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-myapp_user} -d ${POSTGRES_DB:-myapp_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - savebite-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: savebite-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --requirepass "${REDIS_PASSWORD}"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - savebite-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: savebite-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"       # AMQP
+      - "${RABBITMQ_UI_PORT:-15672}:15672"  # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - savebite-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  savebite-network:
+    driver: bridge
