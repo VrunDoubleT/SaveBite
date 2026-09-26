@@ -1,0 +1,170 @@
+@import "tailwindcss";
+
+/* =========================================================
+   THEME
+   ========================================================= */
+
+@theme {
+  /* =========================================================
+     PRIMARY — Green scale
+     ========================================================= */
+
+  --color-primary-50: #edfbf3;
+  --color-primary-100: #d3f5e1;
+  --color-primary-200: #a8ebc4;
+  --color-primary-300: #74dba1;
+  --color-primary-400: #43c67f;
+  --color-primary-500: #22a866;
+  --color-primary-600: #178a54;
+  --color-primary-700: #126e44;
+  --color-primary-800: #0f5737;
+  --color-primary-900: #0c452d;
+
+  /* =========================================================
+     ACCENT — Orange
+     ========================================================= */
+
+  --color-accent-50: #fff6e9;
+  --color-accent-100: #ffe8c2;
+  --color-accent-300: #ffc873;
+  --color-accent-500: #ff9f1c;
+  --color-accent-700: #cc7a0f;
+
+  /* =========================================================
+     SEMANTIC COLORS
+     ========================================================= */
+
+  --color-success: #22a866;
+  --color-warning: #ff9f1c;
+  --color-danger: #e5484d;
+  --color-info: #2f80ed;
+
+  /* =========================================================
+     NEUTRAL
+     ========================================================= */
+
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f7f9f8;
+  --color-neutral-100: #eef2f0;
+  --color-neutral-200: #dce3e0;
+  --color-neutral-300: #bfc9c5;
+  --color-neutral-400: #93a19b;
+  --color-neutral-500: #6b7a74;
+  --color-neutral-600: #4e5b56;
+  --color-neutral-700: #37423e;
+  --color-neutral-800: #232b28;
+  --color-neutral-900: #141a18;
+
+  /* =========================================================
+     TEXT
+     ========================================================= */
+
+  --color-text-primary: #141a18;
+  --color-text-secondary: #4e5b56;
+  --color-text-muted: #93a19b;
+  --color-text-inverse: #ffffff;
+  --color-text-link: #178a54;
+
+  /* =========================================================
+     BACKGROUND
+     ========================================================= */
+
+  --color-bg-body: #f7f9f8;
+  --color-bg-surface: #ffffff;
+  --color-bg-surface-2: #edfbf3;
+
+  /* =========================================================
+     BORDER
+     ========================================================= */
+
+  --color-border-default: #dce3e0;
+  --color-border-focus: #43c67f;
+
+  /* =========================================================
+     FONT
+     ========================================================= */
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* =========================================================
+     LINE HEIGHT
+     ========================================================= */
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.7;
+
+  /* =========================================================
+     RADIUS
+     ========================================================= */
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* =========================================================
+     SHADOW
+     ========================================================= */
+
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(20, 26, 24, 0.04);
+  --shadow-md: 0 2px 8px rgba(20, 26, 24, 0.06);
+  --shadow-lg: 0 6px 16px rgba(20, 26, 24, 0.08);
+  --shadow-focus: 0 0 0 3px rgba(67, 198, 127, 0.3);
+}
+
+/* =========================================================
+   GLOBAL STYLES
+   ========================================================= */
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+
+    background: var(--color-bg-body);
+    color: var(--color-text-primary);
+
+    line-height: 1.5;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
