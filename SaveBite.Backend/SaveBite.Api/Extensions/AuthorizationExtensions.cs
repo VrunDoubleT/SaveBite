@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using SaveBite.Backend.Authorization;
 using SaveBite.Backend.Models.Enums;
-using SaveBite.Backend.Services.Implementations;
-using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -42,7 +40,6 @@ public static class AuthorizationExtensions
                 CreatePolicy(AccessScope.Admin));
         });
 
-        services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IAuthorizationHandler, UserAccessAuthorizationHandler>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, ApiAuthorizationMiddlewareResultHandler>();
 

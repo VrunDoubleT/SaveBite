@@ -3,8 +3,6 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using SaveBite.Backend.Configurations;
-using SaveBite.Backend.Services.Implementations;
-using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -72,8 +70,6 @@ public static class JwtExtensions
             });
 
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<IJwtService, JwtService>();
-        services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
         return services;
     }

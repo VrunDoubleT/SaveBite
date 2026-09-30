@@ -1,6 +1,4 @@
 using SaveBite.Backend.Configurations;
-using SaveBite.Backend.Services.Implementations;
-using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -20,7 +18,6 @@ public static class AuthExtensions
             .Validate(x => x.MaxLoginAttemptsPerEmail > 0, "Email login limit must be positive.")
             .ValidateOnStart();
 
-        services.AddScoped<IAuthService, AuthService>();
         return services;
     }
 }

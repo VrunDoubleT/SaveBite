@@ -1,6 +1,4 @@
 using SaveBite.Backend.Configurations;
-using SaveBite.Backend.Services.Implementations;
-using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -37,8 +35,6 @@ public static class CloudinaryExtensions
                                     StringComparison.OrdinalIgnoreCase)),
                 "Cloudinary AllowedContentTypes must contain image MIME types.")
             .ValidateOnStart();
-
-        services.AddSingleton<ICloudinaryService, CloudinaryService>();
 
         return services;
     }

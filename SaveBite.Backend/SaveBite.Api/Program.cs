@@ -28,8 +28,8 @@ builder.Services.AddRedis(builder.Configuration);
 builder.Services.AddAuthServices(builder.Configuration);
 
 builder.Services.AddRepositories();
+builder.Services.AddServices();
 builder.Services.AddCloudinary(builder.Configuration);
-builder.Services.AddPasswordHasher();
 
 builder.Services.AddEmail(builder.Configuration);
 
