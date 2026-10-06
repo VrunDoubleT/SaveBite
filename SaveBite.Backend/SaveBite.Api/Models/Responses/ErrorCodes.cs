@@ -24,4 +24,15 @@ public static class ErrorCodes
     public const string FoodExpired = "FOOD_EXPIRED";
     public const string OutOfStock = "OUT_OF_STOCK";
     public const string OrderClosed = "ORDER_CLOSED";
+    
+    // Shop staff & invitation errors
+    public const string CannotInviteSelf = "CANNOT_INVITE_SELF";
+    public const string AlreadyActiveStaff = "ALREADY_ACTIVE_STAFF";
+    public const string PendingInvitationExists = "PENDING_INVITATION_EXISTS";
+    public const string InvitationNotFound = "INVITATION_NOT_FOUND";
+    public const string InvitationInvalidOrExpired = "INVITATION_INVALID_OR_EXPIRED";
+    public const string StaffNotFound = "STAFF_NOT_FOUND";
+    public const string UserNotFound = "USER_NOT_FOUND";
+    public const string InvalidStaffStatus = "INVALID_STAFF_STATUS";
+    public const string StaffSuspended = "STAFF_SUSPENDED";
 }

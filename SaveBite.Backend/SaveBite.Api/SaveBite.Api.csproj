@@ -42,13 +42,9 @@
 
     <ItemGroup>
       <Folder Include="Constants\" />
-      <Folder Include="Controllers\" />
       <Folder Include="Data\Migrations\" />
       <Folder Include="Middlewares\" />
       <Folder Include="Models\DTOs\" />
-      <Folder Include="Models\Requests\" />
-      <Folder Include="Repositories\Implementations\" />
-      <Folder Include="Repositories\Interfaces\" />
     </ItemGroup>
 
 </Project>
