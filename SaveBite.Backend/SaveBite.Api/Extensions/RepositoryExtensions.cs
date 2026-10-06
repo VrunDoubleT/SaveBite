@@ -11,6 +11,8 @@ public static class RepositoryExtensions
         services.AddScoped<IUserAccessRepository,
             UserAccessRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
+        services.AddScoped<IAdminUserRepository, AdminUserRepository>();
+        services.AddScoped<IAdminCategoryRepository, AdminCategoryRepository>();
 
         return services;
     }
