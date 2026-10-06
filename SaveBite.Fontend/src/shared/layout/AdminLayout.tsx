@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, ShoppingBag, Store } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingBag, Store, Users, Tags } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layout/WorkspaceLayout";
 
@@ -8,6 +8,16 @@ const navigation = [
     label: "Overview",
     end: true,
     icon: LayoutDashboard,
+  },
+  {
+    to: APP_PATHS.ADMIN_USERS,
+    label: "Users",
+    icon: Users,
+  },
+  {
+    to: APP_PATHS.ADMIN_CATEGORIES,
+    label: "Categories",
+    icon: Tags,
   },
   {
     to: APP_PATHS.ADMIN_PRODUCTS,

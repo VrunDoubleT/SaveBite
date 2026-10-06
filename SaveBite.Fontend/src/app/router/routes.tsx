@@ -19,6 +19,9 @@ import { RegisterPage } from "@/pages/auth/RegisterPage";
 import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
+import { CategoryManagementPage } from "@/pages/admin/CategoryManagementPage";
+import { UserManagementPage } from "@/pages/admin/UserManagementPage";
+
 
 export const routes: RouteObject[] = [
   {
@@ -99,6 +102,16 @@ export const routes: RouteObject[] = [
               />
             ),
           },
+          //---  ---
+          {
+            path: APP_PATHS.ADMIN_USERS,
+            element: <UserManagementPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_CATEGORIES,
+            element: <CategoryManagementPage />,
+          },
+          //---  ---
           {
             path: APP_PATHS.ADMIN_PRODUCTS,
             element: (
