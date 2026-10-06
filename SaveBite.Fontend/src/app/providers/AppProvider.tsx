@@ -2,6 +2,7 @@ import { useEffect, type PropsWithChildren } from "react";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { StoreProvider } from "./StoreProvider";
 
+import { ToastViewport } from "@/shared/components/feedback/ToastViewport";
 export function AppProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const handleUnauthorized = () => useAuthStore.getState().clearSession();
@@ -10,5 +11,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     return () => window.removeEventListener("auth:unauthorized", handleUnauthorized);
   }, []);
 
-  return <StoreProvider>{children}</StoreProvider>;
+  return <StoreProvider>{children}
+      <ToastViewport />
+      </StoreProvider>;
 }

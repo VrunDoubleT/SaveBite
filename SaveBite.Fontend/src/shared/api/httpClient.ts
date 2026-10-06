@@ -123,6 +123,15 @@ export function getApiErrorMessage(error: unknown): string {
 
   return error instanceof Error ? error.message : "An unknown error occurred.";
 }
+export function getApiErrorStatus(
+  error: unknown,
+): number | undefined {
+  if (!axios.isAxiosError(error)) {
+    return undefined;
+  }
+
+  return error.response?.status;
+} 
 
 export function getApiValidationErrors(error: unknown): Record<string, string> {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) return {};

@@ -14,6 +14,7 @@ interface AuthState {
   isLoggingOut: boolean;
   login: (credentials: LoginCredentials) => Promise<AuthUser>;
   logout: () => Promise<void>;
+   refreshCurrentUser: () => Promise<AuthUser>;
   initializeSession: () => Promise<void>;
   clearSession: () => void;
 }
@@ -80,6 +81,16 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     return sessionInitialization;
   },
+  refreshCurrentUser: async () => {
+  const user = await authApi.getMe();
+
+  set({
+    user,
+    isAuthenticated: true,
+  });
+
+  return user;
+},
   clearSession: () => {
     clearStoredSession();
     set({ user: null, isAuthenticated: false, isInitializing: false, isLoggingOut: false });

@@ -6,20 +6,35 @@ import {
   ADMIN_ROLES,
   CUSTOMER_ROLES,
   STAFF_ROLES,
-  STORE_OWNER_ROLES,
 } from "@/app/router/routeAccess";
+
 import { AdminLayout } from "@/shared/layout/AdminLayout";
 import { CustomerLayout } from "@/shared/layout/CustomerLayout";
 import { StaffLayout } from "@/shared/layout/StaffLayout";
 import { StoreOwnerLayout } from "@/shared/layout/StoreOwnerLayout";
+import { AccountLayout } from "@/shared/layout/AccountLayout";
+
 import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { OtpVerificationPage } from "@/pages/auth/OtpVerificationPage";
 import { RegisterPage } from "@/pages/auth/RegisterPage";
+
 import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
+
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
-import { AccountLayout } from "@/shared/layout/AccountLayout";
+
+import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
+import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
+
+import { StaffShopDetailPage } from "@/pages/staff/StaffShopDetailPage";
+import {
+  StaffInvitationsPage as CustomerStaffInvitationsPage,
+} from "@/pages/customer/StaffInvitationsPage";
+import {
+  StaffInvitationsPage as OwnerStaffInvitationsPage,
+} from "@/pages/store-owner/StaffInvitationsPage";
+import { WorkspacePage } from "@/pages/customer/WorkspacePage";
 
 export const routes: RouteObject[] = [
   {
@@ -72,14 +87,38 @@ export const routes: RouteObject[] = [
                 path: APP_PATHS.ACCOUNT,
                 element: <AccountLayout />,
                 children: [
-                  { index: true, element: <Navigate to={APP_PATHS.ACCOUNT_PROFILE} replace /> },
-                  { path: "profile" },
-                  { path: "orders" },
-                  { path: "reviews" },
-                  { path: "trust-scores" },
-                  { path: "shop-registration" },
-                  { path: "workspace" },
-                  { path: "staff-invitations" },
+                  {
+                    index: true,
+                    element: (
+                      <Navigate
+                        to={APP_PATHS.ACCOUNT_PROFILE}
+                        replace
+                      />
+                    ),
+                  },
+                  {
+                    path: "profile",
+                  },
+                  {
+                    path: "orders",
+                  },
+                  {
+                    path: "reviews",
+                  },
+                  {
+                    path: "trust-scores",
+                  },
+                  {
+                    path: "shop-registration",
+                  },
+                  {
+                    path: "workspace",
+                     element: <WorkspacePage />,
+                  },
+                {
+  path: "staff-invitations",
+  element: <CustomerStaffInvitationsPage />,
+},
                 ],
               },
             ],
@@ -88,6 +127,7 @@ export const routes: RouteObject[] = [
       },
     ],
   },
+
   {
     element: <ProtectedRoute allowedRoles={ADMIN_ROLES} />,
     children: [
@@ -139,47 +179,73 @@ export const routes: RouteObject[] = [
       },
     ],
   },
+
   {
-    element: <ProtectedRoute allowedRoles={STAFF_ROLES} />,
+  element: <ProtectedRoute allowedRoles={STAFF_ROLES} />,
+  children: [
+    {
+      path: APP_PATHS.STAFF,
+      element: (
+        <Navigate
+          to={APP_PATHS.ACCOUNT_WORKSPACE}
+          replace
+        />
+      ),
+    },
+    {
+      path: `${APP_PATHS.STAFF}/shops/:shopId`,
+      element: <StaffLayout />,
+      children: [
+        {
+          index: true,
+          element: (
+            <ComingSoonPage
+              title="Staff overview"
+              description="Staff operations will appear here when their APIs are ready."
+              backTo={APP_PATHS.ACCOUNT_WORKSPACE}
+            />
+          ),
+        },
+        {
+          path: "info",
+          element: <StaffShopDetailPage />,
+        },
+      ],
+    },
+  ],
+},
+  {
+    path: APP_PATHS.STORE_OWNER,
+    element: <StoreOwnerLayout />,
     children: [
       {
-        path: APP_PATHS.STAFF,
-        element: <StaffLayout />,
-        children: [
-          {
-            index: true,
-            element: (
-              <ComingSoonPage
-                title="Staff overview"
-                description="Staff operations will appear here when their APIs are ready."
-                backTo={APP_PATHS.STAFF}
-              />
-            ),
-          },
-        ],
+        index: true,
+        element: (
+          <ComingSoonPage
+            title="Store owner overview"
+            description="Store management data will appear here when its APIs are ready."
+            backTo={APP_PATHS.STORE_OWNER}
+          />
+        ),
+      },
+      {
+        path: "staff",
+        element: <StaffManagementPage />,
+      },
+     {
+  path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
+  element: <OwnerStaffInvitationsPage />,
+},
+      {
+        path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
+        element: <StaffDetailPage />,
       },
     ],
   },
+
   {
-    element: <ProtectedRoute allowedRoles={STORE_OWNER_ROLES} />,
-    children: [
-      {
-        path: APP_PATHS.STORE_OWNER,
-        element: <StoreOwnerLayout />,
-        children: [
-          {
-            index: true,
-            element: (
-              <ComingSoonPage
-                title="Store owner overview"
-                description="Store management data will appear here when its APIs are ready."
-                backTo={APP_PATHS.STORE_OWNER}
-              />
-            ),
-          },
-        ],
-      },
-    ],
+    path: APP_PATHS.NOT_FOUND,
+    element: <NotFoundPage />,
   },
-  { path: APP_PATHS.NOT_FOUND, element: <NotFoundPage /> },
+  
 ];

@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
+import type { AuthRole } from "@/features/auth/types/auth.types";
 
 export interface AccountNavItem {
   to: string;
@@ -16,6 +17,7 @@ export interface AccountNavItem {
   title: string;
   description: string;
   icon: LucideIcon;
+  roles?: readonly AuthRole[];
 }
 
 export interface AccountNavGroup {
@@ -73,6 +75,7 @@ export const ACCOUNT_NAV_GROUPS: readonly AccountNavGroup[] = [
         title: "Workspace",
         description: "Access the stores you are working with",
         icon: Briefcase,
+          roles: ["staff", "storeOwner"],
       },
       {
         to: APP_PATHS.ACCOUNT_STAFF_INVITATIONS,
