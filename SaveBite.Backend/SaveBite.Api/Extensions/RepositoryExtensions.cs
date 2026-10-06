@@ -12,7 +12,7 @@ public static class RepositoryExtensions
             UserAccessRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IAdminUserRepository, AdminUserRepository>();
-        services.AddScoped<IAdminCategoryRepository, AdminCategoryRepository>();
+        //services.AddScoped<IAdminCategoryRepository, AdminCategoryRepository>();
 
         return services;
     }
