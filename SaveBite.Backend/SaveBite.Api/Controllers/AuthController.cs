@@ -72,7 +72,7 @@ public sealed class AuthController : ControllerBase
         var user = await _authService.GetCurrentUserAsync(
             GetAuthenticatedUserId(),
             cancellationToken);
-        return Ok(ApiResponse<CurrentUserResponse>.Ok(user));
+        return Ok(ApiResponse<CurrentUserResponse>.Ok(user, "Get profile successfully."));
     }
 
     [AllowAnonymous]

@@ -6,4 +6,5 @@ public sealed record CurrentUserResponse(
     string? Phone,
     string FullName,
     string? AvatarUrl,
-    string Role);
+    string Role,
+    string CustomerStatus);
