@@ -19,6 +19,7 @@ import { RegisterPage } from "@/pages/auth/RegisterPage";
 import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
+import { AccountLayout } from "@/shared/layout/AccountLayout";
 
 export const routes: RouteObject[] = [
   {
@@ -69,12 +70,17 @@ export const routes: RouteObject[] = [
               },
               {
                 path: APP_PATHS.ACCOUNT,
-                element: (
-                  <ComingSoonPage
-                    title="Account"
-                    description="Your account page is ready for profile integration."
-                  />
-                ),
+                element: <AccountLayout />,
+                children: [
+                  { index: true, element: <Navigate to={APP_PATHS.ACCOUNT_PROFILE} replace /> },
+                  { path: "profile" },
+                  { path: "orders" },
+                  { path: "reviews" },
+                  { path: "trust-scores" },
+                  { path: "shop-registration" },
+                  { path: "workspace" },
+                  { path: "staff-invitations" },
+                ],
               },
             ],
           },
