@@ -12,10 +12,10 @@ public static class ServiceExtensions
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<IShopApplicationService, ShopApplicationService>();
 
         services.AddSingleton<IJwtService, JwtService>();
-        services.AddSingleton<IPasswordHasherService,
-            PasswordHasherService>();
+        services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();
 
         return services;

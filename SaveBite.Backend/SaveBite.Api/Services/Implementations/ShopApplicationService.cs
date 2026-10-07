@@ -1,0 +1,260 @@
+using System.Globalization;
+using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Models.Enums;
+using SaveBite.Backend.Models.Requests;
+using SaveBite.Backend.Models.Responses;
+using SaveBite.Backend.Repositories.Interfaces;
+using SaveBite.Backend.Services.Interfaces;
+
+namespace SaveBite.Backend.Services.Implementations;
+
+public sealed class ShopApplicationService : IShopApplicationService
+{
+    private readonly IShopApplicationRepository _repository;
+    private readonly ICloudinaryService _cloudinary;
+
+    public ShopApplicationService(IShopApplicationRepository repository, ICloudinaryService cloudinary)
+    {
+        _repository = repository;
+        _cloudinary = cloudinary;
+    }
+
+    public async Task<ShopApplicationResponse?> GetMyApplicationAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var application = await _repository.GetLatestForApplicantAsync(userId, cancellationToken);
+        return application is null ? null : Map(application);
+    }
+
+    public async Task<ShopApplicationResponse> CreateAsync(
+        Guid userId,
+        CreateShopApplicationRequest request,
+        IFormFile? logo,
+        IFormFile? coverImage,
+        IReadOnlyList<IFormFile> documents,
+        IReadOnlyList<string> documentTypes,
+        CancellationToken cancellationToken = default)
+    {
+        if (await _repository.HasActiveApplicationAsync(userId, cancellationToken))
+            throw AppException.Conflict("You already have an active shop application.");
+
+        ValidateRequest(request);
+        ValidateDocuments(documents, documentTypes);
+
+        var now = DateTime.UtcNow;
+        var application = new ShopApplication
+        {
+            Id = Guid.NewGuid(),
+            ApplicantUserId = userId,
+            Name = request.Name.Trim(),
+            Description = Clean(request.Description),
+            BusinessLicenseNo = Clean(request.BusinessLicenseNo),
+            AddressLine = request.AddressLine.Trim(),
+            Ward = Clean(request.Ward),
+            District = Clean(request.District),
+            City = Clean(request.City),
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            OpeningTime = request.OpeningTime,
+            ClosingTime = request.ClosingTime,
+            BankName = request.BankName.Trim(),
+            BankAccountNumber = request.BankAccountNumber.Trim(),
+            BankAccountHolder = request.BankAccountHolder.Trim(),
+            PayosClientId = request.PayosClientId.Trim(),
+            PayosApiKey = request.PayosApiKey.Trim(),
+            PayosChecksumKey = request.PayosChecksumKey.Trim(),
+            Status = ShopApplicationStatus.Pending,
+            RevisionNumber = 1,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        await UploadImagesAsync(application, logo, coverImage, cancellationToken);
+        await AddDocumentsAsync(application, documents, documentTypes, userId, cancellationToken);
+
+        application.ReviewLogs.Add(new ShopApplicationReviewLog
+        {
+            ApplicationId = application.Id,
+            FromStatus = null,
+            ToStatus = ShopApplicationStatus.Pending,
+            RevisionNumber = 1,
+            CreatedAt = now
+        });
+
+        await _repository.AddAsync(application, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Map(application);
+    }
+
+    public async Task<ShopApplicationResponse> ResubmitAsync(
+        Guid userId,
+        ResubmitShopApplicationRequest request,
+        IFormFile? logo,
+        IFormFile? coverImage,
+        IReadOnlyList<IFormFile> documents,
+        IReadOnlyList<string> documentTypes,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateRequest(request);
+        ValidateDocuments(documents, documentTypes);
+
+        var application = await _repository.GetByIdForApplicantAsync(request.ApplicationId, userId, cancellationToken)
+            ?? throw AppException.NotFound("Shop application was not found.");
+
+        if (application.Status is ShopApplicationStatus.Pending or ShopApplicationStatus.Approved)
+            throw AppException.Conflict("This shop application cannot be edited in its current status.");
+
+        var now = DateTime.UtcNow;
+        application.Name = request.Name.Trim();
+        application.Description = Clean(request.Description);
+        application.BusinessLicenseNo = Clean(request.BusinessLicenseNo);
+        application.AddressLine = request.AddressLine.Trim();
+        application.Ward = Clean(request.Ward);
+        application.District = Clean(request.District);
+        application.City = Clean(request.City);
+        application.Latitude = request.Latitude;
+        application.Longitude = request.Longitude;
+        application.OpeningTime = request.OpeningTime;
+        application.ClosingTime = request.ClosingTime;
+        application.BankName = request.BankName.Trim();
+        application.BankAccountNumber = request.BankAccountNumber.Trim();
+        application.BankAccountHolder = request.BankAccountHolder.Trim();
+        // PayOS credentials are never returned to the client.
+        // During resubmission, an empty value means "keep the existing credential".
+        if (!string.IsNullOrWhiteSpace(request.PayosClientId))
+            application.PayosClientId = request.PayosClientId.Trim();
+        if (!string.IsNullOrWhiteSpace(request.PayosApiKey))
+            application.PayosApiKey = request.PayosApiKey.Trim();
+        if (!string.IsNullOrWhiteSpace(request.PayosChecksumKey))
+            application.PayosChecksumKey = request.PayosChecksumKey.Trim();
+
+        var fromStatus = application.Status;
+        application.Status = ShopApplicationStatus.Pending;
+        application.RevisionNumber++;
+        application.UpdatedAt = now;
+
+        await UploadImagesAsync(application, logo, coverImage, cancellationToken);
+        if (documents.Count > 0)
+            MarkOldDocumentsNotCurrent(application);
+        await AddDocumentsAsync(application, documents, documentTypes, userId, cancellationToken);
+
+        application.ReviewLogs.Add(new ShopApplicationReviewLog
+        {
+            ApplicationId = application.Id,
+            FromStatus = fromStatus,
+            ToStatus = ShopApplicationStatus.Pending,
+            RevisionNumber = application.RevisionNumber,
+            CreatedAt = now
+        });
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Map(application);
+    }
+
+    public async Task CancelAsync(Guid userId, Guid applicationId, CancellationToken cancellationToken = default)
+    {
+        var application = await _repository.GetByIdForApplicantAsync(applicationId, userId, cancellationToken)
+            ?? throw AppException.NotFound("Shop application was not found.");
+
+        if (application.Status != ShopApplicationStatus.Pending)
+            throw AppException.Conflict("Only a pending shop application can be cancelled.");
+
+        var now = DateTime.UtcNow;
+        application.Status = ShopApplicationStatus.Cancelled;
+        application.UpdatedAt = now;
+        application.ReviewLogs.Add(new ShopApplicationReviewLog
+        {
+            ApplicationId = application.Id,
+            FromStatus = ShopApplicationStatus.Pending,
+            ToStatus = ShopApplicationStatus.Cancelled,
+            RevisionNumber = application.RevisionNumber,
+            CreatedAt = now
+        });
+
+        await _repository.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task UploadImagesAsync(ShopApplication application, IFormFile? logo, IFormFile? cover, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (logo is not null)
+                application.LogoUrl = (await _cloudinary.UploadImageAsync(logo, cancellationToken)).Url;
+            if (cover is not null)
+                application.CoverImageUrl = (await _cloudinary.UploadImageAsync(cover, cancellationToken)).Url;
+        }
+        catch (ArgumentException ex)
+        {
+            throw AppException.BadRequest(ex.Message);
+        }
+    }
+
+    private async Task AddDocumentsAsync(ShopApplication application, IReadOnlyList<IFormFile> files, IReadOnlyList<string> types, Guid userId, CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < files.Count; i++)
+        {
+            if (!Enum.TryParse<ShopDocumentType>(types[i], true, out var type))
+                throw AppException.BadRequest($"Invalid document type: {types[i]}.");
+
+            CloudinaryUploadResult upload;
+            try
+            {
+                upload = await _cloudinary.UploadDocumentAsync(files[i], cancellationToken);
+            }
+            catch (ArgumentException ex)
+            {
+                throw AppException.BadRequest(ex.Message);
+            }
+
+            application.Documents.Add(new ShopApplicationDocument
+            {
+                ApplicationId = application.Id,
+                DocumentType = type,
+                FileUrl = upload.Url,
+                OriginalFileName = Path.GetFileName(files[i].FileName),
+                ContentType = files[i].ContentType,
+                RevisionNumber = application.RevisionNumber,
+                UploadedBy = userId,
+                UploadedAt = DateTime.UtcNow,
+                IsCurrent = true
+            });
+        }
+    }
+
+    private static void MarkOldDocumentsNotCurrent(ShopApplication application)
+    {
+        foreach (var document in application.Documents)
+            document.IsCurrent = false;
+    }
+
+    private static void ValidateDocuments(IReadOnlyList<IFormFile> files, IReadOnlyList<string> types)
+    {
+        if (files.Count != types.Count)
+            throw AppException.BadRequest("Each uploaded document must have a document type.");
+
+        if (files.Count > 10)
+            throw AppException.BadRequest("You can upload up to 10 documents.");
+    }
+
+    private static void ValidateRequest(CreateShopApplicationRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name)) throw AppException.BadRequest("Shop name is required.");
+        if (string.IsNullOrWhiteSpace(request.AddressLine)) throw AppException.BadRequest("Address is required.");
+        if (request.Latitude is < -90 or > 90) throw AppException.BadRequest("Latitude is invalid.");
+        if (request.Longitude is < -180 or > 180) throw AppException.BadRequest("Longitude is invalid.");
+        if (request.OpeningTime.HasValue && request.ClosingTime.HasValue && request.OpeningTime >= request.ClosingTime)
+            throw AppException.BadRequest("Opening time must be earlier than closing time.");
+        if (string.IsNullOrWhiteSpace(request.BankName) || string.IsNullOrWhiteSpace(request.BankAccountNumber) || string.IsNullOrWhiteSpace(request.BankAccountHolder))
+            throw AppException.BadRequest("Bank information is required.");
+    }
+
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static ShopApplicationResponse Map(ShopApplication x) => new(
+        x.Id, x.Name, x.Description, x.BusinessLicenseNo, x.AddressLine, x.Ward, x.District, x.City,
+        x.Latitude, x.Longitude, x.LogoUrl, x.CoverImageUrl, x.OpeningTime, x.ClosingTime, x.Status.ToString(),
+        x.RevisionNumber, x.CreatedAt, x.UpdatedAt, x.BankName, x.BankAccountNumber, x.BankAccountHolder,
+        !string.IsNullOrWhiteSpace(x.PayosClientId),
+        x.Documents.Where(d => d.IsCurrent).Select(d => new ShopApplicationDocumentResponse(d.Id, d.DocumentType, d.FileUrl, d.OriginalFileName, d.ContentType, d.RevisionNumber, d.IsCurrent)).ToList(),
+        x.ReviewLogs.OrderByDescending(r => r.CreatedAt).Select(r => new ShopApplicationReviewLogResponse(r.FromStatus.ToString(), r.ToStatus.ToString(), r.RevisionNumber, r.Note, r.CreatedAt)).ToList());
+}

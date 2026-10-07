@@ -8,9 +8,9 @@ public static class RepositoryExtensions
     public static IServiceCollection AddRepositories(
         this IServiceCollection services)
     {
-        services.AddScoped<IUserAccessRepository,
-            UserAccessRepository>();
+        services.AddScoped<IUserAccessRepository, UserAccessRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
+        services.AddScoped<IShopApplicationRepository, ShopApplicationRepository>();
 
         return services;
     }
