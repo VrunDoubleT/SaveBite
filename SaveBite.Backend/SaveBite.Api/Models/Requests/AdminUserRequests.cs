@@ -13,5 +13,7 @@ public sealed class GetUsersRequest
 
 public sealed class UpdateUserStatusRequest
 {
+    public bool IsSuspended { get; set; }
+    public bool IsCustomerProfile { get; set; }
     public string Reason { get; set; } = string.Empty;
 }

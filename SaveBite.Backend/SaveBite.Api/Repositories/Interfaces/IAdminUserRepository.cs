@@ -11,4 +11,5 @@ public interface IAdminUserRepository
     void AddAccountStatusLog(AccountStatusLog log);
     void AddAuditLog(AuditLog log);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
+    Task<List<AuditLog>> GetUserAuditLogsAsync(Guid userId, CancellationToken cancellationToken = default);
 }

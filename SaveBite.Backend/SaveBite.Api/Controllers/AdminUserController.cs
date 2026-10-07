@@ -44,47 +44,16 @@ public class AdminUserController : ControllerBase
         return Ok(ApiResponse<UserDetailsResponse>.Ok(result));
     }
 
-    [HttpPost("{id:guid}/suspend")]
-    public async Task<ActionResult<ApiResponse>> SuspendAccount(
+    [HttpPut("{id:guid}/status")]
+    public async Task<ActionResult<ApiResponse>> UpdateStatus(
         Guid id,
         [FromBody] UpdateUserStatusRequest request,
         CancellationToken cancellationToken)
     {
         var adminId = GetAdminId();
-        await _adminUserService.SuspendAccountAsync(adminId, id, request, cancellationToken);
-        return Ok(ApiResponse.Ok("User account suspended successfully."));
-    }
 
-    [HttpPost("{id:guid}/reactivate")]
-    public async Task<ActionResult<ApiResponse>> ReactivateAccount(
-        Guid id,
-        [FromBody] UpdateUserStatusRequest request,
-        CancellationToken cancellationToken)
-    {
-        var adminId = GetAdminId();
-        await _adminUserService.ReactivateAccountAsync(adminId, id, request, cancellationToken);
-        return Ok(ApiResponse.Ok("User account reactivated successfully."));
-    }
+        await _adminUserService.UpdateStatusAsync(adminId, id, request, cancellationToken);
 
-    [HttpPost("{id:guid}/customer-status/suspend")]
-    public async Task<ActionResult<ApiResponse>> SuspendCustomer(
-        Guid id,
-        [FromBody] UpdateUserStatusRequest request,
-        CancellationToken cancellationToken)
-    {
-        var adminId = GetAdminId();
-        await _adminUserService.SuspendCustomerAsync(adminId, id, request, cancellationToken);
-        return Ok(ApiResponse.Ok("Customer profile suspended successfully."));
-    }
-
-    [HttpPost("{id:guid}/customer-status/reactivate")]
-    public async Task<ActionResult<ApiResponse>> ReactivateCustomer(
-        Guid id,
-        [FromBody] UpdateUserStatusRequest request,
-        CancellationToken cancellationToken)
-    {
-        var adminId = GetAdminId();
-        await _adminUserService.ReactivateCustomerAsync(adminId, id, request, cancellationToken);
-        return Ok(ApiResponse.Ok("Customer profile reactivated successfully."));
+        return Ok(ApiResponse.Ok("User status updated successfully."));
     }
 }

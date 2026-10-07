@@ -63,4 +63,13 @@ public sealed class AdminUserRepository : IAdminUserRepository
     {
         return _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public Task<List<AuditLog>> GetUserAuditLogsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return _dbContext.Set<AuditLog>()
+            .AsNoTracking()
+            .Where(log => log.TargetId == userId && log.TargetType == "User")
+            .OrderByDescending(log => log.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
 }

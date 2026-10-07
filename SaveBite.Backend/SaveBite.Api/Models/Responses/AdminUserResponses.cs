@@ -1,6 +1,13 @@
 ﻿namespace SaveBite.Backend.Models.Responses;
 
-public sealed record UserSummaryResponse(
+public record UserLogResponse(
+    string Action,        // (VD: "SuspendCustomer", "ChangeRole")
+    string Reason,
+    string ChangedValues, // JSON (VD: "{"CustomerStatus":"Suspended"}")
+    DateTime CreatedAt,
+    Guid? AdminId          // ID
+);
+public record UserSummaryResponse(
     Guid Id,
     string Email,
     string FullName,
@@ -10,7 +17,7 @@ public sealed record UserSummaryResponse(
     DateTime CreatedAt
 );
 
-public sealed record UserDetailsResponse(
+public record UserDetailsResponse(
     Guid Id,
     string Email,
     string? Phone,
@@ -21,5 +28,6 @@ public sealed record UserDetailsResponse(
     string CustomerStatus,
     string ShopStatus,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime? UpdatedAt,
+    List<UserLogResponse> Logs
 );
