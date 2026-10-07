@@ -21,6 +21,7 @@ public sealed record ShopStaffResponse(
     string UserName,
     string UserEmail,
     string? StaffNickname,
+    string DisplayName ,
     [property: JsonConverter(typeof(JsonStringEnumConverter))]
     ShopStaffStatus Status,
     DateTime JoinedAt

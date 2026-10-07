@@ -35,4 +35,5 @@ public static class ErrorCodes
     public const string UserNotFound = "USER_NOT_FOUND";
     public const string InvalidStaffStatus = "INVALID_STAFF_STATUS";
     public const string StaffSuspended = "STAFF_SUSPENDED";
+    public const string InvalidStaffCandidate = "INVALID_STAFF_CANDIDATE";
 }

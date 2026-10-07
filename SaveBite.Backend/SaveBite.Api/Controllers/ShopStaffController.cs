@@ -12,12 +12,11 @@ namespace SaveBite.Backend.Controllers;
 /// <summary>Store owner side: manage invitations and staff of one shop.</summary>
 [ApiController]
 [Authorize]
-[StoreOwnerAccess]
-[Route("api/owner/shops/{shopId:guid}")]
+[Route("api/owner/shops")]
 public class OwnerShopStaffController(IShopStaffService staffService) : ControllerBase
 {
     
-    [HttpGet("~/api/owner/shops/me")]
+    [HttpGet]
     public async Task<IActionResult> GetMyShop(
         CancellationToken cancellationToken)
     {
@@ -33,61 +32,175 @@ public class OwnerShopStaffController(IShopStaffService staffService) : Controll
             )
         );
     }
-    [HttpPost("invitations")]
-    public async Task<IActionResult> InviteStaff(
-        Guid shopId, [FromBody] InviteStaffRequest request, CancellationToken cancellationToken)
+    
+    [HttpGet("staff-candidates")]
+    public async Task<IActionResult> SearchStaffCandidates(
+        [FromQuery] string? keyword,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
     {
-        var result = await staffService.InviteStaffAsync(GetCurrentUserId(), shopId, request, cancellationToken);
-        return Ok(ApiResponse<StaffInvitationResponse>.Ok(result, "Staff invitation sent successfully"));
+        var result = await staffService.SearchStaffCandidatesAsync(
+            GetCurrentUserId(),
+            keyword,
+            page,
+            pageSize,
+            cancellationToken
+        );
+
+        return Ok(
+            ApiResponse<PagedResult<StaffCandidateResponse>>.Ok(
+                result,
+                "Staff candidates retrieved successfully"
+            )
+        );
     }
 
-    [HttpGet("invitations")]
-    public async Task<IActionResult> GetInvitations(Guid shopId, CancellationToken cancellationToken)
+    [HttpPost("invitations")]
+    public async Task<IActionResult> InviteStaff(
+        [FromBody] InviteStaffRequest request,
+        CancellationToken cancellationToken)
     {
-        var result = await staffService.GetShopInvitationsAsync(GetCurrentUserId(), shopId, cancellationToken);
-        return Ok(ApiResponse<IEnumerable<StaffInvitationResponse>>.Ok(result, "Invitations retrieved successfully"));
+        var result = await staffService.InviteStaffAsync(
+            GetCurrentUserId(),
+            request,
+            cancellationToken
+        );
+
+        return Ok(
+            ApiResponse<StaffInvitationResponse>.Ok(
+                result,
+                "Staff invitation sent successfully"
+            )
+        );
+    }
+    [HttpGet("invitations")]
+    public async Task<IActionResult> GetInvitations(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await staffService.GetShopInvitationsAsync(
+            GetCurrentUserId(),
+            page,
+            pageSize,
+            cancellationToken
+        );
+
+        return Ok(
+            ApiResponse<PagedResult<StaffInvitationResponse>>.Ok(
+                result,
+                "Invitations retrieved successfully"
+            )
+        );
     }
 
     [HttpDelete("invitations/{invitationId:guid}")]
-    public async Task<IActionResult> RevokeInvitation(Guid shopId, Guid invitationId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RevokeInvitation(
+        Guid invitationId,
+        CancellationToken cancellationToken)
     {
-        await staffService.RevokeInvitationAsync(GetCurrentUserId(), shopId, invitationId, cancellationToken);
-        return Ok(ApiResponse.Ok("Invitation revoked successfully"));
+        await staffService.RevokeInvitationAsync(
+            GetCurrentUserId(),
+            invitationId,
+            cancellationToken
+        );
+
+        return Ok(
+            ApiResponse.Ok(
+                "Invitation revoked successfully"
+            )
+        );
     }
 
+
     [HttpGet("staffs")]
-    public async Task<IActionResult> GetStaffs(Guid shopId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetStaffs(
+        [FromQuery] string? keyword,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
     {
-        var result = await staffService.GetShopStaffsAsync(GetCurrentUserId(), shopId, cancellationToken);
-        return Ok(ApiResponse<IEnumerable<ShopStaffResponse>>.Ok(result, "Staffs retrieved successfully"));
+        var result = await staffService.GetShopStaffsAsync(
+            GetCurrentUserId(),
+            keyword,
+            page,
+            pageSize,
+            cancellationToken
+        );
+
+        return Ok(
+            ApiResponse<PagedResult<ShopStaffResponse>>.Ok(
+                result,
+                "Staffs retrieved successfully"
+            )
+        );
     }
 
     [HttpPut("staffs/{staffId:guid}")]
     public async Task<IActionResult> UpdateStaff(
-        Guid shopId, Guid staffId, [FromBody] UpdateStaffInfoRequest request, CancellationToken cancellationToken)
+        Guid staffId,
+        [FromBody] UpdateStaffInfoRequest request,
+        CancellationToken cancellationToken)
     {
-        await staffService.UpdateStaffInfoAsync(GetCurrentUserId(), shopId, staffId, request, cancellationToken);
-        return Ok(ApiResponse.Ok("Staff updated successfully"));
+        await staffService.UpdateStaffInfoAsync(
+            GetCurrentUserId(),
+            staffId,
+            request,
+            cancellationToken
+        );
+
+        return Ok(
+            ApiResponse.Ok("Staff updated successfully")
+        );
     }
 
     [HttpDelete("staffs/{staffId:guid}")]
-    public async Task<IActionResult> RemoveStaff(Guid shopId, Guid staffId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RemoveStaff(
+        Guid staffId,
+        CancellationToken cancellationToken)
     {
-        await staffService.RemoveStaffAsync(GetCurrentUserId(), shopId, staffId, cancellationToken);
-        return Ok(ApiResponse.Ok("Staff removed successfully"));
+        await staffService.RemoveStaffAsync(
+            GetCurrentUserId(),
+            staffId,
+            cancellationToken
+        );
+
+        return Ok(
+            ApiResponse.Ok("Staff removed successfully")
+        );
     }
 
     [HttpGet("staffs/{staffId:guid}/activity-logs")]
-    public async Task<IActionResult> GetStaffActivityLogs(Guid shopId, Guid staffId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetStaffActivityLogs(
+        Guid staffId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
     {
-        var result = await staffService.GetStaffActivityLogsAsync(GetCurrentUserId(), shopId, staffId, cancellationToken);
-        return Ok(ApiResponse<IEnumerable<StaffActivityLogResponse>>.Ok(result, "Activity logs retrieved successfully"));
+        var result = await staffService.GetStaffActivityLogsAsync(
+            GetCurrentUserId(),
+            staffId,
+            page,
+            pageSize,
+            cancellationToken
+        );
+
+        return Ok(
+            ApiResponse<PagedResult<StaffActivityLogResponse>>.Ok(
+                result,
+                "Activity logs retrieved successfully"
+            )
+        );
     }
     
 
     private Guid GetCurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(value, out var id) ? id : throw AppException.Unauthorized();
+
+        return Guid.TryParse(value, out var id)
+            ? id
+            : throw AppException.Unauthorized();
     }
 }

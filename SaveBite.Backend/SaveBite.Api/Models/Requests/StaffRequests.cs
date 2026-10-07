@@ -5,7 +5,7 @@ using SaveBite.Backend.Models.Enums;
 namespace SaveBite.Backend.Models.Requests;
 
 public sealed record InviteStaffRequest(
-    [Required, EmailAddress] string InvitedUserEmail
+    Guid UserId
 );
 
 
