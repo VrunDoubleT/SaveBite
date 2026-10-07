@@ -19,6 +19,15 @@ import { RegisterPage } from "@/pages/auth/RegisterPage";
 import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
+import { StaffInvitationsPage } from "@/pages/customer/account/StaffInvitationsPage";
+import { WorkspacePage } from "@/pages/customer/account/WorkspacePage";
+import { ShopApplicationFormPage } from "@/pages/customer/account/ShopApplicationFormPage";
+import ShopApplicationPage from "@/pages/customer/account/ShopApplicationPage";
+import { TrustScorePage } from "@/pages/customer/account/TrustScorePage";
+import { ReviewsPage } from "@/pages/customer/account/ReviewsPage";
+import { OrdersPage } from "@/pages/customer/account/OrdersPage";
+import { ProfilePage } from "@/pages/customer/account/ProfilePage";
+import { AccountLayout } from "@/pages/customer/account/AccountLayout";
 
 export const routes: RouteObject[] = [
   {
@@ -69,12 +78,49 @@ export const routes: RouteObject[] = [
               },
               {
                 path: APP_PATHS.ACCOUNT,
-                element: (
-                  <ComingSoonPage
-                    title="Account"
-                    description="Your account page is ready for profile integration."
-                  />
-                ),
+                element: <AccountLayout />,
+                children: [
+                  {
+                    index: true,
+                    element: <Navigate to={APP_PATHS.ACCOUNT_PROFILE} replace />,
+                  },
+                  {
+                    path: "profile",
+                    element: <ProfilePage />,
+                  },
+                  {
+                    path: "orders",
+                    element: <OrdersPage />,
+                  },
+                  {
+                    path: "reviews",
+                    element: <ReviewsPage />,
+                  },
+                  {
+                    path: "trust-score",
+                    element: <TrustScorePage />,
+                  },
+                  {
+                    path: "shop-application",
+                    element: <ShopApplicationPage />,
+                  },
+                  {
+                    path: "shop-application/new",
+                    element: <ShopApplicationFormPage />,
+                  },
+                  {
+                    path: "shop-application/edit/:applicationId",
+                    element: <ShopApplicationFormPage />,
+                  },
+                  {
+                    path: "workspace",
+                    element: <WorkspacePage />,
+                  },
+                  {
+                    path: "staff-invitations",
+                    element: <StaffInvitationsPage />,
+                  },
+                ],
               },
             ],
           },
