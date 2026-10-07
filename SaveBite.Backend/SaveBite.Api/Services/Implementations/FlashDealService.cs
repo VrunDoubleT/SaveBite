@@ -67,7 +67,7 @@ public sealed class FlashDealService : IFlashDealService
         var deal = await _dealRepository.GetActiveDealByIdAsync(dealId, cancellationToken);
         if (deal == null)
         {
-            throw AppException.NotFound($"Không tìm thấy flash deal với mã '{dealId}'.");
+            throw AppException.NotFound($"Flash deal with ID '{dealId}' was not found.");
         }
 
         var response = MapToResponse(deal);
@@ -88,7 +88,7 @@ public sealed class FlashDealService : IFlashDealService
         var shops = await _dealRepository.GetSampleShopsForSeedAsync(10, cancellationToken);
         if (shops.Count == 0)
         {
-            _logger.LogWarning("Không tìm thấy cửa hàng nào trong database để seed dữ liệu flash deal.");
+            _logger.LogWarning("No shops found in the database to seed flash deal data.");
             return;
         }
 
@@ -106,7 +106,7 @@ public sealed class FlashDealService : IFlashDealService
             }
             else
             {
-                // Nếu cửa hàng chưa có deal trong DB, tạo deal mẫu lưu vào Redis
+                // If shop has no active deals in DB, create a sample deal and save to Redis
                 var sampleDeal = new FlashDealResponse
                 {
                     Id = Guid.NewGuid(),
@@ -115,7 +115,7 @@ public sealed class FlashDealService : IFlashDealService
                     ShopAddress = shop.AddressLine,
                     ShopLogoUrl = shop.LogoUrl,
                     ProductId = Guid.NewGuid(),
-                    ProductName = $"Món ăn ưu đãi tại {shop.Name}",
+                    ProductName = $"Promotional Item at {shop.Name}",
                     ProductImageUrl = shop.CoverImageUrl,
                     SaleStartTime = DateTime.UtcNow,
                     OrderEndTime = DateTime.UtcNow.AddHours(3),
@@ -145,7 +145,7 @@ public sealed class FlashDealService : IFlashDealService
             }
         }
 
-        _logger.LogInformation("Đã đồng bộ dữ liệu mẫu flash deals lên Redis thành công.");
+        _logger.LogInformation("Successfully synced sample flash deals to Redis.");
     }
 
     private static FlashDealResponse MapToResponse(FlashDeal deal)

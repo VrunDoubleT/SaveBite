@@ -27,7 +27,7 @@ public sealed class FlashDealsController : ControllerBase
     {
         if (shopId == Guid.Empty)
         {
-            throw AppException.BadRequest("Mã cửa hàng không hợp lệ.");
+            throw AppException.BadRequest("Shop ID is invalid.");
         }
 
         var deals = await _flashDealService.GetByShopIdAsync(shopId, cancellationToken);
@@ -44,7 +44,7 @@ public sealed class FlashDealsController : ControllerBase
 
         var message = deals.Any()
             ? null
-            : $"Không tìm thấy deal nào trong bán kính {request.RadiusInKm} km từ vị trí của bạn.";
+            : $"No flash deals found within a {request.RadiusInKm} km radius of your location.";
         return Ok(ApiResponse<List<FlashDealResponse>>.Ok(deals, message));
     }
 
@@ -56,7 +56,7 @@ public sealed class FlashDealsController : ControllerBase
     {
         if (id == Guid.Empty)
         {
-            throw AppException.BadRequest("Mã flash deal không hợp lệ.");
+            throw AppException.BadRequest("Flash deal ID is invalid.");
         }
 
         var deal = await _flashDealService.GetByIdAsync(id, cancellationToken);
