@@ -13,14 +13,10 @@ export const staffInvitationApi = {
   },
 
   async acceptInvitation(invitationId: string): Promise<void> {
-    await httpClient.post(
-      API_ENDPOINTS.STAFF.ACCEPT_INVITATION(invitationId),
-    );
+    await httpClient.post(API_ENDPOINTS.STAFF.ACCEPT_INVITATION(invitationId));
   },
 
   async declineInvitation(invitationId: string): Promise<void> {
-    await httpClient.post(
-      API_ENDPOINTS.STAFF.DECLINE_INVITATION(invitationId),
-    );
+    await httpClient.post(API_ENDPOINTS.STAFF.DECLINE_INVITATION(invitationId));
   },
 };

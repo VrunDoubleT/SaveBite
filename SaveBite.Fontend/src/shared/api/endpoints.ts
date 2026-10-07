@@ -25,38 +25,31 @@ export const API_ENDPOINTS = {
       (shopId:string)=>
       `/staff/shops/${shopId}`
     },
-   OWNER_SHOPS:{
-    ME: "/owner/shops/me",
+   OWNER_SHOPS: {
+  ME: "/owner/shops",
 
+  STAFF_CANDIDATES:
+    "/owner/shops/staff-candidates",
 
-   INVITATIONS: (shopId: string) =>
-    `/owner/shops/${shopId}/invitations`,
+  INVITATIONS:
+    "/owner/shops/invitations",
 
   INVITATION_DETAIL: (
-    shopId: string,
     invitationId: string,
   ) =>
-    `/owner/shops/${shopId}/invitations/${invitationId}`,
+    `/owner/shops/invitations/${invitationId}`,
 
-     STAFFS:
-      (shopId:string)=>
-      `/owner/shops/${shopId}/staffs`,
+  STAFFS:
+    "/owner/shops/staffs",
 
-      STAFF_DETAIL:
-      (
-        shopId:string,
-        staffId:string
-      )=>
-      `/owner/shops/${shopId}/staffs/${staffId}`,
+  STAFF_DETAIL: (
+    staffId: string,
+  ) =>
+    `/owner/shops/staffs/${staffId}`,
 
-     ACTIVITY_LOGS:
-      (
-        shopId:string,
-        staffId:string
-      )=>
-      `/owner/shops/${shopId}/staffs/${staffId}/activity-logs`
-
-  
-
-  },
+  ACTIVITY_LOGS: (
+    staffId: string,
+  ) =>
+    `/owner/shops/staffs/${staffId}/activity-logs`,
+},
 } as const;

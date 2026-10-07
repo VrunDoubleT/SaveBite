@@ -8,8 +8,6 @@ export interface OwnerShop {
 
 export const shopApi = {
   async getMyShop() {
-    return httpClient.get<ApiResponse<OwnerShop>>(
-      API_ENDPOINTS.OWNER_SHOPS.ME,
-    );
+    return httpClient.get<ApiResponse<OwnerShop>>(API_ENDPOINTS.OWNER_SHOPS.ME);
   },
-};  
+};

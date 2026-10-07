@@ -1,63 +1,62 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Mail, UserRound } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { shopApi } from "@/features/shop/api/shopApi";
 import { shopStaffApi } from "@/features/shopStaff/api/shopStaffApi";
+
 import type {
   ShopStaff,
   StaffActivityLog as StaffActivityLogType,
 } from "@/features/shopStaff/types/shopStaff.types";
+
 import { StaffStatusBadge } from "@/features/shopStaff/components/StaffStatusBadge";
 import { StaffActivityLog } from "@/features/shopStaff/components/StaffActivityLog";
 
+import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { toast } from "@/shared/stores/toastStore";
+
 export function StaffDetailPage() {
   const navigate = useNavigate();
-  const { staffId } = useParams<{ staffId: string }>();
+  const location = useLocation();
 
-  const [staff, setStaff] = useState<ShopStaff | null>(null);
+  const { staffId } = useParams<{
+    staffId: string;
+  }>();
+
+  const passedStaff = (
+    location.state as {
+      staff?: ShopStaff;
+    } | null
+  )?.staff;
+
+  const [staff] = useState<ShopStaff | null>(passedStaff ?? null);
+
   const [logs, setLogs] = useState<StaffActivityLogType[]>([]);
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!staffId) return;
+    if (!staffId) {
+      setLoading(false);
+      return;
+    }
 
-    void loadStaffDetail(staffId);
+    void loadActivityLogs(staffId);
   }, [staffId]);
 
-  async function loadStaffDetail(id: string) {
+  async function loadActivityLogs(id: string) {
     try {
       setLoading(true);
 
-      // 1. Lấy shop của owner hiện tại
-      const shopResponse = await shopApi.getMyShop();
-      const shopId = shopResponse.data.data.id;
+      const activityLogs = await shopStaffApi.getStaffActivityLogs(id);
 
-      // 2. Lấy danh sách staff để tìm staff đang xem
-      const staffResponse =
-        await shopStaffApi.getStaffList(shopId);
-
-      const currentStaff =
-        staffResponse.data.data.find(
-          (item) => item.id === id,
-        );
-
-      if (!currentStaff) {
-        throw new Error("Staff member not found.");
-      }
-
-      setStaff(currentStaff);
-
-      // 3. Lấy activity logs
-      const logResponse =
-        await shopStaffApi.getStaffActivityLogs(
-          shopId,
-          id,
-        );
-
-      setLogs(logResponse.data.data);
+      setLogs(activityLogs);
     } catch (error) {
       console.error(error);
+
+      toast.error(getApiErrorMessage(error) || "Unable to load staff activity logs.");
+
+      setLogs([]);
     } finally {
       setLoading(false);
     }
@@ -70,6 +69,7 @@ export function StaffDetailPage() {
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
           <div className="h-6 w-56 animate-pulse rounded bg-gray-100" />
+
           <div className="mt-3 h-4 w-72 animate-pulse rounded bg-gray-100" />
         </div>
 
@@ -81,9 +81,7 @@ export function StaffDetailPage() {
   if (!staff) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center">
-        <p className="font-medium text-gray-900">
-          Staff member not found
-        </p>
+        <p className="font-medium text-gray-900">Staff member not found</p>
 
         <button
           type="button"
@@ -117,9 +115,11 @@ export function StaffDetailPage() {
             </div>
 
             <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                {staff.userName}
-              </h1>
+              <h1 className="text-xl font-bold text-gray-900">{staff.displayName}</h1>
+
+              {staff.staffNickname && (
+                <p className="mt-0.5 text-sm text-gray-400">{staff.userName}</p>
+              )}
 
               <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
                 <Mail size={15} />
@@ -133,19 +133,13 @@ export function StaffDetailPage() {
 
         <div className="mt-6 grid gap-4 border-t border-gray-100 pt-6 sm:grid-cols-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-              Role
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Role</p>
 
-            <p className="mt-1 text-sm font-medium text-gray-900">
-              Staff
-            </p>
+            <p className="mt-1 text-sm font-medium text-gray-900">Staff</p>
           </div>
 
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-              Joined date
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Joined date</p>
 
             <p className="mt-1 text-sm font-medium text-gray-900">
               {new Date(staff.joinedAt).toLocaleDateString("vi-VN")}
@@ -153,13 +147,9 @@ export function StaffDetailPage() {
           </div>
 
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-              Nickname
-            </p>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Nickname</p>
 
-            <p className="mt-1 text-sm font-medium text-gray-900">
-              {staff.staffNickname || "—"}
-            </p>
+            <p className="mt-1 text-sm font-medium text-gray-900">{staff.staffNickname || "—"}</p>
           </div>
         </div>
       </section>

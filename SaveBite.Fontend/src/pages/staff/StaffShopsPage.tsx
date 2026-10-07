@@ -55,7 +55,7 @@ export function StaffShopsPage() {
       setError("");
 
       const response = await staffApi.getAssociatedShops();
-setShops(response);
+      setShops(response);
     } catch (error) {
       console.error(error);
       setError("Unable to load store information.");
@@ -69,22 +69,16 @@ setShops(response);
   }, []);
 
   function handleViewShop(shop: AssociatedShop) {
-    navigate(
-      `${APP_PATHS.STAFF}/shops/${shop.shopId}`,
-    );
+    navigate(`${APP_PATHS.STAFF}/shops/${shop.shopId}`);
   }
 
   if (loading) {
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            My Shops
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">My Shops</h1>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Store information you are working at
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Store information you are working at</p>
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
@@ -98,13 +92,9 @@ setShops(response);
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            My Shops
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">My Shops</h1>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Store information you are working at
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Store information you are working at</p>
         </div>
 
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
@@ -118,25 +108,17 @@ setShops(response);
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            My Shops
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">My Shops</h1>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Store information you are working at
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Store information you are working at</p>
         </div>
 
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <Store className="mb-3 h-10 w-10 text-gray-300" />
 
-          <p className="font-medium text-gray-900">
-            No associated shops
-          </p>
+          <p className="font-medium text-gray-900">No associated shops</p>
 
-          <p className="mt-1 text-sm text-gray-500">
-            You are not associated with any shops.
-          </p>
+          <p className="mt-1 text-sm text-gray-500">You are not associated with any shops.</p>
         </div>
       </div>
     );
@@ -146,13 +128,9 @@ setShops(response);
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          My Shops
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900">My Shops</h1>
 
-        <p className="mt-1 text-sm text-gray-500">
-          Store information you are working at
-        </p>
+        <p className="mt-1 text-sm text-gray-500">Store information you are working at</p>
       </div>
 
       {/* Shop list */}
@@ -190,9 +168,7 @@ setShops(response);
                   <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
                     <CalendarDays size={15} />
 
-                    <span>
-                      Joined from {formatDate(shop.joinedAt)}
-                    </span>
+                    <span>Joined from {formatDate(shop.joinedAt)}</span>
                   </div>
                 </div>
               </div>

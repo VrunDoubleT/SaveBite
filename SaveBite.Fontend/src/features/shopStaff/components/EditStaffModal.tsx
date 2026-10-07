@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
-import type {
-  ShopStaff,
-  UpdateStaffInfoInput,
-} from "../types/shopStaff.types";
+import type { ShopStaff, UpdateStaffInfoInput } from "../types/shopStaff.types";
 
 interface Props {
   staff: ShopStaff;
@@ -13,42 +10,24 @@ interface Props {
   onSubmit: (data: UpdateStaffInfoInput) => Promise<void>;
 }
 
-export function EditStaffModal({
-  staff,
-  loading = false,
-  onClose,
-  onSubmit,
-}: Props) {
-  const [nickname, setNickname] = useState(
-    staff.staffNickname ?? "",
-  );
+export function EditStaffModal({ staff, loading = false, onClose, onSubmit }: Props) {
+  const [nickname, setNickname] = useState(staff.staffNickname ?? "");
 
-  const [status, setStatus] = useState<
-    "Active" | "Suspended"
-  >(
-    staff.status === "Suspended"
-      ? "Suspended"
-      : "Active",
+  const [status, setStatus] = useState<"Active" | "Suspended">(
+    staff.status === "Suspended" ? "Suspended" : "Active",
   );
 
   useEffect(() => {
     setNickname(staff.staffNickname ?? "");
 
-    setStatus(
-      staff.status === "Suspended"
-        ? "Suspended"
-        : "Active",
-    );
+    setStatus(staff.status === "Suspended" ? "Suspended" : "Active");
   }, [staff]);
 
-  async function handleSubmit(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     await onSubmit({
-      staffNickname:
-        nickname.trim() || null,
+      staffNickname: nickname.trim() || null,
       status,
     });
   }
@@ -59,13 +38,9 @@ export function EditStaffModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Update Staff
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900">Update Staff</h2>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Update information for {staff.userName}.
-            </p>
+            <p className="mt-1 text-sm text-gray-500">Update information for {staff.userName}.</p>
           </div>
 
           <button
@@ -79,19 +54,12 @@ export function EditStaffModal({
         </div>
 
         {/* Form */}
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-5 px-6 py-5"
-        >
+        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
           {/* Staff */}
           <div className="rounded-xl bg-gray-50 p-4">
-            <p className="text-sm font-medium text-gray-900">
-              {staff.userName}
-            </p>
+            <p className="text-sm font-medium text-gray-900">{staff.userName}</p>
 
-            <p className="mt-1 text-sm text-gray-500">
-              {staff.userEmail}
-            </p>
+            <p className="mt-1 text-sm text-gray-500">{staff.userEmail}</p>
           </div>
 
           {/* Nickname */}
@@ -106,9 +74,7 @@ export function EditStaffModal({
             <input
               id="staff-nickname"
               value={nickname}
-              onChange={(event) =>
-                setNickname(event.target.value)
-              }
+              onChange={(event) => setNickname(event.target.value)}
               placeholder="Enter nickname"
               disabled={loading}
               className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50"
@@ -127,23 +93,13 @@ export function EditStaffModal({
             <select
               id="staff-status"
               value={status}
-              onChange={(event) =>
-                setStatus(
-                  event.target.value as
-                    | "Active"
-                    | "Suspended",
-                )
-              }
+              onChange={(event) => setStatus(event.target.value as "Active" | "Suspended")}
               disabled={loading}
               className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50"
             >
-              <option value="Active">
-                Active
-              </option>
+              <option value="Active">Active</option>
 
-              <option value="Suspended">
-                Suspended
-              </option>
+              <option value="Suspended">Suspended</option>
             </select>
           </div>
 

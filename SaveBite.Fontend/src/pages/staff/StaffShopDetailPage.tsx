@@ -1,13 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  CalendarDays,
-  Clock3,
-  Mail,
-  MapPin,
-  Store,
-  User,
-} from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock3, Mail, MapPin, Store, User } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { staffApi } from "@/features/staff/api/staffApi";
@@ -112,14 +104,14 @@ export function StaffShopDetailPage() {
   if (error || !data) {
     return (
       <div className="space-y-6">
-      <button
-  type="button"
-  onClick={() => navigate(APP_PATHS.ACCOUNT_WORKSPACE)}
-  className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition hover:text-gray-900"
->
-  <ArrowLeft size={18} />
-  Back to Workspace
-</button>
+        <button
+          type="button"
+          onClick={() => navigate(APP_PATHS.ACCOUNT_WORKSPACE)}
+          className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition hover:text-gray-900"
+        >
+          <ArrowLeft size={18} />
+          Back to Workspace
+        </button>
 
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
           {error || "Store not found."}
@@ -130,12 +122,7 @@ export function StaffShopDetailPage() {
 
   const { shop, staff } = data;
 
-  const fullAddress = [
-    shop.addressLine,
-    shop.ward,
-    shop.district,
-    shop.city,
-  ]
+  const fullAddress = [shop.addressLine, shop.ward, shop.district, shop.city]
     .filter(Boolean)
     .join(", ");
 
@@ -143,25 +130,21 @@ export function StaffShopDetailPage() {
     <div className="space-y-6">
       {/* Back */}
       {/* Back */}
-<button
-  type="button"
-  onClick={() => navigate(APP_PATHS.ACCOUNT_WORKSPACE)}
-  className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition hover:text-gray-900"
->
-  <ArrowLeft size={18} />
-  Back to Workspace
-</button>
+      <button
+        type="button"
+        onClick={() => navigate(APP_PATHS.ACCOUNT_WORKSPACE)}
+        className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition hover:text-gray-900"
+      >
+        <ArrowLeft size={18} />
+        Back to Workspace
+      </button>
 
       {/* Shop */}
       <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         {/* Cover */}
         <div className="relative h-52 overflow-hidden bg-gray-100">
           {shop.coverImageUrl ? (
-            <img
-              src={shop.coverImageUrl}
-              alt={shop.name}
-              className="h-full w-full object-cover"
-            />
+            <img src={shop.coverImageUrl} alt={shop.name} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full items-center justify-center text-gray-400">
               <Store size={48} />
@@ -176,11 +159,7 @@ export function StaffShopDetailPage() {
               {/* Logo */}
               <div className="-mt-16 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-gray-100 shadow-sm">
                 {shop.logoUrl ? (
-                  <img
-                    src={shop.logoUrl}
-                    alt={shop.name}
-                    className="h-full w-full object-cover"
-                  />
+                  <img src={shop.logoUrl} alt={shop.name} className="h-full w-full object-cover" />
                 ) : (
                   <Store className="text-gray-400" size={32} />
                 )}
@@ -188,9 +167,7 @@ export function StaffShopDetailPage() {
 
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {shop.name}
-                  </h1>
+                  <h1 className="text-2xl font-bold text-gray-900">{shop.name}</h1>
 
                   <span
                     className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyle(
@@ -202,9 +179,7 @@ export function StaffShopDetailPage() {
                 </div>
 
                 {shop.description && (
-                  <p className="mt-1 text-sm text-gray-500">
-                    {shop.description}
-                  </p>
+                  <p className="mt-1 text-sm text-gray-500">{shop.description}</p>
                 )}
               </div>
             </div>
@@ -214,15 +189,10 @@ export function StaffShopDetailPage() {
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-xl bg-gray-50 p-4">
               <div className="flex items-start gap-3">
-                <MapPin
-                  size={20}
-                  className="mt-0.5 shrink-0 text-emerald-600"
-                />
+                <MapPin size={20} className="mt-0.5 shrink-0 text-emerald-600" />
 
                 <div>
-                  <p className="text-xs font-medium text-gray-400">
-                    Store Address
-                  </p>
+                  <p className="text-xs font-medium text-gray-400">Store Address</p>
 
                   <p className="mt-1 text-sm font-medium text-gray-900">
                     {fullAddress || "Not updated"}
@@ -233,19 +203,13 @@ export function StaffShopDetailPage() {
 
             <div className="rounded-xl bg-gray-50 p-4">
               <div className="flex items-start gap-3">
-                <Clock3
-                  size={20}
-                  className="mt-0.5 shrink-0 text-emerald-600"
-                />
+                <Clock3 size={20} className="mt-0.5 shrink-0 text-emerald-600" />
 
                 <div>
-                  <p className="text-xs font-medium text-gray-400">
-                    Opening hours
-                  </p>
+                  <p className="text-xs font-medium text-gray-400">Opening hours</p>
 
                   <p className="mt-1 text-sm font-medium text-gray-900">
-                    {formatTime(shop.openingTime)} -{" "}
-                    {formatTime(shop.closingTime)}
+                    {formatTime(shop.openingTime)} - {formatTime(shop.closingTime)}
                   </p>
                 </div>
               </div>
@@ -257,9 +221,7 @@ export function StaffShopDetailPage() {
       {/* Staff */}
       <section className="space-y-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">
-            Staff Information
-          </h2>
+          <h2 className="text-xl font-bold text-gray-900">Staff Information</h2>
 
           <p className="mt-1 text-sm text-gray-500">
             Staff account information for employees working at the store
@@ -271,18 +233,12 @@ export function StaffShopDetailPage() {
             <div className="flex items-center gap-4">
               {/* Avatar */}
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg font-semibold text-emerald-700">
-                {staff.userName
-                  .split(" ")
-                  .filter(Boolean)
-                  .slice(-1)[0]?.[0]
-                  ?.toUpperCase() || "U"}
+                {staff.userName.split(" ").filter(Boolean).slice(-1)[0]?.[0]?.toUpperCase() || "U"}
               </div>
 
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {staff.userName}
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-900">{staff.userName}</h3>
 
                   <span
                     className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyle(
@@ -306,42 +262,30 @@ export function StaffShopDetailPage() {
               <div className="flex items-center gap-2 text-gray-400">
                 <User size={16} />
 
-                <span className="text-xs font-medium">
-                  Nickname
-                </span>
+                <span className="text-xs font-medium">Nickname</span>
               </div>
 
-              <p className="mt-2 text-sm font-medium text-gray-900">
-                {staff.staffNickname || "—"}
-              </p>
+              <p className="mt-2 text-sm font-medium text-gray-900">{staff.staffNickname || "—"}</p>
             </div>
 
             <div className="rounded-xl bg-gray-50 p-4">
               <div className="flex items-center gap-2 text-gray-400">
                 <CalendarDays size={16} />
 
-                <span className="text-xs font-medium">
-                  Join Date
-                </span>
+                <span className="text-xs font-medium">Join Date</span>
               </div>
 
-              <p className="mt-2 text-sm font-medium text-gray-900">
-                {formatDate(staff.joinedAt)}
-              </p>
+              <p className="mt-2 text-sm font-medium text-gray-900">{formatDate(staff.joinedAt)}</p>
             </div>
 
             <div className="rounded-xl bg-gray-50 p-4">
               <div className="flex items-center gap-2 text-gray-400">
                 <Store size={16} />
 
-                <span className="text-xs font-medium">
-                  Role
-                </span>
+                <span className="text-xs font-medium">Role</span>
               </div>
 
-              <p className="mt-2 text-sm font-medium text-gray-900">
-                Employee
-              </p>
+              <p className="mt-2 text-sm font-medium text-gray-900">Employee</p>
             </div>
           </div>
         </div>

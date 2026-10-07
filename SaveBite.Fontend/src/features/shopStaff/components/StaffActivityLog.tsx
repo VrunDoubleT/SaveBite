@@ -16,10 +16,7 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-export function StaffActivityLog({
-  logs,
-  loading = false,
-}: StaffActivityLogProps) {
+export function StaffActivityLog({ logs, loading = false }: StaffActivityLogProps) {
   if (loading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
@@ -47,26 +44,17 @@ export function StaffActivityLog({
         <div className="flex items-center gap-2">
           <Clock size={19} className="text-gray-500" />
 
-          <h2 className="text-base font-semibold text-gray-900">
-            Activity History
-          </h2>
+          <h2 className="text-base font-semibold text-gray-900">Activity History</h2>
         </div>
 
-        <p className="mt-1 text-sm text-gray-500">
-          Recent activities of this staff member.
-        </p>
+        <p className="mt-1 text-sm text-gray-500">Recent activities of this staff member.</p>
       </div>
 
       {logs.length === 0 ? (
         <div className="px-6 py-10 text-center">
-          <Clock
-            size={28}
-            className="mx-auto text-gray-300"
-          />
+          <Clock size={28} className="mx-auto text-gray-300" />
 
-          <p className="mt-3 text-sm font-medium text-gray-700">
-            No activity yet
-          </p>
+          <p className="mt-3 text-sm font-medium text-gray-700">No activity yet</p>
 
           <p className="mt-1 text-sm text-gray-400">
             There are no recorded activities for this staff member.
@@ -76,28 +64,19 @@ export function StaffActivityLog({
         <div className="px-6 py-5">
           <div className="space-y-6">
             {logs.map((log) => (
-              <div
-                key={log.id}
-                className="relative flex gap-4"
-              >
+              <div key={log.id} className="relative flex gap-4">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
                   <Clock size={16} />
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {log.action}
-                  </p>
+                  <p className="text-sm font-semibold text-gray-900">{log.action}</p>
 
                   {log.description && (
-                    <p className="mt-1 text-sm text-gray-500">
-                      {log.description}
-                    </p>
+                    <p className="mt-1 text-sm text-gray-500">{log.description}</p>
                   )}
 
-                  <p className="mt-2 text-xs text-gray-400">
-                    {formatDateTime(log.createdAt)}
-                  </p>
+                  <p className="mt-2 text-xs text-gray-400">{formatDateTime(log.createdAt)}</p>
                 </div>
               </div>
             ))}

@@ -1,21 +1,15 @@
 import { useEffect, useState } from "react";
-import {
-  Mail,
-  RefreshCw,
-  Send,
-  Trash2,
-  Users,
-} from "lucide-react";
 
-import { shopApi } from "@/features/shop/api/shopApi";
+import { ArrowLeft, Mail, RefreshCw, Send, Trash2, Users } from "lucide-react";
+
+import { useNavigate } from "react-router-dom";
+import { APP_PATHS } from "@/app/router/paths";
+
 import { shopStaffApi } from "@/features/shopStaff/api/shopStaffApi";
 
-import type {
-  StaffInvitation,
-} from "@/features/shopStaff/types/shopStaff.types";
-import {
-  getApiErrorMessage,
-} from "@/shared/api/httpClient";
+import type { StaffInvitation } from "@/features/shopStaff/types/shopStaff.types";
+
+import { getApiErrorMessage } from "@/shared/api/httpClient";
 
 import { toast } from "@/shared/stores/toastStore";
 
@@ -48,6 +42,9 @@ function getStatusClass(status: string) {
     case "declined":
       return "bg-red-50 text-red-700 ring-1 ring-red-200";
 
+    case "expired":
+      return "bg-gray-100 text-gray-600 ring-1 ring-gray-200";
+
     case "cancelled":
     case "canceled":
       return "bg-gray-100 text-gray-600 ring-1 ring-gray-200";
@@ -68,6 +65,9 @@ function getStatusLabel(status: string) {
     case "declined":
       return "Declined";
 
+    case "expired":
+      return "Expired";
+
     case "cancelled":
     case "canceled":
       return "Cancelled";
@@ -84,35 +84,23 @@ interface RevokeModalProps {
   onConfirm: () => void;
 }
 
-function RevokeInvitationModal({
-  invitation,
-  loading,
-  onClose,
-  onConfirm,
-}: RevokeModalProps) {
+function RevokeInvitationModal({ invitation, loading, onClose, onConfirm }: RevokeModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
         <div className="border-b border-gray-100 px-6 py-5">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Revoke invitation
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900">Revoke invitation</h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            This invitation will no longer be available to
-            the customer.
+            This invitation will no longer be available to the customer.
           </p>
         </div>
 
         <div className="px-6 py-5">
           <div className="rounded-xl bg-gray-50 p-4">
-            <p className="font-medium text-gray-900">
-              {invitation.invitedUserName}
-            </p>
+            <p className="font-medium text-gray-900">{invitation.invitedUserName}</p>
 
-            <p className="mt-1 text-sm text-gray-500">
-              {invitation.invitedUserEmail}
-            </p>
+            <p className="mt-1 text-sm text-gray-500">{invitation.invitedUserEmail}</p>
           </div>
 
           <p className="mt-4 text-sm leading-6 text-gray-600">
@@ -147,139 +135,104 @@ function RevokeInvitationModal({
 }
 
 export function StaffInvitationsPage() {
-  const [shopId, setShopId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const [invitations, setInvitations] = useState<
-    StaffInvitation[]
-  >([]);
+  const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
 
   const [loading, setLoading] = useState(false);
+
   const [revoking, setRevoking] = useState(false);
 
-  const [selectedInvitation, setSelectedInvitation] =
-    useState<StaffInvitation | null>(null);
+  const [selectedInvitation, setSelectedInvitation] = useState<StaffInvitation | null>(null);
+  // --------------------------------------------------
+  // Load invitations
+  // --------------------------------------------------
 
- async function loadShop() {
-  try {
-    const response =
-      await shopApi.getMyShop();
+  async function loadInvitations() {
+    try {
+      setLoading(true);
 
-    setShopId(
-      response.data.data.id,
-    );
-  } catch (error) {
-    console.error(error);
+      const result = await shopStaffApi.getInvitations();
 
-    toast.error(
-      getApiErrorMessage(error) ||
-        "Unable to load your shop information.",
-    );
+      setInvitations(result);
+    } catch (error) {
+      console.error(error);
+
+      toast.error(getApiErrorMessage(error) || "Unable to load staff invitations.");
+    } finally {
+      setLoading(false);
+    }
   }
-}
-
- async function loadInvitations(
-  id: string,
-) {
-  try {
-    setLoading(true);
-
-    const response =
-      await shopStaffApi.getInvitations(
-        id,
-      );
-
-    setInvitations(
-      response.data.data,
-    );
-  } catch (error) {
-    console.error(error);
-
-    toast.error(
-      getApiErrorMessage(error) ||
-        "Unable to load staff invitations.",
-    );
-  } finally {
-    setLoading(false);
-  }
-}
 
   useEffect(() => {
-    loadShop();
+    void loadInvitations();
   }, []);
 
-  useEffect(() => {
-    if (!shopId) return;
+  // --------------------------------------------------
+  // Revoke invitation
+  // --------------------------------------------------
 
-    loadInvitations(shopId);
-  }, [shopId]);
+  async function handleRevoke() {
+    if (!selectedInvitation) {
+      return;
+    }
 
- async function handleRevoke() {
-  if (
-    !shopId ||
-    !selectedInvitation
-  ) {
-    return;
+    try {
+      setRevoking(true);
+
+      const response = await shopStaffApi.revokeInvitation(selectedInvitation.id);
+
+      setSelectedInvitation(null);
+
+      toast.success(response.data.message ?? "Staff invitation revoked successfully.");
+
+      await loadInvitations();
+    } catch (error) {
+      console.error(error);
+
+      toast.error(getApiErrorMessage(error) || "Unable to revoke this invitation.");
+    } finally {
+      setRevoking(false);
+    }
   }
 
-  try {
-    setRevoking(true);
+  const pendingCount = invitations.filter((item) => item.status.toLowerCase() === "pending").length;
 
-    const response =
-      await shopStaffApi.revokeInvitation(
-        shopId,
-        selectedInvitation.id,
-      );
-
-    setSelectedInvitation(null);
-
-    toast.success(
-      response.data.message ??
-        "Staff invitation revoked successfully.",
-    );
-
-    await loadInvitations(shopId);
-  } catch (error) {
-    console.error(error);
-
-    toast.error(
-      getApiErrorMessage(error) ||
-        "Unable to revoke this invitation.",
-    );
-  } finally {
-    setRevoking(false);
-  }
-}
+  const acceptedCount = invitations.filter(
+    (item) => item.status.toLowerCase() === "accepted",
+  ).length;
 
   return (
     <div className="space-y-6">
+      {/* Back */}
+      <button
+        type="button"
+        onClick={() => navigate(`${APP_PATHS.STORE_OWNER}/staff`)}
+        className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition hover:text-gray-900"
+      >
+        <ArrowLeft size={17} />
+        Back to Staff Management
+      </button>
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Staff Invitations
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Staff Invitations</h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            View and manage staff invitations sent from your
-            shop.
+            View and manage staff invitations sent from your shop.
           </p>
         </div>
 
         <button
           type="button"
-          disabled={!shopId || loading}
+          disabled={loading}
           onClick={() => {
-            if (shopId) {
-              loadInvitations(shopId);
-            }
+            void loadInvitations();
           }}
           className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <RefreshCw
-            size={16}
-            className={loading ? "animate-spin" : ""}
-          />
-
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
@@ -293,13 +246,9 @@ export function StaffInvitationsPage() {
             </div>
 
             <div>
-              <p className="text-sm text-gray-500">
-                Total invitations
-              </p>
+              <p className="text-sm text-gray-500">Total invitations</p>
 
-              <p className="text-2xl font-bold text-gray-900">
-                {invitations.length}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{invitations.length}</p>
             </div>
           </div>
         </div>
@@ -311,19 +260,9 @@ export function StaffInvitationsPage() {
             </div>
 
             <div>
-              <p className="text-sm text-gray-500">
-                Pending
-              </p>
+              <p className="text-sm text-gray-500">Pending</p>
 
-              <p className="text-2xl font-bold text-gray-900">
-                {
-                  invitations.filter(
-                    (item) =>
-                      item.status.toLowerCase() ===
-                      "pending",
-                  ).length
-                }
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
             </div>
           </div>
         </div>
@@ -335,19 +274,9 @@ export function StaffInvitationsPage() {
             </div>
 
             <div>
-              <p className="text-sm text-gray-500">
-                Accepted
-              </p>
+              <p className="text-sm text-gray-500">Accepted</p>
 
-              <p className="text-2xl font-bold text-gray-900">
-                {
-                  invitations.filter(
-                    (item) =>
-                      item.status.toLowerCase() ===
-                      "accepted",
-                  ).length
-                }
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{acceptedCount}</p>
             </div>
           </div>
         </div>
@@ -358,10 +287,7 @@ export function StaffInvitationsPage() {
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
           <div className="space-y-3">
             {[1, 2, 3].map((item) => (
-              <div
-                key={item}
-                className="h-14 animate-pulse rounded-xl bg-gray-100"
-              />
+              <div key={item} className="h-14 animate-pulse rounded-xl bg-gray-100" />
             ))}
           </div>
         </div>
@@ -371,13 +297,10 @@ export function StaffInvitationsPage() {
             <Mail size={22} />
           </div>
 
-          <p className="font-medium text-gray-900">
-            No invitations yet
-          </p>
+          <p className="font-medium text-gray-900">No invitations yet</p>
 
           <p className="mt-1 text-sm text-gray-500">
-            Invitations you send to customers will appear
-            here.
+            Invitations you send to customers will appear here.
           </p>
         </div>
       ) : (
@@ -410,21 +333,14 @@ export function StaffInvitationsPage() {
 
               <tbody className="divide-y divide-gray-100">
                 {invitations.map((invitation) => {
-                  const isPending =
-                    invitation.status.toLowerCase() ===
-                    "pending";
+                  const isPending = invitation.status.toLowerCase() === "pending";
 
                   return (
-                    <tr
-                      key={invitation.id}
-                      className="transition hover:bg-gray-50/70"
-                    >
+                    <tr key={invitation.id} className="transition hover:bg-gray-50/70">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">
-                            {invitation.invitedUserName
-                              ?.charAt(0)
-                              .toUpperCase() ?? "U"}
+                            {invitation.invitedUserName?.charAt(0).toUpperCase() ?? "U"}
                           </div>
 
                           <div>
@@ -432,9 +348,7 @@ export function StaffInvitationsPage() {
                               {invitation.invitedUserName}
                             </p>
 
-                            <p className="text-sm text-gray-500">
-                              {invitation.invitedUserEmail}
-                            </p>
+                            <p className="text-sm text-gray-500">{invitation.invitedUserEmail}</p>
                           </div>
                         </div>
                       </td>
@@ -445,42 +359,30 @@ export function StaffInvitationsPage() {
                             invitation.status,
                           )}`}
                         >
-                          {getStatusLabel(
-                            invitation.status,
-                          )}
+                          {getStatusLabel(invitation.status)}
                         </span>
                       </td>
 
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {formatDateTime(
-                          invitation.createdAt,
-                        )}
+                        {formatDateTime(invitation.createdAt)}
                       </td>
 
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {formatDate(
-                          invitation.expiresAt,
-                        )}
+                        {isPending ? formatDate(invitation.expiresAt) : "—"}
                       </td>
 
                       <td className="px-6 py-4 text-right">
                         {isPending ? (
                           <button
                             type="button"
-                            onClick={() =>
-                              setSelectedInvitation(
-                                invitation,
-                              )
-                            }
+                            onClick={() => setSelectedInvitation(invitation)}
                             className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
                           >
                             <Trash2 size={16} />
                             Revoke
                           </button>
                         ) : (
-                          <span className="text-sm text-gray-400">
-                            —
-                          </span>
+                          <span className="text-sm text-gray-400">—</span>
                         )}
                       </td>
                     </tr>

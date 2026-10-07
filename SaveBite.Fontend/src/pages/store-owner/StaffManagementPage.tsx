@@ -1,245 +1,163 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Mail,
-  Plus,
-  Search,
-  UserCheck,
-  UserX,
-  Users,
-} from "lucide-react";
+
+import { Mail, Plus, Search, UserCheck, UserX, Users } from "lucide-react";
+
 import { useNavigate } from "react-router-dom";
 
 import { shopStaffApi } from "@/features/shopStaff/api/shopStaffApi";
-import type {
-  ShopStaff,
-  UpdateStaffInfoInput,
-} from "@/features/shopStaff/types/shopStaff.types";
-import { InviteStaffModal } from "@/features/shopStaff/components/InviteStaffModal";
 
+import type { ShopStaff, UpdateStaffInfoInput } from "@/features/shopStaff/types/shopStaff.types";
+
+import { InviteStaffModal } from "@/features/shopStaff/components/InviteStaffModal";
 import { StaffTable } from "@/features/shopStaff/components/StaffTable";
 import { StaffStatCard } from "@/features/shopStaff/components/StaffStatCard";
 import { EditStaffModal } from "@/features/shopStaff/components/EditStaffModal";
 import { RemoveStaffModal } from "@/features/shopStaff/components/RemoveStaffModal";
 
-
-import { shopApi } from "@/features/shop/api/shopApi";
 import { APP_PATHS } from "@/app/router/paths";
-import {
-  getApiErrorMessage,
-  getApiErrorStatus,
-} from "@/shared/api/httpClient";
+
+import { getApiErrorMessage, getApiErrorStatus } from "@/shared/api/httpClient";
 
 import { toast } from "@/shared/stores/toastStore";
 
 export function StaffManagementPage() {
   const [staffs, setStaffs] = useState<ShopStaff[]>([]);
   const [loading, setLoading] = useState(false);
-  const [keyword, setKeyword] = useState("");
 
-  const [shopId, setShopId] = useState<string | null>(null);
+  const [keyword, setKeyword] = useState("");
 
   const navigate = useNavigate();
 
   // Edit
-  const [editingStaff, setEditingStaff] =
-    useState<ShopStaff | null>(null);
+  const [editingStaff, setEditingStaff] = useState<ShopStaff | null>(null);
 
   const [updating, setUpdating] = useState(false);
 
   // Remove
-  const [removingStaff, setRemovingStaff] =
-    useState<ShopStaff | null>(null);
+  const [removingStaff, setRemovingStaff] = useState<ShopStaff | null>(null);
 
   const [removing, setRemoving] = useState(false);
+
+  // Invite
   const [inviting, setInviting] = useState(false);
 
-const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  // --------------------------------------------------
-  // Load shop
-  // --------------------------------------------------
-
- async function loadShop() {
-  try {
-    const response =
-      await shopApi.getMyShop();
-
-    setShopId(
-      response.data.data.id,
-    );
-  } catch (error) {
-    console.error(error);
-
-    toast.error(
-      getApiErrorMessage(error) ||
-        "Unable to load your shop information.",
-    );
-  }
-}
-
-  useEffect(() => {
-    loadShop();
-  }, []);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
   // --------------------------------------------------
   // Load staff
   // --------------------------------------------------
 
-  useEffect(() => {
-    if (!shopId) return;
+  async function loadStaff() {
+    try {
+      setLoading(true);
 
-    loadStaff(shopId);
-  }, [shopId]);
+      const result = await shopStaffApi.getStaffList();
 
-  async function loadStaff(
-  shopId: string,
-) {
-  try {
-    setLoading(true);
+      setStaffs(result);
+    } catch (error) {
+      console.error(error);
 
-    const response =
-      await shopStaffApi.getStaffList(
-        shopId,
-      );
-
-    setStaffs(response.data.data);
-  } catch (error) {
-    console.error(error);
-
-    toast.error(
-      getApiErrorMessage(error) ||
-        "Unable to load the staff list.",
-    );
-  } finally {
-    setLoading(false);
+      toast.error(getApiErrorMessage(error) || "Unable to load the staff list.");
+    } finally {
+      setLoading(false);
+    }
   }
-}
+
+  useEffect(() => {
+    void loadStaff();
+  }, []);
 
   // --------------------------------------------------
   // Update staff
   // --------------------------------------------------
 
-  async function handleUpdateStaff(
-  data: UpdateStaffInfoInput,
-) {
-  if (!shopId || !editingStaff) {
-    return;
+  async function handleUpdateStaff(data: UpdateStaffInfoInput) {
+    if (!editingStaff) {
+      return;
+    }
+
+    try {
+      setUpdating(true);
+
+      const response = await shopStaffApi.updateStaff(editingStaff.id, data);
+
+      setEditingStaff(null);
+
+      toast.success(response.data.message ?? "Staff information updated successfully.");
+
+      await loadStaff();
+    } catch (error) {
+      console.error(error);
+
+      toast.error(getApiErrorMessage(error) || "Unable to update staff information.");
+    } finally {
+      setUpdating(false);
+    }
   }
-
-  try {
-    setUpdating(true);
-
-    const response =
-      await shopStaffApi.updateStaff(
-        shopId,
-        editingStaff.id,
-        data,
-      );
-
-    setEditingStaff(null);
-
-    toast.success(
-      response.data.message ??
-        "Staff information updated successfully.",
-    );
-
-    await loadStaff(shopId);
-  } catch (error) {
-    console.error(error);
-
-    toast.error(
-      getApiErrorMessage(error) ||
-        "Unable to update staff information.",
-    );
-  } finally {
-    setUpdating(false);
-  }
-}
 
   // --------------------------------------------------
   // Remove staff
   // --------------------------------------------------
 
- async function handleRemoveStaff() {
-  if (!shopId || !removingStaff) {
-    return;
+  async function handleRemoveStaff() {
+    if (!removingStaff) {
+      return;
+    }
+
+    try {
+      setRemoving(true);
+
+      const response = await shopStaffApi.removeStaff(removingStaff.id);
+
+      setRemovingStaff(null);
+
+      toast.success(response.data.message ?? "Staff member removed successfully.");
+
+      await loadStaff();
+    } catch (error) {
+      console.error(error);
+
+      toast.error(getApiErrorMessage(error) || "Unable to remove this staff member.");
+    } finally {
+      setRemoving(false);
+    }
   }
 
-  try {
-    setRemoving(true);
+  // --------------------------------------------------
+  // Invite staff
+  // --------------------------------------------------
 
-    const response =
-      await shopStaffApi.removeStaff(
-        shopId,
-        removingStaff.id,
-      );
+  async function handleInviteStaff(userId: string) {
+    try {
+      setInviting(true);
 
-    setRemovingStaff(null);
+      const response = await shopStaffApi.inviteStaff({
+        userId,
+      });
 
-    toast.success(
-      response.data.message ??
-        "Staff member removed successfully.",
-    );
+      setInviteModalOpen(false);
 
-    await loadStaff(shopId);
-  } catch (error) {
-    console.error(error);
+      toast.success(response.data.message ?? "Staff invitation sent successfully.");
+    } catch (error) {
+      console.error(error);
 
-    toast.error(
-      getApiErrorMessage(error) ||
-        "Unable to remove this staff member.",
-    );
-  } finally {
-    setRemoving(false);
-  }
-}
+      const apiMessage = getApiErrorMessage(error);
 
-async function handleInviteStaff(
-  email: string,
-) {
-  if (!shopId) return;
+      const status = getApiErrorStatus(error);
 
-  try {
-    setInviting(true);
-
-    const response =
-      await shopStaffApi.inviteStaff(
-        shopId,
-        {
-          invitedUserEmail: email,
-        },
-      );
-
-    setInviteModalOpen(false);
-
-    toast.success(
-      response.data.message ??
-        `Invitation sent successfully to ${email}.`,
-    );
-  } catch (error) {
-    console.error(error);
-
-    const apiMessage =
-      getApiErrorMessage(error);
-
-    const status =
-      getApiErrorStatus(error);
-
-    const hasSpecificConflictMessage =
-      /(already|exist|invite|staff member|member of)/i.test(
+      const hasSpecificConflictMessage = /(already|exist|invite|staff member|member of)/i.test(
         apiMessage,
       );
 
-    toast.error(
-      status === 409 &&
-        !hasSpecificConflictMessage
-        ? "This email has already been invited or is already a staff member of this shop."
-        : apiMessage ||
-            "Unable to send the staff invitation.",
-    );
-  } finally {
-    setInviting(false);
+      toast.error(
+        status === 409 && !hasSpecificConflictMessage
+          ? "This user has already been invited or is already a staff member of this shop."
+          : apiMessage || "Unable to send the staff invitation.",
+      );
+    } finally {
+      setInviting(false);
+    }
   }
-}
 
   // --------------------------------------------------
   // Search
@@ -248,16 +166,15 @@ async function handleInviteStaff(
   const filteredStaffs = useMemo(() => {
     const q = keyword.trim().toLowerCase();
 
-    if (!q) return staffs;
+    if (!q) {
+      return staffs;
+    }
 
     return staffs.filter(
       (staff) =>
-        staff.userName
-          .toLowerCase()
-          .includes(q) ||
-        staff.userEmail
-          .toLowerCase()
-          .includes(q),
+        staff.displayName.toLowerCase().includes(q) ||
+        staff.userName.toLowerCase().includes(q) ||
+        staff.userEmail.toLowerCase().includes(q),
     );
   }, [staffs, keyword]);
 
@@ -265,13 +182,9 @@ async function handleInviteStaff(
   // Statistics
   // --------------------------------------------------
 
-  const activeCount = staffs.filter(
-    (staff) => staff.status === "Active",
-  ).length;
+  const activeCount = staffs.filter((staff) => staff.status === "Active").length;
 
-  const suspendedCount = staffs.filter(
-    (staff) => staff.status === "Suspended",
-  ).length;
+  const suspendedCount = staffs.filter((staff) => staff.status === "Suspended").length;
 
   // --------------------------------------------------
   // Render
@@ -282,38 +195,31 @@ async function handleInviteStaff(
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Staff Management
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Staff Management</h1>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Manage staff members of your shop.
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Manage staff members of your shop.</p>
         </div>
-<div className="flex items-center gap-3">
-  <button
-    type="button"
-    onClick={() =>
-      navigate(
-        `${APP_PATHS.STORE_OWNER}/staff/invitations`,
-      )
-    }
-    className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
-  >
-    <Mail size={18} />
-    View Invitations
-  </button>
 
-  <button
-    type="button"
-    disabled={!shopId}
-    onClick={() => setInviteModalOpen(true)}
-    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-  >
-    <Plus size={18} />
-    Invite Staff
-  </button>
-</div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(`${APP_PATHS.STORE_OWNER}/staff/invitations`)}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+          >
+            <Mail size={18} />
+            View Invitations
+          </button>
+
+          <button
+            type="button"
+            disabled={inviting}
+            onClick={() => setInviteModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus size={18} />
+            Invite Staff
+          </button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -349,9 +255,7 @@ async function handleInviteStaff(
 
         <input
           value={keyword}
-          onChange={(event) =>
-            setKeyword(event.target.value)
-          }
+          onChange={(event) => setKeyword(event.target.value)}
           placeholder="Search by name or email"
           className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
         />
@@ -361,26 +265,22 @@ async function handleInviteStaff(
       {loading ? (
         <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6">
           {[1, 2, 3].map((item) => (
-            <div
-              key={item}
-              className="h-12 animate-pulse rounded-lg bg-gray-100"
-            />
+            <div key={item} className="h-12 animate-pulse rounded-lg bg-gray-100" />
           ))}
         </div>
       ) : (
         <StaffTable
           staffs={filteredStaffs}
-
           onEdit={(staff) => {
             setEditingStaff(staff);
           }}
-
           onView={(staff) => {
-            navigate(
-              `${APP_PATHS.STORE_OWNER}/staff/${staff.id}`,
-            );
+            navigate(`${APP_PATHS.STORE_OWNER}/staff/${staff.id}`, {
+              state: {
+                staff,
+              },
+            });
           }}
-
           onRemove={(staff) => {
             setRemovingStaff(staff);
           }}
@@ -400,17 +300,20 @@ async function handleInviteStaff(
           onSubmit={handleUpdateStaff}
         />
       )}
+
+      {/* Invite modal */}
       {inviteModalOpen && (
-  <InviteStaffModal
-    loading={inviting}
-    onClose={() => {
-      if (!inviting) {
-        setInviteModalOpen(false);
-      }
-    }}
-    onSubmit={handleInviteStaff}
-  />
-)}
+        <InviteStaffModal
+          loading={inviting}
+          onClose={() => {
+            if (!inviting) {
+              setInviteModalOpen(false);
+            }
+          }}
+          onSubmit={handleInviteStaff}
+        />
+      )}
+
       {/* Remove modal */}
       {removingStaff && (
         <RemoveStaffModal

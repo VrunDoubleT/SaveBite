@@ -1,4 +1,5 @@
 import { AlertTriangle, X } from "lucide-react";
+
 import type { ShopStaff } from "../types/shopStaff.types";
 
 interface RemoveStaffModalProps {
@@ -25,9 +26,7 @@ export function RemoveStaffModal({
             </div>
 
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Remove staff member
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-900">Remove staff member</h2>
 
               <p className="mt-0.5 text-sm text-gray-500">
                 This action will remove the staff member from your shop.
@@ -48,21 +47,16 @@ export function RemoveStaffModal({
         {/* Content */}
         <div className="px-6 py-5">
           <div className="rounded-xl bg-gray-50 p-4">
-            <p className="font-medium text-gray-900">
-              {staff.userName}
-            </p>
+            <p className="font-medium text-gray-900">{staff.displayName}</p>
 
-            <p className="mt-1 text-sm text-gray-500">
-              {staff.userEmail}
-            </p>
+            {staff.staffNickname && <p className="mt-1 text-sm text-gray-400">{staff.userName}</p>}
+
+            <p className="mt-1 text-sm text-gray-500">{staff.userEmail}</p>
           </div>
 
           <p className="mt-4 text-sm leading-6 text-gray-600">
             Are you sure you want to remove{" "}
-            <span className="font-semibold text-gray-900">
-              {staff.userName}
-            </span>{" "}
-            from your shop?
+            <span className="font-semibold text-gray-900">{staff.displayName}</span> from your shop?
           </p>
         </div>
 

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { LogOut, type LucideIcon } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+
 import { AppLogo } from "@/shared/components/AppLogo";
 import { NavItem } from "@/shared/components/navigation/NavItem";
 import { useAuthStore } from "@/shared/stores/authStore";
@@ -24,8 +25,18 @@ export function WorkspaceSidebar({ ariaLabel, navigation }: WorkspaceSidebarProp
   const logout = useAuthStore((state) => state.logout);
   const isLoggingOut = useAuthStore((state) => state.isLoggingOut);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => setOpen(false), [location.pathname, setOpen]);
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      navigate("/login", {
+        replace: true,
+      });
+    }
+  }
 
   return (
     <>
@@ -57,7 +68,9 @@ export function WorkspaceSidebar({ ariaLabel, navigation }: WorkspaceSidebarProp
         <button
           type="button"
           disabled={isLoggingOut}
-          onClick={() => void logout().catch(() => undefined)}
+          onClick={() => {
+            void handleLogout();
+          }}
           className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-red-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <LogOut className="size-5" aria-hidden="true" />

@@ -24,8 +24,7 @@ interface Props {
   onRemove?: (staff: ShopStaff) => void;
 }
 
-const HEAD_CELL =
-  "px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500";
+const HEAD_CELL = "px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500";
 
 const ICON_BUTTON =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-900";
@@ -36,9 +35,7 @@ export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center">
         <Users className="mb-3 h-10 w-10 text-gray-300" />
         <p className="font-medium text-gray-900">No staff yet</p>
-        <p className="mt-1 text-sm text-gray-500">
-          Invite your first staff member to get started.
-        </p>
+        <p className="mt-1 text-sm text-gray-500">Invite your first staff member to get started.</p>
       </div>
     );
   }
@@ -64,15 +61,16 @@ export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">
-                      {getInitials(staff.userName)}
+                      {getInitials(staff.displayName)}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-gray-900">
-                        {staff.userName}
-                      </p>
-                      <p className="truncate text-sm text-gray-500">
-                        {staff.userEmail}
-                      </p>
+                      <p className="truncate font-medium text-gray-900">{staff.displayName}</p>
+
+                      {staff.staffNickname && (
+                        <p className="truncate text-xs text-gray-400">{staff.userName}</p>
+                      )}
+
+                      <p className="truncate text-sm text-gray-500">{staff.userEmail}</p>
                     </div>
                   </div>
                 </td>
@@ -90,9 +88,7 @@ export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
                 </td>
 
                 {/* Joined date */}
-                <td className="px-6 py-4 text-sm text-gray-600">
-                  {formatDate(staff.joinedAt)}
-                </td>
+                <td className="px-6 py-4 text-sm text-gray-600">{formatDate(staff.joinedAt)}</td>
 
                 {/* Actions */}
                 <td className="px-6 py-4">

@@ -1,11 +1,6 @@
-export type ShopStaffStatus =
-  | "Active"
-  | "Suspended"
-  | "Removed";
-
+export type ShopStaffStatus = "Active" | "Suspended" | "Removed";
 
 export interface ShopStaff {
-
   id: string;
 
   userId: string;
@@ -16,10 +11,11 @@ export interface ShopStaff {
 
   staffNickname: string | null;
 
+  displayName: string;
+
   status: ShopStaffStatus;
 
   joinedAt: string;
-
 }
 
 export interface StaffActivityLog {
@@ -36,7 +32,13 @@ export interface UpdateStaffInfoInput {
 }
 
 export interface InviteStaffInput {
-  invitedUserEmail: string;
+  userId: string;
+}
+
+export interface StaffCandidate {
+  userId: string;
+  fullName: string;
+  email: string;
 }
 
 export interface StaffInvitation {
