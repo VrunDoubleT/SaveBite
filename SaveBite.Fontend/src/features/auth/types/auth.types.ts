@@ -1,5 +1,7 @@
 export type AuthRole = "user" | "storeOwner" | "staff" | "admin";
 
+export type CustomerStatus = "active" | "suspended";
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -7,6 +9,7 @@ export interface AuthUser {
   fullName: string;
   avatarUrl: string | null;
   role: AuthRole;
+  customerStatus: CustomerStatus;
 }
 
 export interface LoginCredentials {
@@ -44,4 +47,5 @@ export interface CurrentUserResponse {
   fullName: string;
   avatarUrl: string | null;
   role: string;
+  customerStatus: CustomerStatus;
 }
