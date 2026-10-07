@@ -22,4 +22,12 @@ public static class RedisKeys
 
     public static string AuthLoginFailuresByEmail(string subjectHash)
         => $"auth:login:fail:email:{subjectHash}";
+    public static string FlashDealDetail(Guid dealId)
+        => $"flashdeal:detail:{dealId}";
+    
+    public static string FlashDealShopDeals(Guid dealId) 
+        => $"flashdeal:shop:{dealId}";
+    public const string FlashDealGeoShops = "flashdeal:geoshops";
+    public const string FlashDealActiveDeals = "flashdeal:activedeals";
+
 }

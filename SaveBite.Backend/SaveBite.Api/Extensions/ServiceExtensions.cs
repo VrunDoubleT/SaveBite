@@ -12,6 +12,7 @@ public static class ServiceExtensions
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<IFlashDealService, FlashDealService>();
 
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService,
