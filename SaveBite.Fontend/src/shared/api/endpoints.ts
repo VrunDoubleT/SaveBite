@@ -9,4 +9,13 @@ export const API_ENDPOINTS = {
     FORGOT_PASSWORD: "/auth/forgot-password",
     RESET_PASSWORD: "/auth/reset-password",
   },
+  FLASH_DEALS: {
+    NEARBY: "/flash-deals/nearby",
+    BY_SHOP: (shopId: string) => `/flash-deals/shop/${shopId}`,
+    DETAIL: (id: string) => `/flash-deals/${id}`,
+    CATEGORIES: "/flash-deals/categories",
+  },
+  CATEGORIES: {
+    LIST: "/categories",
+  },
 } as const;

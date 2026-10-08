@@ -22,4 +22,24 @@ public static class RedisKeys
 
     public static string AuthLoginFailuresByEmail(string subjectHash)
         => $"auth:login:fail:email:{subjectHash}";
+
+    public static string Deal(Guid dealId)
+        => $"savebite:deal:{dealId}";
+    
+    public static string DealVariants(Guid dealId)
+        => $"savebite:deal:{dealId}:variants";
+    
+    public static string DealStock(Guid dealId)
+        => $"savebite:deal:{dealId}:stock";
+    
+    public static string ShopDeals(Guid shopId)
+        => $"savebite:shop:{shopId}:deals";
+    
+    public const string GeoActiveShops = "savebite:geo:active-shops";
+    
+    public static string FlashDealDetail(Guid dealId) => Deal(dealId);
+    public static string FlashDealShopDeals(Guid shopId) => ShopDeals(shopId);
+    public const string FlashDealGeoShops = GeoActiveShops;
+    public const string FlashDealActiveDeals = "savebite:deals:active";
+
 }

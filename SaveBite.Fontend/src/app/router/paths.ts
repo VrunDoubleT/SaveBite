@@ -1,5 +1,7 @@
 export const APP_PATHS = {
   HOME: "/",
+  FLASH_DEAL_DETAIL: "/flash-deals/:id",
+  SHOP_DETAIL: "/shops/:id",
   LOGIN: "/login",
   REGISTER: "/register",
   REGISTER_VERIFY: "/register/verify",
