@@ -3,6 +3,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { useNearbyFlashDeals } from "@/features/flash-deals/hooks/useNearbyFlashDeals";
 import { FilterSidebar } from "@/features/flash-deals/components/FilterSidebar";
 import { DealSection } from "@/features/flash-deals/components/DealSection";
+import { NearbyStoresSection } from "@/features/shops/components/NearbyStoresSection";
 
 export function CustomerHomePage() {
   const {
@@ -10,6 +11,8 @@ export function CustomerHomePage() {
     categoryCounts,
     serverMessage,
     isLoading,
+    coords,
+    isLocationReady,
     radiusInKm,
     setRadiusInKm,
     selectedShop,
@@ -87,13 +90,24 @@ export function CustomerHomePage() {
             />
           </div>
 
-          {/* Deals section */}
-          <DealSection
-            deals={deals}
-            isLoading={isLoading}
-            emptyMessage={serverMessage ?? undefined}
-            onRefresh={refreshDeals}
-          />
+          {/* Main Content Area */}
+          <div className="space-y-12 min-w-0">
+            {/* Deals section */}
+            <DealSection
+              deals={deals}
+              isLoading={isLoading}
+              emptyMessage={serverMessage ?? undefined}
+              onRefresh={refreshDeals}
+            />
+
+            {/* View Nearby Stores */}
+            <NearbyStoresSection
+              latitude={coords.latitude}
+              longitude={coords.longitude}
+              radiusInKm={radiusInKm}
+              isLocationReady={isLocationReady}
+            />
+          </div>
         </div>
       </main>
     </div>

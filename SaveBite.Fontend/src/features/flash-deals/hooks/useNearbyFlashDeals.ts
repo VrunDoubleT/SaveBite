@@ -156,6 +156,7 @@ export function useNearbyFlashDeals() {
     isLoading,
     error,
     coords,
+    isLocationReady,
     radiusInKm,
     setRadiusInKm,
     selectedShop,

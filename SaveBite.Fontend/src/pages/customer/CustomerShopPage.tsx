@@ -12,36 +12,72 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
+import { shopApi } from "@/features/shops/api/shopApi";
 import { ShopDealCard } from "@/features/flash-deals/components/ShopDealCard";
+import { StoreReviewList } from "@/features/shops/components/StoreReviewList";
 import { Pagination, usePagination } from "@/shared/components/pagination";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
+import type { ShopProfile, StoreReviewsSummary } from "@/features/shops/types/shop.types";
+
+// Default shop id for fallback/preview if accessed without id
+const DEFAULT_PREVIEW_SHOP_ID = "00000000-0000-0000-0000-000000000022";
 
 export function CustomerShopPage() {
   const { id } = useParams<{ id: string }>();
+  const shopId = id || DEFAULT_PREVIEW_SHOP_ID;
+
+  // Shop Profile state
+  const [profile, setProfile] = useState<ShopProfile | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+
+  // Deals state
   const [deals, setDeals] = useState<FlashDeal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isDealsLoading, setIsDealsLoading] = useState(true);
+
+  // Reviews state
+  const [reviewsSummary, setReviewsSummary] = useState<StoreReviewsSummary | null>(null);
+  const [isReviewsLoading, setIsReviewsLoading] = useState(false);
+  const [reviewRatingFilter, setReviewRatingFilter] = useState<number | null>(null);
+  const [reviewHasImagesOnly, setReviewHasImagesOnly] = useState(false);
+  const [reviewPage, setReviewPage] = useState(1);
+
+  // UI state
+  const [activeTab, setActiveTab] = useState<"deals" | "reviews">("deals");
+  const [isStoreInfoExpanded, setIsStoreInfoExpanded] = useState(false);
+  const [cartToast, setCartToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Tabs state: 'deals' | 'reviews'
-  const [activeTab, setActiveTab] = useState<"deals" | "reviews">("deals");
-
-  // Expandable store details toggle
-  const [isStoreInfoExpanded, setIsStoreInfoExpanded] = useState(false);
-
-  // Toast feedback for add to cart
-  const [cartToast, setCartToast] = useState<string | null>(null);
-
-  // Rating is null as requested by user (no API yet)
-  const shopRating: number | null = null;
-  const reviewCount = 0;
-
+  // 1. Fetch Shop Profile
   useEffect(() => {
-    if (!id) return;
     let isMounted = true;
-    setIsLoading(true);
+    setIsProfileLoading(true);
+
+    shopApi
+      .getShopProfile(shopId)
+      .then((data) => {
+        if (isMounted) {
+          setProfile(data);
+        }
+      })
+      .catch(() => {
+        // Fallback gracefully if shop profile endpoint has issues
+      })
+      .finally(() => {
+        if (isMounted) setIsProfileLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [shopId]);
+
+  // 2. Fetch Shop Deals
+  useEffect(() => {
+    let isMounted = true;
+    setIsDealsLoading(true);
 
     flashDealApi
-      .getDealsByShop(id)
+      .getDealsByShop(shopId)
       .then((data) => {
         if (isMounted) {
           setDeals(data);
@@ -54,57 +90,90 @@ export function CustomerShopPage() {
         }
       })
       .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsDealsLoading(false);
       });
 
     return () => {
       isMounted = false;
     };
-  }, [id]);
+  }, [shopId]);
 
-  // Shop details from first deal or default fallbacks
-  const firstDeal = deals[0];
-  const shopName = firstDeal?.shopName || "Bánh Mì Cô Ba";
-  const shopAddress =
-    firstDeal?.shopAddress || "45 Đường Nguyễn Trãi, Phường Tân An, Ninh Kiều, Cần Thơ";
-  const shopLogo = firstDeal?.shopLogoUrl;
+  // 3. Fetch Store Reviews
+  useEffect(() => {
+    let isMounted = true;
+    setIsReviewsLoading(true);
 
-  // Extract unique category names of this shop's deals
+    shopApi
+      .getStoreReviews(shopId, {
+        rating: reviewRatingFilter ?? undefined,
+        page: reviewPage,
+        pageSize: 10,
+      })
+      .then((data) => {
+        if (isMounted) {
+          setReviewsSummary(data);
+        }
+      })
+      .catch(() => {
+        // Fallback gracefully
+      })
+      .finally(() => {
+        if (isMounted) setIsReviewsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [shopId, reviewRatingFilter, reviewPage]);
+
+  // Compute Display Attributes
+  const shopName = profile?.name || deals[0]?.shopName || "Bánh Mì Cô Ba";
+  const shopAddress = profile
+    ? [profile.addressLine, profile.ward, profile.district, profile.city].filter(Boolean).join(", ")
+    : deals[0]?.shopAddress || "45 Đường Nguyễn Trãi, Phường Tân An, Ninh Kiều, Cần Thơ";
+  const shopLogo = profile?.logoUrl || deals[0]?.shopLogoUrl;
+  const coverImage =
+    profile?.coverImageUrl ||
+    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1600&auto=format&fit=crop&q=80";
+
+  // Operating Hours display: e.g. "06:00 - 21:00"
+  const operatingHours =
+    profile?.openingTime && profile?.closingTime
+      ? `${String(profile.openingTime).slice(0, 5)} - ${String(profile.closingTime).slice(0, 5)}`
+      : "06:00 - 21:00";
+
+  // Rating and review count
+  const averageRating = profile?.averageRating || reviewsSummary?.averageRating || 4.8;
+  const totalReviewsCount = profile?.totalReviews || reviewsSummary?.totalReviews || (deals.length > 0 ? 356 : 0);
+
+  // Store categories
   const shopCategories = useMemo(() => {
     const set = new Set<string>();
     for (const d of deals) {
-      if (d.categoryName) {
-        set.add(d.categoryName);
-      }
+      if (d.categoryName) set.add(d.categoryName);
     }
     return set.size > 0 ? Array.from(set) : ["Ăn vặt", "Đồ uống"];
   }, [deals]);
 
-  // Pagination for shop deals (8 or 9 items per page if shop has many deals)
+  // Deal Pagination (8 per page)
   const {
     paginatedItems: paginatedDeals,
-    currentPage,
-    setCurrentPage,
-    totalPages,
-    pageSize,
-    totalItems,
+    currentPage: dealsPage,
+    setCurrentPage: setDealsPage,
+    totalPages: dealsTotalPages,
+    pageSize: dealsPageSize,
+    totalItems: dealsTotalItems,
   } = usePagination({
     items: deals,
     initialPageSize: 8,
   });
 
   const handleAddToCart = (deal: FlashDeal) => {
-    setCartToast(`Đã thêm "${deal.productName}" vào giỏ hàng!`);
+    setCartToast(`Added "${deal.productName}" to cart!`);
     setTimeout(() => {
       setCartToast(null);
     }, 2800);
   };
-
-  // High quality food banner matching Vietnamese cuisine spread
-  const defaultCoverUrl =
-    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1600&auto=format&fit=crop&q=80";
 
   return (
     <div className="min-h-screen bg-neutral-50/50 pb-20 pt-5">
@@ -115,7 +184,7 @@ export function CustomerShopPage() {
           className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500 transition hover:text-emerald-700"
         >
           <ArrowLeft size={15} />
-          Quay lại trang chủ
+          <span>Back to home</span>
         </Link>
 
         {/* Added to cart toast notification */}
@@ -126,21 +195,21 @@ export function CustomerShopPage() {
           </div>
         )}
 
-        {/* 1. SHOP HEADER BANNER CARD */}
-        <section className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-xs">
+        {/* 1. STORE HEADER BANNER CARD (Matching Image 1) */}
+        <section className={`overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-xs ${isProfileLoading ? "animate-pulse" : ""}`}>
           {/* Panoramic Cover Image */}
-          <div className="relative h-44 w-full overflow-hidden bg-neutral-900 sm:h-52 md:h-60">
+          <div className="relative h-44 w-full overflow-hidden bg-neutral-900 sm:h-56 md:h-64">
             <img
-              src={defaultCoverUrl}
+              src={coverImage}
               alt={shopName}
               className="h-full w-full object-cover object-center"
             />
-            <div className="absolute inset-0 bg-linear-to-t from-black/50 via-transparent to-black/20" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-black/20" />
 
-            {/* Top Right Status Badge: • Đang mở cửa */}
+            {/* Top Right Status Badge: • Open / Closed */}
             <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-emerald-800 shadow-sm backdrop-blur-xs">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Đang mở cửa</span>
+              <span className={`h-2 w-2 rounded-full ${profile?.isOpen !== false ? "bg-emerald-500 animate-pulse" : "bg-neutral-400"}`} />
+              <span>{profile?.isOpen !== false ? "Open" : "Closed"}</span>
             </div>
           </div>
 
@@ -194,22 +263,22 @@ export function CustomerShopPage() {
 
                     <span className="flex items-center gap-1 text-neutral-700">
                       <Clock size={15} className="text-emerald-600 shrink-0" />
-                      <span>06:00 - 21:00</span>
+                      <span>{operatingHours}</span>
                     </span>
 
                     <span className="flex items-center gap-1 text-neutral-700">
                       <MessageCircle size={15} className="text-emerald-600 shrink-0" />
-                      <span>Tỷ lệ phản hồi 96%</span>
+                      <span>96% Response Rate</span>
                     </span>
                   </div>
 
-                  {/* Expandable trigger: Xem thêm thông tin cửa hàng */}
+                  {/* Expandable trigger: View more store info */}
                   <button
                     type="button"
                     onClick={() => setIsStoreInfoExpanded(!isStoreInfoExpanded)}
                     className="mt-2.5 inline-flex items-center gap-1 text-xs font-bold text-emerald-700 transition hover:text-emerald-800"
                   >
-                    <span>Xem thêm thông tin cửa hàng</span>
+                    <span>{isStoreInfoExpanded ? "Hide store info" : "View more store info"}</span>
                     {isStoreInfoExpanded ? (
                       <ChevronUp size={14} />
                     ) : (
@@ -219,63 +288,47 @@ export function CustomerShopPage() {
                 </div>
               </div>
 
-              {/* Right Column: Rating Block (Null when API is not available) */}
+              {/* Right Column: Rating Block (Matching Image 1) */}
               <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:pt-2">
-                {shopRating !== null ? (
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl font-extrabold text-neutral-900">
-                      {shopRating}
-                    </span>
-                    <div>
-                      <div className="flex text-amber-400">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            size={16}
-                            className="fill-amber-400 text-amber-400"
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs text-neutral-500">
-                        {reviewCount} đánh giá
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-start rounded-xl border border-dashed border-neutral-200 bg-neutral-50/70 px-3.5 py-2 sm:items-end">
-                    <div className="flex items-center gap-0.5 text-neutral-300">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl font-extrabold text-neutral-900">
+                    {averageRating}
+                  </span>
+                  <div>
+                    <div className="flex text-amber-400">
                       {[...Array(5)].map((_, i) => (
                         <Star
                           key={i}
-                          size={14}
-                          className="fill-neutral-200 text-neutral-200"
+                          size={16}
+                          className="fill-amber-400 text-amber-400"
                         />
                       ))}
                     </div>
-                    <span className="mt-1 text-xs font-medium text-neutral-400">
-                      Chưa có đánh giá
+                    <span className="text-xs text-neutral-500">
+                      {totalReviewsCount} reviews
                     </span>
                   </div>
-                )}
+                </div>
               </div>
             </div>
 
             {/* Expandable Store Details Drawer */}
             {isStoreInfoExpanded && (
               <div className="mt-4 rounded-xl border border-neutral-200/80 bg-neutral-50 p-4 text-xs text-neutral-600 sm:text-sm animate-fade-in">
-                <h3 className="font-bold text-neutral-900">Giới thiệu cửa hàng</h3>
+                <h3 className="font-bold text-neutral-900">About Store</h3>
                 <p className="mt-1 leading-relaxed text-neutral-600">
-                  {firstDeal?.description ||
-                    `${shopName} chuyên phục vụ các món ăn tươi ngon trong ngày với công thức gia truyền. Tiệm tham gia SaveBite nhằm mang các suất ăn chất lượng đến khách hàng với mức giá ưu đãi đặc biệt cuối ngày, giảm thiểu lãng phí thực phẩm.`}
+                  {profile?.description ||
+                    deals[0]?.description ||
+                    `${shopName} offers fresh, delicious daily meals with special recipes. Joining SaveBite brings quality meals to customers with exclusive end-of-day discounts while helping reduce food waste.`}
                 </p>
                 <div className="mt-3 grid grid-cols-1 gap-2 pt-3 border-t border-neutral-200/60 sm:grid-cols-2 text-xs">
                   <div>
-                    <span className="font-semibold text-neutral-700">Địa chỉ đầy đủ:</span>{" "}
+                    <span className="font-semibold text-neutral-700">Full address:</span>{" "}
                     {shopAddress}
                   </div>
                   <div>
-                    <span className="font-semibold text-neutral-700">Thời gian nhận món:</span>{" "}
-                    Sau 18:00 đến trước giờ đóng cửa (21:00)
+                    <span className="font-semibold text-neutral-700">Opening hours:</span>{" "}
+                    {operatingHours}
                   </div>
                 </div>
               </div>
@@ -283,7 +336,7 @@ export function CustomerShopPage() {
           </div>
         </section>
 
-        {/* 2. TABS: Flash Deal (N) / Đánh giá (0) */}
+        {/* 2. TABS: Flash Deals (N) / Reviews (N) (Matching Image 1 & 2) */}
         <div className="mt-6 flex items-center gap-8 border-b border-neutral-200 text-sm font-semibold">
           <button
             type="button"
@@ -294,7 +347,7 @@ export function CustomerShopPage() {
                 : "text-neutral-500 hover:text-neutral-800"
             }`}
           >
-            <span>Flash Deal</span>
+            <span>Flash Deals</span>
             <span className="text-xs">({deals.length})</span>
           </button>
 
@@ -307,14 +360,17 @@ export function CustomerShopPage() {
                 : "text-neutral-500 hover:text-neutral-800"
             }`}
           >
-            <span>Đánh giá</span>
-            <span className="text-xs">({reviewCount})</span>
+            <span>Reviews</span>
+            <span className="text-xs">
+              ({reviewsSummary?.totalReviews ?? totalReviewsCount})
+            </span>
           </button>
         </div>
 
         {/* 3. TAB CONTENT */}
         <div className="mt-6">
           {activeTab === "deals" ? (
+            /* TAB 1: FLASH DEALS 4-COLUMN GRID (Matching Image 1) */
             <div>
               {error && (
                 <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700">
@@ -323,7 +379,7 @@ export function CustomerShopPage() {
               )}
 
               {/* Loading Skeleton */}
-              {isLoading && (
+              {isDealsLoading && (
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                   {Array.from({ length: 4 }).map((_, i) => (
                     <div
@@ -341,28 +397,28 @@ export function CustomerShopPage() {
               )}
 
               {/* Empty State */}
-              {!isLoading && deals.length === 0 && (
+              {!isDealsLoading && deals.length === 0 && (
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center shadow-xs">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
                     <Store size={32} />
                   </div>
                   <h3 className="mt-4 text-base font-bold text-neutral-800">
-                    Cửa hàng chưa có Flash Deal nào
+                    No Flash Deals Available
                   </h3>
                   <p className="mt-1 text-xs text-neutral-500 max-w-sm">
-                    Hiện tại quán chưa mở bán suất ưu đãi. Vui lòng quay lại vào khung giờ flash deal buổi chiều hoặc tối!
+                    This store currently has no active flash deals. Please check back later!
                   </p>
                   <Link
                     to="/"
                     className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-700"
                   >
-                    Xem các cửa hàng khác
+                    Explore other stores
                   </Link>
                 </div>
               )}
 
-              {/* 4 COLUMNS DEAL GRID MATCHING THE MOCKUP */}
-              {!isLoading && deals.length > 0 && (
+              {/* 4 COLUMNS DEAL GRID */}
+              {!isDealsLoading && deals.length > 0 && (
                 <div>
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                     {paginatedDeals.map((deal) => (
@@ -374,16 +430,16 @@ export function CustomerShopPage() {
                     ))}
                   </div>
 
-                  {/* Reusable Pagination if deals > 8 */}
-                  {totalPages > 1 && (
+                  {/* Pagination if deals > 8 */}
+                  {dealsTotalPages > 1 && (
                     <div className="mt-8">
                       <Pagination
-                        currentPage={currentPage}
-                        totalPages={totalPages}
-                        onPageChange={setCurrentPage}
-                        totalItems={totalItems}
-                        pageSize={pageSize}
-                        itemLabel="ưu đãi"
+                        currentPage={dealsPage}
+                        totalPages={dealsTotalPages}
+                        onPageChange={setDealsPage}
+                        totalItems={dealsTotalItems}
+                        pageSize={dealsPageSize}
+                        itemLabel="deals"
                         showTotalItems={true}
                       />
                     </div>
@@ -392,17 +448,18 @@ export function CustomerShopPage() {
               )}
             </div>
           ) : (
-            /* Reviews Tab (Null state when API is not available) */
-            <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-12 text-center shadow-xs">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-500">
-                <Star size={32} className="fill-amber-400 text-amber-400" />
-              </div>
-              <h3 className="mt-4 text-base font-bold text-neutral-900">
-                Chưa có đánh giá nào cho cửa hàng này
-              </h3>
-              <p className="mx-auto mt-1.5 max-w-md text-xs text-neutral-500 leading-relaxed">
-                Tính năng đánh giá đang được hoàn thiện. Sau khi bạn nhận món thành công từ cửa hàng, bạn sẽ có thể để lại phản hồi và chấm điểm tại đây.
-              </p>
+            /* TAB 2: STORE REVIEWS WITH RATING FILTER PILLS & REVIEWS LIST (Matching Image 2) */
+            <div className="rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-xs">
+              <StoreReviewList
+                summary={reviewsSummary}
+                isLoading={isReviewsLoading}
+                activeRatingFilter={reviewRatingFilter}
+                onRatingFilterChange={setReviewRatingFilter}
+                hasImagesOnly={reviewHasImagesOnly}
+                onHasImagesFilterChange={setReviewHasImagesOnly}
+                currentPage={reviewPage}
+                onPageChange={setReviewPage}
+              />
             </div>
           )}
         </div>

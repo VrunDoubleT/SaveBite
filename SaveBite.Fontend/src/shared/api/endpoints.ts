@@ -18,4 +18,9 @@ export const API_ENDPOINTS = {
   CATEGORIES: {
     LIST: "/categories",
   },
+  SHOPS: {
+    NEARBY: "/shops/nearby",
+    PROFILE: (id: string) => `/shops/${id}`,
+    REVIEWS: (id: string) => `/shops/${id}/reviews`,
+  },
 } as const;

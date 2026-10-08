@@ -38,6 +38,10 @@ export const routes: RouteObject[] = [
             element: <CustomerShopPage />,
           },
           {
+            path: APP_PATHS.SHOP_PROFILE,
+            element: <CustomerShopPage />,
+          },
+          {
             path: APP_PATHS.FLASH_DEAL_DETAIL,
             element: <CustomerDealDetailPage />,
           },
