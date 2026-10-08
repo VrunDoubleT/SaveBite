@@ -2,6 +2,7 @@ export interface FlashDealVariant {
   id: string;
   variantId: string;
   sku?: string;
+  variantName?: string;
   originalPrice: number;
   dealPrice: number;
   discountPercent: number;
@@ -20,7 +21,10 @@ export interface FlashDeal {
   distanceInKm?: number;
   productId: string;
   productName: string;
+  categoryName?: string;
+  description?: string;
   productImageUrl?: string;
+  productImageUrls?: string[];
   saleStartTime: string;
   orderEndTime: string;
   shopClosingTime: string;

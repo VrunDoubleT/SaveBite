@@ -17,6 +17,8 @@ import { LoginPage } from "@/pages/auth/LoginPage";
 import { OtpVerificationPage } from "@/pages/auth/OtpVerificationPage";
 import { RegisterPage } from "@/pages/auth/RegisterPage";
 import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
+import { CustomerShopPage } from "@/pages/customer/CustomerShopPage";
+import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage";
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 
@@ -30,6 +32,14 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.HOME,
             element: <CustomerHomePage />,
+          },
+          {
+            path: APP_PATHS.SHOP_DETAIL,
+            element: <CustomerShopPage />,
+          },
+          {
+            path: APP_PATHS.FLASH_DEAL_DETAIL,
+            element: <CustomerDealDetailPage />,
           },
           {
             path: APP_PATHS.LOGIN,

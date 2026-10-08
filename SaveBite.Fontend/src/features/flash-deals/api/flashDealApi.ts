@@ -35,4 +35,15 @@ export const flashDealApi = {
     );
     return response.data.data;
   },
+
+  async getCategories(): Promise<string[]> {
+    try {
+      const response = await httpClient.get<ApiResponse<{ name: string }[]>>(
+        API_ENDPOINTS.CATEGORIES.LIST,
+      );
+      return (response.data.data ?? []).map((c) => c.name);
+    } catch {
+      return [];
+    }
+  },
 };
