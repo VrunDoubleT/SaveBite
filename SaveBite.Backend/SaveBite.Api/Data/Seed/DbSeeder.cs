@@ -15,7 +15,11 @@ public static class DbSeeder
         var hasExtendedSeed = await context.Set<AuditLog>()
             .AnyAsync(x => x.Action == "SEED_V2_COMPLETED");
 
-        if (hasBaseSeed && hasExtendedSeed) return;
+        if (hasBaseSeed && hasExtendedSeed)
+        {
+            await EnsureCategoriesSeededAsync(context);
+            return;
+        }
 
         var strategy = context.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
@@ -39,8 +43,52 @@ public static class DbSeeder
                 await SeedRemainingDataAsync(context, now);
             }
 
+            await EnsureCategoriesSeededAsync(context);
+
             await transaction.CommitAsync();
         });
+    }
+
+    private static async Task EnsureCategoriesSeededAsync(AppDbContext context)
+    {
+        var requiredCategories = new (string Name, string Description)[]
+        {
+            ("Do uong", "Cac loai nuoc uong, tra sua, ca phe va giai khat"),
+            ("Com", "Cac mon com trua, com tam, com van phong"),
+            ("An vat", "Cac mon an nhe, banh mi, snack va an vat"),
+            ("Hai san", "Cac mon oc, ca, tom, muc va hai san tuoi ngon"),
+            ("Do chien", "Ga ran, khoai tay chien va cac mon chien gion"),
+            ("Trang mieng", "Che, banh ngot, trai cay va mon trang mieng"),
+            ("Mon Au", "Pizza, mi y, burger va cac mon phong cach Au"),
+            ("Mon nuoc", "Bun, pho, mi, hu tieu va cac mon nuoc dam da"),
+            ("Do an che bien san", "Mon an trong ngay ban gia uu dai de giam lang phi.")
+        };
+
+        var existingNames = await context.Categories.Select(c => c.Name).ToListAsync();
+        var now = DateTime.UtcNow;
+        var toAdd = new List<Category>();
+
+        foreach (var (name, desc) in requiredCategories)
+        {
+            if (!existingNames.Contains(name))
+            {
+                toAdd.Add(new Category
+                {
+                    Id = Guid.NewGuid(),
+                    Name = name,
+                    Description = desc,
+                    IsActive = true,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+            }
+        }
+
+        if (toAdd.Count > 0)
+        {
+            await context.Categories.AddRangeAsync(toAdd);
+            await context.SaveChangesAsync();
+        }
     }
 
     private static async Task SeedUsersAsync(AppDbContext db, DateTime now, string hash)

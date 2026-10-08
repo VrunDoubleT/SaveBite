@@ -8,5 +8,4 @@ public interface IFlashDealService
     Task<List<FlashDealResponse>> GetByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default);
     Task<List<FlashDealResponse>> GetNearbyAsync(NearbyFlashDealsRequest request, CancellationToken cancellationToken = default);
     Task<FlashDealResponse> GetByIdAsync(Guid dealId, CancellationToken cancellationToken = default);
-    Task SeedSampleDealsAsync(CancellationToken cancellationToken = default);
 }

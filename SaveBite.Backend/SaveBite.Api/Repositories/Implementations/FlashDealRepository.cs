@@ -21,6 +21,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
             .AsNoTracking()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
+            .Include(d => d.Product).ThenInclude(p => p.Category)
             .Include(d => d.Variants).ThenInclude(v => v.Variant)
             .FirstOrDefaultAsync(d => d.Id == dealId, cancellationToken);
     }
@@ -31,17 +32,21 @@ public sealed class FlashDealRepository : IFlashDealRepository
             .AsNoTracking()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
+            .Include(d => d.Product).ThenInclude(p => p.Category)
             .Include(d => d.Variants).ThenInclude(v => v.Variant)
             .Where(d => d.ShopId == shopId && d.Status == FlashDealStatus.OnSale)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<Shop>> GetSampleShopsForSeedAsync(int count, CancellationToken cancellationToken = default)
+    public async Task<List<FlashDeal>> GetAllActiveDealsAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.Shops
+        return await _context.Set<FlashDeal>()
             .AsNoTracking()
-            .Where(s => s.Status == ShopStatus.Active)
-            .Take(count)
+            .Include(d => d.Shop)
+            .Include(d => d.Product).ThenInclude(p => p.Images)
+            .Include(d => d.Product).ThenInclude(p => p.Category)
+            .Include(d => d.Variants).ThenInclude(v => v.Variant)
+            .Where(d => d.Status == FlashDealStatus.OnSale)
             .ToListAsync(cancellationToken);
     }
 }

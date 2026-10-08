@@ -13,6 +13,9 @@ public class FlashDealResponse
     public Guid ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string? ProductImageUrl { get; set; }
+    public List<string> ProductImageUrls { get; set; } = new();
+    public string? CategoryName { get; set; }
+    public string? Description { get; set; }
     public DateTime SaleStartTime { get; set; }
     public DateTime OrderEndTime { get; set; }
     public DateTime ShopClosingTime { get; set; }
@@ -27,6 +30,7 @@ public class FlashDealVariantResponse
     public Guid Id { get; set; }
     public Guid VariantId { get; set; }
     public string? Sku { get; set; }
+    public string? VariantName { get; set; }
     public decimal OriginalPrice { get; set; }
     public decimal DealPrice { get; set; }
     public decimal DiscountPercent { get; set; }

@@ -64,10 +64,32 @@ public sealed class FlashDealsController : ControllerBase
     }
 
 
-    [HttpPost("seed-redis")]
-    public async Task<ActionResult<ApiResponse>> SeedRedis(CancellationToken cancellationToken)
+    [HttpGet("categories")]
+    public async Task<ActionResult<ApiResponse<List<CategoryResponse>>>> GetCategories(
+        [FromServices] SaveBite.Backend.Data.AppDbContext context,
+        CancellationToken cancellationToken)
     {
-        await _flashDealService.SeedSampleDealsAsync(cancellationToken);
-        return Ok(ApiResponse.Ok("Successfully downloaded Flash Deal data templates to Redis!"));
+        var categories = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+            .ToListAsync(
+                System.Linq.Queryable.Select(
+                    System.Linq.Queryable.OrderBy(
+                        System.Linq.Queryable.Where(
+                            Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AsNoTracking(context.Categories),
+                            c => c.IsActive
+                        ),
+                        c => c.Name
+                    ),
+                    c => new CategoryResponse(
+                        c.Id,
+                        c.Name,
+                        c.Description,
+                        c.ImageUrl,
+                        c.IsActive
+                    )
+                ),
+                cancellationToken
+            );
+
+        return Ok(ApiResponse<List<CategoryResponse>>.Ok(categories));
     }
 }

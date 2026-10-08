@@ -29,13 +29,39 @@ public sealed class FlashDealService : IFlashDealService
         NearbyFlashDealsRequest request,
         CancellationToken cancellationToken = default)
     {
-        var latitude = request.Latitude ?? 0;
-        var longitude = request.Longitude ?? 0;
+        var latitude = request.Latitude.GetValueOrDefault() != 0 ? request.Latitude!.Value : 10.7626;
+        var longitude = request.Longitude.GetValueOrDefault() != 0 ? request.Longitude!.Value : 106.6601;
 
-        return await _redisService.GetNearbyDealsAsync(
+        var deals = await _redisService.GetNearbyDealsAsync(
             latitude,
             longitude,
             request.RadiusInKm);
+
+        if (deals.Count == 0)
+        {
+            var dbDeals = await _dealRepository.GetAllActiveDealsAsync(cancellationToken);
+            if (dbDeals.Count > 0)
+            {
+                foreach (var deal in dbDeals)
+                {
+                    if (deal.Shop != null)
+                    {
+                        var response = MapToResponse(deal);
+                        await _redisService.SaveDealAsync(
+                            response,
+                            deal.Shop.Latitude,
+                            deal.Shop.Longitude);
+                    }
+                }
+
+                deals = await _redisService.GetNearbyDealsAsync(
+                    latitude,
+                    longitude,
+                    request.RadiusInKm);
+            }
+        }
+
+        return deals;
     }
 
     public async Task<List<FlashDealResponse>> GetByShopIdAsync(
@@ -49,7 +75,20 @@ public sealed class FlashDealService : IFlashDealService
         }
 
         var dbDeals = await _dealRepository.GetActiveDealsByShopIdAsync(shopId, cancellationToken);
-        var responses = dbDeals.Select(MapToResponse).ToList();
+        var responses = new List<FlashDealResponse>();
+
+        foreach (var deal in dbDeals)
+        {
+            var response = MapToResponse(deal);
+            responses.Add(response);
+            if (deal.Shop != null)
+            {
+                await _redisService.SaveDealAsync(
+                    response,
+                    deal.Shop.Latitude,
+                    deal.Shop.Longitude);
+            }
+        }
 
         return responses;
     }
@@ -83,71 +122,6 @@ public sealed class FlashDealService : IFlashDealService
         return response;
     }
 
-    public async Task SeedSampleDealsAsync(CancellationToken cancellationToken = default)
-    {
-        var shops = await _dealRepository.GetSampleShopsForSeedAsync(10, cancellationToken);
-        if (shops.Count == 0)
-        {
-            _logger.LogWarning("No shops found in the database to seed flash deal data.");
-            return;
-        }
-
-        foreach (var shop in shops)
-        {
-            var dbDeals = await _dealRepository.GetActiveDealsByShopIdAsync(shop.Id, cancellationToken);
-
-            if (dbDeals.Count > 0)
-            {
-                foreach (var deal in dbDeals)
-                {
-                    var response = MapToResponse(deal);
-                    await _redisService.SaveDealAsync(response, shop.Latitude, shop.Longitude);
-                }
-            }
-            else
-            {
-                // If shop has no active deals in DB, create a sample deal and save to Redis
-                var sampleDeal = new FlashDealResponse
-                {
-                    Id = Guid.NewGuid(),
-                    ShopId = shop.Id,
-                    ShopName = shop.Name,
-                    ShopAddress = shop.AddressLine,
-                    ShopLogoUrl = shop.LogoUrl,
-                    ProductId = Guid.NewGuid(),
-                    ProductName = $"Promotional Item at {shop.Name}",
-                    ProductImageUrl = shop.CoverImageUrl,
-                    SaleStartTime = DateTime.UtcNow,
-                    OrderEndTime = DateTime.UtcNow.AddHours(3),
-                    ShopClosingTime = DateTime.UtcNow.AddHours(5),
-                    Status = FlashDealStatus.OnSale,
-                    MinDealPrice = 25000,
-                    MaxOriginalPrice = 50000,
-                    MaxDiscountPercent = 50,
-                    Variants = new List<FlashDealVariantResponse>
-                    {
-                        new()
-                        {
-                            Id = Guid.NewGuid(),
-                            VariantId = Guid.NewGuid(),
-                            Sku = "SAMPLE-DEAL-01",
-                            OriginalPrice = 50000,
-                            DealPrice = 25000,
-                            DiscountPercent = 50,
-                            TotalQuantity = 20,
-                            SoldQuantity = 0,
-                            Status = FlashDealVariantStatus.Active
-                        }
-                    }
-                };
-
-                await _redisService.SaveDealAsync(sampleDeal, shop.Latitude, shop.Longitude);
-            }
-        }
-
-        _logger.LogInformation("Successfully synced sample flash deals to Redis.");
-    }
-
     private static FlashDealResponse MapToResponse(FlashDeal deal)
     {
         var variants = deal.Variants.Select(v => new FlashDealVariantResponse
@@ -155,6 +129,7 @@ public sealed class FlashDealService : IFlashDealService
             Id = v.Id,
             VariantId = v.VariantId,
             Sku = v.Variant?.Sku,
+            VariantName = v.Variant?.Sku,
             OriginalPrice = v.OriginalPrice,
             DealPrice = v.DealPrice,
             DiscountPercent = v.DiscountPercent,
@@ -167,6 +142,17 @@ public sealed class FlashDealService : IFlashDealService
         var maxOriginal = variants.Count > 0 ? variants.Max(v => v.OriginalPrice) : 0;
         var maxDiscount = variants.Count > 0 ? variants.Max(v => v.DiscountPercent) : 0;
 
+        var images = deal.Product?.Images?
+            .Select(i => i.ImageUrl)
+            .Where(u => !string.IsNullOrEmpty(u))
+            .ToList() ?? new List<string>();
+
+        var primaryImage = deal.Product?.Images?.FirstOrDefault()?.ImageUrl;
+        if (images.Count == 0 && !string.IsNullOrEmpty(primaryImage))
+        {
+            images.Add(primaryImage);
+        }
+
         return new FlashDealResponse
         {
             Id = deal.Id,
@@ -176,7 +162,10 @@ public sealed class FlashDealService : IFlashDealService
             ShopLogoUrl = deal.Shop?.LogoUrl,
             ProductId = deal.ProductId,
             ProductName = deal.Product?.Name ?? string.Empty,
-            ProductImageUrl = deal.Product?.Images?.FirstOrDefault()?.ImageUrl,
+            Description = deal.Product?.Description,
+            CategoryName = deal.Product?.Category?.Name,
+            ProductImageUrl = primaryImage,
+            ProductImageUrls = images,
             SaleStartTime = deal.SaleStartTime,
             OrderEndTime = deal.OrderEndTime,
             ShopClosingTime = deal.ShopClosingTime,
