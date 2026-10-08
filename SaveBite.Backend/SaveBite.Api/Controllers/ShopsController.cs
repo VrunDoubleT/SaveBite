@@ -19,9 +19,7 @@ public sealed class ShopsController : ControllerBase
         _shopViewService = shopViewService;
     }
 
-    /// <summary>
-    /// 1. View nearby shops list
-    /// </summary>
+
     [HttpGet("nearby")]
     public async Task<ActionResult<ApiResponse<List<NearbyShopResponse>>>> GetNearby(
         [FromQuery] NearbyShopsRequest request,
@@ -35,9 +33,7 @@ public sealed class ShopsController : ControllerBase
         return Ok(ApiResponse<List<NearbyShopResponse>>.Ok(shops, message));
     }
 
-    /// <summary>
-    /// 2. View store profile
-    /// </summary>
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> GetProfile(
         Guid id,
@@ -52,9 +48,7 @@ public sealed class ShopsController : ControllerBase
         return Ok(ApiResponse<ShopProfileResponse>.Ok(profile));
     }
 
-    /// <summary>
-    /// 3. View store reviews summary and paged list
-    /// </summary>
+
     [HttpGet("{id:guid}/reviews")]
     public async Task<ActionResult<ApiResponse<StoreReviewsSummaryResponse>>> GetReviews(
         Guid id,
