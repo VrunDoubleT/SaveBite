@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, LoaderCircle, MapPin, X } from "lucide-react";
 
 import { accountApi } from "@/features/account/profile/api/profileApi";
@@ -8,6 +9,12 @@ import type {
   UpdateAddressInput,
   UserAddress,
 } from "@/features/account/profile/types/profile.types";
+import {
+  createAddressSchema,
+  updateAddressSchema,
+  type CreateAddressFormValues,
+  type UpdateAddressFormValues,
+} from "@/features/account/profile/schemas/address.schema";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 
 interface AddressFormProps {
@@ -19,17 +26,6 @@ interface AddressFormProps {
   isFirstAddress?: boolean;
   onSaved: (address: UserAddress) => void;
   onCancel: () => void;
-}
-
-interface AddressFormValues {
-  label: string;
-  addressLine: string;
-  ward: string;
-  district: string;
-  city: string;
-  latitude: string;
-  longitude: string;
-  isDefault: boolean;
 }
 
 interface ReverseGeocodeResponse {
@@ -76,6 +72,8 @@ function buttonClass(variant: keyof typeof buttonVariants) {
   return `${buttonBaseClass} ${buttonVariants[variant]}`;
 }
 
+type AddressFormValues = CreateAddressFormValues | UpdateAddressFormValues;
+
 function getEmptyValues(isFirstAddress: boolean): AddressFormValues {
   return {
     label: "",
@@ -99,17 +97,6 @@ function toFormValues(address: UserAddress): AddressFormValues {
     latitude: String(address.latitude),
     longitude: String(address.longitude),
     isDefault: address.isDefault,
-  };
-}
-
-function validateCoordinate(label: string, min: number, max: number) {
-  return (value: string) => {
-    const parsed = Number(value);
-
-    const isValid =
-      value.trim() !== "" && Number.isFinite(parsed) && parsed >= min && parsed <= max;
-
-    return isValid || `${label} must be a number between ${min} and ${max}.`;
   };
 }
 
@@ -183,6 +170,7 @@ export function AddressForm({
     setValue,
     formState: { errors },
   } = useForm<AddressFormValues>({
+    resolver: zodResolver(isEditing ? updateAddressSchema : createAddressSchema),
     mode: "onTouched",
     defaultValues: address ? toFormValues(address) : getEmptyValues(isFirstAddress),
   });
@@ -218,7 +206,8 @@ export function AddressForm({
           fillField("district", resolved.district);
           fillField("city", resolved.city);
         } catch {
-          // Coordinates are already filled in; the user can complete the rest manually.
+          // Coordinates are already filled in;
+          // the user can complete the rest manually.
         } finally {
           setIsLocating(false);
         }
@@ -314,31 +303,50 @@ export function AddressForm({
         {/* ADDRESS DETAILS */}
         <FormSection title="Address details">
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="Label">
-              <input {...register("label")} className={inputClass} placeholder="Home, Work..." />
+            <FormField label="Label" error={errors.label?.message}>
+              <input
+                {...register("label")}
+                className={inputClass}
+                placeholder="Home, Work..."
+                aria-invalid={Boolean(errors.label)}
+              />
             </FormField>
 
             <FormField label="Address line" required error={errors.addressLine?.message}>
               <input
-                {...register("addressLine", {
-                  validate: (value) => value.trim().length > 0 || "Address line is required.",
-                })}
+                {...register("addressLine")}
                 className={inputClass}
                 placeholder="House number, street name..."
                 aria-invalid={Boolean(errors.addressLine)}
               />
             </FormField>
 
-            <FormField label="Ward">
-              <input {...register("ward")} className={inputClass} />
+            <FormField label="Ward" error={errors.ward?.message}>
+              <input
+                {...register("ward")}
+                className={inputClass}
+                aria-invalid={Boolean(errors.ward)}
+              />
             </FormField>
 
-            <FormField label="District">
-              <input {...register("district")} className={inputClass} />
+            <FormField label="District" error={errors.district?.message}>
+              <input
+                {...register("district")}
+                className={inputClass}
+                aria-invalid={Boolean(errors.district)}
+              />
             </FormField>
 
-            <FormField label="City / Province" className="md:col-span-2">
-              <input {...register("city")} className={inputClass} />
+            <FormField
+              label="City / Province"
+              className="md:col-span-2"
+              error={errors.city?.message}
+            >
+              <input
+                {...register("city")}
+                className={inputClass}
+                aria-invalid={Boolean(errors.city)}
+              />
             </FormField>
           </div>
         </FormSection>
@@ -352,9 +360,7 @@ export function AddressForm({
           <div className="grid gap-4 min-[480px]:grid-cols-2">
             <FormField label="Latitude" required error={errors.latitude?.message}>
               <input
-                {...register("latitude", {
-                  validate: validateCoordinate("Latitude", -90, 90),
-                })}
+                {...register("latitude")}
                 type="number"
                 step="any"
                 inputMode="decimal"
@@ -366,9 +372,7 @@ export function AddressForm({
 
             <FormField label="Longitude" required error={errors.longitude?.message}>
               <input
-                {...register("longitude", {
-                  validate: validateCoordinate("Longitude", -180, 180),
-                })}
+                {...register("longitude")}
                 type="number"
                 step="any"
                 inputMode="decimal"
@@ -397,6 +401,7 @@ export function AddressForm({
             <span className="block text-sm font-medium text-text-primary">
               Set as default address
             </span>
+
             <span className="mt-0.5 block text-xs text-text-secondary">{defaultHint}</span>
           </span>
         </label>
@@ -473,7 +478,9 @@ function FormField({ label, required, error, className = "", children }: FormFie
     <label className={`block text-sm font-medium text-text-primary ${className}`}>
       {label}
       {required && <span className="ml-1 text-danger">*</span>}
+
       {children}
+
       {error && (
         <span role="alert" className="mt-1 block text-xs font-normal text-danger">
           {error}

@@ -1,7 +1,12 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { AuthUser } from "@/features/auth/types/auth.types";
 import type { UpdateUserProfileInput } from "@/features/account/profile/types/profile.types";
+import {
+  updateUserProfileSchema,
+  type UpdateUserProfileFormValues,
+} from "@/features/account/profile/schemas/profile.schema";
 import { getApiErrorMessage, getApiValidationErrors } from "@/shared/api";
 import { Check, LoaderCircle, X } from "lucide-react";
 
@@ -11,11 +16,6 @@ interface EditProfileFormProps {
   selectedAvatarFile: File | null;
   onSubmit: (input: UpdateUserProfileInput, avatarFile: File | null) => Promise<void>;
   onCancel: () => void;
-}
-
-interface EditProfileFormValues {
-  fullName: string;
-  phone: string;
 }
 
 const inputClass =
@@ -34,7 +34,8 @@ export function EditProfileForm({
     reset,
     setError,
     formState: { errors },
-  } = useForm<EditProfileFormValues>({
+  } = useForm<UpdateUserProfileFormValues>({
+    resolver: zodResolver(updateUserProfileSchema),
     mode: "onTouched",
     defaultValues: {
       fullName: user.fullName,
@@ -84,10 +85,7 @@ export function EditProfileForm({
       <label className="block text-sm font-semibold text-text-primary">
         Full name
         <input
-          {...register("fullName", {
-            required: "Full name is required.",
-            validate: (value) => value.trim().length > 0 || "Full name is required.",
-          })}
+          {...register("fullName")}
           autoComplete="name"
           aria-invalid={Boolean(errors.fullName)}
           className={inputClass}
@@ -101,25 +99,7 @@ export function EditProfileForm({
       <label className="block text-sm font-semibold text-text-primary">
         Phone number
         <input
-          {...register("phone", {
-            validate: (value) => {
-              const phone = value.trim();
-
-              if (!phone) {
-                return true;
-              }
-
-              if (!/^\d+$/.test(phone)) {
-                return "Phone number is invalid.";
-              }
-
-              if (phone.length !== 9 && phone.length !== 10) {
-                return "Phone number must contain 9 or 10 digits.";
-              }
-
-              return true;
-            },
-          })}
+          {...register("phone")}
           type="tel"
           inputMode="numeric"
           autoComplete="tel"
@@ -159,6 +139,7 @@ export function EditProfileForm({
           ) : (
             <Check className="size-4" aria-hidden="true" />
           )}
+
           {isSubmitting ? (selectedAvatarFile ? "Saving changes..." : "Saving...") : "Save changes"}
         </button>
       </div>
