@@ -11,8 +11,7 @@ public sealed class UserAddressService : IUserAddressService
 {
     private readonly IUserAddressRepository _userAddressRepository;
 
-    public UserAddressService(
-        IUserAddressRepository userAddressRepository)
+    public UserAddressService(IUserAddressRepository userAddressRepository)
     {
         _userAddressRepository = userAddressRepository;
     }
@@ -28,20 +27,10 @@ public sealed class UserAddressService : IUserAddressService
     public async Task<UserAddressResponse> CreateAddressAsync(Guid userId, UserAddressRequests.CreateAddressRequest request, CancellationToken cancellationToken = default)
     {
         var label = string.IsNullOrWhiteSpace(request.Label) ? null : request.Label.Trim();
-        
         var addressLine = request.AddressLine?.Trim();
-        if (string.IsNullOrWhiteSpace(addressLine))
-            throw AppException.BadRequest("Address line is required.");
-
         var ward = string.IsNullOrWhiteSpace(request.Ward) ? null : request.Ward.Trim();
         var district = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim();
         var city = string.IsNullOrWhiteSpace(request.City) ? null : request.City.Trim();
-
-        if (request.Latitude < -90 || request.Latitude > 90)
-            throw AppException.BadRequest("Latitude must be between -90 and 90.");
-
-        if (request.Longitude < -180 || request.Longitude > 180)
-            throw AppException.BadRequest("Longitude must be between -180 and 180.");
 
         var now = DateTime.UtcNow;
         var address = new UserAddress
@@ -92,20 +81,10 @@ public sealed class UserAddressService : IUserAddressService
             throw AppException.NotFound("Address not found.");
         
         var label = string.IsNullOrWhiteSpace(request.Label) ? null : request.Label.Trim();
-        
         var addressLine = request.AddressLine?.Trim();
-        if (string.IsNullOrWhiteSpace(addressLine))
-            throw AppException.BadRequest("Address line is required.");
-
         var ward = string.IsNullOrWhiteSpace(request.Ward) ? null : request.Ward.Trim();
         var district = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim();
         var city = string.IsNullOrWhiteSpace(request.City) ? null : request.City.Trim();
-
-        if (request.Latitude < -90 || request.Latitude > 90)
-            throw AppException.BadRequest("Latitude must be between -90 and 90.");
-
-        if (request.Longitude < -180 || request.Longitude > 180)
-            throw AppException.BadRequest("Longitude must be between -180 and 180.");
 
         address.Label = label;
         address.AddressLine = addressLine;

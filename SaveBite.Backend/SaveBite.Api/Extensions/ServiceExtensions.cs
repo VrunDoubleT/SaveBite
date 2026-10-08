@@ -14,7 +14,6 @@ public static class ServiceExtensions
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IUserAddressService, UserAddressService>();
         services.AddScoped<IUserProfileService, UserProfileService>();
-        services.AddScoped<IShopApplicationService, ShopApplicationService>();
 
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService,

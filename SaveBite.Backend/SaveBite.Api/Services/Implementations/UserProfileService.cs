@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Requests;
@@ -24,18 +23,7 @@ public sealed class UserProfileService : IUserProfileService
         var user = await GetUserAsync(userId, cancellationToken);
         
         var fullName = request.FullName.Trim();
-        if (string.IsNullOrWhiteSpace(fullName))
-            throw AppException.BadRequest("Full name is required.");
-        
         var phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
-        if (phone != null)
-        {
-            if (!Regex.IsMatch(phone, @"^\d+$"))
-                throw AppException.BadRequest("Phone number is invalid.");
-
-            if (phone.Length != 9 && phone.Length != 10)
-                throw AppException.BadRequest("Phone number must contain 9 or 10 digits.");
-        }
 
         user.FullName = fullName;
         user.Phone = phone;
@@ -101,6 +89,7 @@ public sealed class UserProfileService : IUserProfileService
         return Path.ChangeExtension(publicId, null);
     }
 
+    // MAP ENTITY TO RESPONSE
     private static CurrentUserResponse ToCurrentUserResponse(User user)
         => new(
             user.Id,
