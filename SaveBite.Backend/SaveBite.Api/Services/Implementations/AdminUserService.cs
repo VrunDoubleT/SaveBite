@@ -50,15 +50,23 @@ public sealed class AdminUserService : IAdminUserService
         var user = await _repository.GetUserByIdAsync(userId, cancellationToken);
         if (user == null) throw AppException.NotFound("User not found.");
 
-        // Histort Log AuditLog
-        var logs = await _repository.GetUserAuditLogsAsync(userId, cancellationToken);
-
-        var logResponses = logs.Select(l => new UserLogResponse(
+        // history AuditLog
+        var auditLogs = await _repository.GetUserAuditLogsAsync(userId, cancellationToken);
+        var auditLogResponses = auditLogs.Select(l => new UserLogResponse(
             l.Action,
             l.Reason ?? "",
             l.NewValuesJson ?? "",
             l.CreatedAt,
             l.ActorUserId
+        )).ToList();
+
+        // history RoleLog
+        var roleLogs = await _repository.GetUserRoleLogsAsync(userId, cancellationToken);
+        var roleLogResponses = roleLogs.Select(l => new UserRoleLogResponse(
+            l.PreviousRole.ToString(),
+            l.NewRole.ToString(),
+            l.Reason ?? "",
+            l.CreatedAt
         )).ToList();
 
         return new UserDetailsResponse(
@@ -73,7 +81,8 @@ public sealed class AdminUserService : IAdminUserService
             user.ShopStatus.ToString(),
             user.CreatedAt,
             user.UpdatedAt,
-            logResponses
+            auditLogResponses,
+            roleLogResponses
         );
     }
 
@@ -84,7 +93,6 @@ public sealed class AdminUserService : IAdminUserService
 
         if (request.IsCustomerProfile)
         {
-            // Customer Status
             var newCustomerStatus = request.IsSuspended ? CustomerStatus.Suspended : CustomerStatus.Active;
             if (user.CustomerStatus == newCustomerStatus)
                 throw AppException.Conflict($"Customer profile is already {newCustomerStatus.ToString().ToLower()}.");
@@ -99,7 +107,6 @@ public sealed class AdminUserService : IAdminUserService
         }
         else
         {
-            // Account Status
             var newAccountStatus = request.IsSuspended ? UserStatus.Suspended : UserStatus.Active;
             if (user.Status == newAccountStatus)
                 throw AppException.Conflict($"User account is already {newAccountStatus.ToString().ToLower()}.");

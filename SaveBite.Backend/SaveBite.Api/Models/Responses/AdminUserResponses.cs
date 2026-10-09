@@ -7,6 +7,14 @@ public record UserLogResponse(
     DateTime CreatedAt,
     Guid? AdminId          // ID
 );
+
+public record UserRoleLogResponse(
+    string OldRole,
+    string NewRole,
+    string Reason,
+    DateTime CreatedAt
+);
+
 public record UserSummaryResponse(
     Guid Id,
     string Email,
@@ -29,5 +37,6 @@ public record UserDetailsResponse(
     string ShopStatus,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
-    List<UserLogResponse> Logs
+    List<UserLogResponse> Logs,
+    List<UserRoleLogResponse> RoleLogs
 );

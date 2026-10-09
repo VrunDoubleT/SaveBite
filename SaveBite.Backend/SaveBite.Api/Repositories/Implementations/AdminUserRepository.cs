@@ -72,4 +72,14 @@ public sealed class AdminUserRepository : IAdminUserRepository
             .OrderByDescending(log => log.CreatedAt)
             .ToListAsync(cancellationToken);
     }
+
+    // role logs
+    public Task<List<UserRoleChangeLog>> GetUserRoleLogsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return _dbContext.Set<UserRoleChangeLog>()
+            .AsNoTracking()
+            .Where(log => log.UserId == userId)
+            .OrderByDescending(log => log.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
 }
