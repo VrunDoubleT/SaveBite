@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   CreditCard,
   ExternalLink,
@@ -19,6 +19,7 @@ import {
 
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { shopApplicationApi } from "../api/shopApplicationApi";
+import { validateShopApplication } from "../schemas/shopApplication.schema";
 
 import type {
   ShopApplication,
@@ -32,6 +33,8 @@ interface Props {
   onSaved: (application: ShopApplication) => void;
   onCancel: () => void;
 }
+
+type FormFieldErrors = Partial<Record<keyof FormValues | "documents", string>>;
 
 const EMPTY_FORM: FormValues = {
   name: "",
@@ -131,88 +134,6 @@ function usePreviewUrl(file?: File) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Validation helpers                                                        */
-/* -------------------------------------------------------------------------- */
-
-function validateRequired(label: string) {
-  return (value: string) => {
-    return value.trim().length > 0 || `${label} is required.`;
-  };
-}
-
-function validateCoordinate(label: string, min: number, max: number) {
-  return (value: string) => {
-    const trimmed = value.trim();
-
-    if (!trimmed) {
-      return `${label} is required.`;
-    }
-
-    const parsed = Number(trimmed);
-
-    if (!Number.isFinite(parsed)) {
-      return `${label} must be a valid number.`;
-    }
-
-    if (parsed < min || parsed > max) {
-      return `${label} must be between ${min} and ${max}.`;
-    }
-
-    return true;
-  };
-}
-
-function validateAccountNumber(value: string) {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return "Account number is required.";
-  }
-
-  if (!/^\d+$/.test(trimmed)) {
-    return "Account number must contain numbers only.";
-  }
-
-  return true;
-}
-
-function validateOpeningTime(value: string) {
-  if (!value.trim()) {
-    return "Opening time is required.";
-  }
-
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
-    return "Opening time must be a valid time.";
-  }
-
-  return true;
-}
-
-function validateClosingTime(value: string, openingTime: string) {
-  if (!value.trim()) {
-    return "Closing time is required.";
-  }
-
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
-    return "Closing time must be a valid time.";
-  }
-
-  if (openingTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(openingTime) && value <= openingTime) {
-    return "Closing time must be later than opening time.";
-  }
-
-  return true;
-}
-
-function validatePayosField(label: string, value: string, hasExistingPayos: boolean) {
-  if (hasExistingPayos && !value.trim()) {
-    return true;
-  }
-
-  return value.trim().length > 0 || `${label} is required.`;
-}
-
-/* -------------------------------------------------------------------------- */
 /*  Main form                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -221,12 +142,12 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
 
   const [logo, setLogo] = useState<File>();
   const [coverImage, setCoverImage] = useState<File>();
-
   const [documents, setDocuments] = useState<ShopDocumentUpload[]>([]);
 
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FormFieldErrors>({});
 
   const errorRef = useRef<HTMLDivElement>(null);
 
@@ -239,6 +160,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
     setCoverImage(undefined);
     setDocuments([]);
     setError("");
+    setFieldErrors({});
   }, [application]);
 
   useEffect(() => {
@@ -255,7 +177,32 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
       ...current,
       [field]: value,
     }));
+
+    setFieldErrors((current) => ({
+      ...current,
+      [field]: undefined,
+    }));
+
+    setError("");
   }
+
+  /**
+   * Validate only the field that triggered onBlur.
+   * The shared validator can still validate the whole form internally,
+   * but only the current field's error is displayed.
+   */
+  const validateField = useCallback(
+    (field: keyof FormValues) => {
+      const validation = validateShopApplication(form, hasPayos, documents);
+      const message = validation.errors[field];
+
+      setFieldErrors((current) => ({
+        ...current,
+        [field]: message,
+      }));
+    },
+    [form, hasPayos, documents],
+  );
 
   function useCurrentLocation() {
     if (!navigator.geolocation) {
@@ -297,113 +244,38 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
         },
       ];
     });
+
+    setFieldErrors((current) => ({
+      ...current,
+      documents: undefined,
+    }));
+
+    setError("");
   }
 
   function removeDocument(type: ShopDocumentType) {
     setDocuments((current) => current.filter((document) => document.type !== type));
+    setFieldErrors((current) => ({
+      ...current,
+      documents: undefined,
+    }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
-    /*
-     * Client-side validation.
-     *
-     * The individual fields also have visual validation hints below,
-     * but this final validation prevents submission when the form is
-     * invalid even if the browser bypasses native required validation.
-     */
+    const validation = validateShopApplication(form, hasPayos, documents);
 
-    if (!form.name.trim()) {
-      setError("Shop name is required.");
+    setFieldErrors(validation.errors);
+
+    if (!validation.isValid) {
+      const firstError = Object.values(validation.errors).find((message): message is string =>
+        Boolean(message),
+      );
+
+      setError(firstError ?? "Please check your information and try again.");
       return;
-    }
-
-    if (!form.businessLicenseNo.trim()) {
-      setError("Business license number is required.");
-      return;
-    }
-
-    if (!form.addressLine.trim()) {
-      setError("Address is required.");
-      return;
-    }
-
-    if (!form.latitude.trim()) {
-      setError("Latitude is required.");
-      return;
-    }
-
-    const latitude = Number(form.latitude);
-
-    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-      setError("Latitude must be between -90 and 90.");
-      return;
-    }
-
-    if (!form.longitude.trim()) {
-      setError("Longitude is required.");
-      return;
-    }
-
-    const longitude = Number(form.longitude);
-
-    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-      setError("Longitude must be between -180 and 180.");
-      return;
-    }
-
-    if (!form.openingTime.trim()) {
-      setError("Opening time is required.");
-      return;
-    }
-
-    if (!form.closingTime.trim()) {
-      setError("Closing time is required.");
-      return;
-    }
-
-    if (form.closingTime <= form.openingTime) {
-      setError("Closing time must be later than opening time.");
-      return;
-    }
-
-    if (!form.bankName.trim()) {
-      setError("Bank is required.");
-      return;
-    }
-
-    if (!form.bankAccountNumber.trim()) {
-      setError("Account number is required.");
-      return;
-    }
-
-    if (!/^\d+$/.test(form.bankAccountNumber.trim())) {
-      setError("Account number must contain numbers only.");
-      return;
-    }
-
-    if (!form.bankAccountHolder.trim()) {
-      setError("Account holder is required.");
-      return;
-    }
-
-    if (!hasPayos) {
-      if (!form.payosClientId.trim()) {
-        setError("PayOS Client ID is required.");
-        return;
-      }
-
-      if (!form.payosApiKey.trim()) {
-        setError("PayOS API key is required.");
-        return;
-      }
-
-      if (!form.payosChecksumKey.trim()) {
-        setError("PayOS Checksum key is required.");
-        return;
-      }
     }
 
     setSaving(true);
@@ -482,18 +354,20 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                 label="Shop name"
                 value={form.name}
                 onChange={(value) => setField("name", value)}
+                onBlur={() => validateField("name")}
                 placeholder="e.g. Sunrise Bakery"
                 required
-                validate={validateRequired("Shop name")}
+                error={fieldErrors.name}
               />
 
               <Field
                 label="Business license number"
                 value={form.businessLicenseNo}
                 onChange={(value) => setField("businessLicenseNo", value)}
+                onBlur={() => validateField("businessLicenseNo")}
                 placeholder="e.g. 0123456789"
                 required
-                validate={validateRequired("Business license number")}
+                error={fieldErrors.businessLicenseNo}
               />
 
               <label className={`${labelClass} md:col-span-2`}>
@@ -502,12 +376,19 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                   className={`${inputClass} min-h-28 resize-y`}
                   value={form.description}
                   onChange={(event) => setField("description", event.target.value)}
+                  onBlur={() => validateField("description")}
                   placeholder="Tell customers what your shop sells."
                   maxLength={2000}
+                  aria-invalid={Boolean(fieldErrors.description)}
                 />
                 <span className="mt-1 block text-right text-xs font-normal text-text-muted">
                   {form.description.length}/2000
                 </span>
+                {fieldErrors.description && (
+                  <span role="alert" className="mt-1 block text-xs font-normal text-danger">
+                    {fieldErrors.description}
+                  </span>
+                )}
               </label>
             </div>
           </Section>
@@ -539,24 +420,35 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                 label="Address"
                 value={form.addressLine}
                 onChange={(value) => setField("addressLine", value)}
+                onBlur={() => validateField("addressLine")}
                 placeholder="House number and street"
                 required
-                validate={validateRequired("Address")}
+                error={fieldErrors.addressLine}
                 className="md:col-span-2"
               />
 
-              <Field label="Ward" value={form.ward} onChange={(value) => setField("ward", value)} />
+              <Field
+                label="Ward"
+                value={form.ward}
+                onChange={(value) => setField("ward", value)}
+                onBlur={() => validateField("ward")}
+                error={fieldErrors.ward}
+              />
 
               <Field
                 label="District"
                 value={form.district}
                 onChange={(value) => setField("district", value)}
+                onBlur={() => validateField("district")}
+                error={fieldErrors.district}
               />
 
               <Field
                 label="City"
                 value={form.city}
                 onChange={(value) => setField("city", value)}
+                onBlur={() => validateField("city")}
+                error={fieldErrors.city}
                 className="md:col-span-2"
               />
             </div>
@@ -593,9 +485,10 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                   step="any"
                   value={form.latitude}
                   onChange={(value) => setField("latitude", value)}
+                  onBlur={() => validateField("latitude")}
                   placeholder="e.g. 9.2941"
                   required
-                  validate={validateCoordinate("Latitude", -90, 90)}
+                  error={fieldErrors.latitude}
                 />
 
                 <Field
@@ -604,9 +497,10 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                   step="any"
                   value={form.longitude}
                   onChange={(value) => setField("longitude", value)}
+                  onBlur={() => validateField("longitude")}
                   placeholder="e.g. 105.7216"
                   required
-                  validate={validateCoordinate("Longitude", -180, 180)}
+                  error={fieldErrors.longitude}
                 />
               </div>
             </div>
@@ -624,8 +518,9 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                 type="time"
                 value={form.openingTime}
                 onChange={(value) => setField("openingTime", value)}
+                onBlur={() => validateField("openingTime")}
                 required
-                validate={validateOpeningTime}
+                error={fieldErrors.openingTime}
               />
 
               <Field
@@ -633,8 +528,9 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                 type="time"
                 value={form.closingTime}
                 onChange={(value) => setField("closingTime", value)}
+                onBlur={() => validateField("closingTime")}
                 required
-                validate={(value) => validateClosingTime(value, form.openingTime)}
+                error={fieldErrors.closingTime}
               />
             </div>
           </Section>
@@ -673,6 +569,12 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
               </div>
             )}
 
+            {fieldErrors.documents && (
+              <p role="alert" className="mb-3 text-xs text-danger">
+                {fieldErrors.documents}
+              </p>
+            )}
+
             <DocumentUploader onAdd={addDocument} />
           </Section>
 
@@ -687,26 +589,29 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                 label="Bank"
                 value={form.bankName}
                 onChange={(value) => setField("bankName", value)}
+                onBlur={() => validateField("bankName")}
                 required
-                validate={validateRequired("Bank")}
+                error={fieldErrors.bankName}
               />
 
               <Field
                 label="Account number"
                 value={form.bankAccountNumber}
                 onChange={(value) => setField("bankAccountNumber", value)}
+                onBlur={() => validateField("bankAccountNumber")}
                 inputMode="numeric"
                 required
-                validate={validateAccountNumber}
+                error={fieldErrors.bankAccountNumber}
               />
 
               <Field
                 label="Account holder"
                 value={form.bankAccountHolder}
                 onChange={(value) => setField("bankAccountHolder", value)}
+                onBlur={() => validateField("bankAccountHolder")}
                 className="md:col-span-2"
                 required
-                validate={validateRequired("Account holder")}
+                error={fieldErrors.bankAccountHolder}
               />
             </div>
           </Section>
@@ -733,9 +638,10 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                 label="Client ID"
                 value={form.payosClientId}
                 onChange={(value) => setField("payosClientId", value)}
+                onBlur={() => validateField("payosClientId")}
                 autoComplete="off"
                 required={!hasPayos}
-                validate={(value) => validatePayosField("PayOS Client ID", value, hasPayos)}
+                error={fieldErrors.payosClientId}
               />
 
               <Field
@@ -743,9 +649,10 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                 type="password"
                 value={form.payosApiKey}
                 onChange={(value) => setField("payosApiKey", value)}
+                onBlur={() => validateField("payosApiKey")}
                 autoComplete="new-password"
                 required={!hasPayos}
-                validate={(value) => validatePayosField("PayOS API key", value, hasPayos)}
+                error={fieldErrors.payosApiKey}
               />
 
               <Field
@@ -753,9 +660,10 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                 type="password"
                 value={form.payosChecksumKey}
                 onChange={(value) => setField("payosChecksumKey", value)}
+                onBlur={() => validateField("payosChecksumKey")}
                 autoComplete="new-password"
                 required={!hasPayos}
-                validate={(value) => validatePayosField("PayOS Checksum key", value, hasPayos)}
+                error={fieldErrors.payosChecksumKey}
               />
             </div>
           </Section>
@@ -830,6 +738,7 @@ function Field({
   label,
   value,
   onChange,
+  onBlur,
   type = "text",
   required = false,
   className = "",
@@ -837,11 +746,12 @@ function Field({
   step,
   inputMode,
   autoComplete,
-  validate,
+  error,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  onBlur?: () => void;
   type?: string;
   required?: boolean;
   className?: string;
@@ -849,34 +759,9 @@ function Field({
   step?: string;
   inputMode?: "numeric" | "decimal" | "text";
   autoComplete?: string;
-  validate?: (value: string) => true | string;
+  error?: string;
 }) {
-  const [touched, setTouched] = useState(false);
-  const [error, setError] = useState("");
-
-  function handleBlur() {
-    setTouched(true);
-
-    if (!validate) {
-      setError("");
-      return;
-    }
-
-    const result = validate(value);
-
-    setError(result === true ? "" : result);
-  }
-
-  function handleChange(nextValue: string) {
-    onChange(nextValue);
-
-    if (touched && validate) {
-      const result = validate(nextValue);
-      setError(result === true ? "" : result);
-    }
-  }
-
-  const hasError = Boolean(touched && error);
+  const hasError = Boolean(error);
 
   return (
     <label className={`${labelClass} ${className}`}>
@@ -893,13 +778,13 @@ function Field({
         step={step}
         inputMode={inputMode}
         autoComplete={autoComplete}
-        onChange={(event) => handleChange(event.target.value)}
-        onBlur={handleBlur}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
         aria-invalid={hasError}
         className={inputClass}
       />
 
-      {hasError && (
+      {error && (
         <span role="alert" className="mt-1 block text-xs font-normal text-danger">
           {error}
         </span>

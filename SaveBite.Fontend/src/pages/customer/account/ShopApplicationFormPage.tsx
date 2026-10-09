@@ -21,12 +21,12 @@ export function ShopApplicationFormPage() {
       .getMine()
       .then((current) => {
         if (!current || current.id !== applicationId) {
-          setError("Không tìm thấy hồ sơ đăng ký cửa hàng.");
+          setError("Cannot find shop application.");
           return;
         }
 
         if (!["NeedsRevision", "Rejected"].includes(current.status)) {
-          setError("Hồ sơ hiện tại không thể chỉnh sửa.");
+          setError("Current shop application cannot be edited.");
           return;
         }
 
@@ -53,7 +53,7 @@ export function ShopApplicationFormPage() {
       <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-sm text-danger">
         {error}
         <button type="button" onClick={goToApplication} className="ml-3 font-semibold underline">
-          Quay lại hồ sơ
+          Go back
         </button>
       </div>
     );
