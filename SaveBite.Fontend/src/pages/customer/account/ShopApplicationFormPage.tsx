@@ -3,9 +3,9 @@ import { LoaderCircle } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { APP_PATHS } from "@/app/router/paths";
-import { shopApplicationApi } from "@/features/account/shopRegistration/api/shopApplicationApi";
-import { ShopApplicationForm } from "@/features/account/shopRegistration/components/ShopApplicationForm";
-import type { ShopApplication } from "@/features/account/shopRegistration/types/shopApplication.types";
+import { shopApplicationApi } from "@/features/account/shop-application/api/shopApplicationApi";
+import { ShopApplicationForm } from "@/features/account/shop-application/components/ShopApplicationForm";
+import type { ShopApplication } from "@/features/account/shop-application/types/shopApplication.types";
 
 export function ShopApplicationFormPage() {
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ export function ShopApplicationFormPage() {
           return;
         }
 
-        if (!["NeedsRevision", "Rejected"].includes(current.status)) {
+        if (!["Cancelled", "Rejected"].includes(current.status)) {
           setError("Current shop application cannot be edited.");
           return;
         }

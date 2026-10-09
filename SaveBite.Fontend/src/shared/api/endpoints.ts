@@ -12,6 +12,7 @@ export const API_ENDPOINTS = {
   SHOP_APPLICATION: {
     BASE: "/shop-applications",
     ME: "/shop-applications/me",
+    HISTORY: "/shop-applications/me/history",
     RESUBMIT: (applicationId: string) => `/shop-applications/${applicationId}/resubmit`,
     CANCEL: (applicationId: string) => `/shop-applications/${applicationId}/cancel`,
   },
