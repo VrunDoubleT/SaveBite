@@ -16,6 +16,7 @@ import {
   Clock,
   CalendarDays,
   User as UserIcon,
+  Repeat,
 } from "lucide-react";
 import { userApi } from "@/features/admin/api/userApi";
 import type { AdminUser, UserDetailsResponse } from "@/features/admin/types/user.types";
@@ -84,8 +85,9 @@ export function UserManagementPage() {
   const [detailsModal, setDetailsModal] = useState<{
     isOpen: boolean;
     isLoading: boolean;
+    activeTab: "audit" | "role"; // Thêm state quản lý Tab
     data: UserDetailsResponse | null;
-  }>({ isOpen: false, isLoading: false, data: null });
+  }>({ isOpen: false, isLoading: false, activeTab: "audit", data: null });
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -173,12 +175,12 @@ export function UserManagementPage() {
   };
 
   const openDetailsModal = async (id: string) => {
-    setDetailsModal({ isOpen: true, isLoading: true, data: null });
+    setDetailsModal({ isOpen: true, isLoading: true, activeTab: "audit", data: null });
     try {
       const data = await userApi.getUserDetails(id);
-      setDetailsModal({ isOpen: true, isLoading: false, data });
+      setDetailsModal({ isOpen: true, isLoading: false, activeTab: "audit", data });
     } catch (error) {
-      setDetailsModal({ isOpen: false, isLoading: false, data: null });
+      setDetailsModal({ isOpen: false, isLoading: false, activeTab: "audit", data: null });
       setErrorPopup(getApiErrorMessage(error));
     }
   };
@@ -441,7 +443,7 @@ export function UserManagementPage() {
         </div>
       )}
 
-      {/* Details & Logs Modal (UI MỚI) */}
+      {/* Details Modal */}
       {detailsModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4 backdrop-blur-sm transition-opacity">
           <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl bg-bg-surface shadow-xl animate-in zoom-in-95 duration-200">
@@ -449,7 +451,14 @@ export function UserManagementPage() {
             <div className="flex justify-between items-center p-5 border-b border-border-default">
               <h3 className="text-lg font-bold text-text-primary">User Profile & Activity</h3>
               <button
-                onClick={() => setDetailsModal({ isOpen: false, isLoading: false, data: null })}
+                onClick={() =>
+                  setDetailsModal({
+                    isOpen: false,
+                    isLoading: false,
+                    activeTab: "audit",
+                    data: null,
+                  })
+                }
                 className="text-neutral-400 hover:text-neutral-700 p-1 rounded-md transition-colors"
               >
                 <X className="size-5" />
@@ -462,8 +471,8 @@ export function UserManagementPage() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
                 </div>
               ) : detailsModal.data ? (
-                <div className="space-y-8">
-                  {/* Giao diện Profile Header mới */}
+                <div className="space-y-6">
+                  {/* Giao diện Profile Header */}
                   <div className="flex flex-col sm:flex-row gap-5 items-start bg-white p-5 rounded-xl border border-border-default shadow-sm">
                     <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary-50 text-2xl font-black text-primary-600 border border-primary-100 shadow-sm">
                       {detailsModal.data.fullName.charAt(0).toUpperCase()}
@@ -494,48 +503,115 @@ export function UserManagementPage() {
                     </div>
                   </div>
 
-                  {/* Giao diện Timeline Log chuẩn */}
+                  {/* Tabs Section */}
                   <div>
-                    <h4 className="font-bold text-text-primary mb-5 flex items-center gap-2 text-lg">
-                      <Clock className="size-5 text-primary-600" />
-                      Audit Logs
-                    </h4>
+                    <div className="flex gap-4 border-b border-border-default mb-5">
+                      <button
+                        onClick={() => setDetailsModal((prev) => ({ ...prev, activeTab: "audit" }))}
+                        className={`flex items-center gap-2 pb-3 text-sm font-semibold transition-colors border-b-2 ${
+                          detailsModal.activeTab === "audit"
+                            ? "border-primary-600 text-primary-600"
+                            : "border-transparent text-text-secondary hover:text-text-primary"
+                        }`}
+                      >
+                        <Clock className="size-4" />
+                        Audit Logs
+                      </button>
+                      <button
+                        onClick={() => setDetailsModal((prev) => ({ ...prev, activeTab: "role" }))}
+                        className={`flex items-center gap-2 pb-3 text-sm font-semibold transition-colors border-b-2 ${
+                          detailsModal.activeTab === "role"
+                            ? "border-primary-600 text-primary-600"
+                            : "border-transparent text-text-secondary hover:text-text-primary"
+                        }`}
+                      >
+                        <Repeat className="size-4" />
+                        Role Changes
+                      </button>
+                    </div>
 
-                    {detailsModal.data.logs.length === 0 ? (
-                      <div className="text-center py-10 bg-white rounded-xl border border-dashed border-border-default">
-                        <UserIcon className="mx-auto size-8 text-neutral-300 mb-2" />
-                        <p className="text-sm text-text-muted font-medium">
-                          No activity history recorded for this user.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="relative pl-3 sm:pl-4 border-l-2 border-neutral-200 space-y-6 ml-2">
-                        {detailsModal.data.logs.map((log, idx) => (
-                          <div key={idx} className="relative">
-                            {/* Chấm tròn Timeline */}
-                            <div className="absolute -left-[21px] sm:-left-[25px] top-1.5 size-3.5 rounded-full bg-white border-[3px] border-primary-500 shadow-sm" />
-
-                            {/* Card Content */}
-                            <div className="bg-white border border-border-default rounded-lg p-4 shadow-sm ml-2 hover:border-primary-200 transition-colors">
-                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
-                                <h5 className="font-bold text-sm text-text-primary bg-neutral-100 px-2.5 py-1 rounded-md border border-neutral-200">
-                                  {log.action}
-                                </h5>
-                                <time className="text-xs text-text-muted font-medium shrink-0 flex items-center gap-1">
-                                  <Clock className="size-3" />
-                                  {new Date(log.createdAt).toLocaleString()}
-                                </time>
-                              </div>
-                              <p className="text-sm text-text-secondary leading-relaxed mt-3">
-                                <span className="font-semibold text-text-primary">Reason: </span>"
-                                {log.reason}"
-                              </p>
-
-                              {/* Parse JSON Log */}
-                              {renderChangedValues(log.changedValues)}
-                            </div>
+                    {/* Nội dung Tab Audit Logs */}
+                    {detailsModal.activeTab === "audit" && (
+                      <div>
+                        {detailsModal.data.logs.length === 0 ? (
+                          <div className="text-center py-8 bg-white rounded-xl border border-dashed border-border-default">
+                            <UserIcon className="mx-auto size-8 text-neutral-300 mb-2" />
+                            <p className="text-sm text-text-muted font-medium">
+                              No activity history recorded.
+                            </p>
                           </div>
-                        ))}
+                        ) : (
+                          <div className="relative pl-3 sm:pl-4 border-l-2 border-neutral-200 space-y-6 ml-2">
+                            {detailsModal.data.logs.map((log, idx) => (
+                              <div key={idx} className="relative">
+                                <div className="absolute -left-[21px] sm:-left-[25px] top-1.5 size-3.5 rounded-full bg-white border-[3px] border-primary-500 shadow-sm" />
+                                <div className="bg-white border border-border-default rounded-lg p-4 shadow-sm ml-2 hover:border-primary-200 transition-colors">
+                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
+                                    <h5 className="font-bold text-sm text-text-primary bg-neutral-100 px-2.5 py-1 rounded-md border border-neutral-200">
+                                      {log.action}
+                                    </h5>
+                                    <time className="text-xs text-text-muted font-medium shrink-0 flex items-center gap-1">
+                                      <Clock className="size-3" />
+                                      {new Date(log.createdAt).toLocaleString()}
+                                    </time>
+                                  </div>
+                                  <p className="text-sm text-text-secondary leading-relaxed mt-3">
+                                    <span className="font-semibold text-text-primary">
+                                      Reason:{" "}
+                                    </span>
+                                    "{log.reason}"
+                                  </p>
+                                  {renderChangedValues(log.changedValues)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Nội dung Tab Role Changes */}
+                    {detailsModal.activeTab === "role" && (
+                      <div>
+                        {detailsModal.data.roleLogs.length === 0 ? (
+                          <div className="text-center py-8 bg-white rounded-xl border border-dashed border-border-default">
+                            <Shield className="mx-auto size-8 text-neutral-300 mb-2" />
+                            <p className="text-sm text-text-muted font-medium">
+                              No role changes recorded.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="relative pl-3 sm:pl-4 border-l-2 border-neutral-200 space-y-6 ml-2">
+                            {detailsModal.data.roleLogs.map((log, idx) => (
+                              <div key={idx} className="relative">
+                                <div className="absolute -left-[21px] sm:-left-[25px] top-1.5 size-3.5 rounded-full bg-white border-[3px] border-primary-500 shadow-sm" />
+                                <div className="bg-white border border-border-default rounded-lg p-4 shadow-sm ml-2 hover:border-primary-200 transition-colors">
+                                  <div className="flex justify-between items-center mb-3">
+                                    <h5 className="font-bold text-sm text-text-primary flex items-center gap-2">
+                                      <span className="bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded border border-neutral-200 uppercase text-xs">
+                                        {log.oldRole}
+                                      </span>
+                                      <ChevronRight className="size-4 text-neutral-400" />
+                                      <span className="bg-primary-50 text-primary-700 px-2 py-0.5 rounded border border-primary-100 uppercase text-xs">
+                                        {log.newRole}
+                                      </span>
+                                    </h5>
+                                    <time className="text-xs text-text-muted font-medium flex items-center gap-1">
+                                      <Clock className="size-3" />
+                                      {new Date(log.createdAt).toLocaleString()}
+                                    </time>
+                                  </div>
+                                  <p className="text-sm text-text-secondary leading-relaxed">
+                                    <span className="font-semibold text-text-primary">
+                                      Reason:{" "}
+                                    </span>
+                                    "{log.reason}"
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

@@ -8,7 +8,6 @@ export interface AdminUser {
   createdAt: string;
 }
 
-// DTO Log
 export interface UserLogResponse {
   action: string;
   reason: string;
@@ -17,7 +16,14 @@ export interface UserLogResponse {
   adminId: string;
 }
 
-// DTO Chi tiết User
+// interface Role Log
+export interface UserRoleLogResponse {
+  oldRole: string;
+  newRole: string;
+  reason: string;
+  createdAt: string;
+}
+
 export interface UserDetailsResponse {
   id: string;
   email: string;
@@ -31,9 +37,9 @@ export interface UserDetailsResponse {
   createdAt: string;
   updatedAt: string | null;
   logs: UserLogResponse[];
+  roleLogs: UserRoleLogResponse[];
 }
 
-// DTO Request Update
 export interface UpdateUserStatusRequest {
   isSuspended: boolean;
   isCustomerProfile: boolean;
