@@ -29,11 +29,19 @@ public sealed class ShopApplicationRepository : IShopApplicationRepository
             .OrderByDescending(x => x.UpdatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<ShopApplication>> GetAllForApplicantAsync(Guid applicantUserId, CancellationToken cancellationToken = default)
+        => await _dbContext.ShopApplications
+            .Include(x => x.Documents)
+            .Include(x => x.ReviewLogs)
+            .AsSplitQuery()
+            .Where(x => x.ApplicantUserId == applicantUserId)
+            .OrderByDescending(x => x.UpdatedAt)
+            .ToListAsync(cancellationToken);
+
     public Task<bool> HasActiveApplicationAsync(Guid applicantUserId, CancellationToken cancellationToken = default)
         => _dbContext.ShopApplications.AnyAsync(x =>
             x.ApplicantUserId == applicantUserId &&
-            (x.Status == ShopApplicationStatus.Pending 
-             || x.Status == ShopApplicationStatus.NeedsRevision 
+            (x.Status == ShopApplicationStatus.Pending
              || x.Status == ShopApplicationStatus.Approved), 
             cancellationToken);
 

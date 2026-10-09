@@ -13,17 +13,20 @@ public sealed class CreateShopApplicationRequestValidator : AbstractValidator<Cr
         RuleFor(x => x.AddressLine).NotEmpty().MaximumLength(500);
         RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
         RuleFor(x => x.Longitude).InclusiveBetween(-180, 180);
-        RuleFor(x => x)
-            .Must(x =>
-                !x.OpeningTime.HasValue ||
-                !x.ClosingTime.HasValue ||
-                x.OpeningTime < x.ClosingTime)
-            .WithMessage("Opening time must be earlier than closing time.");
+
+        RuleFor(x => x).Custom((x, context) =>
+        {
+            if (!x.OpeningTime.HasValue || !x.ClosingTime.HasValue) return;
+            
+            if (x.OpeningTime >= x.ClosingTime)
+            {
+                context.AddFailure(nameof(x.OpeningTime), "Opening time must be earlier than closing time.");
+                context.AddFailure(nameof(x.ClosingTime), "Closing time must be later than opening time.");
+            }
+        });
 
         RuleFor(x => x.BankName).NotEmpty().MaximumLength(200);
-
         RuleFor(x => x.BankAccountNumber).NotEmpty().MaximumLength(200);
-
         RuleFor(x => x.BankAccountHolder).NotEmpty().MaximumLength(200);
     }
 }
@@ -33,7 +36,6 @@ public sealed class ResubmitShopApplicationRequestValidator : AbstractValidator<
 {
     public ResubmitShopApplicationRequestValidator()
     {
-        RuleFor(x => x.ApplicationId).NotEmpty();
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.AddressLine).NotEmpty().MaximumLength(500);
         RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
@@ -70,28 +72,5 @@ public sealed class ShopApplicationDocumentsValidator : AbstractValidator<ShopAp
         RuleFor(x => x.Files)
             .Must(files => files.Count <= 10)
             .WithMessage("You can upload up to 10 documents.");
-
-        RuleFor(x => x)
-            .Must(HasBusinessLicense)
-            .WithMessage("Business license document is required.");
-
-        RuleFor(x => x)
-            .Must(HasFoodSafetyCertificate)
-            .WithMessage("Food safety certificate is required.");
-    }
-
-    private static bool HasBusinessLicense(ShopApplicationDocumentsValidationRequest request)
-    {
-        return HasDocumentType(request, ShopDocumentType.BusinessLicense);
-    }
-
-    private static bool HasFoodSafetyCertificate(ShopApplicationDocumentsValidationRequest request)
-    {
-        return HasDocumentType(request, ShopDocumentType.FoodSafetyCertificate);
-    }
-
-    private static bool HasDocumentType(ShopApplicationDocumentsValidationRequest request, ShopDocumentType requiredType)
-    {
-        return request.Types.Any(type => Enum.TryParse<ShopDocumentType>(type, true, out var parsedType) && parsedType == requiredType);
     }
 }

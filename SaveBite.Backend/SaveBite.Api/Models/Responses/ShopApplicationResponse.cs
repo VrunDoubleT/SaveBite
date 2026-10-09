@@ -1,5 +1,3 @@
-using SaveBite.Backend.Models.Enums;
-
 namespace SaveBite.Backend.Models.Responses;
 
 public sealed record ShopApplicationResponse(
@@ -30,7 +28,7 @@ public sealed record ShopApplicationResponse(
 
 public sealed record ShopApplicationDocumentResponse(
     Guid Id,
-    ShopDocumentType DocumentType,
+    string DocumentType,
     string FileUrl,
     string OriginalFileName,
     string ContentType,

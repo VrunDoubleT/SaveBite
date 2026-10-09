@@ -38,6 +38,12 @@ public sealed class ShopApplicationService : IShopApplicationService
         return application is null ? null : Map(application);
     }
 
+    public async Task<IReadOnlyList<ShopApplicationResponse>> GetMyApplicationHistoryAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var applications = await _repository.GetAllForApplicantAsync(userId, cancellationToken);
+        return applications.Select(x => Map(x, includeAllDocuments: true)).ToList();
+    }
+
     public async Task<ShopApplicationResponse> CreateAsync(
         Guid userId,
         CreateShopApplicationRequest request,
@@ -115,8 +121,12 @@ public sealed class ShopApplicationService : IShopApplicationService
         var application = await _repository.GetByIdForApplicantAsync(request.ApplicationId, userId, cancellationToken)
             ?? throw AppException.NotFound("Shop application was not found.");
 
-        if (application.Status is ShopApplicationStatus.Pending or ShopApplicationStatus.Approved)
-            throw AppException.Conflict("This shop application cannot be edited in its current status.");
+        ValidateRequiredDocumentTypes(
+            application.Documents.Where(d => d.IsCurrent).Select(d => d.DocumentType.ToString()),
+            documentTypes);
+
+        if (application.Status is not (ShopApplicationStatus.Rejected or ShopApplicationStatus.Cancelled))
+            throw AppException.Conflict("Only rejected or cancelled shop applications can be edited and resubmitted.");
         
         var now = DateTime.UtcNow;
 
@@ -153,7 +163,8 @@ public sealed class ShopApplicationService : IShopApplicationService
 
         await UploadImagesAsync(application, logo, coverImage, cancellationToken);
 
-        if (documents.Count > 0) MarkOldDocumentsNotCurrent(application);
+        if (documents.Count > 0)
+            MarkReplacedDocumentsNotCurrent(application, documentTypes);
 
         await AddDocumentsAsync(application, documents, documentTypes, userId, cancellationToken);
 
@@ -258,14 +269,37 @@ public sealed class ShopApplicationService : IShopApplicationService
         }
     }
 
-    private static void MarkOldDocumentsNotCurrent(ShopApplication application)
+    private static void MarkReplacedDocumentsNotCurrent(ShopApplication application, IReadOnlyList<string> replacementTypes)
     {
-        foreach (var document in application.Documents) document.IsCurrent = false;
+        var types = replacementTypes
+            .Select(type => Enum.TryParse<ShopDocumentType>(type, true, out var parsed) ? parsed : (ShopDocumentType?)null)
+            .Where(type => type.HasValue)
+            .Select(type => type!.Value)
+            .ToHashSet();
+
+        foreach (var document in application.Documents.Where(document => types.Contains(document.DocumentType)))
+            document.IsCurrent = false;
+    }
+
+    private static void ValidateRequiredDocumentTypes(params IEnumerable<string>[] typeGroups)
+    {
+        var types = typeGroups
+            .SelectMany(group => group)
+            .Select(type => Enum.TryParse<ShopDocumentType>(type, true, out var parsed) ? parsed : (ShopDocumentType?)null)
+            .Where(type => type.HasValue)
+            .Select(type => type!.Value)
+            .ToHashSet();
+
+        if (!types.Contains(ShopDocumentType.BusinessLicense))
+            throw AppException.BadRequest("Business license document is required.");
+
+        if (!types.Contains(ShopDocumentType.FoodSafetyCertificate))
+            throw AppException.BadRequest("Food safety certificate is required.");
     }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static ShopApplicationResponse Map(ShopApplication x) => new(
+    private static ShopApplicationResponse Map(ShopApplication x, bool includeAllDocuments = false) => new(
         x.Id,
         x.Name,
         x.Description,
@@ -289,10 +323,12 @@ public sealed class ShopApplicationService : IShopApplicationService
         x.BankAccountHolder,
         !string.IsNullOrWhiteSpace(x.PayosClientId),
         x.Documents
-            .Where(d => d.IsCurrent)
+            .Where(d => includeAllDocuments || d.IsCurrent)
+            .OrderByDescending(d => d.RevisionNumber)
+            .ThenByDescending(d => d.UploadedAt)
             .Select(d => new ShopApplicationDocumentResponse(
                 d.Id,
-                d.DocumentType,
+                d.DocumentType.ToString(),
                 d.FileUrl,
                 d.OriginalFileName,
                 d.ContentType,
@@ -302,7 +338,7 @@ public sealed class ShopApplicationService : IShopApplicationService
         x.ReviewLogs
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => new ShopApplicationReviewLogResponse(
-                r.FromStatus.ToString(),
+                r.FromStatus?.ToString(),
                 r.ToStatus.ToString(),
                 r.RevisionNumber,
                 r.Note,

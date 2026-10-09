@@ -25,6 +25,13 @@ public sealed class ShopApplicationController : ControllerBase
         return Ok(ApiResponse<ShopApplicationResponse>.Ok(application, "Shop application retrieved successfully."));
     }
 
+    [HttpGet("me/history")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<ShopApplicationResponse>>>> GetMyHistory(CancellationToken cancellationToken)
+    {
+        var applications = await _service.GetMyApplicationHistoryAsync(GetAuthenticatedUserId(), cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<ShopApplicationResponse>>.Ok(applications, "Shop application history retrieved successfully."));
+    }
+
     [HttpPost]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<ApiResponse<ShopApplicationResponse>>> Create(
