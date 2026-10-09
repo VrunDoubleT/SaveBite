@@ -25,4 +25,5 @@ public interface IShopStaffService
     Task<OwnerShopResponse> GetOwnerShopAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
     Task<PagedResult<StaffCandidateResponse>> SearchStaffCandidatesAsync(Guid currentUserId, string? keyword, int page, int pageSize, CancellationToken cancellationToken = default
     );
+    Task LeaveShopAsync( Guid currentUserId, Guid shopId, CancellationToken cancellationToken = default);
 }

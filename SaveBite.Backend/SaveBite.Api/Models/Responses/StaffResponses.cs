@@ -18,10 +18,9 @@ public sealed record StaffInvitationResponse(
 public sealed record ShopStaffResponse(
     Guid Id,
     Guid UserId,
-    string UserName,
     string UserEmail,
+    string DisplayName,
     string? StaffNickname,
-    string DisplayName ,
     [property: JsonConverter(typeof(JsonStringEnumConverter))]
     ShopStaffStatus Status,
     DateTime JoinedAt

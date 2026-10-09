@@ -10,6 +10,7 @@ public sealed record InviteStaffRequest(
 
 
 public sealed record UpdateStaffInfoRequest(
+    string DisplayName,
     string? StaffNickname,
     [property: JsonConverter(typeof(JsonStringEnumConverter))]
     ShopStaffStatus Status

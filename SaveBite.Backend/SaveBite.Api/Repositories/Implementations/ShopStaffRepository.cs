@@ -80,14 +80,15 @@ public class ShopStaffRepository(AppDbContext context)
                 u.Id != ownerUserId
                 && u.Status == UserStatus.Active
 
-                // Admin cannot become shop staff
                 && u.Role != UserRole.Admin
+                && u.Role != UserRole.StoreOwner
 
                 && !context.ShopStaffMembers.Any(s =>
                     s.ShopId == shopId
                     && s.UserId == u.Id
                     && s.Status != ShopStaffStatus.Removed
                 )
+
                 && !context.StaffInvitations.Any(i =>
                     i.ShopId == shopId
                     && i.InvitedUserId == u.Id
@@ -344,11 +345,10 @@ public class ShopStaffRepository(AppDbContext context)
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            var search =
-                keyword.Trim().ToLower();
+            var search = keyword.Trim().ToLower();
 
             query = query.Where(s =>
-                s.User.FullName
+                s.DisplayName
                     .ToLower()
                     .Contains(search)
 
@@ -371,7 +371,7 @@ public class ShopStaffRepository(AppDbContext context)
             );
 
         var items = await query
-            .OrderBy(s => s.User.FullName)
+            .OrderBy(s => s.DisplayName)
             .ThenBy(s => s.JoinedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -536,6 +536,21 @@ public class ShopStaffRepository(AppDbContext context)
     {
         return await context
             .SaveChangesAsync(
+                cancellationToken
+            );
+    }
+    
+    public async Task<bool> HasOtherStaffMembershipAsync(
+        Guid userId,
+        Guid excludedStaffId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.ShopStaffMembers
+            .AnyAsync(
+                s =>
+                    s.UserId == userId
+                    && s.Id != excludedStaffId
+                    && s.Status != ShopStaffStatus.Removed,
                 cancellationToken
             );
     }

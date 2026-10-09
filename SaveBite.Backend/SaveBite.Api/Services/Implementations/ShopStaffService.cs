@@ -157,6 +157,13 @@ public class ShopStaffService(
                 ErrorCodes.CannotInviteSelf
             );
         }
+        if (invitedUser.Role == UserRole.StoreOwner)
+        {
+            throw AppException.BadRequest(
+                "Store owner accounts cannot be invited as staff",
+                ErrorCodes.InvalidStaffCandidate
+            );
+        }
 
         var existingStaff =
             await staffRepository.GetStaffByShopAndUserAsync(
@@ -414,6 +421,14 @@ public class ShopStaffService(
                 ErrorCodes.InvalidStaffCandidate
             );
         }
+        
+        if (invitation.InvitedUser.Role == UserRole.StoreOwner)
+        {
+            throw AppException.BadRequest(
+                "Store owner accounts cannot become shop staff",
+                ErrorCodes.InvalidStaffCandidate
+            );
+        }   
 
         if (invitation.Status != StatusPending ||
             IsExpired(invitation))
@@ -605,67 +620,68 @@ public class ShopStaffService(
     // OWNER - UPDATE STAFF
     // =========================================================
 
-    public async Task UpdateStaffInfoAsync(
-        Guid currentUserId,
-        Guid staffId,
-        UpdateStaffInfoRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var shop = await GetOwnerShopEntityAsync(
-            currentUserId,
-            cancellationToken
-        );
-
-        var staff =
-            await staffRepository.GetStaffByIdAsync(
-                staffId,
-                cancellationToken
-            );
-
-        if (staff == null ||
-            staff.ShopId != shop.Id ||
-            staff.Status == ShopStaffStatus.Removed)
-        {
-            throw new AppException(
-                "Staff member not found",
-                ErrorCodes.StaffNotFound,
-                HttpStatusCode.NotFound
-            );
-        }
-
-        // Removed must only be performed through
-        // DELETE /staffs/{staffId}
-        if (request.Status ==
-            ShopStaffStatus.Removed)
-        {
-            throw AppException.BadRequest(
-                "Use the remove endpoint to remove a staff member",
-                ErrorCodes.InvalidStaffStatus
-            );
-        }
-
-        // Nickname behaves like a store-specific
-        // contact name.
-        //
-        // null / "" => display User.FullName
-        staff.Nickname =
-            string.IsNullOrWhiteSpace(
-                request.StaffNickname
-            )
-                ? null
-                : request.StaffNickname.Trim();
-
-        staff.Status = request.Status;
-
-        await staffRepository.UpdateStaffAsync(
-            staff,
-            cancellationToken
-        );
-
-        await staffRepository.SaveChangesAsync(
-            cancellationToken
-        );
-    }
+   public async Task UpdateStaffInfoAsync(
+       Guid currentUserId,
+       Guid staffId,
+       UpdateStaffInfoRequest request,
+       CancellationToken cancellationToken = default)
+   {
+       var shop = await GetOwnerShopEntityAsync(
+           currentUserId,
+           cancellationToken
+       );
+   
+       var staff =
+           await staffRepository.GetStaffByIdAsync(
+               staffId,
+               cancellationToken
+           );
+   
+       if (staff == null ||
+           staff.ShopId != shop.Id ||
+           staff.Status == ShopStaffStatus.Removed)
+       {
+           throw new AppException(
+               "Staff member not found",
+               ErrorCodes.StaffNotFound,
+               HttpStatusCode.NotFound
+           );
+       }
+   
+       if (request.Status == ShopStaffStatus.Removed)
+       {
+           throw AppException.BadRequest(
+               "Use the remove endpoint to remove a staff member",
+               ErrorCodes.InvalidStaffStatus
+           );
+       }
+   
+       if (string.IsNullOrWhiteSpace(request.DisplayName))
+       {
+           throw AppException.BadRequest(
+               "Display name is required",
+               ErrorCodes.InvalidStaffStatus
+           );
+       }
+   
+       staff.DisplayName = request.DisplayName.Trim();
+   
+       staff.Nickname =
+           string.IsNullOrWhiteSpace(request.StaffNickname)
+               ? null
+               : request.StaffNickname.Trim();
+   
+       staff.Status = request.Status;
+   
+       await staffRepository.UpdateStaffAsync(
+           staff,
+           cancellationToken
+       );
+   
+       await staffRepository.SaveChangesAsync(
+           cancellationToken
+       );
+   }
 
 
     // =========================================================
@@ -954,27 +970,70 @@ public class ShopStaffService(
         );
     }
 
-
-    private static ShopStaffResponse
-        MapToStaffResponse(
-            ShopStaff staff)
+    public async Task LeaveShopAsync(
+        Guid currentUserId,
+        Guid shopId,
+        CancellationToken cancellationToken = default)
     {
-        // Store nickname has priority.
-        // If no nickname exists, use account FullName.
-        var displayName =
-            string.IsNullOrWhiteSpace(
-                staff.Nickname
-            )
-                ? staff.User.FullName
-                : staff.Nickname;
+        var staff =
+            await staffRepository.GetStaffByShopAndUserAsync(
+                shopId,
+                currentUserId,
+                cancellationToken
+            );
 
+        if (staff == null)
+        {
+            throw new AppException(
+                "You are not a staff member of this shop",
+                ErrorCodes.StaffNotFound,
+                HttpStatusCode.NotFound
+            );
+        }
+
+        if (staff.Status == ShopStaffStatus.Removed)
+        {
+            throw AppException.BadRequest(
+                "You have already left this shop",
+                ErrorCodes.InvalidStaffStatus
+            );
+        }
+
+        staff.Status = ShopStaffStatus.Removed;
+
+        var hasOtherMembership =
+            await staffRepository.HasOtherStaffMembershipAsync(
+                currentUserId,
+                staff.Id,
+                cancellationToken
+            );
+
+        if (!hasOtherMembership &&
+            staff.User.Role == UserRole.Staff)
+        {
+            staff.User.Role = UserRole.User;
+            staff.User.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await staffRepository.UpdateStaffAsync(
+            staff,
+            cancellationToken
+        );
+
+        await staffRepository.SaveChangesAsync(
+            cancellationToken
+        );
+    }
+
+    private static ShopStaffResponse MapToStaffResponse(
+        ShopStaff staff)
+    {
         return new ShopStaffResponse(
             staff.Id,
             staff.UserId,
-            staff.User.FullName,
             staff.User.Email,
+            staff.DisplayName,
             staff.Nickname,
-            displayName,
             staff.Status,
             staff.JoinedAt
         );

@@ -72,7 +72,23 @@ public class StaffInvitationController(IShopStaffService staffService) : Control
         );
     }
     
-  
+    [HttpDelete("shops/{shopId:guid}")]
+    public async Task<IActionResult> LeaveShop(
+        Guid shopId,
+        CancellationToken cancellationToken)
+    {
+        await staffService.LeaveShopAsync(
+            GetCurrentUserId(),
+            shopId,
+            cancellationToken
+        );
+
+        return Ok(
+            ApiResponse.Ok(
+                "You have left the shop successfully"
+            )
+        );
+    }
 
     private Guid GetCurrentUserId()
     {

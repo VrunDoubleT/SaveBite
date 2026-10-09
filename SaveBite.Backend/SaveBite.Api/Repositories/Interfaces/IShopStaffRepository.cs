@@ -35,4 +35,5 @@ public interface IShopStaffRepository
 
     Task<(IReadOnlyList<ShopStaff> Items, int TotalItems)> GetStaffsByShopIdPagedAsync(Guid shopId, string? keyword, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<(IReadOnlyList<StaffActivityLog> Items, int TotalItems)> GetStaffActivityLogsPagedAsync(Guid shopId, Guid staffUserId, int page, int pageSize, CancellationToken cancellationToken = default);
+    Task<bool> HasOtherStaffMembershipAsync(Guid userId, Guid excludedStaffId, CancellationToken cancellationToken = default);    
 }
