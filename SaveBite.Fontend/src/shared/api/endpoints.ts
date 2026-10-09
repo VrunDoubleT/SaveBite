@@ -9,47 +9,31 @@ export const API_ENDPOINTS = {
     FORGOT_PASSWORD: "/auth/forgot-password",
     RESET_PASSWORD: "/auth/reset-password",
   },
-  STAFF:{
+  STAFF: {
     INVITATIONS: "/staff/invitations",
-    ACCEPT_INVITATION:
-      (id:string)=>
-      `/staff/invitations/${id}/accept`,
+    ACCEPT_INVITATION: (id: string) => `/staff/invitations/${id}/accept`,
 
-    DECLINE_INVITATION:
-      (id:string)=>
-      `/staff/invitations/${id}/decline`,
+    DECLINE_INVITATION: (id: string) => `/staff/invitations/${id}/decline`,
 
-    SHOPS:"/staff/shops",
+    SHOPS: "/staff/shops",
 
-    SHOP_DETAIL:
-      (shopId:string)=>
-      `/staff/shops/${shopId}`
-    },
-   OWNER_SHOPS: {
-  ME: "/owner/shops",
+    SHOP_DETAIL: (shopId: string) => `/staff/shops/${shopId}`,
+    LEAVE_SHOP: (shopId: string) => `/staff/shops/${shopId}`,
+  },
 
-  STAFF_CANDIDATES:
-    "/owner/shops/staff-candidates",
+  OWNER_SHOPS: {
+    ME: "/owner/shops",
 
-  INVITATIONS:
-    "/owner/shops/invitations",
+    STAFF_CANDIDATES: "/owner/shops/staff-candidates",
 
-  INVITATION_DETAIL: (
-    invitationId: string,
-  ) =>
-    `/owner/shops/invitations/${invitationId}`,
+    INVITATIONS: "/owner/shops/invitations",
 
-  STAFFS:
-    "/owner/shops/staffs",
+    INVITATION_DETAIL: (invitationId: string) => `/owner/shops/invitations/${invitationId}`,
 
-  STAFF_DETAIL: (
-    staffId: string,
-  ) =>
-    `/owner/shops/staffs/${staffId}`,
+    STAFFS: "/owner/shops/staffs",
 
-  ACTIVITY_LOGS: (
-    staffId: string,
-  ) =>
-    `/owner/shops/staffs/${staffId}/activity-logs`,
-},
+    STAFF_DETAIL: (staffId: string) => `/owner/shops/staffs/${staffId}`,
+
+    ACTIVITY_LOGS: (staffId: string) => `/owner/shops/staffs/${staffId}/activity-logs`,
+  },
 } as const;

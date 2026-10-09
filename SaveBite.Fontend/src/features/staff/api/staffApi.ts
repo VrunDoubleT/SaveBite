@@ -7,19 +7,35 @@ import type {
   StaffShopDetail,
 } from "../types/staff.types";
 
+let associatedShopsRequest: Promise<AssociatedShop[]> | null = null;
+
 export const staffApi = {
   async getAssociatedShops(): Promise<AssociatedShop[]> {
-    const response = await httpClient.get<
-      ApiResponse<AssociatedShop[]>
-    >(API_ENDPOINTS.STAFF.SHOPS);
+    if (associatedShopsRequest) {
+      return associatedShopsRequest;
+    }
 
-    return response.data.data;
+    associatedShopsRequest = httpClient
+      .get<ApiResponse<AssociatedShop[]>>(
+        API_ENDPOINTS.STAFF.SHOPS,
+      )
+      .then((response) => response.data.data)
+      .finally(() => {
+        associatedShopsRequest = null;
+      });
+
+    return associatedShopsRequest;
   },
-
 
   async getShopDetail(shopId: string) {
     return httpClient.get<ApiResponse<StaffShopDetail>>(
       API_ENDPOINTS.STAFF.SHOP_DETAIL(shopId),
+    );
+  },
+
+  async leaveShop(shopId: string): Promise<void> {
+    await httpClient.delete(
+      API_ENDPOINTS.STAFF.LEAVE_SHOP(shopId),
     );
   },
 };

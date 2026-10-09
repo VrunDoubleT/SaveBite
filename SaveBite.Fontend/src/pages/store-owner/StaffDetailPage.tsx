@@ -118,7 +118,7 @@ export function StaffDetailPage() {
               <h1 className="text-xl font-bold text-gray-900">{staff.displayName}</h1>
 
               {staff.staffNickname && (
-                <p className="mt-0.5 text-sm text-gray-400">{staff.userName}</p>
+                <p className="mt-0.5 text-sm text-gray-400">{staff.staffNickname}</p>
               )}
 
               <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
@@ -132,12 +132,14 @@ export function StaffDetailPage() {
         </div>
 
         <div className="mt-6 grid gap-4 border-t border-gray-100 pt-6 sm:grid-cols-3">
+          {/* Role */}
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Role</p>
 
             <p className="mt-1 text-sm font-medium text-gray-900">Staff</p>
           </div>
 
+          {/* Joined date */}
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Joined date</p>
 
@@ -146,6 +148,7 @@ export function StaffDetailPage() {
             </p>
           </div>
 
+          {/* Nickname */}
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Nickname</p>
 

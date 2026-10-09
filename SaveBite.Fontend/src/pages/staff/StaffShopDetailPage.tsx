@@ -73,6 +73,7 @@ export function StaffShopDetailPage() {
       setData(response.data.data);
     } catch (error) {
       console.error(error);
+
       setError("Unable to load store information.");
     } finally {
       setLoading(false);
@@ -80,7 +81,7 @@ export function StaffShopDetailPage() {
   }
 
   useEffect(() => {
-    loadShopDetail();
+    void loadShopDetail();
   }, [shopId]);
 
   if (loading) {
@@ -126,9 +127,12 @@ export function StaffShopDetailPage() {
     .filter(Boolean)
     .join(", ");
 
+  const staffInitial =
+    (staff.displayName || "Staff").split(" ").filter(Boolean).slice(-1)[0]?.[0]?.toUpperCase() ||
+    "U";
+
   return (
     <div className="space-y-6">
-      {/* Back */}
       {/* Back */}
       <button
         type="button"
@@ -233,12 +237,12 @@ export function StaffShopDetailPage() {
             <div className="flex items-center gap-4">
               {/* Avatar */}
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg font-semibold text-emerald-700">
-                {staff.userName.split(" ").filter(Boolean).slice(-1)[0]?.[0]?.toUpperCase() || "U"}
+                {staffInitial}
               </div>
 
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-semibold text-gray-900">{staff.userName}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">{staff.displayName}</h3>
 
                   <span
                     className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyle(

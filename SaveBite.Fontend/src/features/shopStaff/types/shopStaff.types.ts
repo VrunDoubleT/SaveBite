@@ -5,13 +5,11 @@ export interface ShopStaff {
 
   userId: string;
 
-  userName: string;
-
   userEmail: string;
 
-  staffNickname: string | null;
-
   displayName: string;
+
+  staffNickname: string | null;
 
   status: ShopStaffStatus;
 
@@ -27,6 +25,7 @@ export interface StaffActivityLog {
 }
 
 export interface UpdateStaffInfoInput {
+  displayName: string;
   staffNickname: string | null;
   status: "Active" | "Suspended";
 }

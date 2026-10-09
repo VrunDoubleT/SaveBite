@@ -1,7 +1,4 @@
-export type ShopStaffStatus =
-  | "Active"
-  | "Suspended"
-  | "Removed";
+export type ShopStaffStatus = "Active" | "Suspended" | "Removed";
 
 export interface AssociatedShop {
   id: string;
@@ -33,9 +30,12 @@ export interface StaffShop {
 export interface StaffInfo {
   id: string;
   userId: string;
-  userName: string;
   userEmail: string;
+
+  displayName: string;
+
   staffNickname: string | null;
+
   status: ShopStaffStatus;
   joinedAt: string;
 }
