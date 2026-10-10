@@ -6,9 +6,7 @@ public sealed record CloudinaryUploadResult(
 
 public interface ICloudinaryService
 {
-    Task<CloudinaryUploadResult> UploadImageAsync(
-        IFormFile file,
-        CancellationToken cancellationToken = default);
-
+    Task<CloudinaryUploadResult> UploadImageAsync(IFormFile file, CancellationToken cancellationToken = default);
     Task<bool> DeleteImageAsync(string publicId);
+    Task<CloudinaryUploadResult> UploadDocumentAsync(IFormFile file, CancellationToken cancellationToken = default);
 }

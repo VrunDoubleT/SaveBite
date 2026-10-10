@@ -13,6 +13,7 @@ export const APP_PATHS = {
   ACCOUNT_REVIEWS: "/account/reviews",
   ACCOUNT_TRUST_SCORES: "/account/trust-scores",
   ACCOUNT_SHOP_REGISTRATION: "/account/shop-registration",
+  ACCOUNT_SHOP_APPLICATION: "/account/shop-application",
   ACCOUNT_WORKSPACE: "/account/workspace",
   ACCOUNT_STAFF_INVITATIONS: "/account/staff-invitations",
   ADMIN: "/admin",

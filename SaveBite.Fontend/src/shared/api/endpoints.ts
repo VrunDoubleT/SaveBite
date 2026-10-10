@@ -29,5 +29,12 @@ export const API_ENDPOINTS = {
   ADMIN: {
     USERS: "/admin/users",
     CATEGORIES: "/admin/categories"
-  }
+  },
+  SHOP_APPLICATION: {
+    BASE: "/shop-applications",
+    ME: "/shop-applications/me",
+    HISTORY: "/shop-applications/me/history",
+    RESUBMIT: (applicationId: string) => `/shop-applications/${applicationId}/resubmit`,
+    CANCEL: (applicationId: string) => `/shop-applications/${applicationId}/cancel`,
+  },
 } as const;

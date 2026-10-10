@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from "react-router-dom";
+
 import { APP_PATHS } from "@/app/router/paths";
 import { ProtectedRoute } from "@/app/router/ProtectedRoute";
 import { CustomerRoute } from "@/app/router/CustomerRoute";
@@ -12,7 +13,6 @@ import { AdminLayout } from "@/shared/layout/AdminLayout";
 import { CustomerLayout } from "@/shared/layout/CustomerLayout";
 import { StaffLayout } from "@/shared/layout/StaffLayout";
 import { StoreOwnerLayout } from "@/shared/layout/StoreOwnerLayout";
-import { AccountLayout } from "@/shared/layout/AccountLayout";
 
 import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
@@ -20,24 +20,31 @@ import { OtpVerificationPage } from "@/pages/auth/OtpVerificationPage";
 import { RegisterPage } from "@/pages/auth/RegisterPage";
 
 import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
+import { AccountLayout } from "@/pages/customer/account/AccountLayout";
+import {
+  StaffInvitationsPage as CustomerStaffInvitationsPage,
+} from "@/pages/customer/account/StaffInvitationsPage";
+import { WorkspacePage } from "@/pages/customer/account/WorkspacePage";
+import { ShopApplicationFormPage } from "@/pages/customer/account/ShopApplicationFormPage";
+import ShopApplicationPage from "@/pages/customer/account/ShopApplicationPage";
+import { TrustScorePage } from "@/pages/customer/account/TrustScorePage";
+import { ReviewsPage } from "@/pages/customer/account/ReviewsPage";
+import { OrdersPage } from "@/pages/customer/account/OrdersPage";
+import { ProfilePage } from "@/pages/customer/account/ProfilePage";
 
-import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
-import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 import { CategoryManagementPage } from "@/pages/admin/CategoryManagementPage";
+import { UserManagementPage } from "@/pages/admin/UserManagementPage";
 
 import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
 import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
-
-import { StaffShopDetailPage } from "@/pages/staff/StaffShopDetailPage";
-import {
-  StaffInvitationsPage as CustomerStaffInvitationsPage,
-} from "@/pages/customer/StaffInvitationsPage";
 import {
   StaffInvitationsPage as OwnerStaffInvitationsPage,
 } from "@/pages/store-owner/StaffInvitationsPage";
-import { WorkspacePage } from "@/pages/customer/WorkspacePage";
-import { UserManagementPage } from "@/pages/admin/UserManagementPage";
 
+import { StaffShopDetailPage } from "@/pages/staff/StaffShopDetailPage";
+
+import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
+import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 
 export const routes: RouteObject[] = [
   {
@@ -93,35 +100,45 @@ export const routes: RouteObject[] = [
                   {
                     index: true,
                     element: (
-                      <Navigate
-                        to={APP_PATHS.ACCOUNT_PROFILE}
-                        replace
-                      />
+                      <Navigate to={APP_PATHS.ACCOUNT_PROFILE} replace />
                     ),
                   },
                   {
                     path: "profile",
+                    element: <ProfilePage />,
                   },
                   {
                     path: "orders",
+                    element: <OrdersPage />,
                   },
                   {
                     path: "reviews",
+                    element: <ReviewsPage />,
                   },
                   {
-                    path: "trust-scores",
+                    path: "trust-score",
+                    element: <TrustScorePage />,
                   },
                   {
-                    path: "shop-registration",
+                    path: "shop-application",
+                    element: <ShopApplicationPage />,
+                  },
+                  {
+                    path: "shop-application/new",
+                    element: <ShopApplicationFormPage />,
+                  },
+                  {
+                    path: "shop-application/edit/:applicationId",
+                    element: <ShopApplicationFormPage />,
                   },
                   {
                     path: "workspace",
-                     element: <WorkspacePage />,
+                    element: <WorkspacePage />,
                   },
-                {
-path: "staff-invitations",
-  element: <CustomerStaffInvitationsPage />,
-},
+                  {
+                    path: "staff-invitations",
+                    element: <CustomerStaffInvitationsPage />,
+                  },
                 ],
               },
             ],
@@ -148,7 +165,6 @@ path: "staff-invitations",
               />
             ),
           },
-          //---  ---
           {
             path: APP_PATHS.ADMIN_USERS,
             element: <UserManagementPage />,
@@ -157,7 +173,6 @@ path: "staff-invitations",
             path: APP_PATHS.ADMIN_CATEGORIES,
             element: <CategoryManagementPage />,
           },
-          //---  ---
           {
             path: APP_PATHS.ADMIN_PRODUCTS,
             element: (
@@ -194,39 +209,35 @@ path: "staff-invitations",
   },
 
   {
-  element: <ProtectedRoute allowedRoles={STAFF_ROLES} />,
-  children: [
-    {
-      path: APP_PATHS.STAFF,
-      element: (
-        <Navigate
-          to={APP_PATHS.ACCOUNT_WORKSPACE}
-          replace
-        />
-      ),
-    },
-    {
-      path: `${APP_PATHS.STAFF}/shops/:shopId`,
-      element: <StaffLayout />,
-      children: [
-        {
-          index: true,
-          element: (
-            <ComingSoonPage
-              title="Staff overview"
-              description="Staff operations will appear here when their APIs are ready."
-              backTo={APP_PATHS.ACCOUNT_WORKSPACE}
-            />
-          ),
-        },
-        {
-          path: "info",
-          element: <StaffShopDetailPage />,
-        },
-      ],
-    },
-  ],
-},
+    element: <ProtectedRoute allowedRoles={STAFF_ROLES} />,
+    children: [
+      {
+        path: APP_PATHS.STAFF,
+        element: <Navigate to={APP_PATHS.ACCOUNT_WORKSPACE} replace />,
+      },
+      {
+        path: `${APP_PATHS.STAFF}/shops/:shopId`,
+        element: <StaffLayout />,
+        children: [
+          {
+            index: true,
+            element: (
+              <ComingSoonPage
+                title="Staff overview"
+                description="Staff operations will appear here when their APIs are ready."
+                backTo={APP_PATHS.ACCOUNT_WORKSPACE}
+              />
+            ),
+          },
+          {
+            path: "info",
+            element: <StaffShopDetailPage />,
+          },
+        ],
+      },
+    ],
+  },
+
   {
     path: APP_PATHS.STORE_OWNER,
     element: <StoreOwnerLayout />,
@@ -245,10 +256,10 @@ path: "staff-invitations",
         path: "staff",
         element: <StaffManagementPage />,
       },
-     {
-  path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
-  element: <OwnerStaffInvitationsPage />,
-},
+      {
+        path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
+        element: <OwnerStaffInvitationsPage />,
+      },
       {
         path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
         element: <StaffDetailPage />,
@@ -260,5 +271,4 @@ path: "staff-invitations",
     path: APP_PATHS.NOT_FOUND,
     element: <NotFoundPage />,
   },
-  
 ];

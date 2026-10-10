@@ -224,4 +224,59 @@ public class CloudinaryService : ICloudinaryService
             _ => false
         };
     }
+    
+    public async Task<CloudinaryUploadResult> UploadDocumentAsync(IFormFile file, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+
+        if (file.Length <= 0)
+            throw new ArgumentException("The document file is empty.", nameof(file));
+
+        if (file.Length > _settings.MaxFileSizeBytes)
+            throw new ArgumentException($"The document exceeds the maximum size of {_settings.MaxFileSizeBytes} bytes.", nameof(file));
+
+        var allowed = new[]
+        {
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+        };
+
+        if (!allowed.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("The document type is not allowed. Supported formats are PDF, JPG, PNG and WEBP.", nameof(file));
+
+        await using var stream = file.OpenReadStream();
+
+        var uploadParams = new RawUploadParams
+        {
+            File = new FileDescription(Path.GetFileName(file.FileName), stream),
+            Folder = $"{_settings.UploadFolder}/shop_registrations/documents",
+            PublicId = $"{Path.GetFileNameWithoutExtension(file.FileName)}_{Guid.NewGuid():N}",
+            Overwrite = false
+        };
+
+        try
+        {
+            var result = await _cloudinary.UploadAsync(uploadParams);
+
+            if (result.StatusCode != System.Net.HttpStatusCode.OK || result.SecureUrl is null || string.IsNullOrWhiteSpace(result.PublicId))
+            {
+                throw new InvalidOperationException("Cloudinary did not accept the document upload.");
+            }
+
+            _logger.LogInformation("Document uploaded. FileName: {FileName}, PublicId: {PublicId}", file.FileName, result.PublicId);
+
+            return new CloudinaryUploadResult(result.SecureUrl.ToString(), result.PublicId);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading document {FileName} to Cloudinary.", file.FileName);
+            throw;
+        }
+    }
 }
