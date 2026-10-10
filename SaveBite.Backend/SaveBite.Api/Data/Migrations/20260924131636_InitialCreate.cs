@@ -6,10 +6,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace SaveBite.Backend.Data.Migrations
 {
-    /// <inheritdoc />
+    // Inherit documentation from the base implementation.
     public partial class InitialCreate : Migration
     {
-        /// <inheritdoc />
+        // Inherit documentation from the base implementation.
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -2007,7 +2007,7 @@ namespace SaveBite.Backend.Data.Migrations
                 unique: true);
         }
 
-        /// <inheritdoc />
+        // Inherit documentation from the base implementation.
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

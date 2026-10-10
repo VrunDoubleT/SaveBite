@@ -24,20 +24,14 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
         _logger = logger;
     }
 
-    /// <summary>
-    /// Queue consumed by this consumer.
-    /// </summary>
+    // Queue consumed by this consumer.
     protected abstract string QueueName { get; }
 
-    /// <summary>
-    /// Topic routing key used to bind the queue to the exchange.
-    /// Example: order.*, deal.*, notification.*
-    /// </summary>
+    // Topic routing key used to bind the queue to the exchange.
+    // Example: order.*, deal.*, notification.*.
     protected abstract string RoutingKey { get; }
 
-    /// <summary>
-    /// Business logic executed when a message is received.
-    /// </summary>
+    // Business logic executed when a message is received.
     protected abstract Task HandleMessageAsync(
         RabbitMessage<T> message,
         CancellationToken cancellationToken);
@@ -57,22 +51,22 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
             NetworkRecoveryInterval = TimeSpan.FromSeconds(10)
         };
 
-        // Create RabbitMQ connection
+        // Create RabbitMQ connection.
         _connection = await factory.CreateConnectionAsync(
             cancellationToken);
 
-        // Create channel
+        // Create channel.
         _channel = await _connection.CreateChannelAsync(
             cancellationToken: cancellationToken);
 
-        // Limit the number of unacknowledged messages
+        // Limit the number of unacknowledged messages.
         await _channel.BasicQosAsync(
             prefetchSize: 0,
             prefetchCount: 10,
             global: false,
             cancellationToken: cancellationToken);
 
-        // Declare Topic Exchange
+        // Declare Topic Exchange.
         await _channel.ExchangeDeclareAsync(
             exchange: _options.ExchangeName,
             type: ExchangeType.Topic,
@@ -80,7 +74,7 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
             autoDelete: false,
             cancellationToken: cancellationToken);
 
-        // Declare Queue
+        // Declare Queue.
         await _channel.QueueDeclareAsync(
             queue: QueueName,
             durable: true,
@@ -88,14 +82,14 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
             autoDelete: false,
             cancellationToken: cancellationToken);
 
-        // Bind Queue to Topic Exchange
+        // Bind Queue to Topic Exchange.
         await _channel.QueueBindAsync(
             queue: QueueName,
             exchange: _options.ExchangeName,
             routingKey: RoutingKey,
             cancellationToken: cancellationToken);
 
-        // Create consumer
+        // Create consumer.
         var consumer = new AsyncEventingBasicConsumer(_channel);
 
         consumer.ReceivedAsync += async (_, eventArgs) =>
@@ -105,7 +99,7 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
                 cancellationToken);
         };
 
-        // Start consuming
+        // Start consuming.
         await _channel.BasicConsumeAsync(
             queue: QueueName,
             autoAck: false,
@@ -146,12 +140,12 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
                 eventArgs.RoutingKey,
                 message.MessageId);
 
-            // Execute business logic
+            // Execute business logic.
             await HandleMessageAsync(
                 message,
                 cancellationToken);
 
-            // Message processed successfully
+            // Message processed successfully.
             await _channel.BasicAckAsync(
                 deliveryTag: eventArgs.DeliveryTag,
                 multiple: false,

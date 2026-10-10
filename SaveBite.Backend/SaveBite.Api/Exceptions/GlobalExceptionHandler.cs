@@ -1,17 +1,15 @@
+using SaveBite.Backend.Models.Common;
+using SaveBite.Backend.Constants;
 using System.Net;
 using Microsoft.AspNetCore.Diagnostics;
 using SaveBite.Backend.Exceptions;
-using SaveBite.Backend.Models.Responses;
 
 namespace SaveBite.Backend.Middlewares;
 
-/// <summary>
-/// Bắt mọi exception chưa xử lý và trả về đúng format ApiResponse,
-/// để client không bao giờ nhận HTML error page hay ProblemDetails lẫn lộn.
-/// Đăng ký: builder.Services.AddExceptionHandler&lt;GlobalExceptionHandler&gt;();
-///          builder.Services.AddProblemDetails();
-///          app.UseExceptionHandler();
-/// </summary>
+// Handle unhandled exceptions and return a consistent ApiResponse.
+// Prevent HTML error pages and mixed ProblemDetails responses.
+// Register with builder.Services.AddExceptionHandler<GlobalExceptionHandler>().
+// Also register builder.Services.AddProblemDetails() and app.UseExceptionHandler().
 public class GlobalExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<GlobalExceptionHandler> _logger;
@@ -54,7 +52,7 @@ public class GlobalExceptionHandler : IExceptionHandler
                 _logger.LogError(exception,
                     "Lỗi chưa xử lý tại {Path}", httpContext.Request.Path);
 
-                // Chỉ lộ chi tiết exception ở môi trường dev.
+                // Expose exception details only in the development environment.
                 response = ApiResponse.Fail(
                     _env.IsDevelopment()
                         ? exception.Message
@@ -69,6 +67,6 @@ public class GlobalExceptionHandler : IExceptionHandler
         await httpContext.Response.WriteAsJsonAsync(
             response, cancellationToken: cancellationToken);
 
-        return true; // đã xử lý xong, không chuyển tiếp handler khác
+        return true; // The exception has been handled; do not pass it to another handler.
     }
 }

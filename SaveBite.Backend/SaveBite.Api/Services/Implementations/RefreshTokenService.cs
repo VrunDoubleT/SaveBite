@@ -33,7 +33,7 @@ public class RefreshTokenService : IRefreshTokenService
         _timeProvider = timeProvider;
     }
 
-    public async Task<TokenPairResult> IssueAsync(
+    public async Task<TokenPairResponse> IssueAsync(
         User user,
         CancellationToken cancellationToken = default)
     {
@@ -50,15 +50,15 @@ public class RefreshTokenService : IRefreshTokenService
         return CreateTokenPair(user, rawToken, entity.ExpiresAt);
     }
 
-    public async Task<TokenPairResult> RotateAsync(
+    public async Task<TokenPairResponse> RotateAsync(
         string refreshToken,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(refreshToken))
             throw AppException.Unauthorized("Refresh token is invalid.");
 
-        // Rotation runs in a serializable transaction so a token can have only
-        // one successful successor, even when requests arrive concurrently.
+        // Rotation runs in a serializable transaction so a token can have only.
+        // One successful successor, even when requests arrive concurrently.
         await using var transaction =
             await _authRepository.BeginSerializableTransactionAsync(cancellationToken);
 
@@ -74,8 +74,8 @@ public class RefreshTokenService : IRefreshTokenService
 
         if (currentToken.RevokedAt is not null)
         {
-            // Reusing a revoked token may indicate theft. Revoke every active
-            // session for the account before requiring a new sign-in.
+            // Reusing a revoked token may indicate theft. Revoke every active.
+            // Session for the account before requiring a new sign-in.
             await RevokeAllActiveTokensAsync(
                 currentToken.UserId,
                 ReuseReason,
@@ -194,14 +194,14 @@ public class RefreshTokenService : IRefreshTokenService
             });
     }
 
-    private TokenPairResult CreateTokenPair(
+    private TokenPairResponse CreateTokenPair(
         User user,
         string refreshToken,
         DateTime refreshTokenExpiresAt)
     {
         var accessToken = _jwtService.CreateAccessToken(user);
 
-        return new TokenPairResult(
+        return new TokenPairResponse(
             accessToken.Token,
             accessToken.ExpiresAt,
             refreshToken,

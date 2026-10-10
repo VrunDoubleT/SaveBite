@@ -1,5 +1,5 @@
+using SaveBite.Backend.Constants;
 using System.Net;
-using SaveBite.Backend.Models.Responses;
 
 namespace SaveBite.Backend.Exceptions;
 

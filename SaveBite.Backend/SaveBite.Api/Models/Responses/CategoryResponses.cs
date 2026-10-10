@@ -7,3 +7,13 @@ public sealed record CategoryResponse(
     string? ImageUrl,
     bool IsActive
 );
+
+public sealed record CategoryDetailsResponse(
+    Guid Id,
+    string Name,
+    string? Description,
+    string? ImageUrl,
+    bool IsActive,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
+);

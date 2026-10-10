@@ -1,7 +1,7 @@
+using SaveBite.Backend.Models.Common;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using SaveBite.Backend.Models.Responses;
 
 namespace SaveBite.Backend.Filters;
 

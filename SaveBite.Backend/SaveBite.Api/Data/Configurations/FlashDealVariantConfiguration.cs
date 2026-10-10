@@ -34,7 +34,7 @@ public class FlashDealVariantConfiguration
             .HasColumnName("variant_id")
             .IsRequired();
 
-        // SQL hiện tại khai báo NUMERIC không giới hạn precision/scale.
+        // The current SQL schema declares NUMERIC without precision or scale limits.
         builder.Property(x => x.OriginalPrice)
             .HasColumnName("original_price")
             .HasColumnType("numeric")

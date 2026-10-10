@@ -42,11 +42,11 @@ public sealed class ShopApplicationRepository : IShopApplicationRepository
         => _dbContext.ShopApplications.AnyAsync(x =>
             x.ApplicantUserId == applicantUserId &&
             (x.Status == ShopApplicationStatus.Pending
-             || x.Status == ShopApplicationStatus.Approved), 
+             || x.Status == ShopApplicationStatus.Approved),
             cancellationToken);
 
-    // ADMIN METHODS
-    public async Task<IReadOnlyList<ShopApplication>> GetAllForAdminAsync(CancellationToken cancellationToken = default)
+    // Manage shop applications.
+    public async Task<IReadOnlyList<ShopApplication>> GetAllAsync(CancellationToken cancellationToken = default)
         => await _dbContext.ShopApplications
             .Include(x => x.Documents)
             .Include(x => x.ReviewLogs)
@@ -54,8 +54,8 @@ public sealed class ShopApplicationRepository : IShopApplicationRepository
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
 
-    // ADMIN METHODS
-    public Task<ShopApplication?> GetByIdForAdminAsync(Guid id, CancellationToken cancellationToken = default)
+    // Manage shop applications.
+    public Task<ShopApplication?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => _dbContext.ShopApplications
             .Include(x => x.Documents)
             .Include(x => x.ReviewLogs)

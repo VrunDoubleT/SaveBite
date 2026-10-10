@@ -4,26 +4,12 @@ using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
 
-using InvitationStatus = SaveBite.Backend.Models.Enums.StaffInvitation;
-using StaffInvitation = SaveBite.Backend.Models.Entities.StaffInvitation;
-
 namespace SaveBite.Backend.Repositories.Implementations;
 
 public class ShopStaffRepository(AppDbContext context)
     : IShopStaffRepository
 {
-    private const string StatusPending =
-        nameof(InvitationStatus.Pending);
-
-    private const string StatusCancelled =
-        nameof(InvitationStatus.Cancelled);
-
-    private const int InvitationLifetimeDays = 3;
-
-
-    // =========================================================
-    // USERS
-    // =========================================================
+    // User queries.
 
     public async Task<User?> GetUserByEmailAsync(
         string email,
@@ -38,235 +24,7 @@ public class ShopStaffRepository(AppDbContext context)
             );
     }
 
-
-    public async Task<User?> GetUserByIdAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default)
-    {
-        return await context.Users
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                u => u.Id == userId,
-                cancellationToken
-            );
-    }
-
-
-    // =========================================================
-    // SEARCH STAFF CANDIDATES
-    // =========================================================
-
-    public async Task<(
-        IReadOnlyList<User> Items,
-        int TotalItems)>
-        SearchStaffCandidatesAsync(
-            Guid shopId,
-            Guid ownerUserId,
-            string? keyword,
-            int page,
-            int pageSize,
-            CancellationToken cancellationToken = default)
-    {
-        // Pending invitation is considered active
-        // if it has not exceeded the 3-day lifetime.
-        var invitationCutoff =
-            DateTime.UtcNow.AddDays(
-                -InvitationLifetimeDays
-            );
-
-        var query = context.Users
-            .AsNoTracking()
-            .Where(u =>
-                u.Id != ownerUserId
-                && u.Status == UserStatus.Active
-
-                && u.Role != UserRole.Admin
-                && u.Role != UserRole.StoreOwner
-
-                && !context.ShopStaffMembers.Any(s =>
-                    s.ShopId == shopId
-                    && s.UserId == u.Id
-                    && s.Status != ShopStaffStatus.Removed
-                )
-
-                && !context.StaffInvitations.Any(i =>
-                    i.ShopId == shopId
-                    && i.InvitedUserId == u.Id
-                    && i.Status == StatusPending
-                    && i.InvitedAt > invitationCutoff
-                )
-            );
-
-        if (!string.IsNullOrWhiteSpace(keyword))
-        {
-            var search = keyword
-                .Trim()
-                .ToLower();
-
-            query = query.Where(u =>
-                u.FullName.ToLower().Contains(search)
-                || u.Email.ToLower().Contains(search)
-            );
-        }
-
-        var totalItems =
-            await query.CountAsync(
-                cancellationToken
-            );
-
-        var items = await query
-            .OrderBy(u => u.FullName)
-            .ThenBy(u => u.Email)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        return (items, totalItems);
-    }
-
-
-    // =========================================================
-    // INVITATIONS
-    // =========================================================
-
-    public async Task<StaffInvitation?>
-        GetInvitationByIdAsync(
-            Guid invitationId,
-            CancellationToken cancellationToken = default)
-    {
-        return await context.StaffInvitations
-            .Include(i => i.Shop)
-            .Include(i => i.InvitedUser)
-            .FirstOrDefaultAsync(
-                i => i.Id == invitationId,
-                cancellationToken
-            );
-    }
-
-
-    public async Task<StaffInvitation?>
-        GetPendingInvitationAsync(
-            Guid shopId,
-            Guid invitedUserId,
-            CancellationToken cancellationToken = default)
-    {
-        return await context.StaffInvitations
-            .FirstOrDefaultAsync(
-                i =>
-                    i.ShopId == shopId
-                    && i.InvitedUserId == invitedUserId
-                    && i.Status == StatusPending,
-                cancellationToken
-            );
-    }
-
-
-    public async Task<IEnumerable<StaffInvitation>>
-        GetInvitationsByShopIdAsync(
-            Guid shopId,
-            CancellationToken cancellationToken = default)
-    {
-        return await context.StaffInvitations
-            .AsNoTracking()
-            .Include(i => i.Shop)
-            .Include(i => i.InvitedUser)
-            .Where(i =>
-                i.ShopId == shopId
-            )
-            .OrderByDescending(i =>
-                i.InvitedAt
-            )
-            .ToListAsync(cancellationToken);
-    }
-
-
-    public async Task<(
-        IReadOnlyList<StaffInvitation> Items,
-        int TotalItems)>
-        GetInvitationsByShopIdPagedAsync(
-            Guid shopId,
-            int page,
-            int pageSize,
-            CancellationToken cancellationToken = default)
-    {
-        var query = context.StaffInvitations
-            .AsNoTracking()
-            .Include(i => i.Shop)
-            .Include(i => i.InvitedUser)
-            .Where(i =>
-                i.ShopId == shopId
-            );
-
-        var totalItems =
-            await query.CountAsync(
-                cancellationToken
-            );
-
-        var items = await query
-            .OrderByDescending(i =>
-                i.InvitedAt
-            )
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        return (items, totalItems);
-    }
-
-
-    public async Task<IEnumerable<StaffInvitation>>
-        GetInvitationsByUserIdAsync(
-            Guid userId,
-            CancellationToken cancellationToken = default)
-    {
-        return await context.StaffInvitations
-            .AsNoTracking()
-            .Include(i => i.Shop)
-            .Include(i => i.InvitedUser)
-            .Where(i =>
-                i.InvitedUserId == userId
-                && i.Status != StatusCancelled
-            )
-            .OrderByDescending(i =>
-                i.InvitedAt
-            )
-            .ToListAsync(cancellationToken);
-    }
-
-
-    public async Task AddInvitationAsync(
-        StaffInvitation invitation,
-        CancellationToken cancellationToken = default)
-    {
-        await context.StaffInvitations
-            .AddAsync(
-                invitation,
-                cancellationToken
-            );
-    }
-
-
-    public Task UpdateInvitationAsync(
-        StaffInvitation invitation,
-        CancellationToken cancellationToken = default)
-    {
-        var entry =
-            context.Entry(invitation);
-
-        if (entry.State ==
-            EntityState.Detached)
-        {
-            entry.State =
-                EntityState.Modified;
-        }
-
-        return Task.CompletedTask;
-    }
-
-
-    // =========================================================
-    // STAFF
-    // =========================================================
+    // Staff queries.
 
     public async Task<ShopStaff?>
         GetStaffByIdAsync(
@@ -281,7 +39,6 @@ public class ShopStaffRepository(AppDbContext context)
                 cancellationToken
             );
     }
-
 
     public async Task<ShopStaff?>
         GetStaffByShopAndUserAsync(
@@ -299,7 +56,6 @@ public class ShopStaffRepository(AppDbContext context)
                 cancellationToken
             );
     }
-
 
     public async Task<IEnumerable<ShopStaff>>
         GetStaffsByShopIdAsync(
@@ -320,7 +76,6 @@ public class ShopStaffRepository(AppDbContext context)
             )
             .ToListAsync(cancellationToken);
     }
-
 
     public async Task<(
         IReadOnlyList<ShopStaff> Items,
@@ -380,7 +135,6 @@ public class ShopStaffRepository(AppDbContext context)
         return (items, totalItems);
     }
 
-
     public async Task<IEnumerable<ShopStaff>>
         GetShopsByStaffUserIdAsync(
             Guid userId,
@@ -398,7 +152,6 @@ public class ShopStaffRepository(AppDbContext context)
             .ToListAsync(cancellationToken);
     }
 
-
     public async Task AddStaffAsync(
         ShopStaff staff,
         CancellationToken cancellationToken = default)
@@ -409,7 +162,6 @@ public class ShopStaffRepository(AppDbContext context)
                 cancellationToken
             );
     }
-
 
     public Task UpdateStaffAsync(
         ShopStaff staff,
@@ -428,10 +180,7 @@ public class ShopStaffRepository(AppDbContext context)
         return Task.CompletedTask;
     }
 
-
-    // =========================================================
-    // SHOP
-    // =========================================================
+    // Shop queries.
 
     public async Task<Shop?>
         GetShopByOwnerUserIdAsync(
@@ -448,12 +197,9 @@ public class ShopStaffRepository(AppDbContext context)
             );
     }
 
+    // Activity log queries.
 
-    // =========================================================
-    // ACTIVITY LOGS
-    // =========================================================
-
-    // Method cũ
+    // Retrieve activity logs without pagination.
     public async Task<IEnumerable<StaffActivityLog>>
         GetStaffActivityLogsAsync(
             Guid shopId,
@@ -475,8 +221,7 @@ public class ShopStaffRepository(AppDbContext context)
             .ToListAsync(cancellationToken);
     }
 
-
-    // Pagination
+    // Pagination.
     public async Task<(
         IReadOnlyList<StaffActivityLog> Items,
         int TotalItems)>
@@ -514,7 +259,6 @@ public class ShopStaffRepository(AppDbContext context)
         return (items, totalItems);
     }
 
-
     public async Task AddActivityLogAsync(
         StaffActivityLog log,
         CancellationToken cancellationToken = default)
@@ -526,10 +270,7 @@ public class ShopStaffRepository(AppDbContext context)
             );
     }
 
-
-    // =========================================================
-    // PERSISTENCE
-    // =========================================================
+    // Persistence operations.
 
     public async Task<int> SaveChangesAsync(
         CancellationToken cancellationToken = default)
@@ -539,7 +280,7 @@ public class ShopStaffRepository(AppDbContext context)
                 cancellationToken
             );
     }
-    
+
     public async Task<bool> HasOtherStaffMembershipAsync(
         Guid userId,
         Guid excludedStaffId,

@@ -1,7 +1,8 @@
+using SaveBite.Backend.Models.Common;
+using SaveBite.Backend.Constants;
 using System.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
-using SaveBite.Backend.Models.Responses;
 
 namespace SaveBite.Backend.Authorization;
 
@@ -69,6 +70,10 @@ public class ApiAuthorizationMiddlewareResultHandler
                 HttpStatusCode.Forbidden,
                 "Customer access is required.",
                 ErrorCodes.CustomerRequired),
+            AccessFailureReasons.CustomerOrStaffOrStoreOwnerRequired => (
+                HttpStatusCode.Forbidden,
+                "Customer, staff, or store owner access is required.",
+                ErrorCodes.CustomerOrStaffOrStoreOwnerRequired),
             AccessFailureReasons.ShopSuspended => (
                 HttpStatusCode.Forbidden,
                 "Shop features are suspended for this account.",

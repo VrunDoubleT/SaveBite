@@ -13,15 +13,15 @@ public class NoShowPenalty
     public Guid RecoveryRuleId { get; set; }
     public int PenaltyYear { get; set; }
     public int PenaltyMonth { get; set; }
-    
+
     public int OccurrenceNumber { get; set; }
 
-    // Snapshot
+    // Snapshot.
     public int ScoreDeducted { get; set; }
     public int RequiredOnlineOrders { get; set; }
     public decimal RequiredOnlineOrderValue { get; set; }
-    
-    // Progress Recovery
+
+    // Progress Recovery.
     public int CompletedOnlineOrders { get; set; }
     public decimal CompletedOnlineOrderValue { get; set; }
 

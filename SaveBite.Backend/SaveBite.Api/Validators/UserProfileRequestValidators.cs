@@ -3,7 +3,7 @@ using SaveBite.Backend.Models.Requests;
 
 namespace SaveBite.Backend.Validators;
 
-// USER PROFILE 
+// Validate user profile requests.
 public sealed class UpdateUserProfileRequestValidators : AbstractValidator<UpdateUserProfileRequest>
 {
     public UpdateUserProfileRequestValidators()
@@ -24,7 +24,7 @@ public sealed class UpdateUserProfileRequestValidators : AbstractValidator<Updat
     }
 }
 
-// ADDRESS MANAGEMENT
+// Validate address management requests.
 public sealed class CreateAddressRequestValidator : AbstractValidator<UserAddressRequests.CreateAddressRequest>
 {
     public CreateAddressRequestValidator()

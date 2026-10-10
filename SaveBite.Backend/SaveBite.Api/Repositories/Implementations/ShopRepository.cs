@@ -15,6 +15,15 @@ public sealed class ShopRepository : IShopRepository
         _context = context;
     }
 
+    public async Task<Shop?> GetShopByOwnerUserIdAsync(
+        Guid ownerUserId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Shops
+            .AsNoTracking()
+            .FirstOrDefaultAsync(shop => shop.OwnerUserId == ownerUserId, cancellationToken);
+    }
+
     public async Task<List<Shop>> GetActiveShopsAsync(string? keyword, CancellationToken cancellationToken = default)
     {
         var query = _context.Shops

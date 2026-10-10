@@ -12,13 +12,14 @@ public static class ServiceExtensions
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
-        services.AddScoped<IAdminCategoryService, AdminCategoryService>();
-        services.AddScoped<IAdminUserService, AdminUserService>();
+        services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<IUserService, UserService>();
         services.AddScoped<IShopApplicationService, ShopApplicationService>();
+        services.AddScoped<IShopStaffService, ShopStaffService>();
+        services.AddScoped<IStaffInvitationService, StaffInvitationService>();
         services.AddScoped<IUserAddressService, UserAddressService>();
-        services.AddScoped<IUserProfileService, UserProfileService>();
 
-        services.AddScoped<IShopViewService, ShopViewService>();
+        services.AddScoped<IShopService, ShopService>();
         services.AddScoped<IFlashDealService, FlashDealService>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();

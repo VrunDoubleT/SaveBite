@@ -38,6 +38,35 @@ public sealed class UserAccessRepository : IUserAccessRepository
                         shop.Status != ShopStatus.Suspended,
                 cancellationToken);
 
+    public Task<bool> HasStaffRelationshipAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+        => _dbContext.ShopStaffMembers
+            .AsNoTracking()
+            .AnyAsync(
+                staff => staff.UserId == userId && staff.Status == ShopStaffStatus.Active,
+                cancellationToken);
+
+    public Task<bool> HasStoreOwnerRelationshipAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+        => _dbContext.Shops
+            .AsNoTracking()
+            .AnyAsync(shop => shop.OwnerUserId == userId, cancellationToken);
+
+    public Task<bool> HasShopViewAccessAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+        // Preserve relationship checks while allowing views of suspended shops.
+        => _dbContext.Shops
+            .AsNoTracking()
+            .AnyAsync(
+                shop => shop.OwnerUserId == userId ||
+                        shop.StaffMembers.Any(staff =>
+                            staff.UserId == userId &&
+                            staff.Status == ShopStaffStatus.Active),
+                cancellationToken);
+
     public Task<bool> HasStaffAccessAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
@@ -52,8 +81,8 @@ public sealed class UserAccessRepository : IUserAccessRepository
     public Task<bool> HasStoreOwnerOrStaffAccessAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
-        // A relationship is authoritative; a role claim alone must not grant
-        // access after a staff member is removed or a shop is suspended.
+        // A relationship is authoritative; a role claim alone must not grant.
+        // Access after a staff member is removed or a shop is suspended.
         => _dbContext.Shops
             .AsNoTracking()
             .AnyAsync(

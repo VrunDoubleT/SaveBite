@@ -25,7 +25,7 @@ public sealed class FlashDealService : IFlashDealService
         _logger = logger;
     }
 
-    public async Task<FlashDealCursorListResponse> GetNearbyAsync( 
+    public async Task<FlashDealCursorListResponse> GetNearbyAsync(
         FlashDealCursorRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -39,7 +39,7 @@ public sealed class FlashDealService : IFlashDealService
 
 
 
-        // Áp dụng bộ lọc (Categories, Distance, Price, ShopName)
+        // Apply category, distance, price, and shop-name filters.
         var filteredDeals = allDeals.AsEnumerable();
 
         if (!string.IsNullOrWhiteSpace(request.Category))
@@ -88,7 +88,7 @@ public sealed class FlashDealService : IFlashDealService
             });
         }
 
-        // Sắp xếp các deal theo CreatedAt giảm dần (mới nhất lên đầu)
+        // Sort deals by CreatedAt in descending order, with the newest deals first.
         var sortedDeals = filteredDeals.OrderByDescending(d => d.CreatedAt.ToUniversalTime()).ToList();
 
         List<FlashDealResponse> resultDeals;
@@ -101,19 +101,19 @@ public sealed class FlashDealService : IFlashDealService
 
         if (request.Mode == CursorMode.Older && request.Cursor1.HasValue)
         {
-            // ─────────────────────────────────────────────────────────────────
-            // DUAL-CURSOR: Kết hợp con trỏ 1 + con trỏ 2
-            //
-            // Bước 1 (Cursor 2): Lấy tất cả deal được tạo MỚI HƠN cursor2
-            //   (được tạo sau khi page 1 đã load) → prepend lên đầu page mới.
-            //
-            // Bước 2 (Cursor 1): Lấy tối đa <Limit> deal CŨ HƠN cursor1
-            //   → tiếp tục phân trang theo chiều xuống.
-            //
-            // Kết quả trả về: [deal mới] + [deal cũ]
-            // ─────────────────────────────────────────────────────────────────
 
-            // Bước 1: deal mới hơn cursor2 (nếu có cursor2)
+            // Combine Cursor1 and Cursor2 for pagination.
+
+            // Step 1: Retrieve all deals created after Cursor2.
+            // Prepend deals created after the initial page was loaded to the new page.
+
+            // Step 2: Retrieve up to Limit deals created before Cursor1.
+            // Continue pagination toward older deals.
+
+            // Return new deals followed by older deals.
+
+
+            // Step 1: Retrieve deals newer than Cursor2 when Cursor2 is provided.
             var newerPrepend = new List<FlashDealResponse>();
             if (request.Cursor2.HasValue)
             {
@@ -124,13 +124,13 @@ public sealed class FlashDealService : IFlashDealService
 
                 if (newerPrepend.Count > 0)
                 {
-                    // Đẩy cursor2 lên mốc mới nhất vừa được tải
+                    // Advance Cursor2 to the newest timestamp loaded.
                     cursor2 = newerPrepend.Max(d => d.CreatedAt);
                     prependedCount = newerPrepend.Count;
                 }
             }
 
-            // Bước 2: deal cũ hơn cursor1
+            // Step 2: Retrieve deals older than Cursor1.
             var olderPool = sortedDeals
                 .Where(d => d.CreatedAt.ToUniversalTime() < request.Cursor1.Value.ToUniversalTime())
                 .ToList();
@@ -143,32 +143,32 @@ public sealed class FlashDealService : IFlashDealService
                 cursor1 = olderPage.Min(d => d.CreatedAt);
             }
 
-            // Kết hợp: deal mới nhất prepend trước, rồi đến deal cũ
+            // Prepend the newest deals, then append older deals.
             resultDeals = newerPrepend.Concat(olderPage).ToList();
         }
         else if (request.Mode == CursorMode.Newer && request.Cursor2.HasValue)
         {
-            // ─────────────────────────────────────────────────────────────────
-            // POLLING ONLY – chỉ kiểm tra số lượng, không cập nhật cursor2.
-            // Frontend hiển thị badge thông báo "X deal mới vừa xuất hiện!"
-            // Cursor2 chỉ được cập nhật khi người dùng thực sự load page mới.
-            // ─────────────────────────────────────────────────────────────────
+
+            // Polling only checks the count and does not update Cursor2.
+            // The frontend displays a badge showing the number of newly available deals.
+            // Update Cursor2 only when the user loads a new page.
+
             var newerDeals = sortedDeals
                 .Where(d => d.CreatedAt.ToUniversalTime() > request.Cursor2.Value.ToUniversalTime())
                 .ToList();
 
-            resultDeals = new List<FlashDealResponse>(); // Không trả deal khi polling
+            resultDeals = new List<FlashDealResponse>(); // Do not return deals while polling.
             hasNewer = newerDeals.Count > 0;
             newDealsCount = newerDeals.Count;
-            // cursor2 KHÔNG thay đổi – giữ nguyên mốc cũ để khi load page mới sẽ pick up đúng
+            // Keep Cursor2 unchanged so the next page load retrieves all new deals.
         }
-        else // CursorMode.Initial
+        else // CursorMode.Initial.
         {
-            // ─────────────────────────────────────────────────────────────────
-            // INITIAL LOAD: 9 item mới nhất, khởi tạo cả 2 con trỏ.
-            // cursor2 = createdAt của deal MỚI NHẤT (dùng detect deal tạo mới sau này)
-            // cursor1 = createdAt của deal CŨ NHẤT trong page (dùng phân trang xuống)
-            // ─────────────────────────────────────────────────────────────────
+
+            // Load the newest deals up to the requested limit and initialize both cursors.
+            // Set Cursor2 to the newest deal timestamp to detect subsequently created deals.
+            // Set Cursor1 to the oldest deal timestamp on the page to paginate toward older deals.
+
             resultDeals = sortedDeals.Take(request.Limit).ToList();
             hasOlder = sortedDeals.Count > request.Limit;
 
@@ -294,7 +294,7 @@ public sealed class FlashDealService : IFlashDealService
             };
         }).ToList();
 
-        // Fallback tự động: nếu deal được INSERT chay bằng SQL mà chưa chèn flash_deal_variants
+        // Use a fallback for deals inserted directly through SQL without flash_deal_variants.
         if (variants.Count == 0 && deal.Product?.Variants != null && deal.Product.Variants.Count > 0)
         {
             variants = deal.Product.Variants.Where(pv => pv.IsActive).Select(pv =>

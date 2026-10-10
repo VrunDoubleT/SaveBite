@@ -15,7 +15,7 @@ namespace SaveBite.Backend.Data.Migrations
     [Migration("20260925102700_AddPlatformFeePayments")]
     partial class AddPlatformFeePayments
     {
-        /// <inheritdoc />
+        // Inherit documentation from the base implementation.
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

@@ -127,7 +127,7 @@ public sealed class ShopApplicationService : IShopApplicationService
 
         if (application.Status is not (ShopApplicationStatus.Rejected or ShopApplicationStatus.Cancelled))
             throw AppException.Conflict("Only rejected or cancelled shop applications can be edited and resubmitted.");
-        
+
         var now = DateTime.UtcNow;
 
         application.Name = request.Name.Trim();
@@ -345,29 +345,29 @@ public sealed class ShopApplicationService : IShopApplicationService
                 r.CreatedAt))
             .ToList());
 
-    // ADMIN METHODS
-    public async Task<IReadOnlyList<ShopApplicationResponse>> GetAllForAdminAsync(CancellationToken cancellationToken = default)
+    // Manage shop applications.
+    public async Task<IReadOnlyList<ShopApplicationResponse>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var applications = await _repository.GetAllForAdminAsync(cancellationToken);
+        var applications = await _repository.GetAllAsync(cancellationToken);
         return applications.Select(x => Map(x, includeAllDocuments: true)).ToList();
     }
 
-    // ADMIN METHODS
-    public async Task<ShopApplicationResponse> GetByIdForAdminAsync(Guid applicationId, CancellationToken cancellationToken = default)
+    // Manage shop applications.
+    public async Task<ShopApplicationResponse> GetByIdAsync(Guid applicationId, CancellationToken cancellationToken = default)
     {
-        var application = await _repository.GetByIdForAdminAsync(applicationId, cancellationToken)
+        var application = await _repository.GetByIdAsync(applicationId, cancellationToken)
             ?? throw AppException.NotFound("Shop application was not found.");
         return Map(application, includeAllDocuments: true);
     }
 
-    // ADMIN METHODS
+    // Manage shop applications.
     public async Task<ShopApplicationResponse> ReviewAsync(
         Guid adminId,
         Guid applicationId,
         ReviewShopApplicationRequest request,
         CancellationToken cancellationToken = default)
     {
-        var application = await _repository.GetByIdForAdminAsync(applicationId, cancellationToken)
+        var application = await _repository.GetByIdAsync(applicationId, cancellationToken)
             ?? throw AppException.NotFound("Shop application was not found.");
 
         if (application.Status != ShopApplicationStatus.Pending)

@@ -26,7 +26,6 @@ builder.Services.AddAllRabbitMqConsumers();
 
 builder.Services.AddRedis(builder.Configuration);
 builder.Services.AddAuthServices(builder.Configuration);
-builder.Services.AddShopStaffServices();
 
 builder.Services.AddRepositories();
 builder.Services.AddServices();

@@ -1,15 +1,17 @@
+using SaveBite.Backend.Models.Common;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SaveBite.Backend.Authorization;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 
 namespace SaveBite.Backend.Controllers;
 
+// Manage authentication, credentials, and sessions.
 [ApiController]
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
@@ -25,11 +27,23 @@ public sealed class AuthController : ControllerBase
         _refreshTokenService = refreshTokenService;
     }
 
+    [HttpGet("me")]
+    [AccountAccess]
+    // Retrieve the authenticated account for session verification.
+    public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> GetMe(
+        CancellationToken cancellationToken)
+    {
+        var user = await _authService.GetCurrentUserAsync(
+            GetAuthenticatedUserId(),
+            cancellationToken);
+        return Ok(ApiResponse<CurrentUserResponse>.Ok(user));
+    }
+
+    [HttpPost("registrations")]
     [AllowAnonymous]
-    [HttpPost("register")]
     // Starts registration and queues an email; no user row is created yet.
     public async Task<ActionResult<ApiResponse>> Register(
-        RegisterRequest request,
+        [FromBody] RegisterRequest request,
         CancellationToken cancellationToken)
     {
         await _authService.RequestRegistrationAsync(
@@ -38,11 +52,11 @@ public sealed class AuthController : ControllerBase
         return Accepted(ApiResponse.Ok("Registration OTP sent. Use it before it expires."));
     }
 
+    [HttpPost("registration-verifications")]
     [AllowAnonymous]
-    [HttpPost("register/verify")]
     // Consumes the registration OTP and creates the account. Sign-in is a separate step.
     public async Task<ActionResult<ApiResponse>> VerifyRegistration(
-        VerifyRegistrationRequest request,
+        [FromBody] VerifyRegistrationRequest request,
         CancellationToken cancellationToken)
     {
         await _authService.VerifyRegistrationAsync(
@@ -52,45 +66,34 @@ public sealed class AuthController : ControllerBase
             "Registration completed successfully. Please sign in."));
     }
 
+    [HttpPost("sessions")]
     [AllowAnonymous]
-    [HttpPost("login")]
-    public async Task<ActionResult<ApiResponse<TokenPairResult>>> Login(
-        LoginRequest request,
+    public async Task<ActionResult<ApiResponse<TokenPairResponse>>> Login(
+        [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
     {
         var tokens = await _authService.LoginAsync(
             request,
             cancellationToken);
-        return Ok(ApiResponse<TokenPairResult>.Ok(tokens, "Signed in successfully."));
+        return Ok(ApiResponse<TokenPairResponse>.Ok(tokens, "Signed in successfully."));
     }
 
-    [AccountAccess]
-    [HttpGet("me")]
-    public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> GetMe(
-        CancellationToken cancellationToken)
-    {
-        var user = await _authService.GetCurrentUserAsync(
-            GetAuthenticatedUserId(),
-            cancellationToken);
-        return Ok(ApiResponse<CurrentUserResponse>.Ok(user, "Get profile successfully."));
-    }
-
+    [HttpPost("token-renewals")]
     [AllowAnonymous]
-    [HttpPost("refresh")]
-    public async Task<ActionResult<ApiResponse<TokenPairResult>>> Refresh(
-        RefreshTokenRequest request,
+    public async Task<ActionResult<ApiResponse<TokenPairResponse>>> Refresh(
+        [FromBody] RefreshTokenRequest request,
         CancellationToken cancellationToken)
     {
         var tokens = await _refreshTokenService.RotateAsync(
             request.RefreshToken,
             cancellationToken);
-        return Ok(ApiResponse<TokenPairResult>.Ok(tokens));
+        return Ok(ApiResponse<TokenPairResponse>.Ok(tokens));
     }
 
+    [HttpPost("session-revocations")]
     [AllowAnonymous]
-    [HttpPost("logout")]
     public async Task<ActionResult<ApiResponse>> Logout(
-        LogoutRequest request,
+        [FromBody] LogoutRequest request,
         CancellationToken cancellationToken)
     {
         await _refreshTokenService.RevokeAsync(
@@ -100,11 +103,11 @@ public sealed class AuthController : ControllerBase
         return Ok(ApiResponse.Ok("Signed out successfully."));
     }
 
+    [HttpPost("password-resets")]
     [AllowAnonymous]
-    [HttpPost("forgot-password")]
     // Stores the new password hash temporarily and queues an OTP email.
     public async Task<ActionResult<ApiResponse>> ForgotPassword(
-        ForgotPasswordRequest request,
+        [FromBody] ForgotPasswordRequest request,
         CancellationToken cancellationToken)
     {
         await _authService.RequestPasswordResetAsync(
@@ -114,11 +117,11 @@ public sealed class AuthController : ControllerBase
             "If the email exists, a password-reset OTP has been sent."));
     }
 
+    [HttpPost("password-reset-verifications")]
     [AllowAnonymous]
-    [HttpPost("reset-password")]
     // Verifies the OTP and applies the pending password hash from Redis.
     public async Task<ActionResult<ApiResponse>> ResetPassword(
-        ResetPasswordRequest request,
+        [FromBody] ResetPasswordRequest request,
         CancellationToken cancellationToken)
     {
         await _authService.ResetPasswordAsync(
@@ -127,11 +130,10 @@ public sealed class AuthController : ControllerBase
         return Ok(ApiResponse.Ok(
             "Password reset successfully. Please sign in again."));
     }
-
-    [AccountAccess]
-    [HttpPost("change-password")]
+    [HttpPut("me/password")]
+    [CustomerAccess]
     public async Task<ActionResult<ApiResponse>> ChangePassword(
-        ChangePasswordRequest request,
+        [FromBody] ChangePasswordRequest request,
         CancellationToken cancellationToken)
     {
         await _authService.ChangePasswordAsync(
@@ -144,11 +146,8 @@ public sealed class AuthController : ControllerBase
 
     private Guid GetAuthenticatedUserId()
     {
-        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier) ??
-                          User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-
-        return Guid.TryParse(userIdValue, out var userId)
-            ? userId
-            : throw AppException.Unauthorized();
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        return Guid.TryParse(userIdValue, out var userId) ? userId : throw AppException.Unauthorized();
     }
+
 }

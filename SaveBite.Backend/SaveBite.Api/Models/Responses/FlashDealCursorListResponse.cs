@@ -3,23 +3,19 @@ namespace SaveBite.Backend.Models.Responses;
 public class FlashDealCursorListResponse
 {
     public List<FlashDealResponse> Deals { get; set; } = new();
-    
+
     public DateTime? Cursor1 { get; set; }
-    
+
     public DateTime? Cursor2 { get; set; }
-    
+
     public bool HasOlder { get; set; }
-    
+
     public bool HasNewer { get; set; }
-    
-    /// <summary>
-    /// Số lượng deal mới (mới hơn cursor2 cũ) được prepend vào đầu danh sách
-    /// khi client gọi mode=Older. Frontend dùng để biết cần insert lên đầu.
-    /// </summary>
+
+    // Count new deals prepended to the list when the client requests mode=Older.
+    // The frontend uses this count to insert the new deals at the beginning.
     public int PrependedCount { get; set; }
-    
-    /// <summary>
-    /// Số lượng deal mới tìm thấy khi polling (mode=Newer), chưa được load vào trang.
-    /// </summary>
+
+    // Count new deals found while polling with mode=Newer that have not been loaded yet.
     public int NewDealsCount { get; set; }
 }

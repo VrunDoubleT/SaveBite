@@ -150,8 +150,8 @@ public sealed class AuthRedisService : IAuthRedisService
     {
         try
         {
-            // The Lua script consumes an OTP only when its value is unchanged,
-            // preventing two concurrent verification requests from succeeding.
+            // The Lua script consumes an OTP only when its value is unchanged,.
+            // Preventing two concurrent verification requests from succeeding.
             var result = await _database.ScriptEvaluateAsync(
                 CompareAndDeleteScript,
                 new RedisKey[] { key },
@@ -185,8 +185,8 @@ public sealed class AuthRedisService : IAuthRedisService
     {
         var count = await _database.StringIncrementAsync(key);
 
-        // Set the expiry only on first creation so repeated attempts cannot extend
-        // the configured rate-limit window indefinitely.
+        // Set the expiry only on first creation so repeated attempts cannot extend.
+        // The configured rate-limit window indefinitely.
         if (count == 1)
             await _database.KeyExpireAsync(key, expiry);
         return count;

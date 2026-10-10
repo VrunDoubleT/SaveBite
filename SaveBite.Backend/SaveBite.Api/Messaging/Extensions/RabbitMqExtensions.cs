@@ -16,7 +16,7 @@ public static class RabbitMqExtensions
         services.Configure<RabbitMqOptions>(
             configuration.GetSection("RabbitMQ"));
 
-        // Register a singleton RabbitMQ connection
+        // Register a singleton RabbitMQ connection.
         services.AddSingleton<IConnection>(sp =>
         {
             var options = sp
@@ -61,10 +61,10 @@ public static class RabbitMqExtensions
             }
         });
 
-        // Initialize exchange, queues and bindings
+        // Initialize exchange, queues and bindings.
         services.AddHostedService<RabbitMqTopologyInitializer>();
 
-        // Register publisher
+        // Register publisher.
         services.AddSingleton<
             IRabbitMqPublisher,
             RabbitMqPublisher>();

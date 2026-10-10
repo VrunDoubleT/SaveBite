@@ -8,8 +8,8 @@ public interface IShopApplicationRepository
     Task<ShopApplication?> GetLatestForApplicantAsync(Guid applicantUserId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ShopApplication>> GetAllForApplicantAsync(Guid applicantUserId, CancellationToken cancellationToken = default);
     Task<bool> HasActiveApplicationAsync(Guid applicantUserId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<ShopApplication>> GetAllForAdminAsync(CancellationToken cancellationToken = default);
-    Task<ShopApplication?> GetByIdForAdminAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ShopApplication>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<ShopApplication?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task AddAsync(ShopApplication application, CancellationToken cancellationToken = default);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

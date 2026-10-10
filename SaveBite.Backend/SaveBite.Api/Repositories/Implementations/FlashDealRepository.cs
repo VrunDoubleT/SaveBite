@@ -72,12 +72,10 @@ public sealed class FlashDealRepository : IFlashDealRepository
 
         if (mode == CursorMode.Older && cursor1.HasValue)
         {
-            // Con trỏ 1: Lấy các deal cũ hơn mốc Cursor1
             query = query.Where(d => d.CreatedAt < cursor1.Value);
         }
         else if (mode == CursorMode.Newer && cursor2.HasValue)
         {
-            // Con trỏ 2: So sánh mốc mới nhất xem có deal nào mới xuất hiện không
             query = query.Where(d => d.CreatedAt > cursor2.Value);
         }
 

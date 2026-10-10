@@ -15,7 +15,7 @@ namespace SaveBite.Backend.Data.Migrations
     [Migration("20260924131636_InitialCreate")]
     partial class InitialCreate
     {
-        /// <inheritdoc />
+        // Inherit documentation from the base implementation.
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

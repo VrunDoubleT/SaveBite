@@ -10,11 +10,11 @@ public static class RepositoryExtensions
     {
         services.AddScoped<IUserAccessRepository, UserAccessRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
-        services.AddScoped<IShopStaffRepository,
-            ShopStaffRepository>();
+        services.AddScoped<IShopStaffRepository, ShopStaffRepository>();
+        services.AddScoped<IStaffInvitationRepository, StaffInvitationRepository>();
        
-        services.AddScoped<IAdminCategoryRepository, AdminCategoryRepository>();
-        services.AddScoped<IAdminUserRepository, AdminUserRepository>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IShopApplicationRepository, ShopApplicationRepository>();
 
         services.AddScoped<IUserAddressRepository, UserAddressRepository>();

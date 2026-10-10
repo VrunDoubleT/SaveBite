@@ -1,5 +1,5 @@
+using SaveBite.Backend.Models.Common;
 using Microsoft.AspNetCore.Mvc;
-using SaveBite.Backend.Models.Responses;
 
 namespace SaveBite.Backend.Extensions;
 

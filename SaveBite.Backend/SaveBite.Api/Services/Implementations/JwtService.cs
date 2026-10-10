@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -5,7 +6,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SaveBite.Backend.Configurations;
 using SaveBite.Backend.Models.Entities;
-using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Services.Implementations;

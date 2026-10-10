@@ -5,11 +5,11 @@ namespace SaveBite.Backend.Services.Interfaces;
 
 public interface IRefreshTokenService
 {
-    Task<TokenPairResult> IssueAsync(
+    Task<TokenPairResponse> IssueAsync(
         User user,
         CancellationToken cancellationToken = default);
 
-    Task<TokenPairResult> RotateAsync(
+    Task<TokenPairResponse> RotateAsync(
         string refreshToken,
         CancellationToken cancellationToken = default);
 

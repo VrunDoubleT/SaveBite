@@ -21,13 +21,13 @@ public static class EnvironmentExtensions
         Env.Load(envPath);
 
         // Reload environment variables after DotNetEnv has populated them.
-        // Nested configuration keys use double underscores, for example
+        // Nested configuration keys use double underscores, for example.
         // Cloudinary__CloudName.
         builder.Configuration.AddEnvironmentVariables();
 
-        // Read application port
+        // Read application port.
         var port = Environment.GetEnvironmentVariable("API_PORT");
-        
+
         if (!string.IsNullOrWhiteSpace(port))
         {
             if (!int.TryParse(port, out var portNumber))

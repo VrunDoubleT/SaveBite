@@ -21,6 +21,13 @@ public class UserAccessAuthorizationHandler
         AuthorizationHandlerContext context,
         UserAccessRequirement requirement)
     {
+        if (requirement.Scope == AccessScope.Guest &&
+            !context.User.Identities.Any(identity => identity.IsAuthenticated))
+        {
+            context.Succeed(requirement);
+            return;
+        }
+
         var userIdValue = context.User.FindFirstValue(
                               ClaimTypes.NameIdentifier) ??
                           context.User.FindFirstValue(
@@ -51,6 +58,8 @@ public class UserAccessAuthorizationHandler
                 AccessFailureReasons.CustomerSuspended,
             AccessDenialReason.CustomerRequired =>
                 AccessFailureReasons.CustomerRequired,
+            AccessDenialReason.CustomerOrStaffOrStoreOwnerRequired =>
+                AccessFailureReasons.CustomerOrStaffOrStoreOwnerRequired,
             AccessDenialReason.ShopSuspended =>
                 AccessFailureReasons.ShopSuspended,
             AccessDenialReason.StaffRequired =>

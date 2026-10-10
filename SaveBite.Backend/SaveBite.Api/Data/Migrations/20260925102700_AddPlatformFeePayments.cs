@@ -5,10 +5,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace SaveBite.Backend.Data.Migrations
 {
-    /// <inheritdoc />
+    // Inherit documentation from the base implementation.
     public partial class AddPlatformFeePayments : Migration
     {
-        /// <inheritdoc />
+        // Inherit documentation from the base implementation.
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -59,7 +59,7 @@ namespace SaveBite.Backend.Data.Migrations
                 column: "statement_id");
         }
 
-        /// <inheritdoc />
+        // Inherit documentation from the base implementation.
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

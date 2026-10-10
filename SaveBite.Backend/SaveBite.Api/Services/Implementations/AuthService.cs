@@ -1,3 +1,4 @@
+using SaveBite.Backend.Constants;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -26,6 +27,7 @@ public sealed class AuthService : IAuthService
     private const string RegistrationPurpose = "registration";
     private const string PasswordResetPurpose = "password-reset";
     private readonly IAuthRepository _authRepository;
+    private readonly IUserService _userService;
     private readonly IAuthRedisService _redis;
     private readonly IPasswordHasherService _passwordHasher;
     private readonly IRefreshTokenService _refreshTokenService;
@@ -37,6 +39,7 @@ public sealed class AuthService : IAuthService
 
     public AuthService(
         IAuthRepository authRepository,
+        IUserService userService,
         IAuthRedisService redis,
         IPasswordHasherService passwordHasher,
         IRefreshTokenService refreshTokenService,
@@ -47,6 +50,7 @@ public sealed class AuthService : IAuthService
         TimeProvider timeProvider)
     {
         _authRepository = authRepository;
+        _userService = userService;
         _redis = redis;
         _passwordHasher = passwordHasher;
         _refreshTokenService = refreshTokenService;
@@ -55,6 +59,13 @@ public sealed class AuthService : IAuthService
         _settings = authOptions.Value;
         _timeProvider = timeProvider;
         _otpHashKey = Encoding.UTF8.GetBytes(jwtOptions.Value.SigningKey);
+    }
+
+    public Task<CurrentUserResponse> GetCurrentUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return _userService.GetCurrentUserAsync(userId, cancellationToken);
     }
 
     public async Task RequestRegistrationAsync(
@@ -78,8 +89,8 @@ public sealed class AuthService : IAuthService
 
         var expiry = OtpLifetime();
 
-        // Keep unverified registration data out of PostgreSQL. Redis only stores
-        // the password hash and deletes the pending data automatically on expiry.
+        // Keep unverified registration data out of PostgreSQL. Redis only stores.
+        // The password hash and deletes the pending data automatically on expiry.
         var pending = new PendingRegistration(
             email,
             _passwordHasher.HashPassword(request.Password),
@@ -163,7 +174,7 @@ public sealed class AuthService : IAuthService
             user.Id);
     }
 
-    public async Task<TokenPairResult> LoginAsync(
+    public async Task<TokenPairResponse> LoginAsync(
         LoginRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -202,42 +213,6 @@ public sealed class AuthService : IAuthService
             cancellationToken);
     }
 
-    public async Task<CurrentUserResponse> GetCurrentUserAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default)
-    {
-        var user = await _authRepository.GetUserByIdAsync(
-            userId,
-            cancellationToken);
-
-        if (user is null)
-            throw AppException.Unauthorized();
-
-        var defaultAddress = user.Addresses.FirstOrDefault(a => a.IsDefault) ?? user.Addresses.FirstOrDefault();
-        var addressResponse = defaultAddress != null
-            ? new DefaultAddressResponse(
-                defaultAddress.Id,
-                defaultAddress.Label,
-                defaultAddress.AddressLine,
-                defaultAddress.Ward,
-                defaultAddress.District,
-                defaultAddress.City,
-                defaultAddress.Latitude,
-                defaultAddress.Longitude,
-                defaultAddress.IsDefault)
-            : null;
-
-        return new CurrentUserResponse(
-            user.Id,
-            user.Email,
-            user.Phone,
-            user.FullName,
-            user.AvatarUrl,
-            user.Role.ToString(),
-            user.CustomerStatus.ToString(),
-            addressResponse);
-    }
-
     public async Task RequestPasswordResetAsync(
         ForgotPasswordRequest request,
         CancellationToken cancellationToken = default)
@@ -265,8 +240,8 @@ public sealed class AuthService : IAuthService
         var pending = new PendingPasswordReset(
             _passwordHasher.HashPassword(request.NewPassword));
 
-        // The plain password is never cached. The pending hash expires together
-        // with the OTP and is applied only after successful verification.
+        // The plain password is never cached. The pending hash expires together.
+        // With the OTP and is applied only after successful verification.
         await _redis.SetJsonAsync(pendingKey, pending, OtpLifetime());
 
         try
@@ -394,8 +369,8 @@ public sealed class AuthService : IAuthService
         var record = new OtpRecord(salt, HashOtp(purpose, email, otp, salt));
         var key = RedisKeys.AuthOtp(purpose, subjectHash);
 
-        // Store only a keyed hash of the OTP. The plain code exists only long
-        // enough to be placed on the email queue.
+        // Store only a keyed hash of the OTP. The plain code exists only long.
+        // Enough to be placed on the email queue.
         await _redis.SetStringAsync(
             key,
             JsonSerializer.Serialize(record),
@@ -455,8 +430,8 @@ public sealed class AuthService : IAuthService
             throw InvalidOtp();
         }
 
-        // Treat malformed cached data as an invalid OTP instead of exposing a
-        // serialization error through the authentication endpoint.
+        // Treat malformed cached data as an invalid OTP instead of exposing a.
+        // Serialization error through the authentication endpoint.
         OtpRecord? record;
         try
         {
@@ -469,8 +444,8 @@ public sealed class AuthService : IAuthService
 
         if (record is null || !OtpMatches(record, purpose, email, otp))
         {
-            // Invalidate both the OTP and its related registration after repeated
-            // failures to limit online guessing attempts.
+            // Invalidate both the OTP and its related registration after repeated.
+            // Failures to limit online guessing attempts.
             var attempts = await _redis.IncrementAsync(attemptsKey, OtpLifetime());
             _logger.LogWarning(
                 "OTP verification failed. Purpose: {Purpose}, SubjectHash: {SubjectHash}, Attempt: {Attempt}",

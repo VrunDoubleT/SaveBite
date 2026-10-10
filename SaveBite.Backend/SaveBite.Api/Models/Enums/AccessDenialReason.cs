@@ -9,5 +9,6 @@ public enum AccessDenialReason
     StoreOwnerRequired = 5,
     StoreOwnerOrStaffRequired = 6,
     StaffRequired = 7,
-    CustomerRequired = 8
+    CustomerRequired = 8,
+    CustomerOrStaffOrStoreOwnerRequired = 9
 }

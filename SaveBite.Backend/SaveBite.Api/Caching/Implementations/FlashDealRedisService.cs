@@ -22,12 +22,12 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
     public async Task<FlashDealResponse?> GetDealAsync(Guid dealId)
     {
         var dealKey = RedisKeys.Deal(dealId);
-        
+
         var entries = await Db.HashGetAllAsync(dealKey);
         if (entries.Length > 0)
         {
             var dict = entries.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
-            
+
             var variantsKey = RedisKeys.DealVariants(dealId);
             var variantEntries = await Db.HashGetAllAsync(variantsKey);
             var variants = new List<FlashDealVariantResponse>();
@@ -47,7 +47,7 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
                 }
             }
 
-            // Đồng bộ số lượng tồn kho theo thời gian thực từ Key 3: savebite:deal:{dealId}:stock
+            // Synchronize real-time stock quantities from Redis key savebite:deal:{dealId}:stock.
             var stockKey = RedisKeys.DealStock(dealId);
             var stockEntries = await Db.HashGetAllAsync(stockKey);
             if (stockEntries.Length > 0)
@@ -142,7 +142,7 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
                 Variants = variants
             };
         }
-        
+
         var json = await Db.StringGetAsync(dealKey);
         if (!json.IsNullOrEmpty)
         {
@@ -155,18 +155,18 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
     public async Task<List<FlashDealResponse>> GetDealsByShopAsync(Guid shopId)
     {
         var shopDealsKey = RedisKeys.ShopDeals(shopId);
-        
+
         var nowScore = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var dealIds = await Db.SortedSetRangeByScoreAsync(
             shopDealsKey,
             start: nowScore,
             stop: double.PositiveInfinity);
-        
+
         if (dealIds.Length == 0)
         {
             dealIds = await Db.SortedSetRangeByRankAsync(shopDealsKey);
         }
-        
+
         if (dealIds.Length == 0)
         {
             dealIds = await Db.SetMembersAsync(shopDealsKey);
@@ -242,7 +242,7 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
         };
         await Db.HashSetAsync(dealKey, dealEntries);
         await Db.KeyExpireAsync(dealKey, expiryTime);
-        
+
         var variantsKey = RedisKeys.DealVariants(deal.Id);
         if (deal.Variants != null && deal.Variants.Count > 0)
         {
@@ -253,7 +253,7 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
             await Db.HashSetAsync(variantsKey, variantEntries);
             await Db.KeyExpireAsync(variantsKey, expiryTime);
         }
-        
+
         var stockKey = RedisKeys.DealStock(deal.Id);
         if (deal.Variants != null && deal.Variants.Count > 0)
         {
@@ -264,7 +264,7 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
             await Db.HashSetAsync(stockKey, stockEntries);
             await Db.KeyExpireAsync(stockKey, expiryTime);
         }
-        
+
         var shopDealsKey = RedisKeys.ShopDeals(deal.ShopId);
         var utcOrderEnd = deal.OrderEndTime.Kind == DateTimeKind.Utc
             ? deal.OrderEndTime
@@ -272,7 +272,7 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
         var orderEndScore = new DateTimeOffset(utcOrderEnd).ToUnixTimeSeconds();
         await Db.SortedSetAddAsync(shopDealsKey, deal.Id.ToString(), orderEndScore);
         await Db.KeyExpireAsync(shopDealsKey, expiryTime);
-        
+
         await Db.GeoAddAsync(RedisKeys.GeoActiveShops, shopLon, shopLat, deal.ShopId.ToString());
     }
 

@@ -5,51 +5,35 @@ namespace SaveBite.Backend.Services.Interfaces;
 
 public interface IAuthService
 {
-    /// <summary>
-    /// Stores a pending registration in Redis and queues its verification email.
-    /// </summary>
+    // Retrieve the authenticated account for session verification.
+    Task<CurrentUserResponse> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    // Stores a pending registration in Redis and queues its verification email.
     Task RequestRegistrationAsync(
         RegisterRequest request,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Consumes the registration OTP and creates the user account.
-    /// </summary>
+    // Consumes the registration OTP and creates the user account.
     Task VerifyRegistrationAsync(
         VerifyRegistrationRequest request,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Validates the credentials and issues a new access/refresh token pair.
-    /// </summary>
-    Task<TokenPairResult> LoginAsync(
+    // Validates the credentials and issues a new access/refresh token pair.
+    Task<TokenPairResponse> LoginAsync(
         LoginRequest request,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Returns the current account data used by the authenticated client shell.
-    /// </summary>
-    Task<CurrentUserResponse> GetCurrentUserAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Stores the new password hash in Redis and queues a reset OTP when the account exists.
-    /// </summary>
+    // Stores the new password hash in Redis and queues a reset OTP when the account exists.
     Task RequestPasswordResetAsync(
         ForgotPasswordRequest request,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Verifies the OTP, applies the password hash from Redis, and revokes sessions.
-    /// </summary>
+    // Verifies the OTP, applies the password hash from Redis, and revokes sessions.
     Task ResetPasswordAsync(
         ResetPasswordRequest request,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Changes an authenticated user's password and revokes existing sessions.
-    /// </summary>
+    // Changes an authenticated user's password and revokes existing sessions.
     Task ChangePasswordAsync(
         Guid userId,
         ChangePasswordRequest request,

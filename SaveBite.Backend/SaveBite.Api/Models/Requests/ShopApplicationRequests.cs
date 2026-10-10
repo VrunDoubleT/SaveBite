@@ -26,7 +26,7 @@ public sealed class ResubmitShopApplicationRequest : CreateShopApplicationReques
     public Guid ApplicationId { get; set; }
 }
 
-// ADMIN REQUESTS
+// Shop application review requests.
 public sealed class ReviewShopApplicationRequest
 {
     public string Decision { get; set; } = string.Empty;

@@ -12,7 +12,7 @@ public sealed class UserAddressRepository : IUserAddressRepository
 
     public UserAddressRepository(AppDbContext dbContext) => _dbContext = dbContext;
 
-    // GET ALL ADDRESSES OF CURRENT USER
+    // Retrieve all addresses for the current user.
     public async Task<IReadOnlyList<UserAddress>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
         => await _dbContext.UserAddresses.AsNoTracking()
             .Where(address => address.UserId == userId)
@@ -20,8 +20,8 @@ public sealed class UserAddressRepository : IUserAddressRepository
             .ThenByDescending(address => address.UpdatedAt)
             .ThenBy(address => address.CreatedAt)
             .ToListAsync(cancellationToken);
-    
-    // ADD NEW ADDRESS
+
+    // Add a new address.
     public async Task<UserAddress> CreateAsync(UserAddress address, bool setAsDefault, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
@@ -31,7 +31,7 @@ public sealed class UserAddressRepository : IUserAddressRepository
         var shouldBeDefault = !hasExistingAddress || setAsDefault;
         if (shouldBeDefault)
             await _dbContext.UserAddresses.Where(item => item.UserId == address.UserId && item.IsDefault).ExecuteUpdateAsync(setters => setters.SetProperty(item => item.IsDefault, false), cancellationToken);
-        
+
         address.IsDefault = shouldBeDefault;
         _dbContext.UserAddresses.Add(address);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -39,12 +39,12 @@ public sealed class UserAddressRepository : IUserAddressRepository
 
         return address;
     }
-    
-    // GET ADDRESS BY ID
+
+    // Retrieve an address by ID.
     public Task<UserAddress?> GetByIdAsync(Guid userId, Guid addressId, CancellationToken cancellationToken = default)
         => _dbContext.UserAddresses.SingleOrDefaultAsync(address => address.Id == addressId && address.UserId == userId, cancellationToken);
-    
-    // SET ADDRESS AS DEFAULT
+
+    // Set the address as the default.
     public async Task SetDefaultAsync(Guid userId, Guid addressId, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
@@ -53,8 +53,8 @@ public sealed class UserAddressRepository : IUserAddressRepository
             .ExecuteUpdateAsync(setters => setters.SetProperty(address => address.IsDefault, true).SetProperty(address => address.UpdatedAt, DateTime.UtcNow), cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
-    
-    // UPDATE ADDRESS
+
+    // Update an address.
     public async Task UpdateAsync(UserAddress address, bool setAsDefault, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
@@ -72,8 +72,8 @@ public sealed class UserAddressRepository : IUserAddressRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
-    
-    // DELETE ADDRESS
+
+    // Delete an address.
     public async Task DeleteAsync( UserAddress address, CancellationToken cancellationToken = default)
     {
         _dbContext.UserAddresses.Remove(address);

@@ -31,7 +31,34 @@ public sealed class UserAccessService : IUserAccessService
         return scope switch
         {
             AccessScope.Account => UserAccessDecision.Allow(),
+            AccessScope.Guest =>
+                state.Role is UserRole.User or UserRole.Staff or UserRole.StoreOwner && !hasAdminRoleClaim
+                    ? UserAccessDecision.Allow()
+                    : UserAccessDecision.Deny(AccessDenialReason.CustomerRequired),
+            AccessScope.StaffAnyStatus =>
+                state.Role == UserRole.Staff &&
+                await _userAccessRepository.HasStaffRelationshipAsync(userId, cancellationToken)
+                    ? UserAccessDecision.Allow()
+                    : UserAccessDecision.Deny(AccessDenialReason.StaffRequired),
+            AccessScope.StoreOwnerAnyStatus =>
+                state.Role == UserRole.StoreOwner &&
+                await _userAccessRepository.HasStoreOwnerRelationshipAsync(userId, cancellationToken)
+                    ? UserAccessDecision.Allow()
+                    : UserAccessDecision.Deny(AccessDenialReason.StoreOwnerRequired),
+            AccessScope.CustomerOrStaffOrStoreOwner =>
+                state.Role is UserRole.User or UserRole.Staff or UserRole.StoreOwner
+                    ? UserAccessDecision.Allow()
+                    : UserAccessDecision.Deny(
+                        AccessDenialReason.CustomerOrStaffOrStoreOwnerRequired),
             AccessScope.Customer => AuthorizeCustomer(state),
+            AccessScope.CustomerView =>
+                state.Role is UserRole.User or UserRole.Staff or UserRole.StoreOwner
+                    ? UserAccessDecision.Allow()
+                    : UserAccessDecision.Deny(AccessDenialReason.CustomerRequired),
+            AccessScope.ShopView => await AuthorizeShopViewAsync(
+                userId,
+                state,
+                cancellationToken),
             AccessScope.Staff => await AuthorizeStaffAsync(
                 userId,
                 state,
@@ -62,6 +89,19 @@ public sealed class UserAccessService : IUserAccessService
         return state.CustomerStatus == CustomerStatus.Active
             ? UserAccessDecision.Allow()
             : UserAccessDecision.Deny(AccessDenialReason.CustomerSuspended);
+    }
+
+    private async Task<UserAccessDecision> AuthorizeShopViewAsync(
+        Guid userId,
+        UserAccessState state,
+        CancellationToken cancellationToken)
+    {
+        if (state.Role is not (UserRole.StoreOwner or UserRole.Staff))
+            return UserAccessDecision.Deny(AccessDenialReason.StoreOwnerOrStaffRequired);
+
+        return await _userAccessRepository.HasShopViewAccessAsync(userId, cancellationToken)
+            ? UserAccessDecision.Allow()
+            : UserAccessDecision.Deny(AccessDenialReason.StoreOwnerOrStaffRequired);
     }
 
     private async Task<UserAccessDecision> AuthorizeStaffAsync(

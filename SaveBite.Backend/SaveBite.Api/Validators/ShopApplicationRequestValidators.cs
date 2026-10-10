@@ -4,7 +4,7 @@ using SaveBite.Backend.Models.Requests;
 
 namespace SaveBite.Backend.Validators;
 
-// SHOP APPLICATION 
+// Validate shop application requests.
 public sealed class CreateShopApplicationRequestValidator : AbstractValidator<CreateShopApplicationRequest>
 {
     public CreateShopApplicationRequestValidator()
@@ -17,7 +17,7 @@ public sealed class CreateShopApplicationRequestValidator : AbstractValidator<Cr
         RuleFor(x => x).Custom((x, context) =>
         {
             if (!x.OpeningTime.HasValue || !x.ClosingTime.HasValue) return;
-            
+
             if (x.OpeningTime >= x.ClosingTime)
             {
                 context.AddFailure(nameof(x.OpeningTime), "Opening time must be earlier than closing time.");
@@ -31,7 +31,7 @@ public sealed class CreateShopApplicationRequestValidator : AbstractValidator<Cr
     }
 }
 
-// RESUBMIT SHOP APPLICATION
+// Validate shop application resubmissions.
 public sealed class ResubmitShopApplicationRequestValidator : AbstractValidator<ResubmitShopApplicationRequest>
 {
     public ResubmitShopApplicationRequestValidator()
@@ -44,7 +44,7 @@ public sealed class ResubmitShopApplicationRequestValidator : AbstractValidator<
         RuleFor(x => x).Custom((x, context) =>
         {
             if (!x.OpeningTime.HasValue || !x.ClosingTime.HasValue) return;
-            
+
             if (x.OpeningTime >= x.ClosingTime)
             {
                 context.AddFailure(nameof(x.OpeningTime), "Opening time must be earlier than closing time.");
@@ -58,7 +58,7 @@ public sealed class ResubmitShopApplicationRequestValidator : AbstractValidator<
     }
 }
 
-// SHOP APPLICATION DOCUMENTS 
+// Validate shop application documents.
 public sealed record ShopApplicationDocumentsValidationRequest(IReadOnlyList<IFormFile> Files, IReadOnlyList<string> Types);
 
 public sealed class ShopApplicationDocumentsValidator : AbstractValidator<ShopApplicationDocumentsValidationRequest>

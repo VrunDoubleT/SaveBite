@@ -1,3 +1,5 @@
+using SaveBite.Backend.Authorization;
+using SaveBite.Backend.Models.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SaveBite.Backend.Exceptions;
@@ -7,9 +9,9 @@ using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Controllers;
 
+// Retrieve flash deals by location, identifier, or shop.
 [ApiController]
-[Route("api/flash-deals")]
-[AllowAnonymous] 
+[Route("api")]
 public sealed class FlashDealsController : ControllerBase
 {
     private readonly IFlashDealService _flashDealService;
@@ -19,23 +21,8 @@ public sealed class FlashDealsController : ControllerBase
         _flashDealService = flashDealService;
     }
 
-
-    [HttpGet("shop/{shopId:guid}")]
-    public async Task<ActionResult<ApiResponse<List<FlashDealResponse>>>> GetByShop(
-        Guid shopId,
-        CancellationToken cancellationToken)
-    {
-        if (shopId == Guid.Empty)
-        {
-            throw AppException.BadRequest("Shop ID is invalid.");
-        }
-
-        var deals = await _flashDealService.GetByShopIdAsync(shopId, cancellationToken);
-        return Ok(ApiResponse<List<FlashDealResponse>>.Ok(deals));
-    }
-
-
-    [HttpGet("nearby")]
+    [HttpGet("flash-deals")]
+    [GuestAccess]
     public async Task<ActionResult<ApiResponse<FlashDealCursorListResponse>>> GetNearby(
         [FromQuery] FlashDealCursorRequest request,
         CancellationToken cancellationToken)
@@ -48,8 +35,8 @@ public sealed class FlashDealsController : ControllerBase
         return Ok(ApiResponse<FlashDealCursorListResponse>.Ok(result, message));
     }
 
-
-    [HttpGet("{id:guid}")]
+    [HttpGet("flash-deals/{id:guid}")]
+    [GuestAccess]
     public async Task<ActionResult<ApiResponse<FlashDealResponse>>> GetById(
         Guid id,
         CancellationToken cancellationToken)
@@ -63,33 +50,18 @@ public sealed class FlashDealsController : ControllerBase
         return Ok(ApiResponse<FlashDealResponse>.Ok(deal));
     }
 
-
-    [HttpGet("categories")]
-    public async Task<ActionResult<ApiResponse<List<CategoryResponse>>>> GetCategories(
-        [FromServices] SaveBite.Backend.Data.AppDbContext context,
+    [HttpGet("shops/{shopId:guid}/flash-deals")]
+    [GuestAccess]
+    public async Task<ActionResult<ApiResponse<List<FlashDealResponse>>>> GetByShop(
+        Guid shopId,
         CancellationToken cancellationToken)
     {
-        var categories = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
-            .ToListAsync(
-                System.Linq.Queryable.Select(
-                    System.Linq.Queryable.OrderBy(
-                        System.Linq.Queryable.Where(
-                            Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AsNoTracking(context.Categories),
-                            c => c.IsActive
-                        ),
-                        c => c.Name
-                    ),
-                    c => new CategoryResponse(
-                        c.Id,
-                        c.Name,
-                        c.Description,
-                        c.ImageUrl,
-                        c.IsActive
-                    )
-                ),
-                cancellationToken
-            );
+        if (shopId == Guid.Empty)
+        {
+            throw AppException.BadRequest("Shop ID is invalid.");
+        }
 
-        return Ok(ApiResponse<List<CategoryResponse>>.Ok(categories));
+        var deals = await _flashDealService.GetByShopIdAsync(shopId, cancellationToken);
+        return Ok(ApiResponse<List<FlashDealResponse>>.Ok(deals));
     }
 }

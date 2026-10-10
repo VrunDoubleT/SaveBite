@@ -16,14 +16,14 @@ public sealed class UserAddressService : IUserAddressService
         _userAddressRepository = userAddressRepository;
     }
 
-    // GET ALL ADDRESSES OF CURRENT USER
+    // Retrieve all addresses for the current user.
     public async Task<IReadOnlyList<UserAddressResponse>> GetMyAddressesAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var addresses = await _userAddressRepository.GetByUserIdAsync(userId, cancellationToken);
         return addresses.Select(ToResponse).ToList();
     }
 
-    // ADD NEW ADDRESS
+    // Add a new address.
     public async Task<UserAddressResponse> CreateAddressAsync(Guid userId, UserAddressRequests.CreateAddressRequest request, CancellationToken cancellationToken = default)
     {
         var label = string.IsNullOrWhiteSpace(request.Label) ? null : request.Label.Trim();
@@ -55,7 +55,7 @@ public sealed class UserAddressService : IUserAddressService
         return ToResponse(created);
     }
 
-    // SET ADDRESS AS DEFAULT
+    // Set the address as the default.
     public async Task<UserAddressResponse> SetDefaultAddressAsync(Guid userId, Guid addressId, CancellationToken cancellationToken = default)
     {
         var address = await _userAddressRepository.GetByIdAsync(userId, addressId, cancellationToken);
@@ -71,15 +71,15 @@ public sealed class UserAddressService : IUserAddressService
 
         return ToResponse(address);
     }
-    
-    // UPDATE ADDRESS
+
+    // Update an address.
     public async Task<UserAddressResponse> UpdateAddressAsync(Guid userId, Guid addressId, UserAddressRequests.UpdateAddressRequest request, CancellationToken cancellationToken = default)
     {
         var address = await _userAddressRepository.GetByIdAsync(userId, addressId, cancellationToken);
 
         if (address is null)
             throw AppException.NotFound("Address not found.");
-        
+
         var label = string.IsNullOrWhiteSpace(request.Label) ? null : request.Label.Trim();
         var addressLine = request.AddressLine?.Trim();
         var ward = string.IsNullOrWhiteSpace(request.Ward) ? null : request.Ward.Trim();
@@ -100,7 +100,7 @@ public sealed class UserAddressService : IUserAddressService
         return ToResponse(address);
     }
 
-    // DELETE ADDRESS
+    // Delete an address.
     public async Task DeleteAddressAsync(Guid userId, Guid addressId, CancellationToken cancellationToken = default)
     {
         var address = await _userAddressRepository.GetByIdAsync(userId, addressId, cancellationToken);
@@ -113,7 +113,7 @@ public sealed class UserAddressService : IUserAddressService
         await _userAddressRepository.DeleteAsync(address, cancellationToken);
     }
 
-    // MAP ENTITY TO RESPONSE
+    // Map the entity to its response model.
     private static UserAddressResponse ToResponse(UserAddress address)
         => new(address.Id,
             address.Label,
