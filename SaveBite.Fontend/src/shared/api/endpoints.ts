@@ -44,10 +44,12 @@ export const API_ENDPOINTS = {
     CREATE_ADDRESS: "/profile/addresses",
     ADDRESS_DEFAULT: (addressId: string) => `/profile/addresses/${addressId}/default`,
     ADDRESS_BY_ID: (addressId: string) => `/profile/addresses/${addressId}`,
+  },
   ADMIN_SHOP_APPLICATION: {
     BASE: "/admin/shop-applications",
     DETAIL: (applicationId: string) => `/admin/shop-applications/${applicationId}`,
     REVIEW: (applicationId: string) => `/admin/shop-applications/${applicationId}/review`,
+  },
   FLASH_DEALS: {
     NEARBY: "/flash-deals/nearby",
     BY_SHOP: (shopId: string) => `/flash-deals/shop/${shopId}`,
