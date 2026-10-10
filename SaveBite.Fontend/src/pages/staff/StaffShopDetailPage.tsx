@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, CalendarDays, Clock3, Mail, MapPin, Store, User } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { staffApi } from "@/features/staff/api/staffApi";
-import type { StaffShopDetail } from "@/features/staff/types/staff.types";
+import { staffApi } from "@/features/staff-shops/api/staffApi";
+import type { StaffShopDetail } from "@/features/staff-shops/types/staff.types";
 import { APP_PATHS } from "@/app/router/paths";
 
 function formatDate(date: string) {

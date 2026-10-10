@@ -4,15 +4,15 @@ import { Mail, Plus, Search, UserCheck, UserX, Users } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 
-import { shopStaffApi } from "@/features/shopStaff/api/shopStaffApi";
+import { shopStaffApi } from "@/features/shop-staffs/api/shopStaffApi";
 
-import type { ShopStaff, UpdateStaffInfoInput } from "@/features/shopStaff/types/shopStaff.types";
+import type { ShopStaff, UpdateStaffInfoInput } from "@/features/shop-staffs/types/shopStaff.types";
 
-import { InviteStaffModal } from "@/features/shopStaff/components/InviteStaffModal";
-import { StaffTable } from "@/features/shopStaff/components/StaffTable";
-import { StaffStatCard } from "@/features/shopStaff/components/StaffStatCard";
-import { EditStaffModal } from "@/features/shopStaff/components/EditStaffModal";
-import { RemoveStaffModal } from "@/features/shopStaff/components/RemoveStaffModal";
+import { InviteStaffModal } from "@/features/shop-staffs/components/InviteStaffModal";
+import { StaffTable } from "@/features/shop-staffs/components/StaffTable";
+import { StaffStatCard } from "@/features/shop-staffs/components/StaffStatCard";
+import { EditStaffModal } from "@/features/shop-staffs/components/EditStaffModal";
+import { RemoveStaffModal } from "@/features/shop-staffs/components/RemoveStaffModal";
 
 import { APP_PATHS } from "@/app/router/paths";
 

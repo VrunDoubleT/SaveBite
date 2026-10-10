@@ -18,8 +18,8 @@ import {
   User as UserIcon,
   Repeat,
 } from "lucide-react";
-import { userApi } from "@/features/admin/api/userApi";
-import type { AdminUser, UserDetailsResponse } from "@/features/admin/types/user.types";
+import { userApi } from "@/features/users/api/userApi";
+import type { AdminUser, UserDetailsResponse } from "@/features/users/types/user.types";
 import { getApiErrorMessage } from "@/shared/api";
 import { useAuthStore } from "@/shared/stores/authStore";
 

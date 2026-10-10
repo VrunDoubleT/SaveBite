@@ -9,10 +9,10 @@ import {
   STAFF_ROLES,
 } from "@/app/router/routeAccess";
 
-import { AdminLayout } from "@/shared/layout/AdminLayout";
-import { CustomerLayout } from "@/shared/layout/CustomerLayout";
-import { StaffLayout } from "@/shared/layout/StaffLayout";
-import { StoreOwnerLayout } from "@/shared/layout/StoreOwnerLayout";
+import { AdminLayout } from "@/shared/layouts/AdminLayout";
+import { CustomerLayout } from "@/shared/layouts/CustomerLayout";
+import { StaffLayout } from "@/shared/layouts/StaffLayout";
+import { StoreOwnerLayout } from "@/shared/layouts/StoreOwnerLayout";
 
 import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
@@ -20,17 +20,17 @@ import { OtpVerificationPage } from "@/pages/auth/OtpVerificationPage";
 import { RegisterPage } from "@/pages/auth/RegisterPage";
 
 import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
-import { AccountLayout } from "@/pages/customer/account/AccountLayout";
+import { AccountLayout } from "@/shared/layouts/AccountLayout";
 import {
   StaffInvitationsPage as CustomerStaffInvitationsPage,
-} from "@/pages/customer/account/StaffInvitationsPage";
-import { WorkspacePage } from "@/pages/customer/account/WorkspacePage";
-import { ShopApplicationFormPage } from "@/pages/customer/account/ShopApplicationFormPage";
-import ShopApplicationPage from "@/pages/customer/account/ShopApplicationPage";
-import { TrustScorePage } from "@/pages/customer/account/TrustScorePage";
-import { ReviewsPage } from "@/pages/customer/account/ReviewsPage";
-import { OrdersPage } from "@/pages/customer/account/OrdersPage";
-import { ProfilePage } from "@/pages/customer/account/ProfilePage";
+} from "@/pages/customer/StaffInvitationsPage";
+import { WorkspacePage } from "@/pages/customer/WorkspacePage";
+import { ShopApplicationFormPage } from "@/pages/customer/ShopApplicationFormPage";
+import ShopApplicationPage from "@/pages/customer/ShopApplicationPage";
+import { TrustScorePage } from "@/pages/customer/TrustScorePage";
+import { ReviewsPage } from "@/pages/customer/ReviewsPage";
+import { OrdersPage } from "@/pages/customer/OrdersPage";
+import { ProfilePage } from "@/pages/customer/ProfilePage";
 
 import { CategoryManagementPage } from "@/pages/admin/CategoryManagementPage";
 import { UserManagementPage } from "@/pages/admin/UserManagementPage";

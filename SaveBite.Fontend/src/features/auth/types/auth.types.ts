@@ -1,8 +1,6 @@
 export type AuthRole = "user" | "storeOwner" | "staff" | "admin";
 
-<<<<<<< HEAD
 export type CustomerStatus = "active" | "suspended";
-=======
 export interface UserAddress {
   id: string;
   label?: string | null;
@@ -14,7 +12,6 @@ export interface UserAddress {
   longitude: number;
   isDefault: boolean;
 }
->>>>>>> origin/feature/iss-4-store-information-feedback-management-view-side
 
 export interface AuthUser {
   id: string;
@@ -23,11 +20,8 @@ export interface AuthUser {
   fullName: string;
   avatarUrl: string | null;
   role: AuthRole;
-<<<<<<< HEAD
   customerStatus: CustomerStatus;
-=======
   defaultAddress?: UserAddress | null;
->>>>>>> origin/feature/iss-4-store-information-feedback-management-view-side
 }
 
 export interface LoginCredentials {
@@ -65,9 +59,6 @@ export interface CurrentUserResponse {
   fullName: string;
   avatarUrl: string | null;
   role: string;
-<<<<<<< HEAD
   customerStatus: CustomerStatus;
-=======
   defaultAddress?: UserAddress | null;
->>>>>>> origin/feature/iss-4-store-information-feedback-management-view-side
 }

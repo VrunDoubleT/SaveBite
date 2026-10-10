@@ -47,7 +47,7 @@ export const flashDealApi = {
   async getCategories(): Promise<string[]> {
     try {
       const response = await httpClient.get<ApiResponse<{ name: string }[]>>(
-        API_ENDPOINTS.CATEGORIES.LIST,
+        API_ENDPOINTS.CATEGORIES.CATALOG,
       );
       return (response.data.data ?? []).map((c) => c.name);
     } catch {

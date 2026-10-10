@@ -5,9 +5,9 @@ import { ArrowLeft, Mail, RefreshCw, Send, Trash2, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 
-import { shopStaffApi } from "@/features/shopStaff/api/shopStaffApi";
+import { shopStaffApi } from "@/features/shop-staffs/api/shopStaffApi";
 
-import type { StaffInvitation } from "@/features/shopStaff/types/shopStaff.types";
+import type { StaffInvitation } from "@/features/shop-staffs/types/shopStaff.types";
 
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 

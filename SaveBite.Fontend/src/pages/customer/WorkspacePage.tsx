@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { LogOut, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { staffApi } from "@/features/staff/api/staffApi";
-import type { AssociatedShop } from "@/features/staff/types/staff.types";
+import { staffApi } from "@/features/staff-shops/api/staffApi";
+import type { AssociatedShop } from "@/features/staff-shops/types/staff.types";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 

@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Mail, UserRound } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { shopStaffApi } from "@/features/shopStaff/api/shopStaffApi";
+import { shopStaffApi } from "@/features/shop-staffs/api/shopStaffApi";
 
 import type {
   ShopStaff,
   StaffActivityLog as StaffActivityLogType,
-} from "@/features/shopStaff/types/shopStaff.types";
+} from "@/features/shop-staffs/types/shopStaff.types";
 
-import { StaffStatusBadge } from "@/features/shopStaff/components/StaffStatusBadge";
-import { StaffActivityLog } from "@/features/shopStaff/components/StaffActivityLog";
+import { StaffStatusBadge } from "@/features/shop-staffs/components/StaffStatusBadge";
+import { StaffActivityLog } from "@/features/shop-staffs/components/StaffActivityLog";
 
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";

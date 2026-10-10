@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { staffInvitationApi } from "@/features/staffInvitation/api/staffInvitationApi";
+import { staffInvitationApi } from "@/features/staff-invitations/api/staffInvitationApi";
 import type {
   StaffInvitation,
   StaffInvitationStatus,
-} from "@/features/staffInvitation/types/staffInvitation.types";
+} from "@/features/staff-invitations/types/staffInvitation.types";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 import { useAuthStore } from "@/shared/stores/authStore";

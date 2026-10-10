@@ -6,13 +6,13 @@ export const categoryApi = {
   async getCategories(): Promise<Category[]> {
     try {
       const response = await httpClient.get<ApiResponse<Category[]>>(
-        API_ENDPOINTS.CATEGORIES.LIST,
+        API_ENDPOINTS.CATEGORIES.CATALOG,
       );
       return response.data.data ?? [];
     } catch {
       // Fallback to flash deals categories endpoint if needed
       const response = await httpClient.get<ApiResponse<Category[]>>(
-        API_ENDPOINTS.FLASH_DEALS.CATEGORIES,
+        API_ENDPOINTS.CATEGORIES.CATALOG,
       );
       return response.data.data ?? [];
     }

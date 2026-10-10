@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getApiErrorMessage } from "@/shared/api/httpClient";
-import { adminShopApplicationApi } from "@/features/admin/shop-applications/api/adminShopApplicationApi";
-import { AdminShopApplicationDetail } from "@/features/admin/shop-applications/components/AdminShopApplicationDetail";
-import { AdminShopApplicationsList } from "@/features/admin/shop-applications/components/AdminShopApplicationsList";
-import { ADMIN_SHOP_APPLICATION_FILTERS } from "@/features/admin/shop-applications/schemas/adminShopApplication.schema";
+import { adminShopApplicationApi } from "@/features/shop-applications/api/adminShopApplicationApi";
+import { AdminShopApplicationDetail } from "@/features/shop-applications/components/AdminShopApplicationDetail";
+import { AdminShopApplicationsList } from "@/features/shop-applications/components/AdminShopApplicationsList";
+import { ADMIN_SHOP_APPLICATION_FILTERS } from "@/features/shop-applications/schemas/adminShopApplication.schema";
 import type {
   ShopApplication,
   ShopApplicationAdminFilter,
-} from "@/features/admin/shop-applications/types/adminShopApplication.types";
+} from "@/features/shop-applications/types/adminShopApplication.types";
 
 export function AdminShopApplicationsPage() {
   const [items, setItems] = useState<ShopApplication[]>([]);

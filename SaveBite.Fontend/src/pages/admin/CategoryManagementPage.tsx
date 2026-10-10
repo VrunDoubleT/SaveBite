@@ -18,8 +18,8 @@ import {
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { categoryApi } from "@/features/admin/api/categoryApi";
-import type { Category } from "@/features/admin/types/category.types";
+import { categoryApi } from "@/features/categories/api/adminCategoryApi";
+import type { Category } from "@/features/categories/types/adminCategory.types";
 import { getApiErrorMessage } from "@/shared/api";
 
 const schema = z.object({
