@@ -30,9 +30,11 @@ public sealed class AuthRepository : IAuthRepository
     public Task<User?> GetUserByIdAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
-        => _dbContext.Users.SingleOrDefaultAsync(
-            user => user.Id == userId,
-            cancellationToken);
+        => _dbContext.Users
+            .Include(user => user.Addresses)
+            .SingleOrDefaultAsync(
+                user => user.Id == userId,
+                cancellationToken);
 
     public async Task<bool> TryAddUserAsync(
         User user,

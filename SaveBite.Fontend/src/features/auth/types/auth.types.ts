@@ -1,5 +1,17 @@
 export type AuthRole = "user" | "storeOwner" | "staff" | "admin";
 
+export interface UserAddress {
+  id: string;
+  label?: string | null;
+  addressLine: string;
+  ward?: string | null;
+  district?: string | null;
+  city?: string | null;
+  latitude: number;
+  longitude: number;
+  isDefault: boolean;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -7,6 +19,7 @@ export interface AuthUser {
   fullName: string;
   avatarUrl: string | null;
   role: AuthRole;
+  defaultAddress?: UserAddress | null;
 }
 
 export interface LoginCredentials {
@@ -44,4 +57,5 @@ export interface CurrentUserResponse {
   fullName: string;
   avatarUrl: string | null;
   role: string;
+  defaultAddress?: UserAddress | null;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Package, ShoppingBag, Star } from "lucide-react";
+import { Package, ShoppingBag, Sparkles, Star } from "lucide-react";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
 interface DealCardProps {
@@ -44,8 +44,8 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
   const fallbackImg = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80";
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:shadow-md">
-      {/* Product Image + Discount badge + Timer */}
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
+      {/* Product Image + Badges */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-100">
         <Link to={`/flash-deals/${deal.id}`}>
           <img
@@ -58,24 +58,43 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
           />
         </Link>
 
-        {deal.maxDiscountPercent > 0 && (
-          <span className="absolute top-3 left-3 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow-sm">
-            -{deal.maxDiscountPercent}%
-          </span>
-        )}
+        {/* Góc trên bên trái: Xếp dọc ngăn nắp, KHÔNG BAO GIỜ bị đè chữ */}
+        <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-1.5">
+          {deal.isNew && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-lg shadow-orange-500/40 ring-2 ring-white animate-pulse">
+              <Sparkles size={12} className="fill-white text-white" />
+              NEW DEAL
+            </span>
+          )}
 
-        <span className="absolute top-3 right-3 rounded-full bg-neutral-900/70 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-xs">
+          {deal.maxDiscountPercent > 0 && (
+            <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-bold text-white shadow-md ring-1 ring-white/60">
+              -{Math.round(deal.maxDiscountPercent)}%
+            </span>
+          )}
+        </div>
+
+        {/* Góc trên bên phải: Countdown Timer độc lập */}
+        <span className="absolute top-3 right-3 z-10 rounded-full bg-neutral-900/75 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs backdrop-blur-xs">
           {timeLeft}
         </span>
       </div>
 
       {/* Deal Information */}
       <div className="flex flex-1 flex-col gap-2 p-4">
-        {deal.categoryName && (
-          <span className="w-fit rounded-sm bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-            {deal.categoryName}
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {deal.isNew && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 border border-orange-200 px-2 py-0.5 text-[11px] font-bold text-orange-700">
+              <Sparkles size={11} className="text-orange-500" />
+              NEW DEAL
+            </span>
+          )}
+          {deal.categoryName && (
+            <span className="w-fit rounded-sm bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
+              {deal.categoryName}
+            </span>
+          )}
+        </div>
 
         <Link
           to={`/flash-deals/${deal.id}`}

@@ -2,6 +2,7 @@ import { API_ENDPOINTS, httpClient } from "@/shared/api";
 import type { ApiResponse } from "@/shared/types";
 import type {
   NearbyShop,
+  NearbyShopsPagedResponse,
   NearbyShopsRequest,
   ShopProfile,
   StoreReviewsQueryRequest,
@@ -11,13 +12,25 @@ import type {
 export const shopApi = {
   async getNearbyShops(
     params: NearbyShopsRequest,
-  ): Promise<{ shops: NearbyShop[]; message?: string }> {
-    const response = await httpClient.get<ApiResponse<NearbyShop[]>>(
+  ): Promise<{
+    shops: NearbyShop[];
+    totalItems: number;
+    totalPages: number;
+    page: number;
+    pageSize: number;
+    message?: string;
+  }> {
+    const response = await httpClient.get<ApiResponse<NearbyShopsPagedResponse>>(
       API_ENDPOINTS.SHOPS.NEARBY,
       { params },
     );
+    const data = response.data.data;
     return {
-      shops: response.data.data ?? [],
+      shops: data?.items ?? [],
+      totalItems: data?.totalItems ?? 0,
+      totalPages: data?.totalPages ?? 0,
+      page: data?.page ?? 1,
+      pageSize: data?.pageSize ?? 6,
       message: response.data.message,
     };
   },

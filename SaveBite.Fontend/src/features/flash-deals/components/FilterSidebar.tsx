@@ -6,8 +6,8 @@ import { categoryApi } from "@/features/categories/api/categoryApi";
 interface FilterSidebarProps {
   filters: DealFilterState;
   setFilters: Dispatch<SetStateAction<DealFilterState>>;
-  radiusInKm: number;
-  setRadiusInKm: (r: number) => void;
+  radiusInKm?: number;
+  setRadiusInKm?: (r: number) => void;
   selectedShop: string | null;
   onClearShop: () => void;
   categoryCounts?: Record<string, number>;
@@ -17,12 +17,10 @@ interface FilterSidebarProps {
 
 const DISTANCE_OPTIONS = ["Under 2km", "Under 5km", "Over 5km"];
 const PRICE_OPTIONS = ["Under 30k", "30k - 50k", "Over 50k"];
-const RADIUS_OPTIONS = [5, 10, 15, 25];
 
 export function FilterSidebar({
   filters,
   setFilters,
-  radiusInKm,
   setRadiusInKm,
   selectedShop,
   onClearShop,
@@ -63,6 +61,7 @@ export function FilterSidebar({
   const activeCategories = propCategories ?? internalCategories;
   const isCategoriesLoading = propIsLoadingCategories ?? internalLoading;
 
+  // Multi-select for categories
   const toggle = (key: keyof DealFilterState, value: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -72,9 +71,17 @@ export function FilterSidebar({
     }));
   };
 
+  // Single-select for distance and price (clicking selected item unselects it)
+  const toggleSingle = (key: "distance" | "price", value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: prev[key].includes(value) ? [] : [value],
+    }));
+  };
+
   const clearAll = () => {
     setFilters({ distance: [], price: [], category: [] });
-    setRadiusInKm(15);
+    setRadiusInKm?.(15);
     setCategorySearch("");
     onClearShop();
   };
@@ -186,28 +193,7 @@ export function FilterSidebar({
       </div>
 
 
-      {/* Radius */}
-      <div className="border-b border-neutral-100 py-4">
-        <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-          Scan Radius ({radiusInKm} km)
-        </span>
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {RADIUS_OPTIONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRadiusInKm(r)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                radiusInKm === r
-                  ? "bg-emerald-600 text-white"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
-            >
-              {r} km
-            </button>
-          ))}
-        </div>
-      </div>
+
 
       {/* Distance */}
       <div className="border-b border-neutral-100 py-4">
@@ -223,8 +209,8 @@ export function FilterSidebar({
               <input
                 type="checkbox"
                 checked={filters.distance.includes(opt)}
-                onChange={() => toggle("distance", opt)}
-                className="h-4 w-4 rounded-sm border-neutral-300 accent-emerald-600"
+                onChange={() => toggleSingle("distance", opt)}
+                className="h-4 w-4 rounded-full border-neutral-300 accent-emerald-600"
               />
               <span>{opt}</span>
             </label>
@@ -244,8 +230,8 @@ export function FilterSidebar({
               <input
                 type="checkbox"
                 checked={filters.price.includes(opt)}
-                onChange={() => toggle("price", opt)}
-                className="h-4 w-4 rounded-sm border-neutral-300 accent-emerald-600"
+                onChange={() => toggleSingle("price", opt)}
+                className="h-4 w-4 rounded-full border-neutral-300 accent-emerald-600"
               />
               <span>{opt}</span>
             </label>

@@ -74,12 +74,24 @@ export interface StoreReviewsSummary {
   };
 }
 
+export interface NearbyShopsPagedResponse {
+  items: NearbyShop[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+}
+
 export interface NearbyShopsRequest {
   latitude?: number;
   longitude?: number;
   radiusInKm?: number;
   keyword?: string;
   onlyOpen?: boolean;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface StoreReviewsQueryRequest {

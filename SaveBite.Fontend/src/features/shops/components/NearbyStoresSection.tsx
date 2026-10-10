@@ -2,26 +2,32 @@ import { useEffect, useState } from "react";
 import { Store, MapPin, RefreshCw, AlertCircle } from "lucide-react";
 import { shopApi } from "@/features/shops/api/shopApi";
 import { NearbyStoreCard } from "@/features/shops/components/NearbyStoreCard";
+import { Pagination } from "@/shared/components/pagination";
 import type { NearbyShop } from "@/features/shops/types/shop.types";
 
 interface NearbyStoresSectionProps {
-  latitude?: number;
-  longitude?: number;
+  latitude?: number | null;
+  longitude?: number | null;
   radiusInKm?: number;
   isLocationReady?: boolean;
 }
 
 export function NearbyStoresSection({
-  latitude = 10.7626,
-  longitude = 106.6601,
+  latitude,
+  longitude,
   radiusInKm = 15,
-  isLocationReady = true,
+  isLocationReady = false,
 }: NearbyStoresSectionProps) {
   const [shops, setShops] = useState<NearbyShop[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pageSize = 6;
 
-  const fetchShops = async () => {
+  const fetchShops = async (pageToFetch = currentPage) => {
+    if (!isLocationReady || !latitude || !longitude) return;
     setIsLoading(true);
     setError(null);
     try {
@@ -29,8 +35,13 @@ export function NearbyStoresSection({
         latitude,
         longitude,
         radiusInKm,
+        page: pageToFetch,
+        pageSize,
       });
       setShops(res.shops);
+      setTotalPages(res.totalPages);
+      setTotalItems(res.totalItems);
+      setCurrentPage(res.page);
     } catch {
       setError("Failed to load nearby stores.");
     } finally {
@@ -39,11 +50,22 @@ export function NearbyStoresSection({
   };
 
   useEffect(() => {
-    if (!isLocationReady) return;
-    void fetchShops();
+    if (!isLocationReady || !latitude || !longitude) return;
+    setCurrentPage(1);
+    void fetchShops(1);
   }, [isLocationReady, latitude, longitude, radiusInKm]);
 
-  const showSkeleton = !isLocationReady || isLoading;
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    void fetchShops(newPage);
+  };
+
+  // Nếu chưa cấp GPS thì không hiển thị section cửa hàng
+  if (!isLocationReady) {
+    return null;
+  }
+
+  const showSkeleton = isLoading;
 
   return (
     <section className="mb-12">
@@ -59,15 +81,17 @@ export function NearbyStoresSection({
             </h2>
           </div>
           <p className="mt-1 text-xs text-neutral-500 sm:text-sm">
-            Discover stores and restaurants with active flash deals near you
+            {isLoading
+              ? "Discover stores and restaurants with active flash deals near you"
+              : `Discover ${totalItems} stores and restaurants with active flash deals near you`}
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => void fetchShops()}
+          onClick={() => void fetchShops(currentPage)}
           disabled={isLoading}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:opacity-50 cursor-pointer"
         >
           <RefreshCw size={13} className={isLoading ? "animate-spin text-emerald-600" : ""} />
           <span className="hidden sm:inline">Refresh</span>
@@ -77,7 +101,7 @@ export function NearbyStoresSection({
       {/* Loading Skeleton */}
       {showSkeleton && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
               className="animate-pulse rounded-2xl border border-neutral-200 bg-white p-4"
@@ -118,13 +142,29 @@ export function NearbyStoresSection({
         </div>
       )}
 
-      {/* Stores Grid */}
+      {/* Stores Grid (6 items per page via Server-side Pagination) */}
       {!showSkeleton && !error && shops.length > 0 && (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {shops.map((shop) => (
-            <NearbyStoreCard key={shop.id} shop={shop} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {shops.map((shop) => (
+              <NearbyStoreCard key={shop.id} shop={shop} />
+            ))}
+          </div>
+
+          {/* Pagination bar */}
+          {totalPages > 1 && (
+            <div className="mt-8 flex justify-center">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                itemLabel="stores"
+              />
+            </div>
+          )}
+        </>
       )}
     </section>
   );

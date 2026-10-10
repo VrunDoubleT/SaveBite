@@ -36,16 +36,16 @@ public sealed class FlashDealsController : ControllerBase
 
 
     [HttpGet("nearby")]
-    public async Task<ActionResult<ApiResponse<List<FlashDealResponse>>>> GetNearby(
-        [FromQuery] NearbyFlashDealsRequest request,
+    public async Task<ActionResult<ApiResponse<FlashDealCursorListResponse>>> GetNearby(
+        [FromQuery] FlashDealCursorRequest request,
         CancellationToken cancellationToken)
     {
-        var deals = await _flashDealService.GetNearbyAsync(request, cancellationToken);
+        var result = await _flashDealService.GetNearbyAsync(request, cancellationToken);
 
-        var message = deals.Any()
+        var message = result.Deals.Count > 0
             ? null
             : $"No flash deals found within a {request.RadiusInKm} km radius of your location.";
-        return Ok(ApiResponse<List<FlashDealResponse>>.Ok(deals, message));
+        return Ok(ApiResponse<FlashDealCursorListResponse>.Ok(result, message));
     }
 
 

@@ -213,13 +213,28 @@ public sealed class AuthService : IAuthService
         if (user is null)
             throw AppException.Unauthorized();
 
+        var defaultAddress = user.Addresses.FirstOrDefault(a => a.IsDefault) ?? user.Addresses.FirstOrDefault();
+        var addressResponse = defaultAddress != null
+            ? new UserAddressResponse(
+                defaultAddress.Id,
+                defaultAddress.Label,
+                defaultAddress.AddressLine,
+                defaultAddress.Ward,
+                defaultAddress.District,
+                defaultAddress.City,
+                defaultAddress.Latitude,
+                defaultAddress.Longitude,
+                defaultAddress.IsDefault)
+            : null;
+
         return new CurrentUserResponse(
             user.Id,
             user.Email,
             user.Phone,
             user.FullName,
             user.AvatarUrl,
-            user.Role.ToString());
+            user.Role.ToString(),
+            addressResponse);
     }
 
     public async Task RequestPasswordResetAsync(

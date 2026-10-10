@@ -1,4 +1,5 @@
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Repositories.Interfaces;
@@ -15,22 +16,22 @@ public sealed class ShopViewService : IShopViewService
         _shopRepository = shopRepository;
     }
 
-    public async Task<List<NearbyShopResponse>> GetNearbyShopsAsync(
+    public async Task<PagedResult<NearbyShopResponse>> GetNearbyShopsAsync(
         NearbyShopsRequest request,
         CancellationToken cancellationToken = default)
     {
-        var shops = await _shopRepository.GetActiveShopsAsync(request.Keyword, cancellationToken);
-        if (!shops.Any()) return new List<NearbyShopResponse>();
+        var page = request.Page <= 0 ? 1 : request.Page;
+        var pageSize = request.PageSize <= 0 ? 6 : request.PageSize;
 
-        var shopIds = shops.Select(s => s.Id).ToList();
-        var reviewsStats = await _shopRepository.GetReviewsStatsForShopsAsync(shopIds, cancellationToken);
+        var shops = await _shopRepository.GetActiveShopsAsync(request.Keyword, cancellationToken);
+        if (!shops.Any())
+            return PagedResult<NearbyShopResponse>.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0);
 
         var nowTime = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
-        var results = new List<NearbyShopResponse>();
-
         var userLat = request.Latitude ?? 0;
         var userLon = request.Longitude ?? 0;
 
+        var matchingShops = new List<(Shop Shop, double Distance, bool IsOpen)>();
         foreach (var shop in shops)
         {
             var distance = CalculateDistanceInKm(userLat, userLon, shop.Latitude, shop.Longitude);
@@ -39,6 +40,23 @@ public sealed class ShopViewService : IShopViewService
             var isOpen = CheckIsOpen(shop.OpeningTime, shop.ClosingTime, nowTime);
             if (request.OnlyOpen == true && !isOpen) continue;
 
+            matchingShops.Add((shop, distance, isOpen));
+        }
+
+        var totalItems = matchingShops.Count;
+        var pagedShops = matchingShops
+            .OrderBy(x => x.Distance)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        var pagedShopIds = pagedShops.Select(x => x.Shop.Id).ToList();
+        var reviewsStats = await _shopRepository.GetReviewsStatsForShopsAsync(pagedShopIds, cancellationToken);
+
+        var results = new List<NearbyShopResponse>();
+        foreach (var item in pagedShops)
+        {
+            var shop = item.Shop;
             reviewsStats.TryGetValue(shop.Id, out var stat);
 
             results.Add(new NearbyShopResponse
@@ -49,18 +67,18 @@ public sealed class ShopViewService : IShopViewService
                 Address = $"{shop.AddressLine}, {shop.District}, {shop.City}",
                 Latitude = shop.Latitude,
                 Longitude = shop.Longitude,
-                DistanceInKm = distance,
+                DistanceInKm = item.Distance,
                 LogoUrl = shop.LogoUrl,
                 CoverImageUrl = shop.CoverImageUrl,
                 OpeningTime = shop.OpeningTime,
                 ClosingTime = shop.ClosingTime,
-                IsOpen = isOpen,
+                IsOpen = item.IsOpen,
                 AverageRating = stat.TotalCount > 0 ? Math.Round(stat.AvgRating, 1) : 5.0,
                 TotalReviews = stat.TotalCount
             });
         }
 
-        return results.OrderBy(x => x.DistanceInKm).ToList();
+        return PagedResult<NearbyShopResponse>.Create(results, page, pageSize, totalItems);
     }
 
     public async Task<ShopProfileResponse> GetShopProfileAsync(

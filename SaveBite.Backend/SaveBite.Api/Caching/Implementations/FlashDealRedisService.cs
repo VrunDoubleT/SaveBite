@@ -31,13 +31,14 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
             var variantsKey = RedisKeys.DealVariants(dealId);
             var variantEntries = await Db.HashGetAllAsync(variantsKey);
             var variants = new List<FlashDealVariantResponse>();
+            var serializerOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             foreach (var vEntry in variantEntries)
             {
                 if (!vEntry.Value.IsNullOrEmpty)
                 {
                     try
                     {
-                        var v = JsonSerializer.Deserialize<FlashDealVariantResponse>(vEntry.Value.ToString());
+                        var v = JsonSerializer.Deserialize<FlashDealVariantResponse>(vEntry.Value.ToString(), serializerOptions);
                         if (v != null) variants.Add(v);
                     }
                     catch
@@ -46,10 +47,29 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
                 }
             }
 
+            // Đồng bộ số lượng tồn kho theo thời gian thực từ Key 3: savebite:deal:{dealId}:stock
+            var stockKey = RedisKeys.DealStock(dealId);
+            var stockEntries = await Db.HashGetAllAsync(stockKey);
+            if (stockEntries.Length > 0)
+            {
+                var stockDict = stockEntries.ToDictionary(
+                    x => x.Name.ToString(),
+                    x => int.TryParse(x.Value.ToString(), out var qty) ? qty : 0);
+
+                foreach (var v in variants)
+                {
+                    if (stockDict.TryGetValue(v.VariantId.ToString(), out var liveStock))
+                    {
+                        v.TotalQuantity = liveStock + v.SoldQuantity;
+                    }
+                }
+            }
+
             Enum.TryParse<FlashDealStatus>(dict.GetValueOrDefault("status", "OnSale"), true, out var status);
-            DateTime.TryParse(dict.GetValueOrDefault("saleStart"), out var saleStart);
-            DateTime.TryParse(dict.GetValueOrDefault("orderEnd"), out var orderEnd);
-            DateTime.TryParse(dict.GetValueOrDefault("shopClosingTime"), out var shopClosingTime);
+            DateTime.TryParse(dict.GetValueOrDefault("saleStart"), null, System.Globalization.DateTimeStyles.RoundtripKind, out var saleStart);
+            DateTime.TryParse(dict.GetValueOrDefault("orderEnd"), null, System.Globalization.DateTimeStyles.RoundtripKind, out var orderEnd);
+            DateTime.TryParse(dict.GetValueOrDefault("shopClosingTime"), null, System.Globalization.DateTimeStyles.RoundtripKind, out var shopClosingTime);
+            DateTime.TryParse(dict.GetValueOrDefault("createdAt"), null, System.Globalization.DateTimeStyles.RoundtripKind, out var createdAt);
             decimal.TryParse(dict.GetValueOrDefault("minDealPrice"), out var minDealPrice);
             decimal.TryParse(dict.GetValueOrDefault("maxOriginalPrice"), out var maxOriginalPrice);
             decimal.TryParse(dict.GetValueOrDefault("maxDiscountPercent"), out var maxDiscountPercent);
@@ -64,6 +84,35 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
                     imageUrls = JsonSerializer.Deserialize<List<string>>(imgsJson) ?? new();
                 }
                 catch { }
+            }
+
+            var attributeGroups = new List<DealAttributeGroupResponse>();
+            var attrMap = new Dictionary<string, List<string>>();
+            foreach (var v in variants)
+            {
+                if (v.Attributes != null)
+                {
+                    foreach (var (k, val) in v.Attributes)
+                    {
+                        if (!attrMap.TryGetValue(k, out var list))
+                        {
+                            list = new List<string>();
+                            attrMap[k] = list;
+                        }
+                        if (!list.Contains(val))
+                        {
+                            list.Add(val);
+                        }
+                    }
+                }
+            }
+            foreach (var (k, list) in attrMap)
+            {
+                attributeGroups.Add(new DealAttributeGroupResponse
+                {
+                    Name = k,
+                    Values = list
+                });
             }
 
             var productName = dict.GetValueOrDefault("name") ?? dict.GetValueOrDefault("productName") ?? string.Empty;
@@ -84,10 +133,12 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
                 SaleStartTime = saleStart,
                 OrderEndTime = orderEnd,
                 ShopClosingTime = shopClosingTime,
+                CreatedAt = createdAt != default ? createdAt : saleStart,
                 Status = status,
                 MinDealPrice = minDealPrice,
                 MaxOriginalPrice = maxOriginalPrice,
                 MaxDiscountPercent = maxDiscountPercent,
+                AttributeGroups = attributeGroups,
                 Variants = variants
             };
         }
@@ -184,6 +235,7 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
             new("saleStart", deal.SaleStartTime.ToString("o")),
             new("orderEnd", deal.OrderEndTime.ToString("o")),
             new("shopClosingTime", deal.ShopClosingTime.ToString("o")),
+            new("createdAt", deal.CreatedAt.ToString("o")),
             new("minDealPrice", deal.MinDealPrice.ToString()),
             new("maxOriginalPrice", deal.MaxOriginalPrice.ToString()),
             new("maxDiscountPercent", deal.MaxDiscountPercent.ToString())
@@ -214,11 +266,39 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
         }
         
         var shopDealsKey = RedisKeys.ShopDeals(deal.ShopId);
-        var orderEndScore = new DateTimeOffset(deal.OrderEndTime).ToUnixTimeSeconds();
+        var utcOrderEnd = deal.OrderEndTime.Kind == DateTimeKind.Utc
+            ? deal.OrderEndTime
+            : DateTime.SpecifyKind(deal.OrderEndTime, DateTimeKind.Utc);
+        var orderEndScore = new DateTimeOffset(utcOrderEnd).ToUnixTimeSeconds();
         await Db.SortedSetAddAsync(shopDealsKey, deal.Id.ToString(), orderEndScore);
         await Db.KeyExpireAsync(shopDealsKey, expiryTime);
         
         await Db.GeoAddAsync(RedisKeys.GeoActiveShops, shopLon, shopLat, deal.ShopId.ToString());
+    }
+
+    public async Task<bool> DealExistsAsync(Guid dealId)
+    {
+        var dealKey = RedisKeys.Deal(dealId);
+        return await Db.KeyExistsAsync(dealKey);
+    }
+
+    public async Task DeleteDealAsync(Guid dealId, Guid shopId)
+    {
+        var dealKey = RedisKeys.Deal(dealId);
+        var variantsKey = RedisKeys.DealVariants(dealId);
+        var stockKey = RedisKeys.DealStock(dealId);
+        var shopDealsKey = RedisKeys.ShopDeals(shopId);
+
+        await Db.KeyDeleteAsync(dealKey);
+        await Db.KeyDeleteAsync(variantsKey);
+        await Db.KeyDeleteAsync(stockKey);
+        await Db.SortedSetRemoveAsync(shopDealsKey, dealId.ToString());
+
+        var remainingDeals = await Db.SortedSetLengthAsync(shopDealsKey);
+        if (remainingDeals == 0)
+        {
+            await Db.GeoRemoveAsync(RedisKeys.GeoActiveShops, shopId.ToString());
+        }
     }
 
     public async Task SeedFakeDealsAsync(List<FlashDealResponse> deals, List<(Guid ShopId, double Lat, double Lon)> shopLocations)

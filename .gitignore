@@ -1,0 +1,8 @@
+.idea/
+.vscode/
+
+# Local test & scratch files
+download_images.js
+seed_redis_banhmi.js
+seed_banhmi_coba_test.sql
+vietmap-leaflet-shops_API.html

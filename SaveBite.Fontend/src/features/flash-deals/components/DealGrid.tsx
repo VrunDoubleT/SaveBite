@@ -17,16 +17,58 @@ export function DealGrid({
   emptyMessage = "No flash deals found within this radius.",
   onRefresh,
 }: DealGridProps) {
-  // 1. Loading Skeleton
+  // 1. Loading Skeleton: Clean 9-card grid matching DealCard layout
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="animate-pulse rounded-xl border border-neutral-200 bg-white p-4">
-            <div className="aspect-[4/3] w-full rounded-lg bg-neutral-200" />
-            <div className="mt-4 h-5 w-3/4 rounded bg-neutral-200" />
-            <div className="mt-2 h-4 w-1/2 rounded bg-neutral-200" />
-            <div className="mt-4 h-8 w-full rounded bg-neutral-200" />
+        {Array.from({ length: 9 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs"
+          >
+            {/* Image Skeleton with pill placeholders */}
+            <div className="relative aspect-[4/3] w-full bg-neutral-100 animate-pulse">
+              <div className="absolute top-3 left-3 h-5 w-12 rounded-full bg-neutral-200" />
+              <div className="absolute top-3 right-3 h-5 w-20 rounded-full bg-neutral-200" />
+            </div>
+
+            {/* Content Skeleton */}
+            <div className="flex flex-1 flex-col gap-2.5 p-4 animate-pulse">
+              {/* Category Pill */}
+              <div className="h-4 w-16 rounded bg-neutral-100" />
+
+              {/* Title & Desc (2 lines) */}
+              <div className="space-y-1.5 mt-0.5">
+                <div className="h-4 w-4/5 rounded bg-neutral-200/90" />
+                <div className="h-3.5 w-3/5 rounded bg-neutral-100" />
+              </div>
+
+              {/* Price Row */}
+              <div className="mt-1 flex items-baseline gap-2">
+                <div className="h-5 w-24 rounded bg-neutral-200/90" />
+                <div className="h-3.5 w-14 rounded bg-neutral-100" />
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mt-1 space-y-1">
+                <div className="flex justify-between">
+                  <div className="h-2.5 w-14 rounded bg-neutral-100" />
+                  <div className="h-2.5 w-12 rounded bg-neutral-100" />
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-neutral-100 overflow-hidden">
+                  <div className="h-full w-2/5 rounded-full bg-neutral-200" />
+                </div>
+              </div>
+
+              {/* Shop Footer */}
+              <div className="mt-auto border-t border-neutral-100 pt-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-5 w-5 rounded-full bg-neutral-200" />
+                  <div className="h-3 w-24 rounded bg-neutral-100" />
+                </div>
+                <div className="h-3 w-10 rounded bg-neutral-100" />
+              </div>
+            </div>
           </div>
         ))}
       </div>

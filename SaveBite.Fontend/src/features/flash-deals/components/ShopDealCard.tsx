@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Star } from "lucide-react";
+import { Star, ShoppingBag } from "lucide-react";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
 interface ShopDealCardProps {
@@ -26,11 +26,11 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
   // 2. Status / Time calculation
   const getTimeLeftText = () => {
     const diff = new Date(deal.orderEndTime).getTime() - Date.now();
-    if (diff <= 0) return "Ended";
+    if (diff <= 0) return "Đã kết thúc";
     const min = Math.floor(diff / 60000);
     const h = Math.floor(min / 60);
     const m = min % 60;
-    return h > 0 ? `Ends in ${h}h ${m}m` : `Ends in ${m}m`;
+    return h > 0 ? `Còn ${h}h ${m}m` : `Còn ${m} phút`;
   };
 
   const [timeText, setTimeText] = useState(getTimeLeftText);
@@ -49,7 +49,7 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       {/* Product Image + Badges */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-100">
-        <Link to={`/flash-deals/${deal.id}`} className="block h-full w-full">
+        <Link to={`/deals/${deal.id}`} className="block h-full w-full">
           <img
             src={deal.productImageUrl || fallbackImg}
             alt={deal.productName}
@@ -85,7 +85,7 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
 
           {/* Deal Name */}
           <Link
-            to={`/flash-deals/${deal.id}`}
+            to={`/deals/${deal.id}`}
             title={deal.productName}
             className="mt-1.5 block line-clamp-1 text-base font-bold text-neutral-900 transition hover:text-emerald-700"
           >
@@ -93,20 +93,18 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
           </Link>
 
           {/* Meta Info line: ⭐ Rating · 🛒 Options · 📦 Remaining */}
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
             <span className="flex items-center gap-0.5 font-bold text-amber-500">
               <Star size={12} className="fill-amber-400 text-amber-400" />
               <span>4.8</span>
             </span>
             <span>•</span>
             <span className="flex items-center gap-1 font-medium">
-              <span>🛒</span>
-              <span>{deal.variants.length > 0 ? `${deal.variants.length} options` : "1 option"}</span>
+              <span>{deal.variants.length > 0 ? `${deal.variants.length} lựa chọn` : "1 lựa chọn"}</span>
             </span>
             <span>•</span>
-            <span className="flex items-center gap-1 font-medium text-neutral-600">
-              <span>📦</span>
-              <span>{remainingQty} left</span>
+            <span className="flex items-center gap-1 font-semibold text-amber-700">
+              <span>còn {remainingQty} suất</span>
             </span>
           </div>
 
@@ -131,11 +129,11 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
           </div>
 
           {/* Sales Quantities */}
-          <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
+          <div className="mt-1 flex items-center justify-between text-xs text-neutral-500">
             <span>
-              Sold {soldQty}/{totalQty}
+              Đã bán {soldQty}/{totalQty}
             </span>
-            <span>{remainingQty} left</span>
+            <span className="font-bold text-amber-700">Còn {remainingQty} suất</span>
           </div>
         </div>
 
@@ -145,24 +143,26 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
             <button
               type="button"
               disabled
-              className="w-full rounded-xl bg-neutral-100 py-2.5 text-center text-sm font-semibold text-neutral-400 cursor-not-allowed"
+              className="w-full rounded-xl bg-neutral-100 py-3 text-center text-sm font-bold text-neutral-400 cursor-not-allowed"
             >
-              Sold Out
+              Hết suất
             </button>
           ) : onAddToCart ? (
             <button
               type="button"
               onClick={() => onAddToCart(deal)}
-              className="w-full rounded-xl bg-emerald-600 py-2.5 text-center text-sm font-semibold text-white shadow-2xs transition hover:bg-emerald-700 active:scale-[0.99]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-center text-sm sm:text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 hover:shadow-md active:scale-[0.99] cursor-pointer"
             >
-              Add to Cart
+              <ShoppingBag size={18} />
+              <span>Thêm vào giỏ</span>
             </button>
           ) : (
             <Link
-              to={`/flash-deals/${deal.id}`}
-              className="block w-full rounded-xl bg-emerald-600 py-2.5 text-center text-sm font-semibold text-white shadow-2xs transition hover:bg-emerald-700 active:scale-[0.99]"
+              to={`/deals/${deal.id}`}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-center text-sm sm:text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 hover:shadow-md active:scale-[0.99]"
             >
-              Add to Cart
+              <ShoppingBag size={18} />
+              <span>Xem chi tiết</span>
             </Link>
           )}
         </div>

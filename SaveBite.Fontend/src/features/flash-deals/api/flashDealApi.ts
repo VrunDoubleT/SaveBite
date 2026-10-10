@@ -3,21 +3,29 @@ import type { ApiResponse } from "@/shared/types";
 
 import type {
   FlashDeal,
-  NearbyFlashDealsParams,
+  FlashDealCursorParams,
+  FlashDealCursorResult,
 } from "@/features/flash-deals/types/flashDeal.types";
 
 export const flashDealApi = {
   async getNearbyDeals(
-    params: NearbyFlashDealsParams,
-  ): Promise<{ deals: FlashDeal[]; message?: string }> {
-    const response = await httpClient.get<ApiResponse<FlashDeal[]>>(
+    params: FlashDealCursorParams,
+  ): Promise<FlashDealCursorResult> {
+    const response = await httpClient.get<ApiResponse<FlashDealCursorResult>>(
       API_ENDPOINTS.FLASH_DEALS.NEARBY,
       {
         params,
       },
     );
+    const data = response.data.data;
     return {
-      deals: response.data.data ?? [],
+      deals: data?.deals ?? [],
+      cursor1: data?.cursor1,
+      cursor2: data?.cursor2,
+      hasOlder: data?.hasOlder ?? false,
+      hasNewer: data?.hasNewer ?? false,
+      prependedCount: data?.prependedCount ?? 0,
+      newDealsCount: data?.newDealsCount ?? 0,
       message: response.data.message,
     };
   },

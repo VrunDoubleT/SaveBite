@@ -46,6 +46,10 @@ export const routes: RouteObject[] = [
             element: <CustomerDealDetailPage />,
           },
           {
+            path: "/deals/:id",
+            element: <CustomerDealDetailPage />,
+          },
+          {
             path: APP_PATHS.LOGIN,
             element: <LoginPage />,
           },

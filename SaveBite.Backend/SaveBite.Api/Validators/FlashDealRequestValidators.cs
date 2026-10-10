@@ -3,9 +3,9 @@ using SaveBite.Backend.Models.Requests;
 
 namespace SaveBite.Backend.Validators;
 
-public sealed class NearbyFlashDealsRequestValidator : AbstractValidator<NearbyFlashDealsRequest>
+public sealed class FlashDealCursorRequestValidator : AbstractValidator<FlashDealCursorRequest>
 {
-    public NearbyFlashDealsRequestValidator()
+    public FlashDealCursorRequestValidator()
     {
         RuleFor(x => x.Latitude)
             .NotNull()
@@ -24,5 +24,9 @@ public sealed class NearbyFlashDealsRequestValidator : AbstractValidator<NearbyF
             .WithMessage("RadiusInKm must be greater than 0.")
             .LessThanOrEqualTo(100)
             .WithMessage("RadiusInKm must be between 0 and 100 km.");
+
+        RuleFor(x => x.Limit)
+            .InclusiveBetween(1, 100)
+            .WithMessage("Limit must be between 1 and 100.");
     }
 }
