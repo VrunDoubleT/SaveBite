@@ -43,6 +43,8 @@ import {
 
 import { StaffShopDetailPage } from "@/pages/staff/StaffShopDetailPage";
 
+import { CustomerShopPage } from "@/pages/customer/CustomerShopPage";
+import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage";
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
@@ -57,6 +59,22 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.HOME,
             element: <CustomerHomePage />,
+          },
+          {
+            path: APP_PATHS.SHOP_DETAIL,
+            element: <CustomerShopPage />,
+          },
+          {
+            path: APP_PATHS.SHOP_PROFILE,
+            element: <CustomerShopPage />,
+          },
+          {
+            path: APP_PATHS.FLASH_DEAL_DETAIL,
+            element: <CustomerDealDetailPage />,
+          },
+          {
+            path: "/deals/:id",
+            element: <CustomerDealDetailPage />,
           },
           {
             path: APP_PATHS.LOGIN,

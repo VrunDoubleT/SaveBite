@@ -4,10 +4,16 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>savebite-fontend</title>
+    <title>SaveBite - Flash Deals</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/@vietmap/vietmap-gl-js/dist/vietmap-gl.css" />
   </head>
   <body>
     <div id="root"></div>
+    <!-- Leaflet & VietMap scripts (Order: Leaflet -> VietMap GL JS -> Leaflet VietMap GL plugin) -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@vietmap/vietmap-gl-js/dist/vietmap-gl.js"></script>
+    <script src="https://unpkg.com/@vietmap/vietmap-gl-leaflet/leaflet-vietmap-gl.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

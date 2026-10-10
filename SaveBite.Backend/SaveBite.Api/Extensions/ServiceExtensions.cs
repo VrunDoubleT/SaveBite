@@ -18,6 +18,8 @@ public static class ServiceExtensions
         services.AddScoped<IUserAddressService, UserAddressService>();
         services.AddScoped<IUserProfileService, UserProfileService>();
 
+        services.AddScoped<IShopViewService, ShopViewService>();
+        services.AddScoped<IFlashDealService, FlashDealService>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();

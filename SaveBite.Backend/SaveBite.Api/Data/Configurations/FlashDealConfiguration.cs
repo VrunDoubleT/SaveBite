@@ -64,5 +64,9 @@ public class FlashDealConfiguration : IEntityTypeConfiguration<FlashDeal>
             .WithMany(x => x.FlashDeals)
             .HasForeignKey(x => x.ShopId)
             .OnDelete(DeleteBehavior.NoAction);
+        
+        builder.HasIndex(x => new { x.Status, x.CreatedAt })
+            .HasDatabaseName("ix_flash_deals_status_created_at");
+        
     }
 }

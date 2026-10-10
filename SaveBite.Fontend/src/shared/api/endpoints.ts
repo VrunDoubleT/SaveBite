@@ -48,5 +48,18 @@ export const API_ENDPOINTS = {
     BASE: "/admin/shop-applications",
     DETAIL: (applicationId: string) => `/admin/shop-applications/${applicationId}`,
     REVIEW: (applicationId: string) => `/admin/shop-applications/${applicationId}/review`,
+  FLASH_DEALS: {
+    NEARBY: "/flash-deals/nearby",
+    BY_SHOP: (shopId: string) => `/flash-deals/shop/${shopId}`,
+    DETAIL: (id: string) => `/flash-deals/${id}`,
+    CATEGORIES: "/flash-deals/categories",
+  },
+  CATEGORIES: {
+    LIST: "/categories",
+  },
+  SHOPS: {
+    NEARBY: "/shops/nearby",
+    PROFILE: (id: string) => `/shops/${id}`,
+    REVIEWS: (id: string) => `/shops/${id}/reviews`,
   },
 } as const;
