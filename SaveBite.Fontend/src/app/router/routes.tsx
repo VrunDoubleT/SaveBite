@@ -28,6 +28,7 @@ import { ReviewsPage } from "@/pages/customer/account/ReviewsPage";
 import { OrdersPage } from "@/pages/customer/account/OrdersPage";
 import { ProfilePage } from "@/pages/customer/account/ProfilePage";
 import { AccountLayout } from "@/pages/customer/account/AccountLayout";
+import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
 
 export const routes: RouteObject[] = [
   {
@@ -175,6 +176,10 @@ export const routes: RouteObject[] = [
               />
             ),
           },
+          {
+            path: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
+            element: <AdminShopApplicationsPage />,
+        },
         ],
       },
     ],

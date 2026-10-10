@@ -19,6 +19,7 @@ export const APP_PATHS = {
   ADMIN_PRODUCTS: "/admin/products",
   ADMIN_ORDERS: "/admin/orders",
   ADMIN_STORES: "/admin/stores",
+  ADMIN_SHOP_APPLICATIONS: "/admin/shop-applications",
   STAFF: "/staff",
   STORE_OWNER: "/store-owner",
   NOT_FOUND: "*",
