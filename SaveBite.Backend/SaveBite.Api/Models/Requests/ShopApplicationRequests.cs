@@ -25,3 +25,11 @@ public sealed class ResubmitShopApplicationRequest : CreateShopApplicationReques
 {
     public Guid ApplicationId { get; set; }
 }
+
+// ADMIN REQUESTS
+public sealed class ReviewShopApplicationRequest
+{
+    public string Decision { get; set; } = string.Empty;
+    public string? Note { get; set; }
+}
+

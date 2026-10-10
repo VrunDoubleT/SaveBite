@@ -45,14 +45,7 @@ import { StaffShopDetailPage } from "@/pages/staff/StaffShopDetailPage";
 
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
-import { AccountLayout } from "@/pages/customer/account/AccountLayout";
-import { ProfilePage } from "@/pages/customer/account/ProfilePage";
-import { OrdersPage } from "@/pages/customer/account/OrdersPage";
-import { ReviewsPage } from "@/pages/customer/account/ReviewsPage";
-import { TrustScorePage } from "@/pages/customer/account/TrustScorePage";
-import { ShopApplicationPage } from "@/pages/customer/account/ShopApplicationPage";
-import { WorkspacePage } from "@/pages/customer/account/WorkspacePage";
-import { StaffInvitationsPage } from "@/pages/customer/account/StaffInvitationsPage";
+import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
 
 export const routes: RouteObject[] = [
   {
@@ -209,6 +202,10 @@ export const routes: RouteObject[] = [
               />
             ),
           },
+          {
+            path: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
+            element: <AdminShopApplicationsPage />,
+        },
         ],
       },
     ],

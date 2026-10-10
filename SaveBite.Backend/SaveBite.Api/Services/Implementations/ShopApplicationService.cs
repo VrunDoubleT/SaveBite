@@ -344,4 +344,67 @@ public sealed class ShopApplicationService : IShopApplicationService
                 r.Note,
                 r.CreatedAt))
             .ToList());
+
+    // ADMIN METHODS
+    public async Task<IReadOnlyList<ShopApplicationResponse>> GetAllForAdminAsync(CancellationToken cancellationToken = default)
+    {
+        var applications = await _repository.GetAllForAdminAsync(cancellationToken);
+        return applications.Select(x => Map(x, includeAllDocuments: true)).ToList();
+    }
+
+    // ADMIN METHODS
+    public async Task<ShopApplicationResponse> GetByIdForAdminAsync(Guid applicationId, CancellationToken cancellationToken = default)
+    {
+        var application = await _repository.GetByIdForAdminAsync(applicationId, cancellationToken)
+            ?? throw AppException.NotFound("Shop application was not found.");
+        return Map(application, includeAllDocuments: true);
+    }
+
+    // ADMIN METHODS
+    public async Task<ShopApplicationResponse> ReviewAsync(
+        Guid adminId,
+        Guid applicationId,
+        ReviewShopApplicationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var application = await _repository.GetByIdForAdminAsync(applicationId, cancellationToken)
+            ?? throw AppException.NotFound("Shop application was not found.");
+
+        if (application.Status != ShopApplicationStatus.Pending)
+            throw AppException.Conflict("Only pending applications can be approved or rejected.");
+
+        var decision = request.Decision.Trim();
+        ShopApplicationStatus nextStatus;
+        if (decision.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+        {
+            nextStatus = ShopApplicationStatus.Approved;
+        }
+        else if (decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(request.Note))
+                throw AppException.BadRequest("A rejection reason is required.");
+            nextStatus = ShopApplicationStatus.Rejected;
+        }
+        else
+        {
+            throw AppException.BadRequest("Decision must be Approved or Rejected.");
+        }
+
+        var now = DateTime.UtcNow;
+        application.Status = nextStatus;
+        application.UpdatedAt = now;
+        application.ReviewLogs.Add(new ShopApplicationReviewLog
+        {
+            ApplicationId = application.Id,
+            AdminId = adminId,
+            FromStatus = ShopApplicationStatus.Pending,
+            ToStatus = nextStatus,
+            RevisionNumber = application.RevisionNumber,
+            Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
+            CreatedAt = now
+        });
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Map(application);
+    }
 }

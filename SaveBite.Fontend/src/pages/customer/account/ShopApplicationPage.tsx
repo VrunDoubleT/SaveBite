@@ -9,7 +9,9 @@ export default function ShopApplicationPage() {
 
   return (
     <div className="w-full space-y-8">
-      <LatestShopApplication onApplicationChanged={() => setHistoryRefreshKey((current) => current + 1)} />
+      <LatestShopApplication
+        onApplicationChanged={() => setHistoryRefreshKey((current) => current + 1)}
+      />
       <ShopApplicationHistory refreshKey={historyRefreshKey} />
 =======
 export function ShopApplicationPage() {

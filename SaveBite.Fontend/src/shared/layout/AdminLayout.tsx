@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, ShoppingBag, Store, Users, Tags } from "lucide-react";
+import { ClipboardCheck, LayoutDashboard, Package, ShoppingBag, Store, Users, Tags } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layout/WorkspaceLayout";
 
@@ -38,6 +38,11 @@ const navigation = [
     to: APP_PATHS.ADMIN_STORES,
     label: "Stores",
     icon: Store,
+  },
+  { 
+    to: APP_PATHS.ADMIN_SHOP_APPLICATIONS, 
+    label: "Store Applications", 
+    icon: ClipboardCheck, 
   },
 ] as const;
 

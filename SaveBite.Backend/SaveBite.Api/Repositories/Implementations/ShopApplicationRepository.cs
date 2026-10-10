@@ -45,6 +45,23 @@ public sealed class ShopApplicationRepository : IShopApplicationRepository
              || x.Status == ShopApplicationStatus.Approved), 
             cancellationToken);
 
+    // ADMIN METHODS
+    public async Task<IReadOnlyList<ShopApplication>> GetAllForAdminAsync(CancellationToken cancellationToken = default)
+        => await _dbContext.ShopApplications
+            .Include(x => x.Documents)
+            .Include(x => x.ReviewLogs)
+            .AsSplitQuery()
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+    // ADMIN METHODS
+    public Task<ShopApplication?> GetByIdForAdminAsync(Guid id, CancellationToken cancellationToken = default)
+        => _dbContext.ShopApplications
+            .Include(x => x.Documents)
+            .Include(x => x.ReviewLogs)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
     public async Task AddAsync(ShopApplication application, CancellationToken cancellationToken = default)
         => await _dbContext.ShopApplications.AddAsync(application, cancellationToken);
 
