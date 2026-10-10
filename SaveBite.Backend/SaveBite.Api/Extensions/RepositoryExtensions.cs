@@ -14,6 +14,8 @@ public static class RepositoryExtensions
         services.AddScoped<IShopStaffRepository,
             ShopStaffRepository>();
        
+        services.AddScoped<IAdminCategoryRepository, AdminCategoryRepository>();
+
         return services;
     }
 }

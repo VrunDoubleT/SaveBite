@@ -23,6 +23,8 @@ import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
 
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
+import { CategoryManagementPage } from "@/pages/admin/CategoryManagementPage";
+// import { UserManagementPage } from "@/pages/admin/UserManagementPage";
 
 import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
 import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
@@ -145,6 +147,16 @@ export const routes: RouteObject[] = [
               />
             ),
           },
+          //---  ---
+          // {
+          //   path: APP_PATHS.ADMIN_USERS,
+          //   element: <UserManagementPage />,
+          // },
+          {
+            path: APP_PATHS.ADMIN_CATEGORIES,
+            element: <CategoryManagementPage />,
+          },
+          //---  ---
           {
             path: APP_PATHS.ADMIN_PRODUCTS,
             element: (
