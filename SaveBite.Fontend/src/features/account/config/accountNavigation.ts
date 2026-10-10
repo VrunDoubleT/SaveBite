@@ -10,9 +10,12 @@ import {
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 <<<<<<< HEAD
+<<<<<<< HEAD
 import type { AuthRole } from "@/features/auth/types/auth.types";
 =======
 >>>>>>> origin/feature/iss-2-store-registration-management
+=======
+>>>>>>> origin/feature/iss-1-user-profile-address-management
 
 export interface AccountNavItem {
   to: string;
@@ -21,9 +24,12 @@ export interface AccountNavItem {
   description: string;
   icon: LucideIcon;
 <<<<<<< HEAD
+<<<<<<< HEAD
   roles?: readonly AuthRole[];
 =======
 >>>>>>> origin/feature/iss-2-store-registration-management
+=======
+>>>>>>> origin/feature/iss-1-user-profile-address-management
 }
 
 export interface AccountNavGroup {
@@ -70,16 +76,22 @@ export const ACCOUNT_NAV_GROUPS: readonly AccountNavGroup[] = [
     items: [
       {
 <<<<<<< HEAD
+<<<<<<< HEAD
         to: APP_PATHS.ACCOUNT_SHOP_REGISTRATION,
         label: "Register Store",
         title: "Register Store",
         description: "Become a SaveBite store partner",
 =======
+=======
+>>>>>>> origin/feature/iss-1-user-profile-address-management
         to: APP_PATHS.ACCOUNT_SHOP_APPLICATION,
         label: "Shop Application",
         title: "Shop Application",
         description: "Submit and manage your store application",
+<<<<<<< HEAD
 >>>>>>> origin/feature/iss-2-store-registration-management
+=======
+>>>>>>> origin/feature/iss-1-user-profile-address-management
         icon: Store,
       },
       {
@@ -89,9 +101,12 @@ export const ACCOUNT_NAV_GROUPS: readonly AccountNavGroup[] = [
         description: "Access the stores you are working with",
         icon: Briefcase,
 <<<<<<< HEAD
+<<<<<<< HEAD
           roles: ["staff", "storeOwner"],
 =======
 >>>>>>> origin/feature/iss-2-store-registration-management
+=======
+>>>>>>> origin/feature/iss-1-user-profile-address-management
       },
       {
         to: APP_PATHS.ACCOUNT_STAFF_INVITATIONS,

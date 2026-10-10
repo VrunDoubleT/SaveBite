@@ -219,7 +219,8 @@ public sealed class AuthService : IAuthService
             user.Phone,
             user.FullName,
             user.AvatarUrl,
-            user.Role.ToString());
+            user.Role.ToString(),
+            user.CustomerStatus.ToString());
     }
 
     public async Task RequestPasswordResetAsync(

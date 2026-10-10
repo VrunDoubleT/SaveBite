@@ -37,4 +37,12 @@ export const API_ENDPOINTS = {
     RESUBMIT: (applicationId: string) => `/shop-applications/${applicationId}/resubmit`,
     CANCEL: (applicationId: string) => `/shop-applications/${applicationId}/cancel`,
   },
+  USER_PROFILE: {
+    PROFILE: "/profile",
+    AVATAR: "/profile/avatar",
+    ADDRESSES: "/profile/addresses",
+    CREATE_ADDRESS: "/profile/addresses",
+    ADDRESS_DEFAULT: (addressId: string) => `/profile/addresses/${addressId}/default`,
+    ADDRESS_BY_ID: (addressId: string) => `/profile/addresses/${addressId}`,
+  },
 } as const;

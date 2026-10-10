@@ -4,6 +4,7 @@ import type {
   AuthRole,
   AuthUser,
   CurrentUserResponse,
+  CustomerStatus,
   ForgotPasswordInput,
   LoginCredentials,
   RegisterInput,
@@ -30,7 +31,11 @@ function toAuthUser(response: CurrentUserResponse): AuthUser {
     throw new Error("Your account role is not supported by this application.");
   }
 
-  return { ...response, role };
+  return {
+    ...response,
+    role,
+    customerStatus: response.customerStatus.toLowerCase() as CustomerStatus,
+  };
 }
 
 export const authApi = {

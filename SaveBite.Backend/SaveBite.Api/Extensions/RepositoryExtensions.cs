@@ -17,6 +17,7 @@ public static class RepositoryExtensions
         services.AddScoped<IAdminUserRepository, AdminUserRepository>();
         services.AddScoped<IShopApplicationRepository, ShopApplicationRepository>();
 
+        services.AddScoped<IUserAddressRepository, UserAddressRepository>();
         return services;
     }
 }

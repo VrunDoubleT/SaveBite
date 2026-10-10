@@ -15,6 +15,8 @@ public static class ServiceExtensions
         services.AddScoped<IAdminCategoryService, AdminCategoryService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddScoped<IShopApplicationService, ShopApplicationService>();
+        services.AddScoped<IUserAddressService, UserAddressService>();
+        services.AddScoped<IUserProfileService, UserProfileService>();
 
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
