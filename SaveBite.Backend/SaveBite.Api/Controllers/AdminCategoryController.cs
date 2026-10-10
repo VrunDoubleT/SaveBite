@@ -19,21 +19,21 @@ public class AdminCategoryController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<PagedResult<CategoryResponse>>>> GetCategories(
+    public async Task<ActionResult<ApiResponse<PagedResult<AdminCategoryResponse>>>> GetCategories(
         [FromQuery] GetCategoriesRequest request,
         CancellationToken cancellationToken)
     {
         var result = await _adminCategoryService.GetCategoriesAsync(request, cancellationToken);
-        return Ok(ApiResponse<PagedResult<CategoryResponse>>.Ok(result));
+        return Ok(ApiResponse<PagedResult<AdminCategoryResponse>>.Ok(result));
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<ApiResponse<CategoryResponse>>> GetCategoryDetails(
+    public async Task<ActionResult<ApiResponse<AdminCategoryResponse>>> GetCategoryDetails(
         Guid id,
         CancellationToken cancellationToken)
     {
         var result = await _adminCategoryService.GetCategoryByIdAsync(id, cancellationToken);
-        return Ok(ApiResponse<CategoryResponse>.Ok(result));
+        return Ok(ApiResponse<AdminCategoryResponse>.Ok(result));
     }
 
     [HttpPost]

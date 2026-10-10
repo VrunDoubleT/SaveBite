@@ -10,7 +10,6 @@ public static class RepositoryExtensions
     {
         services.AddScoped<IUserAccessRepository, UserAccessRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
-<<<<<<< HEAD
         services.AddScoped<IShopStaffRepository,
             ShopStaffRepository>();
        
@@ -19,10 +18,8 @@ public static class RepositoryExtensions
         services.AddScoped<IShopApplicationRepository, ShopApplicationRepository>();
 
         services.AddScoped<IUserAddressRepository, UserAddressRepository>();
-=======
         services.AddScoped<IShopRepository, ShopRepository>();
         services.AddScoped<IFlashDealRepository, FlashDealRepository>();
->>>>>>> origin/feature/iss-4-store-information-feedback-management-view-side
         return services;
     }
 }

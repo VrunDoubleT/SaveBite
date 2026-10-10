@@ -23,11 +23,11 @@ public sealed class AdminCategoryService : IAdminCategoryService
         _logger = logger;
     }
 
-    public async Task<PagedResult<CategoryResponse>> GetCategoriesAsync(GetCategoriesRequest request, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<AdminCategoryResponse>> GetCategoriesAsync(GetCategoriesRequest request, CancellationToken cancellationToken = default)
     {
         var pagedCategories = await _repository.GetPagedCategoriesAsync(request, cancellationToken);
 
-        var items = pagedCategories.Items.Select(c => new CategoryResponse(
+        var items = pagedCategories.Items.Select(c => new AdminCategoryResponse(
             c.Id,
             c.Name,
             c.Description,
@@ -37,14 +37,14 @@ public sealed class AdminCategoryService : IAdminCategoryService
             c.UpdatedAt
         )).ToList();
 
-        return PagedResult<CategoryResponse>.Create(items, pagedCategories.Page, pagedCategories.PageSize, pagedCategories.TotalItems);
+        return PagedResult<AdminCategoryResponse>.Create(items, pagedCategories.Page, pagedCategories.PageSize, pagedCategories.TotalItems);
     }
 
-    public async Task<CategoryResponse> GetCategoryByIdAsync(Guid categoryId, CancellationToken cancellationToken = default)
+    public async Task<AdminCategoryResponse> GetCategoryByIdAsync(Guid categoryId, CancellationToken cancellationToken = default)
     {
         var category = await GetAndValidateCategoryAsync(categoryId, cancellationToken);
 
-        return new CategoryResponse(
+        return new AdminCategoryResponse(
             category.Id,
             category.Name,
             category.Description,

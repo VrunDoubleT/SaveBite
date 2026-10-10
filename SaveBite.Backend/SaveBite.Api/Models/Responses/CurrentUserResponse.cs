@@ -1,6 +1,6 @@
 namespace SaveBite.Backend.Models.Responses;
 
-public sealed record UserAddressResponse(
+public sealed record DefaultAddressResponse(
     Guid Id,
     string? Label,
     string AddressLine,
@@ -18,5 +18,5 @@ public sealed record CurrentUserResponse(
     string FullName,
     string? AvatarUrl,
     string Role,
-    string CustomerStatus);
-    UserAddressResponse? DefaultAddress = null);
+    string CustomerStatus,
+    DefaultAddressResponse? DefaultAddress = null);

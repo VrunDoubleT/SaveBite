@@ -215,7 +215,7 @@ public sealed class AuthService : IAuthService
 
         var defaultAddress = user.Addresses.FirstOrDefault(a => a.IsDefault) ?? user.Addresses.FirstOrDefault();
         var addressResponse = defaultAddress != null
-            ? new UserAddressResponse(
+            ? new DefaultAddressResponse(
                 defaultAddress.Id,
                 defaultAddress.Label,
                 defaultAddress.AddressLine,
@@ -234,11 +234,8 @@ public sealed class AuthService : IAuthService
             user.FullName,
             user.AvatarUrl,
             user.Role.ToString(),
-<<<<<<< HEAD
-            user.CustomerStatus.ToString());
-=======
+            user.CustomerStatus.ToString(),
             addressResponse);
->>>>>>> origin/feature/iss-4-store-information-feedback-management-view-side
     }
 
     public async Task RequestPasswordResetAsync(

@@ -1,6 +1,6 @@
 ﻿namespace SaveBite.Backend.Models.Responses;
 
-public sealed record CategoryResponse(
+public sealed record AdminCategoryResponse(
     Guid Id,
     string Name,
     string? Description,
