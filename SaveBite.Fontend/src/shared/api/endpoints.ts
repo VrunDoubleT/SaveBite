@@ -17,7 +17,6 @@ export const API_ENDPOINTS = {
     SHOP_DETAIL: (shopId: string) => `/staff/shops/${shopId}`,
     LEAVE_SHOP: (shopId: string) => `/staff/shops/${shopId}`,
   },
-
   OWNER_SHOPS: {
     ME: "/owner/shops",
     STAFF_CANDIDATES: "/owner/shops/staff-candidates",
@@ -28,7 +27,7 @@ export const API_ENDPOINTS = {
     ACTIVITY_LOGS: (staffId: string) => `/owner/shops/staffs/${staffId}/activity-logs`,
   },
   ADMIN: {
-    // USERS: "/admin/users",
+    USERS: "/admin/users",
     CATEGORIES: "/admin/categories"
   }
 } as const;

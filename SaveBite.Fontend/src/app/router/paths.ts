@@ -16,6 +16,7 @@ export const APP_PATHS = {
   ACCOUNT_WORKSPACE: "/account/workspace",
   ACCOUNT_STAFF_INVITATIONS: "/account/staff-invitations",
   ADMIN: "/admin",
+  ADMIN_USERS: "/admin/users",
   ADMIN_CATEGORIES: "/admin/categories",
   ADMIN_PRODUCTS: "/admin/products",
   ADMIN_ORDERS: "/admin/orders",

@@ -24,7 +24,6 @@ import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 import { CategoryManagementPage } from "@/pages/admin/CategoryManagementPage";
-// import { UserManagementPage } from "@/pages/admin/UserManagementPage";
 
 import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
 import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
@@ -37,6 +36,8 @@ import {
   StaffInvitationsPage as OwnerStaffInvitationsPage,
 } from "@/pages/store-owner/StaffInvitationsPage";
 import { WorkspacePage } from "@/pages/customer/WorkspacePage";
+import { UserManagementPage } from "@/pages/admin/UserManagementPage";
+
 
 export const routes: RouteObject[] = [
   {
@@ -118,7 +119,7 @@ export const routes: RouteObject[] = [
                      element: <WorkspacePage />,
                   },
                 {
-  path: "staff-invitations",
+path: "staff-invitations",
   element: <CustomerStaffInvitationsPage />,
 },
                 ],
@@ -148,10 +149,10 @@ export const routes: RouteObject[] = [
             ),
           },
           //---  ---
-          // {
-          //   path: APP_PATHS.ADMIN_USERS,
-          //   element: <UserManagementPage />,
-          // },
+          {
+            path: APP_PATHS.ADMIN_USERS,
+            element: <UserManagementPage />,
+          },
           {
             path: APP_PATHS.ADMIN_CATEGORIES,
             element: <CategoryManagementPage />,

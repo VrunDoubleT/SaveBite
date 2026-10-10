@@ -13,7 +13,7 @@ public static class ServiceExtensions
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IAdminCategoryService, AdminCategoryService>();
-
+        services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService,
             PasswordHasherService>();
