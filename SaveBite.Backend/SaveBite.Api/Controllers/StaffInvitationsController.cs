@@ -30,8 +30,8 @@ public sealed class StaffInvitationsController : ControllerBase
         return Ok(ApiResponse<IEnumerable<StaffInvitationResponse>>.Ok(result, "Invitations retrieved successfully"));
     }
 
-    [HttpPost("{invitationId:guid}/acceptances")]
-    [CustomerAccess]
+    [HttpPost("{invitationId:guid}/acceptances")] 
+    [CustomerActiveAccess] 
     public async Task<IActionResult> Accept(Guid invitationId, CancellationToken cancellationToken)
     {
         await _invitationService.AcceptInvitationAsync(GetAuthenticatedUserId(), invitationId, cancellationToken);
@@ -39,7 +39,7 @@ public sealed class StaffInvitationsController : ControllerBase
     }
 
     [HttpPost("{invitationId:guid}/rejections")]
-    [CustomerAccess]
+    [CustomerActiveAccess] 
     public async Task<IActionResult> Decline(Guid invitationId, CancellationToken cancellationToken)
     {
         await _invitationService.DeclineInvitationAsync(GetAuthenticatedUserId(), invitationId, cancellationToken);
@@ -47,7 +47,7 @@ public sealed class StaffInvitationsController : ControllerBase
     }
 
     [HttpGet("candidates")]
-    [CustomerAnyStatusAccess]
+    [StoreOwnerActiveAccess] 
     public async Task<IActionResult> SearchStaffCandidates(
         [FromQuery] string? keyword,
         [FromQuery] int page = 1,
@@ -71,7 +71,7 @@ public sealed class StaffInvitationsController : ControllerBase
     }
 
     [HttpPost]
-    [StoreOwnerAccess]
+    [StoreOwnerActiveAccess]
     public async Task<IActionResult> InviteStaff(
         [FromBody] InviteStaffRequest request,
         CancellationToken cancellationToken)
@@ -113,7 +113,7 @@ public sealed class StaffInvitationsController : ControllerBase
     }
 
     [HttpDelete("{invitationId:guid}")]
-    [StoreOwnerAccess]
+    [StoreOwnerActiveAccess]
     public async Task<IActionResult> RevokeInvitation(
         Guid invitationId,
         CancellationToken cancellationToken)

@@ -218,8 +218,9 @@ public class ShopStaffService(
                 new StaffActivityLogResponse(
                     log.Id,
                     log.ActionBy,
-                    log.Action.ToString(),
+                    log.Action.ToString(), 
                     log.Note ?? string.Empty,
+                    log.OrderId,
                     log.CreatedAt
                 ))
             .ToList();
@@ -356,7 +357,7 @@ public class ShopStaffService(
         );
     }
 
-    public async Task LeaveShopAsync(
+        public async Task LeaveShopAsync(
         Guid currentUserId,
         Guid shopId,
         CancellationToken cancellationToken = default)
@@ -377,10 +378,27 @@ public class ShopStaffService(
             );
         }
 
-        if (staff.Status == ShopStaffStatus.Removed)
+        if (staff.Status != ShopStaffStatus.Active)
         {
+            if (staff.Status == ShopStaffStatus.Removed)
+            {
+                throw AppException.BadRequest(
+                    "You have already left this shop",
+                    ErrorCodes.InvalidStaffStatus
+                );
+            }
+
+            if (staff.Status == ShopStaffStatus.Suspended)
+            {
+                throw new AppException(
+                    "This staff membership has been suspended by the shop",
+                    ErrorCodes.StaffSuspended,
+                    HttpStatusCode.Forbidden
+                );
+            }
+
             throw AppException.BadRequest(
-                "You have already left this shop",
+                "Only active staff members can leave this shop",
                 ErrorCodes.InvalidStaffStatus
             );
         }
@@ -410,6 +428,7 @@ public class ShopStaffService(
             cancellationToken
         );
     }
+
 
     private static ShopStaffResponse MapToStaffResponse(
         ShopStaff staff)

@@ -8,8 +8,6 @@ using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Interfaces;
-
-using InvitationStatus = SaveBite.Backend.Models.Enums.StaffInvitation;
 using StaffInvitation = SaveBite.Backend.Models.Entities.StaffInvitation;
 
 namespace SaveBite.Backend.Services.Implementations;
@@ -20,20 +18,21 @@ public sealed class StaffInvitationService(
 ) : IStaffInvitationService
 {
     private const string StatusPending =
-        nameof(InvitationStatus.Pending);
+        nameof(StaffInvitationStatus.Pending);
 
     private const string StatusAccepted =
-        nameof(InvitationStatus.Accepted);
+        nameof(StaffInvitationStatus.Accepted);
 
     private const string StatusDeclined =
-        nameof(InvitationStatus.Declined);
+        nameof(StaffInvitationStatus.Declined);
 
     private const string StatusCancelled =
-        nameof(InvitationStatus.Cancelled);
+        nameof(StaffInvitationStatus.Cancelled);
 
     private const string StatusExpired = "Expired";
 
     private const int InvitationLifetimeDays = 3;
+    
 
     public async Task<PagedResult<StaffCandidateResponse>>
         SearchStaffCandidatesAsync(
@@ -84,7 +83,7 @@ public sealed class StaffInvitationService(
         );
     }
 
-    public async Task<StaffInvitationResponse> InviteStaffAsync(
+        public async Task<StaffInvitationResponse> InviteStaffAsync(
         Guid currentUserId,
         InviteStaffRequest request,
         CancellationToken cancellationToken = default)
@@ -105,11 +104,11 @@ public sealed class StaffInvitationService(
                 HttpStatusCode.NotFound
             );
 
-        // Only active accounts can become staff.
-        if (invitedUser.Status != UserStatus.Active)
+        if (invitedUser.Status != UserStatus.Active ||
+            invitedUser.CustomerStatus != CustomerStatus.Active)
         {
             throw new AppException(
-                "This account is not active and cannot be invited as staff",
+                "This account does not have active customer access and cannot be invited as staff",
                 ErrorCodes.AccountInactive,
                 HttpStatusCode.Conflict
             );
@@ -166,6 +165,11 @@ public sealed class StaffInvitationService(
             }
         }
 
+        await using var transaction =
+            await staffRepository.BeginTransactionAsync(
+                cancellationToken
+            );
+
         var pendingInvitation =
             await invitationRepository.GetPendingInvitationAsync(
                 shop.Id,
@@ -175,7 +179,6 @@ public sealed class StaffInvitationService(
 
         if (pendingInvitation != null)
         {
-            // Invitation is still valid.
             if (!IsExpired(pendingInvitation))
             {
                 throw new AppException(
@@ -185,8 +188,6 @@ public sealed class StaffInvitationService(
                 );
             }
 
-            // Old invitation has expired.
-            // Close it before creating another invitation.
             pendingInvitation.Status = StatusCancelled;
             pendingInvitation.RespondedAt = DateTime.UtcNow;
 
@@ -194,20 +195,19 @@ public sealed class StaffInvitationService(
                 pendingInvitation,
                 cancellationToken
             );
+
+            await invitationRepository.SaveChangesAsync(
+                cancellationToken
+            );
         }
 
         var invitation = new StaffInvitation
         {
             Id = Guid.NewGuid(),
-
             ShopId = shop.Id,
-
             InvitedUserId = invitedUser.Id,
-
             InvitedBy = currentUserId,
-
             Status = StatusPending,
-
             InvitedAt = DateTime.UtcNow
         };
 
@@ -220,7 +220,10 @@ public sealed class StaffInvitationService(
             cancellationToken
         );
 
-        // Reload navigation properties.
+        await transaction.CommitAsync(
+            cancellationToken
+        );
+
         var created =
             await invitationRepository.GetInvitationByIdAsync(
                 invitation.Id,
@@ -239,7 +242,8 @@ public sealed class StaffInvitationService(
         return MapToInvitationResponse(created);
     }
 
-    public async Task RevokeInvitationAsync(
+
+           public async Task RevokeInvitationAsync(
         Guid currentUserId,
         Guid invitationId,
         CancellationToken cancellationToken = default)
@@ -255,8 +259,6 @@ public sealed class StaffInvitationService(
                 cancellationToken
             );
 
-        // Prevent owner from revoking invitations.
-        // Belonging to another shop.
         if (invitation == null ||
             invitation.ShopId != shop.Id)
         {
@@ -277,8 +279,20 @@ public sealed class StaffInvitationService(
 
         if (IsExpired(invitation))
         {
+            invitation.Status = StatusCancelled;
+            invitation.RespondedAt = DateTime.UtcNow;
+
+            await invitationRepository.UpdateInvitationAsync(
+                invitation,
+                cancellationToken
+            );
+
+            await invitationRepository.SaveChangesAsync(
+                cancellationToken
+            );
+
             throw AppException.BadRequest(
-                "Invitation has already expired",
+                "Invitation has already expired and has been cancelled",
                 ErrorCodes.InvitationInvalidOrExpired
             );
         }
@@ -295,6 +309,8 @@ public sealed class StaffInvitationService(
             cancellationToken
         );
     }
+
+
 
     public async Task<PagedResult<StaffInvitationResponse>>
         GetShopInvitationsAsync(
@@ -338,18 +354,40 @@ public sealed class StaffInvitationService(
             Guid currentUserId,
             CancellationToken cancellationToken = default)
     {
-        var invitations =
-            await invitationRepository.GetInvitationsByUserIdAsync(
-                currentUserId,
+        var invitations = (await invitationRepository.GetInvitationsByUserIdAsync(
+            currentUserId,
+            cancellationToken
+        )).ToList();
+
+        var hasExpired = false;
+        foreach (var invitation in invitations)
+        {
+            if (invitation.Status == StatusPending && IsExpired(invitation))
+            {
+                invitation.Status = StatusCancelled;
+                invitation.RespondedAt = DateTime.UtcNow;
+                await invitationRepository.UpdateInvitationAsync(
+                    invitation,
+                    cancellationToken
+                );
+                hasExpired = true;
+            }
+        }
+
+        if (hasExpired)
+        {
+            await invitationRepository.SaveChangesAsync(
                 cancellationToken
             );
+        }
 
         return invitations.Select(
             MapToInvitationResponse
         );
     }
 
-    public async Task AcceptInvitationAsync(
+
+      public async Task AcceptInvitationAsync(
         Guid currentUserId,
         Guid invitationId,
         CancellationToken cancellationToken = default)
@@ -395,14 +433,77 @@ public sealed class StaffInvitationService(
             );
         }
 
-        if (invitation.Status != StatusPending ||
-            IsExpired(invitation))
+        if (IsExpired(invitation))
         {
+            invitation.Status = StatusCancelled;
+            invitation.RespondedAt = DateTime.UtcNow;
+
+            await invitationRepository.UpdateInvitationAsync(
+                invitation,
+                cancellationToken
+            );
+
+            await invitationRepository.SaveChangesAsync(
+                cancellationToken
+            );
+
             throw AppException.BadRequest(
-                "Invitation is invalid, expired or no longer pending",
+                "Invitation has expired and has been cancelled",
                 ErrorCodes.InvitationInvalidOrExpired
             );
         }
+
+        if (invitation.Status != StatusPending)
+        {
+            throw AppException.BadRequest(
+                "Only pending invitations can be accepted",
+                ErrorCodes.InvitationInvalidOrExpired
+            );
+        }
+
+        if (invitation.Shop.Status != ShopStatus.Active &&
+            invitation.Shop.Status != ShopStatus.Paused)
+        {
+            throw new AppException(
+                "A suspended shop cannot receive a new staff membership",
+                ErrorCodes.ShopSuspended,
+                HttpStatusCode.Conflict
+            );
+        }
+
+        var ownsApprovedShop =
+            await staffRepository.UserOwnsApprovedShopAsync(
+                currentUserId,
+                cancellationToken
+            );
+
+        if (ownsApprovedShop)
+        {
+            throw AppException.BadRequest(
+                "An account that owns an approved shop cannot have an active staff membership",
+                ErrorCodes.InvalidStaffCandidate
+            );
+        }
+
+        var hasActiveStaffMembership =
+            await staffRepository.HasActiveStaffMembershipPlatformWideAsync(
+                currentUserId,
+                cancellationToken
+            );
+
+        if (hasActiveStaffMembership)
+        {
+            throw new AppException(
+                "User already has an active staff membership platform-wide. You must end your current staff membership before accepting a new one.",
+                ErrorCodes.AlreadyActiveStaff,
+                HttpStatusCode.Conflict
+            );
+        }
+
+        await using var transaction =
+            await staffRepository.BeginTransactionAsync(
+                cancellationToken
+            );
 
         invitation.Status = StatusAccepted;
         invitation.RespondedAt = DateTime.UtcNow;
@@ -426,11 +527,9 @@ public sealed class StaffInvitationService(
 
         if (existingStaff != null)
         {
-            // Reactivate an existing removed membership.
             existingStaff.Status =
                 ShopStaffStatus.Active;
 
-            // Entity is kept unchanged.
             existingStaff.DisplayName =
                 invitation.InvitedUser.FullName;
 
@@ -444,20 +543,12 @@ public sealed class StaffInvitationService(
             var newStaff = new ShopStaff
             {
                 Id = Guid.NewGuid(),
-
                 ShopId = invitation.ShopId,
-
                 UserId = currentUserId,
-
-                // Keep existing entity field.
                 DisplayName =
                     invitation.InvitedUser.FullName,
-
-                // Store-specific nickname is initially empty.
                 Nickname = null,
-
                 Status = ShopStaffStatus.Active,
-
                 JoinedAt = DateTime.UtcNow
             };
 
@@ -467,7 +558,6 @@ public sealed class StaffInvitationService(
             );
         }
 
-        // Promote normal User to Staff role.
         if (invitation.InvitedUser.Role ==
             UserRole.User)
         {
@@ -486,7 +576,16 @@ public sealed class StaffInvitationService(
         await invitationRepository.SaveChangesAsync(
             cancellationToken
         );
+
+        await staffRepository.SaveChangesAsync(
+            cancellationToken
+        );
+
+        await transaction.CommitAsync(
+            cancellationToken
+        );
     }
+
 
     public async Task DeclineInvitationAsync(
         Guid currentUserId,
@@ -509,11 +608,30 @@ public sealed class StaffInvitationService(
             );
         }
 
-        if (invitation.Status != StatusPending ||
-            IsExpired(invitation))
+        if (IsExpired(invitation))
+        {
+            invitation.Status = StatusCancelled;
+            invitation.RespondedAt = DateTime.UtcNow;
+
+            await invitationRepository.UpdateInvitationAsync(
+                invitation,
+                cancellationToken
+            );
+
+            await invitationRepository.SaveChangesAsync(
+                cancellationToken
+            );
+
+            throw AppException.BadRequest(
+                "Invitation has expired and has been cancelled",
+                ErrorCodes.InvitationInvalidOrExpired
+            );
+        }
+
+        if (invitation.Status != StatusPending)
         {
             throw AppException.BadRequest(
-                "Invitation is expired or no longer pending",
+                "Only pending invitations can be declined",
                 ErrorCodes.InvitationInvalidOrExpired
             );
         }
@@ -530,6 +648,7 @@ public sealed class StaffInvitationService(
             cancellationToken
         );
     }
+
 
     private async Task<Shop> GetOwnerShopEntityAsync(
         Guid ownerUserId,

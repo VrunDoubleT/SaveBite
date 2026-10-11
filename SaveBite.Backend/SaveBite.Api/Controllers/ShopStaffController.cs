@@ -13,12 +13,16 @@ namespace SaveBite.Backend.Controllers;
 // Manage shop staff members and their activity logs.
 [ApiController]
 [Route("api/shop-staff")]
-public sealed class ShopStaffController(IShopStaffService shopStaffService) : ControllerBase
+public sealed class ShopStaffController : ControllerBase
 {
-    private readonly IShopStaffService _shopStaffService = shopStaffService;
+    private readonly IShopStaffService _shopStaffService;
+    public ShopStaffController(IShopStaffService shopStaffService)
+    {
+        _shopStaffService = shopStaffService;
+    }
 
-    [HttpGet("shop")]
-    [StoreOwnerAccess]
+    [HttpGet]                
+    [StoreOwnerAnyStatusAccess]
     public async Task<IActionResult> GetStaffs(
         [FromQuery] string? keyword,
         [FromQuery] int page = 1,
@@ -42,7 +46,7 @@ public sealed class ShopStaffController(IShopStaffService shopStaffService) : Co
     }
 
     [HttpPut("{staffId:guid}")]
-    [AccountAccess]
+    [StoreOwnerActiveAccess]
     public async Task<IActionResult> UpdateStaff(
         Guid staffId,
         [FromBody] UpdateStaffInfoRequest request,
@@ -61,7 +65,7 @@ public sealed class ShopStaffController(IShopStaffService shopStaffService) : Co
     }
 
     [HttpDelete("{staffId:guid}")]
-    [StoreOwnerAccess]
+    [StoreOwnerActiveAccess] 
     public async Task<IActionResult> RemoveStaff(
         Guid staffId,
         CancellationToken cancellationToken)
@@ -102,7 +106,7 @@ public sealed class ShopStaffController(IShopStaffService shopStaffService) : Co
     }
 
     [HttpGet("me/shops")]
-    [StaffAnyStatusAccess]
+    [CustomerOrStaffOrStoreOwnerAccess]
     public async Task<IActionResult> GetAssociatedShops(
         CancellationToken cancellationToken)
     {

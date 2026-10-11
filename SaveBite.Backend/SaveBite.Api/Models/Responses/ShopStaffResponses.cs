@@ -28,6 +28,7 @@ public sealed record StaffActivityLogResponse(
     Guid ActionBy,
     string Action,
     string Description,
+    Guid? OrderId,
     DateTime CreatedAt
 );
 

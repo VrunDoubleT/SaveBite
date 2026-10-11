@@ -1,6 +1,6 @@
 namespace SaveBite.Backend.Models.Enums;
 
-public enum StaffInvitation
+public enum StaffInvitationStatus
 {
     Pending,
     Accepted,
