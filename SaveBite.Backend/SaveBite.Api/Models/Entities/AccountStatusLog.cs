@@ -8,6 +8,7 @@ public class AccountStatusLog
     public Guid UserId { get; set; }
     public Guid AdminId { get; set; }
 
+    public AccountStatusLogTarget Target { get; set; } = AccountStatusLogTarget.Account;
     public UserStatus Action { get; set; } = UserStatus.Suspended;
     public string? Reason { get; set; }
 

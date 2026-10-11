@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Models.Enums;
 
 namespace SaveBite.Backend.Data.Configurations;
 
@@ -23,6 +24,13 @@ public class AccountStatusLogConfiguration
 
         builder.Property(x => x.AdminId)
             .HasColumnName("admin_id")
+            .IsRequired();
+
+        builder.Property(x => x.Target)
+            .HasColumnName("target")
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .HasDefaultValue(AccountStatusLogTarget.Account)
             .IsRequired();
 
         builder.Property(x => x.Action)

@@ -138,6 +138,9 @@ public sealed class UserService : IUserService
                 throw AppException.Conflict($"Customer profile is already {newCustomerStatus.ToString().ToLower()}.");
 
             user.CustomerStatus = newCustomerStatus;
+            LogAccountStatusChange(adminId, targetUserId,
+                request.IsSuspended ? UserStatus.Suspended : UserStatus.Active,
+                AccountStatusLogTarget.Customer, request.Reason, now);
             LogAudit(adminId, targetUserId, request.IsSuspended ? "SuspendCustomer" : "ReactivateCustomer", request.Reason, $"{{\"CustomerStatus\":\"{newCustomerStatus}\"}}", now);
 
             if (request.IsSuspended)
@@ -152,7 +155,7 @@ public sealed class UserService : IUserService
                 throw AppException.Conflict($"User account is already {newAccountStatus.ToString().ToLower()}.");
 
             user.Status = newAccountStatus;
-            LogAccountStatusChange(adminId, targetUserId, newAccountStatus, request.Reason, now);
+            LogAccountStatusChange(adminId, targetUserId, newAccountStatus, AccountStatusLogTarget.Account, request.Reason, now);
             LogAudit(adminId, targetUserId, request.IsSuspended ? "SuspendAccount" : "ReactivateAccount", request.Reason, $"{{\"Status\":\"{newAccountStatus}\"}}", now);
 
             if (request.IsSuspended)
@@ -176,7 +179,7 @@ public sealed class UserService : IUserService
         return user;
     }
 
-    private void LogAccountStatusChange(Guid adminId, Guid userId, UserStatus action, string reason, DateTime now)
+    private void LogAccountStatusChange(Guid adminId, Guid userId, UserStatus action, AccountStatusLogTarget target, string reason, DateTime now)
     {
         _repository.AddAccountStatusLog(new AccountStatusLog
         {
@@ -184,6 +187,7 @@ public sealed class UserService : IUserService
             UserId = userId,
             AdminId = adminId,
             Action = action,
+            Target = target,
             Reason = reason,
             CreatedAt = now
         });
