@@ -131,7 +131,7 @@ public sealed class AuthController : ControllerBase
             "Password reset successfully. Please sign in again."));
     }
     [HttpPut("me/password")]
-    [CustomerAccess]
+    [AccountAccess]
     public async Task<ActionResult<ApiResponse>> ChangePassword(
         [FromBody] ChangePasswordRequest request,
         CancellationToken cancellationToken)
@@ -141,7 +141,7 @@ public sealed class AuthController : ControllerBase
             request,
             cancellationToken);
         return Ok(ApiResponse.Ok(
-            "Password changed successfully. Please sign in again."));
+            "Password changed successfully."));
     }
 
     private Guid GetAuthenticatedUserId()

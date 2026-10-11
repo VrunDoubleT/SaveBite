@@ -322,6 +322,9 @@ public sealed class AuthService : IAuthService
         ChangePasswordRequest request,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction =
+            await _authRepository.BeginSerializableTransactionAsync(cancellationToken);
+
         var user = await _authRepository.GetUserByIdAsync(
             userId,
             cancellationToken);
@@ -340,19 +343,16 @@ public sealed class AuthService : IAuthService
             _logger.LogWarning(
                 "Password change rejected because the current password was incorrect. UserId: {UserId}",
                 userId);
-            throw AppException.Unauthorized("Current password is incorrect.");
+            throw AppException.BadRequest("Current password is incorrect.");
         }
 
         user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
         user.UpdatedAt = UtcNow();
         await _authRepository.SaveChangesAsync(cancellationToken);
-        await _refreshTokenService.RevokeAllAsync(
-            user.Id,
-            "Password changed",
-            cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         _logger.LogInformation(
-            "Password changed and active sessions were revoked. UserId: {UserId}",
+            "Password changed successfully. UserId: {UserId}",
             user.Id);
     }
 
