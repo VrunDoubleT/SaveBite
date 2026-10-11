@@ -74,3 +74,33 @@ public sealed class ShopApplicationDocumentsValidator : AbstractValidator<ShopAp
             .WithMessage("You can upload up to 10 documents.");
     }
 }
+
+// Validate shop logo upload.
+public sealed record ShopApplicationLogoValidationRequest(IFormFile? Logo, bool IsRequired);
+
+public sealed class ShopApplicationLogoValidator : AbstractValidator<ShopApplicationLogoValidationRequest>
+{
+    private static readonly string[] AllowedExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+    private static readonly string[] AllowedContentTypes = ["image/jpeg", "image/png", "image/webp"];
+    private const long MaxBytes = 5 * 1024 * 1024; // 5 MB
+
+    public ShopApplicationLogoValidator()
+    {
+        // Báo lỗi theo property "Logo" để frontend map đúng vào field.
+        RuleFor(x => x.Logo)
+            .Cascade(CascadeMode.Stop)
+            .NotNull()
+            .When(x => x.IsRequired)
+            .WithMessage("Shop logo is required.")
+            .Must(file => file is null || file.Length > 0)
+            .WithMessage("Shop logo must not be empty.")
+            .Must(file => file is null || file.Length <= MaxBytes)
+            .WithMessage("Shop logo must not exceed 5 MB.")
+            .Must(file => file is null || IsImage(file))
+            .WithMessage("Shop logo must be an image file (JPG, PNG or WEBP).");
+    }
+
+    private static bool IsImage(IFormFile file) =>
+        AllowedExtensions.Contains(Path.GetExtension(file.FileName).ToLowerInvariant()) &&
+        AllowedContentTypes.Contains(file.ContentType.ToLowerInvariant());
+}
