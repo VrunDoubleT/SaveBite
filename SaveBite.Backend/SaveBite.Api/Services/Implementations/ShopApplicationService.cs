@@ -397,6 +397,17 @@ public sealed class ShopApplicationService : IShopApplicationService
         {
             throw AppException.BadRequest("Decision must be Approved or Rejected.");
         }
+        if (nextStatus == ShopApplicationStatus.Approved)
+        {
+            if (application.Shop is not null)
+                throw AppException.Conflict("A shop has already been created for this application.");
+
+            if (application.ApplicantUser is null)
+                throw AppException.Conflict("The applicant account could not be found.");
+            
+            if (application.ApplicantUser.Role is not (UserRole.User or UserRole.StoreOwner))
+                throw AppException.Conflict("Only an eligible user account can become a store owner.");
+        }
 
         var now = DateTime.UtcNow;
         application.Status = nextStatus;
@@ -412,7 +423,11 @@ public sealed class ShopApplicationService : IShopApplicationService
             CreatedAt = now
         });
 
-        await _repository.SaveChangesAsync(cancellationToken);
+        if (nextStatus == ShopApplicationStatus.Approved)
+            await _repository.SaveApprovedApplicationAsync(application, cancellationToken);
+        else
+            await _repository.SaveChangesAsync(cancellationToken);
+
         return Map(application);
     }
 }

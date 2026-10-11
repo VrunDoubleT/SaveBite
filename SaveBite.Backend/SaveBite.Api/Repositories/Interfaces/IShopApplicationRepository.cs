@@ -10,6 +10,7 @@ public interface IShopApplicationRepository
     Task<bool> HasActiveApplicationAsync(Guid applicantUserId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ShopApplication>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<ShopApplication?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task SaveApprovedApplicationAsync(ShopApplication application, CancellationToken cancellationToken = default);
     Task AddAsync(ShopApplication application, CancellationToken cancellationToken = default);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }
