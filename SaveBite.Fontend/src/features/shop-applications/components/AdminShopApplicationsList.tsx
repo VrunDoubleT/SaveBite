@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import {
   ArrowRight,
   ArrowUpDown,
@@ -18,19 +18,22 @@ import {
 } from "../schemas/adminShopApplication.schema";
 import { Notice, StatusBadge } from "./AdminShopApplicationShared";
 
+export type SortOrder = "newest" | "oldest";
+
 type Props = {
   visibleItems: ShopApplication[];
   loading: boolean;
   filter: string;
   setFilter: (value: string) => void;
+  sort: SortOrder;
+  onSortChange: (value: SortOrder) => void;
   counts: Record<string, number>;
   error: string;
   load: () => void;
   openDetail: (item: ShopApplication) => void;
   openingId: ShopApplication["id"] | null;
+  pagination?: ReactNode;
 };
-
-type SortOrder = "newest" | "oldest";
 
 /* helpers */
 const locationOf = (item: ShopApplication) =>
@@ -67,31 +70,23 @@ function Avatar({ item }: { item: ShopApplication }) {
 
 /* component */
 export function AdminShopApplicationsList({
-  visibleItems,
+  visibleItems: rows,
   loading,
   filter,
   setFilter,
+  sort,
+  onSortChange,
   counts,
   error,
   load,
   openDetail,
   openingId,
+  pagination,
 }: Props) {
-  const [sort, setSort] = useState<SortOrder>("newest");
-
   const busy = openingId !== null;
 
-  const rows = useMemo(
-    () =>
-      [...visibleItems].sort((a, b) => {
-        const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        return sort === "newest" ? -diff : diff;
-      }),
-    [visibleItems, sort],
-  );
-
   return (
-    <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6">
+    <div className="space-y-5">
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -172,26 +167,11 @@ export function AdminShopApplicationsList({
         })}
       </div>
 
-      {/* Result count + sort */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-slate-500" aria-live="polite">
-          {!loading && rows.length > 0 && (
-            <>
-              Showing <span className="font-medium text-slate-700">{rows.length}</span>
-              {rows.length !== counts.All && (
-                <>
-                  {" "}
-                  of <span className="font-medium text-slate-700">{counts.All ?? 0}</span>
-                </>
-              )}{" "}
-              {rows.length === 1 ? "application" : "applications"}
-            </>
-          )}
-        </p>
-
+      {/* Sort */}
+      <div className="flex justify-end">
         <button
           type="button"
-          onClick={() => setSort((s) => (s === "newest" ? "oldest" : "newest"))}
+          onClick={() => onSortChange(sort === "newest" ? "oldest" : "newest")}
           className={`inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 ${focusRing}`}
         >
           <ArrowUpDown className="size-4 text-slate-400" aria-hidden="true" />
@@ -200,7 +180,7 @@ export function AdminShopApplicationsList({
       </div>
 
       {/* List */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {loading ? (
           <div
             className="divide-y divide-slate-100"
@@ -246,25 +226,25 @@ export function AdminShopApplicationsList({
         ) : (
           <>
             {/* Desktop table */}
-            <table className="hidden w-full text-left text-sm md:table">
+            <table className="hidden w-full table-fixed text-left text-sm md:table">
               <thead className="border-b border-slate-200 bg-slate-50/80 text-xs text-slate-500">
                 <tr>
-                  <th scope="col" className="px-5 py-3 font-medium">
+                  <th scope="col" className="w-[34%] px-5 py-3 font-medium">
                     Store
                   </th>
-                  <th scope="col" className="px-5 py-3 font-medium">
+                  <th scope="col" className="w-[20%] px-5 py-3 font-medium">
                     Location
                   </th>
-                  <th scope="col" className="px-5 py-3 font-medium">
+                  <th scope="col" className="w-28 px-5 py-3 font-medium">
                     Submitted
                   </th>
-                  <th scope="col" className="px-5 py-3 font-medium">
+                  <th scope="col" className="w-32 px-5 py-3 font-medium">
                     Status
                   </th>
-                  <th scope="col" className="px-5 py-3 font-medium">
+                  <th scope="col" className="w-24 px-5 py-3 font-medium">
                     Revision
                   </th>
-                  <th scope="col" className="px-5 py-3">
+                  <th scope="col" className="w-36 px-5 py-3">
                     <span className="sr-only">Action</span>
                   </th>
                 </tr>
@@ -286,23 +266,25 @@ export function AdminShopApplicationsList({
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <Avatar item={item} />
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold text-slate-900">{item.name}</p>
-                            <p className="mt-0.5 max-w-56 truncate text-xs text-slate-500">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-semibold text-slate-900" title={item.name}>
+                              {item.name}
+                            </p>
+                            <p className="mt-0.5 truncate text-xs text-slate-500">
                               {item.businessLicenseNo || "No license number"}
                             </p>
                           </div>
                         </div>
                       </td>
 
-                      <td className="max-w-56 px-5 py-3.5 text-slate-600">
+                      <td className="px-5 py-3.5 text-slate-600">
                         {place ? (
-                          <span className="flex items-start gap-1.5">
+                          <span className="flex items-start gap-1.5" title={place}>
                             <MapPin
                               className="mt-0.5 size-3.5 shrink-0 text-slate-400"
                               aria-hidden="true"
                             />
-                            <span className="line-clamp-2">{place}</span>
+                            <span className="line-clamp-2 min-w-0 break-words">{place}</span>
                           </span>
                         ) : (
                           <span className="text-slate-400">—</span>
@@ -386,8 +368,15 @@ export function AdminShopApplicationsList({
 
                       <span className="min-w-0 flex-1">
                         <span className="flex items-start justify-between gap-2">
-                          <span className="truncate font-semibold text-slate-900">{item.name}</span>
-                          <StatusBadge status={item.status} />
+                          <span
+                            className="min-w-0 truncate font-semibold text-slate-900"
+                            title={item.name}
+                          >
+                            {item.name}
+                          </span>
+                          <span className="shrink-0">
+                            <StatusBadge status={item.status} />
+                          </span>
                         </span>
 
                         <span className="mt-1 flex items-center gap-1 text-xs text-slate-500">
@@ -418,6 +407,8 @@ export function AdminShopApplicationsList({
             </ul>
           </>
         )}
+        {/* Pagination */}
+        {pagination}
       </div>
     </div>
   );

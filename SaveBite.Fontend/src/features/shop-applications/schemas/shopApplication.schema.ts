@@ -92,16 +92,38 @@ export const shopApplicationSchema = z
 
 export type ShopApplicationFormValues = z.infer<typeof shopApplicationSchema>;
 
+/*  Logo validation */
+const LOGO_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const LOGO_ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+const LOGO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+
+export function validateLogoFile(file: File): string | undefined {
+  const name = file.name.toLowerCase();
+  const validExtension = LOGO_ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext));
+
+  if (!LOGO_ALLOWED_TYPES.includes(file.type) || !validExtension) {
+    return "Shop logo must be an image file (JPG, PNG or WEBP).";
+  }
+
+  if (file.size === 0) return "Shop logo must not be empty.";
+
+  if (file.size > LOGO_MAX_BYTES) return "Shop logo must not exceed 5 MB.";
+
+  return undefined;
+}
+
 /*  Shop application validation */
 export function validateShopApplication(
   values: ShopApplicationFormValues,
   hasExistingPayos: boolean,
   documents: { type: string; file: File }[],
   existingDocumentTypes: string[] = [],
+  logoOptions: { file?: File; hasExisting?: boolean } = {},
 ) {
   const result = shopApplicationSchema.safeParse(values);
 
-  const errors: Partial<Record<keyof ShopApplicationFormValues | "documents", string>> = {};
+  const errors: Partial<Record<keyof ShopApplicationFormValues | "documents" | "logo", string>> =
+    {};
 
   if (!result.success) {
     for (const issue of result.error.issues) {
@@ -138,6 +160,13 @@ export function validateShopApplication(
     errors.documents = "Business license document is required.";
   } else if (!availableDocumentTypes.has("FoodSafetyCertificate")) {
     errors.documents = "Food safety certificate is required.";
+  }
+
+  if (logoOptions.file) {
+    const logoError = validateLogoFile(logoOptions.file);
+    if (logoError) errors.logo = logoError;
+  } else if (!logoOptions.hasExisting) {
+    errors.logo = "Shop logo is required.";
   }
 
   return {

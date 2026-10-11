@@ -46,7 +46,8 @@ const STATUS_META: Record<
     dot: "bg-amber-500",
     notice: "border-amber-200 bg-amber-50 text-amber-900",
     noticeTitle: "We're reviewing your application",
-    noticeBody: "Your application cannot be edited while it is under review. You can cancel it if needed.",
+    noticeBody:
+      "Your application cannot be edited while it is under review. You can cancel it if needed.",
   },
   Approved: {
     label: "Approved",
@@ -67,12 +68,12 @@ const STATUS_META: Record<
     noticeBody: "You can update your application details and submit it again.",
   },
   Cancelled: {
-    label: "Canceled",
+    label: "Cancelled",
     tone: "gray",
     badge: "bg-slate-100 text-slate-700 ring-slate-200",
     dot: "bg-slate-400",
     notice: "border-slate-200 bg-slate-50 text-slate-700",
-    noticeTitle: "This application was canceled",
+    noticeTitle: "This application was Cancelled",
     noticeBody: "You can edit this application and submit it again.",
   },
 };
@@ -144,10 +145,17 @@ function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
   const decided = status === "Approved" || status === "Rejected";
   const steps = [
     { label: "Submitted", state: "done" as const },
-    { label: "Under review", state: status === "Pending" ? ("active" as const) : ("done" as const) },
+    {
+      label: "Under review",
+      state: status === "Pending" ? ("active" as const) : ("done" as const),
+    },
     {
       label: status === "Approved" ? "Approved" : status === "Rejected" ? "Rejected" : "Decision",
-      state: decided ? (status === "Rejected" ? ("error" as const) : ("done" as const)) : ("todo" as const),
+      state: decided
+        ? status === "Rejected"
+          ? ("error" as const)
+          : ("done" as const)
+        : ("todo" as const),
     },
   ];
   const circle = {
@@ -162,18 +170,24 @@ function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
       {steps.map((step, i) => (
         <li key={step.label} className="flex flex-1 items-center last:flex-none">
           <div className="flex items-center gap-2.5">
-            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${circle[step.state]}`}>
+            <span
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${circle[step.state]}`}
+            >
               {step.state === "done" && <Check className="h-4 w-4" />}
               {step.state === "active" && <Hourglass className="h-3.5 w-3.5" />}
               {step.state === "error" && <XCircle className="h-4 w-4" />}
               {step.state === "todo" && <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />}
             </span>
-            <span className={`text-sm ${step.state === "todo" ? "text-slate-400" : "font-medium text-slate-800"}`}>
+            <span
+              className={`text-sm ${step.state === "todo" ? "text-slate-400" : "font-medium text-slate-800"}`}
+            >
               {step.label}
             </span>
           </div>
           {i < steps.length - 1 && (
-            <span className={`mx-3 h-0.5 flex-1 rounded-full ${steps[i + 1].state === "todo" ? "bg-slate-200" : "bg-emerald-500"}`} />
+            <span
+              className={`mx-3 h-0.5 flex-1 rounded-full ${steps[i + 1].state === "todo" ? "bg-slate-200" : "bg-emerald-500"}`}
+            />
           )}
         </li>
       ))}
@@ -205,7 +219,11 @@ function LoadingSkeleton() {
 }
 
 /* Page */
-export default function LatestShopApplication({ onApplicationChanged }: { onApplicationChanged?: () => void }) {
+export default function LatestShopApplication({
+  onApplicationChanged,
+}: {
+  onApplicationChanged?: () => void;
+}) {
   const navigate = useNavigate();
 
   const [application, setApplication] = useState<ShopApplication | null>(null);
@@ -217,7 +235,6 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [cancelling, setCancelling] = useState(false);
-
 
   useEffect(() => {
     loadApplication();
@@ -294,7 +311,7 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
   const dangerBtn = `${btnBase} border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100 focus-visible:ring-red-500 disabled:hover:border-red-200 disabled:hover:bg-red-50`;
 
   return (
-    <div className="w-full">
+    <div className="w-full min-w-0">
       {/* Load error */}
       {loadError && (
         <div
@@ -303,10 +320,10 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
         >
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
 
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <p className="font-semibold">Unable to load your application</p>
 
-            <p className="mt-1 text-red-700">{loadError}</p>
+            <p className="mt-1 break-words text-red-700">{loadError}</p>
           </div>
 
           <button
@@ -388,7 +405,8 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
           <div className="px-5 pb-6 sm:px-8 sm:pb-8">
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div className="flex items-end gap-4">
+              {/* min-w-0 + sm:flex-1: cho phép khối avatar + tên co lại để truncate hoạt động */}
+              <div className="flex min-w-0 items-end gap-4 sm:flex-1">
                 <div className="relative z-10 -mt-12 h-24 w-24 shrink-0 overflow-hidden rounded-3xl border-4 border-white bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-200 sm:-mt-16 sm:h-28 sm:w-28">
                   {application.logoUrl ? (
                     <img
@@ -407,8 +425,11 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
                   )}
                 </div>
 
-                <div className="min-w-0 pb-1">
-                  <h1 className="truncate text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+                <div className="min-w-0 flex-1 pb-1">
+                  <h1
+                    className="truncate text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl"
+                    title={application.name}
+                  >
                     {application.name}
                   </h1>
 
@@ -419,7 +440,7 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
               </div>
 
               <span
-                className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ring-1 ring-inset ${status.badge}`}
+                className={`inline-flex w-fit shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ring-1 ring-inset ${status.badge}`}
               >
                 <span className={`h-2 w-2 rounded-full ${status.dot}`} />
 
@@ -435,7 +456,7 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
               >
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
 
-                <p>{actionError}</p>
+                <p className="min-w-0 break-words">{actionError}</p>
               </div>
             )}
 
@@ -450,7 +471,7 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
                   <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
                 )}
 
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold">{status.noticeTitle}</p>
 
                   <p className="mt-0.5 text-sm opacity-80">{status.noticeBody}</p>
@@ -466,9 +487,7 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
 
             {/* Description */}
             {application.description && (
-              <p className="mt-6 max-w-2xl text-sm leading-6 text-slate-600">
-                {application.description}
-              </p>
+              <p className="mt-6 text-sm leading-6 text-slate-600">{application.description}</p>
             )}
 
             {/* Details */}
@@ -477,7 +496,7 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
                 {address || "—"}
               </InfoRow>
 
-              <div className="grid sm:grid-cols-2 sm:gap-x-8 sm:divide-x-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-8 sm:divide-x-0">
                 <InfoRow icon={<Clock3 className="h-[18px] w-[18px]" />} label="Opening hours">
                   {formatTime(application.openingTime)} – {formatTime(application.closingTime)}
                 </InfoRow>
@@ -492,7 +511,7 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
                 </div>
               </div>
 
-              <div className="grid sm:grid-cols-2 sm:gap-x-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-8">
                 <InfoRow icon={<Landmark className="h-[18px] w-[18px]" />} label="Bank account">
                   <span>
                     {application.bankName || "—"}
@@ -546,8 +565,6 @@ export default function LatestShopApplication({ onApplicationChanged }: { onAppl
                     Edit and resubmit
                   </button>
                 )}
-
-
               </div>
             )}
           </div>
