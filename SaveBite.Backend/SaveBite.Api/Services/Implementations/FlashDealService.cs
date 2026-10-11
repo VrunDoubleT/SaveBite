@@ -13,24 +13,65 @@ public sealed class FlashDealService : IFlashDealService
 {
     private readonly IFlashDealRedisService _redisService;
     private readonly IFlashDealRepository _dealRepository;
+    private readonly IUserAddressRepository _userAddressRepository;
     private readonly ILogger<FlashDealService> _logger;
 
     public FlashDealService(
         IFlashDealRedisService redisService,
         IFlashDealRepository dealRepository,
+        IUserAddressRepository userAddressRepository,
         ILogger<FlashDealService> logger)
     {
         _redisService = redisService;
         _dealRepository = dealRepository;
+        _userAddressRepository = userAddressRepository;
         _logger = logger;
     }
 
     public async Task<FlashDealCursorListResponse> GetNearbyAsync( 
         FlashDealCursorRequest request,
+        Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
-        var latitude = request.Latitude.GetValueOrDefault() != 0 ? request.Latitude!.Value : 10.0240868;
-        var longitude = request.Longitude.GetValueOrDefault() != 0 ? request.Longitude!.Value : 105.7660278;
+        double latitude;
+        double longitude;
+
+        if (request.Latitude.HasValue && request.Longitude.HasValue && (request.Latitude.Value != 0 || request.Longitude.Value != 0))
+        {
+            latitude = request.Latitude.Value;
+            longitude = request.Longitude.Value;
+        }
+        else if (userId.HasValue)
+        {
+            var defaultAddress = await _userAddressRepository.GetDefaultByUserIdAsync(userId.Value, cancellationToken);
+            if (defaultAddress != null)
+            {
+                latitude = defaultAddress.Latitude;
+                longitude = defaultAddress.Longitude;
+            }
+            else
+            {
+                return new FlashDealCursorListResponse
+                {
+                    Deals = new List<FlashDealResponse>(),
+                    Cursor1 = null,
+                    Cursor2 = null,
+                    HasOlder = false,
+                    HasNewer = false
+                };
+            }
+        }
+        else
+        {
+            return new FlashDealCursorListResponse
+            {
+                Deals = new List<FlashDealResponse>(),
+                Cursor1 = null,
+                Cursor2 = null,
+                HasOlder = false,
+                HasNewer = false
+            };
+        }
 
         var allDeals = await _redisService.GetNearbyDealsAsync(
             latitude,
@@ -39,8 +80,17 @@ public sealed class FlashDealService : IFlashDealService
 
 
 
-        // Áp dụng bộ lọc (Categories, Distance, Price, ShopName)
+        // Apply keyword, category, distance, price, and shop-name filters.
         var filteredDeals = allDeals.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(request.Keyword))
+        {
+            var kw = request.Keyword.Trim();
+            filteredDeals = filteredDeals.Where(d =>
+                (!string.IsNullOrEmpty(d.ProductName) && d.ProductName.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(d.ShopName) && d.ShopName.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(d.Description) && d.Description.Contains(kw, StringComparison.OrdinalIgnoreCase)));
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Category))
         {
@@ -260,6 +310,10 @@ public sealed class FlashDealService : IFlashDealService
             .Where(g => g.Values.Count > 0)
             .ToList() ?? new List<DealAttributeGroupResponse>();
 
+        var now = DateTime.UtcNow;
+        var isDealOnSale = deal.Status == FlashDealStatus.OnSale;
+        var isDealTimeValid = now >= deal.SaleStartTime.ToUniversalTime() && now <= deal.OrderEndTime.ToUniversalTime();
+
         var variants = deal.Variants.Select(v =>
         {
             var attrs = v.Variant?.VariantValues?
@@ -277,6 +331,12 @@ public sealed class FlashDealService : IFlashDealService
                 ? string.Join(" - ", attrs.Values)
                 : (v.Variant?.Sku ?? "Default");
 
+            var availableQty = Math.Max(0, v.TotalQuantity - v.SoldQuantity);
+            var isVariantPurchasable = isDealOnSale
+                && isDealTimeValid
+                && v.Status == FlashDealVariantStatus.Active
+                && availableQty > 0;
+
             return new FlashDealVariantResponse
             {
                 Id = v.Id,
@@ -290,47 +350,10 @@ public sealed class FlashDealService : IFlashDealService
                 DiscountPercent = v.DiscountPercent,
                 TotalQuantity = v.TotalQuantity,
                 SoldQuantity = v.SoldQuantity,
-                Status = v.Status
+                Status = v.Status,
+                IsPurchasable = isVariantPurchasable
             };
         }).ToList();
-
-        // Fallback tự động: nếu deal được INSERT chay bằng SQL mà chưa chèn flash_deal_variants
-        if (variants.Count == 0 && deal.Product?.Variants != null && deal.Product.Variants.Count > 0)
-        {
-            variants = deal.Product.Variants.Where(pv => pv.IsActive).Select(pv =>
-            {
-                var attrs = pv.VariantValues?
-                    .Where(vv => vv.AttributeValue != null && vv.AttributeValue.Attribute != null)
-                    .ToDictionary(
-                        vv => vv.AttributeValue.Attribute.Name,
-                        vv => vv.AttributeValue.Value
-                    ) ?? new Dictionary<string, string>();
-
-                var variantImg = pv.VariantValues?
-                    .FirstOrDefault(vv => !string.IsNullOrEmpty(vv.AttributeValue?.ImageUrl))?
-                    .AttributeValue?.ImageUrl;
-
-                var vName = attrs.Count > 0
-                    ? string.Join(" - ", attrs.Values)
-                    : (pv.Sku ?? "Default");
-
-                return new FlashDealVariantResponse
-                {
-                    Id = Guid.NewGuid(),
-                    VariantId = pv.Id,
-                    Sku = pv.Sku,
-                    VariantName = vName,
-                    ImageUrl = variantImg,
-                    Attributes = attrs,
-                    OriginalPrice = pv.OriginalPrice,
-                    DealPrice = pv.DealPrice > 0 ? pv.DealPrice : pv.OriginalPrice,
-                    DiscountPercent = pv.OriginalPrice > 0 ? Math.Round((pv.OriginalPrice - pv.DealPrice) / pv.OriginalPrice * 100, 2) : 0,
-                    TotalQuantity = 50,
-                    SoldQuantity = 0,
-                    Status = FlashDealVariantStatus.Active
-                };
-            }).ToList();
-        }
 
         var minPrice = variants.Count > 0 ? variants.Min(v => v.DealPrice) : 0;
         var maxOriginal = variants.Count > 0 ? variants.Max(v => v.OriginalPrice) : 0;
@@ -351,6 +374,8 @@ public sealed class FlashDealService : IFlashDealService
 
         var primaryImage = deal.Product?.Images?.FirstOrDefault()?.ImageUrl
             ?? images.FirstOrDefault();
+
+        var isDealPurchasable = isDealOnSale && isDealTimeValid && variants.Any(v => v.IsPurchasable);
 
         return new FlashDealResponse
         {
@@ -374,7 +399,8 @@ public sealed class FlashDealService : IFlashDealService
             MaxDiscountPercent = maxDiscount,
             AttributeGroups = attributeGroups,
             Variants = variants,
-            CreatedAt = deal.CreatedAt
+            CreatedAt = deal.CreatedAt,
+            IsPurchasable = isDealPurchasable
         };
     }
 }

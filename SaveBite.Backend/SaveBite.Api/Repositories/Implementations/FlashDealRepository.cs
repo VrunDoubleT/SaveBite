@@ -31,6 +31,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
 
     public async Task<List<FlashDeal>> GetActiveDealsByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
         return await _context.Set<FlashDeal>()
             .AsNoTracking()
             .Include(d => d.Shop)
@@ -38,12 +39,15 @@ public sealed class FlashDealRepository : IFlashDealRepository
             .Include(d => d.Product).ThenInclude(p => p.Category)
             .Include(d => d.Product).ThenInclude(p => p.Variants)
             .Include(d => d.Variants).ThenInclude(v => v.Variant)
-            .Where(d => d.ShopId == shopId && d.Status == FlashDealStatus.OnSale)
+            .Where(d => d.ShopId == shopId
+                && (d.Status == FlashDealStatus.OnSale || d.Status == FlashDealStatus.SoldOut)
+                && d.OrderEndTime >= now)
             .ToListAsync(cancellationToken);
     }
 
     public async Task<List<FlashDeal>> GetAllActiveDealsAsync(CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
         return await _context.Set<FlashDeal>()
             .AsNoTracking()
             .Include(d => d.Shop)
@@ -51,7 +55,9 @@ public sealed class FlashDealRepository : IFlashDealRepository
             .Include(d => d.Product).ThenInclude(p => p.Category)
             .Include(d => d.Product).ThenInclude(p => p.Variants)
             .Include(d => d.Variants).ThenInclude(v => v.Variant)
-            .Where(d => d.Status == FlashDealStatus.OnSale)
+            .Where(d => (d.Status == FlashDealStatus.OnSale || d.Status == FlashDealStatus.SoldOut)
+                && d.Shop != null && d.Shop.Status == ShopStatus.Active
+                && d.OrderEndTime >= now)
             .ToListAsync(cancellationToken);
     }
 

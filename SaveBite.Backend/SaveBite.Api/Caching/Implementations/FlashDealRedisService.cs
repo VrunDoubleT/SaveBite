@@ -117,6 +117,20 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
 
             var productName = dict.GetValueOrDefault("name") ?? dict.GetValueOrDefault("productName") ?? string.Empty;
 
+            var now = DateTime.UtcNow;
+            var isDealTimeValid = now >= saleStart.ToUniversalTime() && now <= orderEnd.ToUniversalTime();
+            var isDealOnSale = status == FlashDealStatus.OnSale;
+
+            foreach (var v in variants)
+            {
+                v.IsPurchasable = isDealOnSale 
+                    && isDealTimeValid 
+                    && v.Status == FlashDealVariantStatus.Active 
+                    && v.AvailableQuantity > 0;
+            }
+
+            var isDealPurchasable = isDealOnSale && isDealTimeValid && variants.Any(v => v.IsPurchasable);
+
             return new FlashDealResponse
             {
                 Id = dealId,
@@ -139,7 +153,8 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
                 MaxOriginalPrice = maxOriginalPrice,
                 MaxDiscountPercent = maxDiscountPercent,
                 AttributeGroups = attributeGroups,
-                Variants = variants
+                Variants = variants,
+                IsPurchasable = isDealPurchasable
             };
         }
         
@@ -161,7 +176,6 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
             shopDealsKey,
             start: nowScore,
             stop: double.PositiveInfinity);
-        
         if (dealIds.Length == 0)
         {
             dealIds = await Db.SortedSetRangeByRankAsync(shopDealsKey);
@@ -175,12 +189,16 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
         if (dealIds.Length == 0) return new List<FlashDealResponse>();
 
         var results = new List<FlashDealResponse>();
+        var now = DateTime.UtcNow;
         foreach (var id in dealIds)
         {
             if (Guid.TryParse(id.ToString(), out var dealId))
             {
                 var deal = await GetDealAsync(dealId);
-                if (deal != null) results.Add(deal);
+                if (deal != null && (deal.Status == FlashDealStatus.OnSale || deal.Status == FlashDealStatus.SoldOut) && deal.OrderEndTime >= now)
+                {
+                    results.Add(deal);
+                }
             }
         }
         return results;

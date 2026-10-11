@@ -25,4 +25,5 @@ public class FlashDealCursorRequest
     public string? Distance { get; set; }
     public string? Price { get; set; }
     public string? ShopName { get; set; }
+    public string? Keyword { get; set; }
 }

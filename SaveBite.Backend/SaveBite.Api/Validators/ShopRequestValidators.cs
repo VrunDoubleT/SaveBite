@@ -8,22 +8,20 @@ public sealed class NearbyShopsRequestValidator : AbstractValidator<NearbyShopsR
     public NearbyShopsRequestValidator()
     {
         RuleFor(x => x.Latitude)
-            .NotNull()
-            .WithMessage("Latitude is required.")
             .InclusiveBetween(-90.0, 90.0)
-            .WithMessage("Latitude must be between -90 and 90.");
+            .WithMessage("Latitude must be between -90 and 90.")
+            .When(x => x.Latitude.HasValue);
 
         RuleFor(x => x.Longitude)
-            .NotNull()
-            .WithMessage("Longitude is required.")
             .InclusiveBetween(-180.0, 180.0)
-            .WithMessage("Longitude must be between -180 and 180.");
+            .WithMessage("Longitude must be between -180 and 180.")
+            .When(x => x.Longitude.HasValue);
 
         RuleFor(x => x.RadiusInKm)
             .GreaterThan(0)
             .WithMessage("RadiusInKm must be greater than 0.")
-            .LessThanOrEqualTo(100)
-            .WithMessage("RadiusInKm must be between 0 and 100 km.");
+            .LessThanOrEqualTo(10.0)
+            .WithMessage("RadiusInKm must not exceed 10 km.");
 
         RuleFor(x => x.Keyword)
             .MaximumLength(100)

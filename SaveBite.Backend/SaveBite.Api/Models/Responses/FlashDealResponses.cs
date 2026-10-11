@@ -27,6 +27,7 @@ public class FlashDealResponse
     public DateTime CreatedAt { get; set; }
     public List<DealAttributeGroupResponse> AttributeGroups { get; set; } = new();
     public List<FlashDealVariantResponse> Variants { get; set; } = new();
+    public bool IsPurchasable { get; set; }
 }
 
 public class DealAttributeGroupResponse
@@ -50,4 +51,5 @@ public class FlashDealVariantResponse
     public int SoldQuantity { get; set; }
     public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity);
     public FlashDealVariantStatus Status { get; set; }
+    public bool IsPurchasable { get; set; }
 }

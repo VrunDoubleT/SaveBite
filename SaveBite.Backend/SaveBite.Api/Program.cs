@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Data.Seed;
 using SaveBite.Backend.Extensions;
@@ -46,6 +47,7 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider
         .GetRequiredService<AppDbContext>();
 
+    await context.Database.MigrateAsync();
     await DbSeeder.SeedAsync(context);
 }
 

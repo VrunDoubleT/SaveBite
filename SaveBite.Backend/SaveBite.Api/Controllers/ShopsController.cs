@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SaveBite.Backend.Exceptions;
@@ -25,7 +26,8 @@ public sealed class ShopsController : ControllerBase
         [FromQuery] NearbyShopsRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _shopViewService.GetNearbyShopsAsync(request, cancellationToken);
+        var userId = TryGetCurrentUserId();
+        var result = await _shopViewService.GetNearbyShopsAsync(request, userId, cancellationToken);
         var message = result.TotalItems > 0
             ? null
             : $"No shops found within a {request.RadiusInKm} km radius of your location.";
@@ -66,5 +68,11 @@ public sealed class ShopsController : ControllerBase
             : "This shop currently has no reviews.";
 
         return Ok(ApiResponse<StoreReviewsSummaryResponse>.Ok(reviews, message));
+    }
+    private Guid? TryGetCurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+        return Guid.TryParse(value, out var id) ? id : null;
     }
 }
