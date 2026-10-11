@@ -8,6 +8,7 @@ interface DealGridProps {
   isLoading?: boolean;
   emptyMessage?: string;
   onRefresh?: () => void;
+  onClearSearch?: () => void;
 }
 
 export function DealGrid({
@@ -16,6 +17,7 @@ export function DealGrid({
   isLoading = false,
   emptyMessage = "No flash deals found within this radius.",
   onRefresh,
+  onClearSearch,
 }: DealGridProps) {
   // 1. Loading Skeleton: Clean 9-card grid matching DealCard layout
   if (isLoading) {
@@ -82,15 +84,26 @@ export function DealGrid({
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
           <Utensils size={32} />
         </div>
-        <h3 className="mt-4 text-base font-semibold text-neutral-800">No deals found nearby</h3>
+        <h3 className="mt-4 text-base font-semibold text-neutral-800">
+          {onClearSearch ? "No matching deals found" : "No deals found nearby"}
+        </h3>
         <p className="mt-1.5 max-w-sm text-sm text-neutral-500">{emptyMessage}</p>
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          {onClearSearch && (
+            <button
+              type="button"
+              onClick={onClearSearch}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition hover:bg-emerald-700 cursor-pointer"
+            >
+              Clear search
+            </button>
+          )}
           {onRefresh && (
             <button
               type="button"
               onClick={onRefresh}
-              className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 cursor-pointer"
             >
               <Sparkles size={14} />
               Refresh deals

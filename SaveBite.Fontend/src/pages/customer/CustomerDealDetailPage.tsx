@@ -60,15 +60,15 @@ export function CustomerDealDetailPage() {
           setDeal(data);
           setError(null);
           if (data.variants && data.variants.length > 0) {
-            // Tìm variant mặc định ưu tiên: Thường & Không cay (hoặc variant có giá ưu đãi thấp nhất)
+            // Find default variant preference: Regular & Non-spicy (or lowest deal price)
             const defaultVar =
               data.variants.find((v) => {
                 const attrs = v.attributes || {};
-                const sizeVal = (attrs["Size"] || "").toLowerCase();
-                const spiceVal = (attrs["Độ cay"] || "").toLowerCase();
+                const sizeVal = (attrs["Size"] || attrs["size"] || "").toLowerCase();
+                const spiceVal = (attrs["Spice Level"] || attrs["Độ cay"] || attrs["spice"] || "").toLowerCase();
                 return (
-                  (sizeVal.includes("thường") || sizeVal.includes("nhỏ")) &&
-                  spiceVal.includes("không")
+                  (sizeVal.includes("regular") || sizeVal.includes("small") || sizeVal.includes("thường") || sizeVal.includes("nhỏ")) &&
+                  (spiceVal.includes("none") || spiceVal.includes("mild") || spiceVal.includes("không"))
                 );
               }) ||
               [...data.variants].sort((a, b) => a.dealPrice - b.dealPrice)[0];
@@ -80,7 +80,7 @@ export function CustomerDealDetailPage() {
               setActiveImgUrl(data.productImageUrl);
             }
 
-            // Thiết lập giá trị thuộc tính ban đầu
+            // Set initial attribute values
             const initialAttrs: Record<string, string> = {};
             if (defaultVar.attributes) {
               Object.assign(initialAttrs, defaultVar.attributes);
@@ -90,7 +90,7 @@ export function CustomerDealDetailPage() {
                 const preferred =
                   g.values.find((val) => {
                     const vLow = val.toLowerCase();
-                    return vLow.includes("thường") || vLow.includes("không");
+                    return vLow.includes("regular") || vLow.includes("none") || vLow.includes("thường") || vLow.includes("không");
                   }) || g.values[0];
                 initialAttrs[g.name] = preferred;
               }
@@ -101,7 +101,7 @@ export function CustomerDealDetailPage() {
       })
       .catch(() => {
         if (isMounted) {
-          setError("Flash Deal không tồn tại hoặc đã hết hạn.");
+          setError("Flash Deal does not exist or has expired.");
         }
       })
       .finally(() => {
@@ -126,7 +126,7 @@ export function CustomerDealDetailPage() {
       const diff = new Date(deal.orderEndTime).getTime() - Date.now();
       if (diff <= 0) {
         setIsEnded(true);
-        return "Đã kết thúc";
+        return "Ended";
       }
       setIsEnded(false);
       const totalSec = Math.floor(diff / 1000);
@@ -144,7 +144,7 @@ export function CustomerDealDetailPage() {
     return () => clearInterval(interval);
   }, [deal?.orderEndTime]);
 
-  // Danh sách ảnh Gallery thumbnails
+  // Gallery thumbnails list
   const galleryImages = useMemo(() => {
     if (!deal) return [];
     const list: string[] = [];
@@ -162,10 +162,10 @@ export function CustomerDealDetailPage() {
     return list.length > 0 ? list : [fallbackImg];
   }, [deal]);
 
-  // Ảnh chính đang hiển thị
+  // Main active image
   const mainImage = activeImgUrl || galleryImages[0] || fallbackImg;
 
-  // Lấy các nhóm thuộc tính (Size, Độ cay...) có sắp xếp chuẩn
+  // Retrieve sorted attribute groups (Size, Spice Level, etc.)
   const attributeGroups = useMemo(() => {
     if (!deal) return [];
     let groups: { name: string; values: string[] }[] = [];
@@ -175,7 +175,7 @@ export function CustomerDealDetailPage() {
         values: [...g.values],
       }));
     } else {
-      // Tự động phân tích từ variants nếu backend chưa trả attributeGroups
+      // Analyze from variants if attributeGroups is not provided by backend
       const map = new Map<string, Set<string>>();
       deal.variants.forEach((v) => {
         if (v.attributes) {
@@ -193,39 +193,39 @@ export function CustomerDealDetailPage() {
       }
     }
 
-    // Sắp xếp các nhóm: "Size" lên trước, "Độ cay" sau
+    // Sort groups: "Size" first, "Spice" next
     groups.sort((a, b) => {
       const aName = a.name.toLowerCase();
       const bName = b.name.toLowerCase();
       if (aName.includes("size")) return -1;
       if (bName.includes("size")) return 1;
-      return a.name.localeCompare(b.name, "vi");
+      return a.name.localeCompare(b.name, "en");
     });
 
-    // Sắp xếp thứ tự giá trị chuẩn:
-    // Size: 'Thường' đứng trước 'Lớn'
-    // Độ cay: 'Không cay' đứng trước 'Cay vừa'
+    // Standard sorting for attribute values:
+    // Size: 'Regular' / 'Standard' before 'Large'
+    // Spice: 'Non-spicy' / 'Mild' before 'Hot' / 'Spicy'
     groups.forEach((g) => {
       g.values.sort((a, b) => {
         const aLow = a.toLowerCase();
         const bLow = b.toLowerCase();
-        if (aLow.includes("thường") || aLow.includes("không")) return -1;
-        if (bLow.includes("thường") || bLow.includes("không")) return 1;
-        return a.localeCompare(b, "vi");
+        if (aLow.includes("regular") || aLow.includes("none") || aLow.includes("thường") || aLow.includes("không")) return -1;
+        if (bLow.includes("regular") || bLow.includes("none") || bLow.includes("thường") || bLow.includes("không")) return 1;
+        return a.localeCompare(b, "en");
       });
     });
 
     return groups;
   }, [deal]);
 
-  // Xử lý khi click chọn 1 thuộc tính (ví dụ: Size hoặc Độ cay)
+  // Handle click on an attribute option (e.g. Size or Spice Level)
   const handleSelectAttribute = (groupName: string, value: string) => {
     const updatedAttrs = { ...selectedAttributes, [groupName]: value };
     setSelectedAttributes(updatedAttrs);
 
     if (!deal || !deal.variants) return;
 
-    // Tìm variant khớp đầy đủ nhất với các thuộc tính vừa chọn
+    // Find best matching variant for selected attributes
     const matched =
       deal.variants.find((v) => {
         if (!v.attributes) return false;
@@ -241,7 +241,7 @@ export function CustomerDealDetailPage() {
     if (matched) {
       setSelectedVariant(matched);
       setQuantity(1);
-      // Đổi ảnh món theo variant ngay lập tức!
+      // Switch active image immediately if variant has specific image
       if (matched.imageUrl) {
         setActiveImgUrl(matched.imageUrl);
       }
@@ -291,17 +291,17 @@ export function CustomerDealDetailPage() {
             <Store size={32} />
           </div>
           <h2 className="mt-4 text-xl font-bold text-neutral-900">
-            Không tìm thấy ưu đãi
+            Deal Not Found
           </h2>
           <p className="mt-2 text-sm text-neutral-600">
-            {error ?? "Món ăn Flash Deal này không tồn tại hoặc đã kết thúc."}
+            {error ?? "This Flash Deal item does not exist or has ended."}
           </p>
           <Link
             to="/"
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700"
           >
             <ArrowLeft size={16} />
-            Quay lại trang chủ
+            Back to Home
           </Link>
         </div>
       </div>
@@ -309,7 +309,36 @@ export function CustomerDealDetailPage() {
   }
 
   const activeVariant = selectedVariant || deal.variants[0];
+
+  // Business Rule: A Flash Deal variant is purchasable only while the Deal is OnSale,
+  // the current time is between SaleStartTime and OrderEndTime, the variant is Active, and its available stock is greater than zero.
+  const now = new Date();
+  const saleStart = new Date(deal.saleStartTime);
+  const orderEnd = new Date(deal.orderEndTime);
+  const isBeforeSale = now < saleStart;
+  const isAfterSale = now > orderEnd;
+  const isTimeValid = !isBeforeSale && !isAfterSale;
+  const isDealOnSale = deal.status === 1; // 1 = OnSale
+  const isVariantActive = activeVariant ? (activeVariant.status === 0 || (activeVariant.status as any) === "Active") : false;
   const isSoldOut = !activeVariant || activeVariant.availableQuantity <= 0;
+
+  const isPurchasable = Boolean(
+    activeVariant?.isPurchasable ?? (isDealOnSale && isTimeValid && isVariantActive && !isSoldOut)
+  );
+
+  let unpurchasableReason = "Unavailable";
+  if (!isDealOnSale) {
+    unpurchasableReason = deal.status === 3 ? "Sold Out" : "Unavailable";
+  } else if (isBeforeSale) {
+    unpurchasableReason = "Sale Starts Soon";
+  } else if (isAfterSale) {
+    unpurchasableReason = "Sale Ended";
+  } else if (isSoldOut) {
+    unpurchasableReason = "Sold Out";
+  } else if (!isVariantActive) {
+    unpurchasableReason = "Variant Inactive";
+  }
+
   const currentPrice = activeVariant ? activeVariant.dealPrice : deal.minDealPrice;
   const originalPrice = activeVariant
     ? activeVariant.originalPrice
@@ -324,8 +353,8 @@ export function CustomerDealDetailPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50/40 pb-20 pt-6">
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        {/* Thanh Điều Hướng: Nút Quay Lại & Breadcrumb gọn gàng */}
+      <main className="mx-auto max-w-6xl">
+        {/* Navigation Bar: Back Button & Breadcrumbs */}
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
@@ -343,7 +372,7 @@ export function CustomerDealDetailPage() {
                 size={14}
                 className="text-neutral-500 transition-transform group-hover:-translate-x-0.5 group-hover:text-emerald-600"
               />
-              <span>Quay lại</span>
+              <span>Back</span>
             </button>
 
             <nav
@@ -351,7 +380,7 @@ export function CustomerDealDetailPage() {
               className="hidden sm:flex items-center gap-1.5 text-xs text-neutral-500"
             >
               <Link to="/" className="hover:text-emerald-700 transition">
-                Trang chủ
+                Home
               </Link>
               <ChevronRight size={13} className="text-neutral-300 shrink-0" />
               <Link
@@ -368,11 +397,11 @@ export function CustomerDealDetailPage() {
           </div>
         </div>
 
-        {/* Main 2-column layout (Ảnh & Thông tin) */}
+        {/* Main 2-column layout (Image & Details) */}
         <div className="grid items-start gap-8 lg:grid-cols-2">
-          {/* CỘT TRÁI: Gallery Ảnh + Thông tin Quán + Mô tả món */}
+          {/* LEFT COLUMN: Image Gallery + Store Info + Product Description */}
           <div>
-            {/* Khung Ảnh Lớn */}
+            {/* Main Product Image */}
             <div className="rounded-2xl border border-neutral-200/90 bg-white p-4 shadow-2xs">
               <div className="aspect-square w-full overflow-hidden rounded-xl bg-neutral-100">
                 <img
@@ -385,7 +414,7 @@ export function CustomerDealDetailPage() {
                 />
               </div>
 
-              {/* Danh sách Ảnh Thumbnails Gallery (giống hình 3 mẫu) */}
+              {/* Gallery Thumbnails */}
               {galleryImages.length > 1 && (
                 <div className="mt-4 flex gap-2.5 overflow-x-auto pb-1">
                   {galleryImages.map((img, idx) => (
@@ -424,7 +453,7 @@ export function CustomerDealDetailPage() {
               )}
             </div>
 
-            {/* Thông tin Quán (Shop Card) */}
+            {/* Store Information Card */}
             <div className="mt-5 rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-2xs">
               <div className="flex items-center gap-3.5">
                 <Link to={`/shops/${deal.shopId}`} className="shrink-0">
@@ -450,7 +479,7 @@ export function CustomerDealDetailPage() {
                       {deal.shopName}
                     </Link>
                     <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
-                      Đang mở cửa
+                      Open
                     </span>
                   </div>
 
@@ -462,11 +491,11 @@ export function CustomerDealDetailPage() {
                     {deal.distanceInKm !== undefined && deal.distanceInKm !== null && (
                       <>
                         <span>·</span>
-                        <span>cách {deal.distanceInKm} km</span>
+                        <span>{deal.distanceInKm} km away</span>
                       </>
                     )}
                     <span>·</span>
-                    <span>128 đánh giá</span>
+                    <span>128 reviews</span>
                   </div>
                 </div>
 
@@ -474,15 +503,15 @@ export function CustomerDealDetailPage() {
                   to={`/shops/${deal.shopId}`}
                   className="ml-auto shrink-0 whitespace-nowrap text-xs font-bold text-emerald-700 hover:underline"
                 >
-                  Xem cửa hàng
+                  View Store
                 </Link>
               </div>
             </div>
 
-            {/* Mô tả sản phẩm */}
+            {/* Product Description */}
             <div className="mt-5 rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-2xs">
               <h2 className="mb-3 text-base font-extrabold text-neutral-900">
-                Mô tả sản phẩm
+                Product Description
               </h2>
 
               {deal.categoryName && (
@@ -493,12 +522,12 @@ export function CustomerDealDetailPage() {
 
               <p className="m-0 text-xs sm:text-sm leading-relaxed text-neutral-600">
                 {deal.description ||
-                  "Món ăn thơm ngon, chuẩn bị nóng hổi mỗi ngày. Tiết kiệm chi phí và cùng chung tay giảm lãng phí thực phẩm cùng SaveBite!"}
+                  "Delicious, freshly prepared food every day. Save money and join hands to reduce food waste with SaveBite!"}
               </p>
             </div>
           </div>
 
-          {/* CỘT PHẢI: Khung Mua Hàng & Lựa chọn Thuộc tính (Sticky Buy Box cân đối chuẩn mẫu) */}
+          {/* RIGHT COLUMN: Sticky Buy Box & Attribute Selection */}
           <aside className="sticky top-20 rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-xs">
             {deal.categoryName && (
               <span className="mb-2 inline-block rounded-md bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
@@ -510,7 +539,7 @@ export function CustomerDealDetailPage() {
               {deal.productName}
             </h1>
 
-            {/* Đánh giá sao */}
+            {/* Star rating */}
             <div className="mt-1.5 mb-3.5 flex items-center gap-1.5 text-xs text-neutral-500">
               <div className="flex items-center gap-0.5 text-amber-500">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -523,11 +552,11 @@ export function CustomerDealDetailPage() {
               </div>
               <span className="font-bold text-neutral-800">4.7</span>
               <a href="#reviews" className="hover:text-emerald-700 hover:underline">
-                (128 đánh giá)
+                (128 reviews)
               </a>
             </div>
 
-            {/* Đồng hồ đếm ngược Flash Deal */}
+            {/* Flash Deal countdown timer */}
             <div
               className={`mb-3.5 flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs ${
                 isEnded
@@ -537,14 +566,14 @@ export function CustomerDealDetailPage() {
             >
               <span className="flex items-center gap-1.5 font-medium text-amber-800">
                 <Clock size={15} className="text-amber-600" />
-                Kết thúc sau
+                Ends in
               </span>
               <span className="font-bold tabular-nums text-amber-700">
                 {timeLeft}
               </span>
             </div>
 
-            {/* Giá tiền & Giảm giá */}
+            {/* Pricing & Discount */}
             <div className="mb-1 flex flex-wrap items-baseline gap-2.5">
               <span className="text-2xl font-bold text-emerald-700">
                 {formatVnd(currentPrice)}
@@ -562,10 +591,10 @@ export function CustomerDealDetailPage() {
             </div>
 
             <p className="mb-4 text-xs text-neutral-400">
-              Giá đã bao gồm ưu đãi Flash Deal, áp dụng khi đến lấy tại quán
+              Includes Flash Deal discount, applicable for in-store pickup
             </p>
 
-            {/* NHÓM THUỘC TÍNH (Size, Độ cay...) TƯƠNG TÁC ĐỔI ẢNH */}
+            {/* Attribute Groups (Size, Spice Level...) */}
             {attributeGroups.length > 0 ? (
               <div className="mb-4 space-y-3">
                 {attributeGroups.map((group) => {
@@ -587,7 +616,7 @@ export function CustomerDealDetailPage() {
                               }
                               className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition cursor-pointer ${
                                 isSelected
-                                  ? "border border-emerald-600 bg-emerald-50/80 text-emerald-800 shadow-2xs"
+                                    ? "border border-emerald-600 bg-emerald-50/80 text-emerald-800 shadow-2xs"
                                   : "border border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50"
                               }`}
                             >
@@ -601,10 +630,10 @@ export function CustomerDealDetailPage() {
                 })}
               </div>
             ) : deal.variants.length > 1 ? (
-              /* Fallback nếu chỉ có danh sách variants chung */
+              /* Fallback if only generic variants are available */
               <div className="mb-4">
                 <label className="mb-1.5 block text-xs font-semibold text-neutral-700">
-                  Lựa chọn
+                  Options
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {deal.variants.map((v) => {
@@ -624,7 +653,7 @@ export function CustomerDealDetailPage() {
                             : "border border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50"
                         }`}
                       >
-                        {v.variantName || v.sku || "Mặc định"}
+                        {v.variantName || v.sku || "Default"}
                       </button>
                     );
                   })}
@@ -632,16 +661,16 @@ export function CustomerDealDetailPage() {
               </div>
             ) : null}
 
-            {/* Thanh tiến độ đã bán (Sales Progress Bar) */}
+            {/* Sales Progress Bar */}
             <div className="mb-4">
               <div className="mb-1.5 flex items-center justify-between text-xs text-neutral-500">
                 <span>
-                  Đã bán {soldQty}/{totalQty}
+                  Sold {soldQty}/{totalQty}
                 </span>
                 <span className="font-semibold text-amber-600">
                   {remainingQty <= 10
-                    ? `Chỉ còn ${remainingQty} suất`
-                    : `Còn ${remainingQty} suất`}
+                    ? `Only ${remainingQty} left`
+                    : `${remainingQty} left`}
                 </span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
@@ -652,15 +681,15 @@ export function CustomerDealDetailPage() {
               </div>
             </div>
 
-            {/* Chọn số lượng */}
+            {/* Quantity Selector */}
             <div className="mb-4 flex items-center justify-between">
               <span className="text-xs font-semibold text-neutral-800">
-                Số lượng
+                Quantity
               </span>
               <div className="flex items-center overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-2xs">
                 <button
                   type="button"
-                  disabled={quantity <= 1 || isSoldOut}
+                  disabled={quantity <= 1 || !isPurchasable}
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   className="flex h-8 w-8 items-center justify-center bg-white text-sm font-bold text-neutral-500 transition hover:bg-neutral-100 disabled:opacity-30 cursor-pointer"
                 >
@@ -672,7 +701,7 @@ export function CustomerDealDetailPage() {
                 <button
                   type="button"
                   disabled={
-                    isSoldOut ||
+                    !isPurchasable ||
                     (activeVariant && quantity >= activeVariant.availableQuantity)
                   }
                   onClick={() => setQuantity((q) => q + 1)}
@@ -683,50 +712,50 @@ export function CustomerDealDetailPage() {
               </div>
             </div>
 
-            {/* Thông báo thêm vào giỏ thành công */}
+            {/* Success Toast */}
             {addedSuccess && (
               <div className="mb-3 flex items-center gap-2 rounded-xl bg-emerald-50 p-2.5 text-xs font-semibold text-emerald-800 border border-emerald-200">
                 <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-                Đã thêm {quantity} phần vào giỏ hàng thành công!
+                Added {quantity} item(s) to cart successfully!
               </div>
             )}
 
-            {/* Nút Thêm vào giỏ */}
+            {/* Add to Cart Button */}
             <button
               type="button"
-              disabled={isSoldOut}
+              disabled={!isPurchasable}
               onClick={handleAddToCart}
               className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-center text-sm font-bold shadow-sm transition-all cursor-pointer ${
-                isSoldOut
+                !isPurchasable
                   ? "cursor-not-allowed bg-neutral-200 text-neutral-500 shadow-none"
                   : "bg-emerald-600 text-white shadow-emerald-600/20 hover:bg-emerald-700 active:scale-[0.99]"
               }`}
             >
               <ShoppingBag size={17} />
               <span>
-                {isSoldOut
-                  ? "Hết suất"
-                  : `Thêm vào giỏ · ${formatVnd(currentPrice * quantity)}`}
+                {!isPurchasable
+                  ? unpurchasableReason
+                  : `Add to Cart · ${formatVnd(currentPrice * quantity)}`}
               </span>
             </button>
 
-            {/* Lời nhắc giờ đóng cửa */}
+            {/* Closing time notice */}
             <p className="mt-2.5 text-center text-[11px] text-neutral-400">
-              Quán đóng cửa lúc {formatTime(deal.shopClosingTime)} — vui lòng đến lấy trước giờ này
+              Store closes at {formatTime(deal.shopClosingTime)} — please pick up before closing
             </p>
           </aside>
         </div>
 
-        {/* Khung Đánh giá từ khách hàng */}
+        {/* Customer Reviews Section */}
         <section
           id="reviews"
           className="mt-8 rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-2xs"
         >
           <h2 className="text-base font-extrabold text-neutral-900 mb-2">
-            Đánh giá từ khách hàng
+            Customer Reviews
           </h2>
           <div className="py-8 text-center text-sm text-neutral-500 border border-dashed border-neutral-200 rounded-xl">
-            Chưa có đánh giá nào cho món ăn này.
+            No reviews for this item yet.
           </div>
         </section>
       </main>
