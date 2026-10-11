@@ -71,11 +71,11 @@ public sealed class UserRepository : IUserRepository
         return _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public Task<List<AuditLog>> GetUserAuditLogsAsync(Guid userId, CancellationToken cancellationToken = default)
+    public Task<List<AccountStatusLog>> GetUserAccountStatusLogsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        return _dbContext.Set<AuditLog>()
+        return _dbContext.Set<AccountStatusLog>()
             .AsNoTracking()
-            .Where(log => log.TargetId == userId && log.TargetType == "User")
+            .Where(log => log.UserId == userId)
             .OrderByDescending(log => log.CreatedAt)
             .ToListAsync(cancellationToken);
     }

@@ -7,6 +7,7 @@ using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Interfaces;
 using System.Linq;
+using System.Text.Json;
 
 namespace SaveBite.Backend.Services.Implementations;
 
@@ -90,15 +91,18 @@ public sealed class UserService : IUserService
         var user = await _repository.GetUserByIdAsync(userId, cancellationToken);
         if (user == null) throw AppException.NotFound("User not found.");
 
-        // Retrieve audit log history.
-        var auditLogs = await _repository.GetUserAuditLogsAsync(userId, cancellationToken);
-        var auditLogResponses = auditLogs.Select(l => new UserLogResponse(
-            l.Action,
+        // Retrieve account status log history
+        var statusLogs = await _repository.GetUserAccountStatusLogsAsync(userId, cancellationToken);
+
+        var auditLogResponses = statusLogs.Select(l => new UserLogResponse(
+            l.Action.ToString(),
+            l.Target.ToString(),
             l.Reason ?? "",
-            l.NewValuesJson ?? "",
+            new { Target = l.Target.ToString() },
             l.CreatedAt,
-            l.ActorUserId
+            l.AdminId
         )).ToList();
+        // ----------------------
 
         // Retrieve role change history.
         var roleLogs = await _repository.GetUserRoleLogsAsync(userId, cancellationToken);
@@ -141,8 +145,11 @@ public sealed class UserService : IUserService
             LogAccountStatusChange(adminId, targetUserId,
                 request.IsSuspended ? UserStatus.Suspended : UserStatus.Active,
                 AccountStatusLogTarget.Customer, request.Reason, now);
-            LogAudit(adminId, targetUserId, request.IsSuspended ? "SuspendCustomer" : "ReactivateCustomer", request.Reason, $"{{\"CustomerStatus\":\"{newCustomerStatus}\"}}", now);
-
+            LogAudit(adminId, targetUserId,
+                request.IsSuspended ? "SuspendCustomer" : "ReactivateCustomer",
+                request.Reason,
+                JsonSerializer.Serialize(new { CustomerStatus = newCustomerStatus.ToString() }),
+                now);
             if (request.IsSuspended)
                 await _refreshTokenService.RevokeAllAsync(targetUserId, "Customer profile suspended by Administrator.", cancellationToken);
 
@@ -156,8 +163,11 @@ public sealed class UserService : IUserService
 
             user.Status = newAccountStatus;
             LogAccountStatusChange(adminId, targetUserId, newAccountStatus, AccountStatusLogTarget.Account, request.Reason, now);
-            LogAudit(adminId, targetUserId, request.IsSuspended ? "SuspendAccount" : "ReactivateAccount", request.Reason, $"{{\"Status\":\"{newAccountStatus}\"}}", now);
-
+            LogAudit(adminId, targetUserId,
+                request.IsSuspended ? "SuspendAccount" : "ReactivateAccount",
+                request.Reason,
+                JsonSerializer.Serialize(new { Status = newAccountStatus.ToString() }),
+                now);
             if (request.IsSuspended)
                 await _refreshTokenService.RevokeAllAsync(targetUserId, "Account suspended by Administrator.", cancellationToken);
 

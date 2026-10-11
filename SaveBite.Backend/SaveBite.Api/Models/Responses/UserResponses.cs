@@ -1,12 +1,12 @@
 ﻿namespace SaveBite.Backend.Models.Responses;
 
-public record UserLogResponse(
-    string Action,        // Examples: "SuspendCustomer" and "ChangeRole".
+public sealed record UserLogResponse(
+    string Action,
+    string Target,
     string Reason,
-    string ChangedValues, // JSON example: {"CustomerStatus":"Suspended"}.
+    object? ChangedValues,
     DateTime CreatedAt,
-    Guid? AdminId          // Administrator ID.
-);
+    Guid AdminId);
 
 public record UserRoleLogResponse(
     string OldRole,
