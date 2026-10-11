@@ -15,7 +15,7 @@ interface NearbyStoresSectionProps {
 export function NearbyStoresSection({
   latitude,
   longitude,
-  radiusInKm = 15,
+  radiusInKm = 10,
   isLocationReady = false,
 }: NearbyStoresSectionProps) {
   const [shops, setShops] = useState<NearbyShop[]>([]);
@@ -60,7 +60,7 @@ export function NearbyStoresSection({
     void fetchShops(newPage);
   };
 
-  // Nếu chưa cấp GPS thì không hiển thị section cửa hàng
+  // If location is not ready, do not display the stores section
   if (!isLocationReady) {
     return null;
   }

@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using SaveBite.Backend.Authorization;
 using SaveBite.Backend.Models.Common;
 using Microsoft.AspNetCore.Authorization;
@@ -27,7 +29,8 @@ public sealed class FlashDealsController : ControllerBase
         [FromQuery] FlashDealCursorRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _flashDealService.GetNearbyAsync(request, cancellationToken);
+        var userId = TryGetCurrentUserId();
+        var result = await _flashDealService.GetNearbyAsync(request, userId, cancellationToken);
 
         var message = result.Deals.Count > 0
             ? null
@@ -63,5 +66,11 @@ public sealed class FlashDealsController : ControllerBase
 
         var deals = await _flashDealService.GetByShopIdAsync(shopId, cancellationToken);
         return Ok(ApiResponse<List<FlashDealResponse>>.Ok(deals));
+    }
+    private Guid? TryGetCurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        return Guid.TryParse(value, out var id) ? id : null;
     }
 }

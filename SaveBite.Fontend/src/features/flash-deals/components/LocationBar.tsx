@@ -110,7 +110,7 @@ export function LocationBar({
 
         {/* Right: Location Selection Actions */}
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-          {/* 1. Nút chọn GPS hiện tại */}
+          {/* 1. Use Current GPS Button */}
           <button
             type="button"
             onClick={onRequestGps}
@@ -120,17 +120,17 @@ export function LocationBar({
                 ? "border border-emerald-300 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20"
                 : "border border-neutral-200 bg-white text-neutral-700 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-700"
             } disabled:opacity-60`}
-            title="Sử dụng định vị GPS thực tế của bạn"
+            title="Use your real-time GPS coordinates"
           >
             {isGpsLoading ? (
               <Loader2 size={13} className="animate-spin text-emerald-600" />
             ) : (
               <Navigation size={13} className={locationMode === "gps" ? "text-emerald-600" : "text-neutral-500"} />
             )}
-            <span>{locationMode === "gps" ? "GPS hiện tại (Đang dùng)" : "Dùng GPS hiện tại"}</span>
+            <span>{locationMode === "gps" ? "Current GPS (Active)" : "Use Current GPS"}</span>
           </button>
 
-          {/* 2. Nút chọn Địa chỉ mặc định (khi user có địa chỉ lưu) */}
+          {/* 2. Saved Default Address Button (when user has saved address) */}
           {userDefaultAddress ? (
             <button
               type="button"
@@ -140,36 +140,36 @@ export function LocationBar({
                   ? "border border-blue-300 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20"
                   : "border border-neutral-200 bg-white text-neutral-700 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700"
               }`}
-              title={`Sử dụng địa chỉ mặc định đã lưu: ${userDefaultAddress.addressLine}`}
+              title={`Use saved default address: ${userDefaultAddress.addressLine}`}
             >
               <Home size={13} className={locationMode === "saved_address" ? "text-blue-600" : "text-neutral-500"} />
               <span className="truncate max-w-[170px]">
                 {locationMode === "saved_address"
-                  ? "Địa chỉ mặc định (Đang dùng)"
+                  ? "Saved Address (Active)"
                   : userDefaultAddress.label
-                  ? `Địa chỉ: ${userDefaultAddress.label}`
-                  : "Dùng địa chỉ mặc định"}
+                  ? `Address: ${userDefaultAddress.label}`
+                  : "Use Saved Address"}
               </span>
             </button>
           ) : isAuthenticated ? (
             <span
               className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-dashed border-neutral-300 bg-neutral-50/80 px-3 text-xs text-neutral-400"
-              title="Bạn chưa lưu địa chỉ mặc định trong tài khoản"
+              title="No saved default address in account"
             >
               <Home size={12} className="text-neutral-400" />
-              <span>Chưa lưu địa chỉ</span>
+              <span>No saved address</span>
             </span>
           ) : null}
 
-          {/* 3. Nút Làm mới vị trí */}
+          {/* 3. Reset / Refresh Location Button */}
           <button
             type="button"
             onClick={onSelectDefaultLocation}
             className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 transition shadow-2xs cursor-pointer"
-            title="Làm mới lại vị trí"
+            title="Reset to default location"
           >
             <RotateCcw size={12} />
-            <span className="hidden sm:inline">Làm mới</span>
+            <span className="hidden sm:inline">Reset</span>
           </button>
         </div>
       </div>

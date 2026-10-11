@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { HOME_PATH_BY_ROLE } from "@/app/router/rolePaths";
 import { isAuthRole, useAuthStore, type AuthRole } from "@/shared/stores/authStore";
+import { SessionCheckingScreen } from "@/shared/components/SessionCheckingScreen";
 
 interface ProtectedRouteProps {
   allowedRoles: readonly AuthRole[];
@@ -14,11 +15,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const location = useLocation();
 
   if (isInitializing) {
-    return (
-      <div className="grid min-h-screen place-items-center text-sm font-semibold text-neutral-500">
-        Checking your session...
-      </div>
-    );
+    return <SessionCheckingScreen />;
   }
 
   // A token without user information is not enough to authorize a route.

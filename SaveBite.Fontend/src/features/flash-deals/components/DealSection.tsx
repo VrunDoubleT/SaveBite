@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Flame, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Flame, Loader2, RefreshCw, Sparkles, Search, X, MapPin } from "lucide-react";
 import { DealGrid } from "@/features/flash-deals/components/DealGrid";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
@@ -13,6 +13,11 @@ interface DealSectionProps {
   onLoadOlder?: () => void;
   newDealsCount?: number;
   onApplyNewDeals?: () => void;
+  searchKeyword?: string;
+  onSearchChange?: (kw: string) => void;
+  onClearSearch?: () => void;
+  locationAddress?: string | null;
+  locationMode?: "gps" | "saved_address" | "default" | null;
 }
 
 export function DealSection({
@@ -25,6 +30,11 @@ export function DealSection({
   onLoadOlder,
   newDealsCount = 0,
   onApplyNewDeals,
+  searchKeyword = "",
+  onSearchChange,
+  onClearSearch,
+  locationAddress,
+  locationMode,
 }: DealSectionProps) {
   const observerRef = useRef<HTMLDivElement | null>(null);
 
@@ -68,11 +78,28 @@ export function DealSection({
               Today's Flash Deals
             </h2>
           </div>
-          <p className="mt-1 text-sm text-neutral-500">
-            {isLoading
-              ? "Searching for deals near you..."
-              : `${deals.length} active deals available near you`}
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs sm:text-sm text-neutral-500">
+            <span>
+              {isLoading
+                ? "Searching for deals near you..."
+                : `${deals.length} active deals available near you`}
+            </span>
+            {locationAddress && (
+              <>
+                <span className="text-neutral-300">•</span>
+                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200/90 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                  <MapPin size={11} className="text-emerald-600 shrink-0" />
+                  <span>Synced with map:</span>
+                  <strong className="max-w-[200px] truncate text-neutral-800 sm:max-w-[280px]">
+                    {locationAddress}
+                  </strong>
+                  <span className="text-[10px] font-bold text-emerald-700">
+                    ({locationMode === "saved_address" ? "Home" : "GPS"})
+                  </span>
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         <button
@@ -86,7 +113,45 @@ export function DealSection({
         </button>
       </div>
 
-      {/* Cursor 2: Thông báo Deal mới xuất hiện */}
+      {/* Flash Deals Search Bar */}
+      <div className="mb-5">
+        <div className="relative flex items-center">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" size={17} />
+          <input
+            type="text"
+            value={searchKeyword}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            placeholder="Search flash deals by food name, shop, or description..."
+            className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-10 pr-10 text-sm text-neutral-800 placeholder-neutral-400 shadow-2xs transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          />
+          {searchKeyword && (
+            <button
+              type="button"
+              onClick={onClearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 cursor-pointer"
+              title="Clear search"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+        {searchKeyword && (
+          <div className="mt-2 flex items-center justify-between px-1 text-xs text-neutral-500">
+            <span>
+              Searching for: <strong className="text-emerald-700">"{searchKeyword}"</strong> ({deals.length} result{deals.length === 1 ? "" : "s"})
+            </span>
+            <button
+              type="button"
+              onClick={onClearSearch}
+              className="font-medium text-emerald-600 hover:text-emerald-800 hover:underline cursor-pointer"
+            >
+              Clear search
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Cursor 2: New Deals notification badge */}
       {newDealsCount > 0 && onApplyNewDeals && (
         <div className="mb-5 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-2.5 shadow-2xs animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-2 text-xs font-medium text-emerald-800">
@@ -105,12 +170,17 @@ export function DealSection({
         </div>
       )}
 
-      {/* Grid danh sách deal */}
+      {/* Deals Grid */}
       <DealGrid
         deals={deals}
         isLoading={isLoading}
-        emptyMessage={emptyMessage}
+        emptyMessage={
+          searchKeyword
+            ? `No flash deals match "${searchKeyword}". Try adjusting your search query or filters.`
+            : emptyMessage
+        }
         onRefresh={onRefresh}
+        onClearSearch={searchKeyword ? onClearSearch : undefined}
       />
 
       {/* Skeleton placeholders while loading older deals via infinite scroll */}
@@ -141,7 +211,7 @@ export function DealSection({
         </div>
       )}
 
-      {/* Cursor 1: Infinite Scroll khi lăn chuột xuống đáy */}
+      {/* Cursor 1: Infinite Scroll when reaching bottom of page */}
       {!isLoading && deals.length > 0 && (
         <div className="mt-4 flex flex-col items-center justify-center">
           {hasOlder ? (

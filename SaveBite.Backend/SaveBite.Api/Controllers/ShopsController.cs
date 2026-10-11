@@ -1,6 +1,4 @@
-using SaveBite.Backend.Authorization;
 using System.Security.Claims;
-using SaveBite.Backend.Models.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SaveBite.Backend.Exceptions;
@@ -16,8 +14,7 @@ public sealed class ShopsController : ControllerBase
 {
     private readonly IShopService _shopService;
 
-    public ShopsController(
-        IShopService shopService)
+    public ShopsController(IShopService shopService)
     {
         _shopService = shopService;
     }
@@ -28,7 +25,8 @@ public sealed class ShopsController : ControllerBase
         [FromQuery] NearbyShopsRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _shopService.GetNearbyShopsAsync(request, cancellationToken);
+        var userId = TryGetCurrentUserId();
+        var result = await _shopService.GetNearbyShopsAsync(request, userId, cancellationToken);
         var message = result.TotalItems > 0
             ? null
             : $"No shops found within a {request.RadiusInKm} km radius of your location.";
@@ -70,30 +68,10 @@ public sealed class ShopsController : ControllerBase
 
         return Ok(ApiResponse<StoreReviewsSummaryResponse>.Ok(reviews, message));
     }
-
-    [HttpGet("me")]
-    [CustomerAnyStatusAccess]
-    public async Task<IActionResult> GetMyShop(
-        CancellationToken cancellationToken)
+    private Guid? TryGetCurrentUserId()
     {
-        var result = await _shopService.GetOwnerShopAsync(
-            GetCurrentUserId(),
-            cancellationToken
-        );
-
-        return Ok(
-            ApiResponse<ShopSummaryResponse>.Ok(
-                result,
-                "Shop retrieved successfully"
-            )
-        );
-    }
-
-    private Guid GetCurrentUserId()
-    {
-        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(value, out var id)
-            ? id
-            : throw AppException.Unauthorized();
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+        return Guid.TryParse(value, out var id) ? id : null;
     }
 }

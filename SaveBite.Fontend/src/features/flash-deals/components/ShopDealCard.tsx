@@ -21,16 +21,20 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
   const remainingQty = deal.variants.reduce((sum, v) => sum + (v.availableQuantity || 0), 0);
 
   const soldPct = Math.min(100, Math.round((soldQty / totalQty) * 100));
-  const isSoldOut = remainingQty <= 0;
+  const isDealSoldOut = deal.status === 3 || remainingQty <= 0;
 
   // 2. Status / Time calculation
   const getTimeLeftText = () => {
-    const diff = new Date(deal.orderEndTime).getTime() - Date.now();
-    if (diff <= 0) return "Đã kết thúc";
-    const min = Math.floor(diff / 60000);
+    if (isDealSoldOut) return "Sold Out";
+    const now = Date.now();
+    const startDiff = new Date(deal.saleStartTime).getTime() - now;
+    if (startDiff > 0) return "Upcoming";
+    const endDiff = new Date(deal.orderEndTime).getTime() - now;
+    if (endDiff <= 0) return "Ended";
+    const min = Math.floor(endDiff / 60000);
     const h = Math.floor(min / 60);
     const m = min % 60;
-    return h > 0 ? `Còn ${h}h ${m}m` : `Còn ${m} phút`;
+    return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
   };
 
   const [timeText, setTimeText] = useState(getTimeLeftText);
@@ -100,11 +104,11 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
             </span>
             <span>•</span>
             <span className="flex items-center gap-1 font-medium">
-              <span>{deal.variants.length > 0 ? `${deal.variants.length} lựa chọn` : "1 lựa chọn"}</span>
+              <span>{deal.variants.length > 1 ? `${deal.variants.length} options` : "1 option"}</span>
             </span>
             <span>•</span>
             <span className="flex items-center gap-1 font-semibold text-amber-700">
-              <span>còn {remainingQty} suất</span>
+              <span>{remainingQty} left</span>
             </span>
           </div>
 
@@ -131,22 +135,30 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
           {/* Sales Quantities */}
           <div className="mt-1 flex items-center justify-between text-xs text-neutral-500">
             <span>
-              Đã bán {soldQty}/{totalQty}
+              Sold {soldQty}/{totalQty}
             </span>
-            <span className="font-bold text-amber-700">Còn {remainingQty} suất</span>
+            <span className="font-bold text-amber-700">{remainingQty} left</span>
           </div>
         </div>
 
         {/* Action Button: Add to Cart */}
         <div className="mt-4">
-          {isSoldOut ? (
+          {isDealSoldOut ? (
             <button
               type="button"
               disabled
               className="w-full rounded-xl bg-neutral-100 py-3 text-center text-sm font-bold text-neutral-400 cursor-not-allowed"
             >
-              Hết suất
+              Sold Out
             </button>
+          ) : deal.isPurchasable === false ? (
+            <Link
+              to={`/deals/${deal.id}`}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-200 py-3 text-center text-sm font-bold text-neutral-600 shadow-xs transition hover:bg-neutral-300"
+            >
+              <ShoppingBag size={18} />
+              <span>View Details</span>
+            </Link>
           ) : onAddToCart ? (
             <button
               type="button"
@@ -154,7 +166,7 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-center text-sm sm:text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 hover:shadow-md active:scale-[0.99] cursor-pointer"
             >
               <ShoppingBag size={18} />
-              <span>Thêm vào giỏ</span>
+              <span>Add to Cart</span>
             </button>
           ) : (
             <Link
@@ -162,7 +174,7 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-center text-sm sm:text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 hover:shadow-md active:scale-[0.99]"
             >
               <ShoppingBag size={18} />
-              <span>Xem chi tiết</span>
+              <span>View Details</span>
             </Link>
           )}
         </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import { categoryApi } from "@/features/categories/api/categoryApi";
 import { useAuthStore } from "@/shared/stores/authStore";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 import type { DealFilterState, FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
 
@@ -19,6 +20,37 @@ let cachedHasOlder = false;
 let cachedServerMessage: string | null = null;
 let cachedCategories: string[] = [];
 
+export function cleanAddressParts(parts: (string | null | undefined)[]): string {
+  const cleaned: string[] = [];
+  for (const part of parts) {
+    if (!part) continue;
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    const normalized = trimmed
+      .toLowerCase()
+      .replace(/^(thành phố|tp\.|tp|tỉnh|quận|huyện|phường|thị xã|tx\.)\s+/i, "")
+      .trim();
+
+    const isDuplicate = cleaned.some((existing) => {
+      const existingNorm = existing
+        .toLowerCase()
+        .replace(/^(thành phố|tp\.|tp|tỉnh|quận|huyện|phường|thị xã|tx\.)\s+/i, "")
+        .trim();
+      return (
+        existing.toLowerCase() === trimmed.toLowerCase() ||
+        (normalized.length > 2 && existingNorm === normalized) ||
+        (existing.toLowerCase().includes(trimmed.toLowerCase()) && trimmed.length > 3)
+      );
+    });
+
+    if (!isDuplicate) {
+      cleaned.push(trimmed);
+    }
+  }
+  return cleaned.join(", ");
+}
+
 export function useNearbyFlashDeals() {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -27,11 +59,19 @@ export function useNearbyFlashDeals() {
   const [locationMode, setLocationMode] = useState<LocationMode | null>(() => cachedLocationMode);
   const [locationLabel, setLocationLabel] = useState<string>(() => cachedLocationLabel);
   const [locationAddress, setLocationAddress] = useState<string | null>(() => cachedLocationAddress);
+  const [locationVersion, setLocationVersion] = useState(0);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [isGpsLoading, setIsGpsLoading] = useState(false);
   const [isLocationReady, setIsLocationReady] = useState(() => cachedCoords !== null);
 
-  const [radiusInKm, setRadiusInKm] = useState(15);
+  // Refresh authenticated user on mount to ensure default address & profile are up to date
+  useEffect(() => {
+    if (isAuthenticated) {
+      void useAuthStore.getState().refreshUser();
+    }
+  }, [isAuthenticated]);
+
+  const [radiusInKm, setRadiusInKm] = useState(10);
   const [deals, setDeals] = useState<FlashDeal[]>(() => cachedDeals);
   const [serverMessage, setServerMessage] = useState<string | null>(() => cachedServerMessage);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +79,7 @@ export function useNearbyFlashDeals() {
   const [isCheckingNewer, setIsCheckingNewer] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 2 con trỏ thời gian (Cursor 1: cũ nhất, Cursor 2: mới nhất)
+  // Dual timestamp cursors (Cursor 1: oldest deal, Cursor 2: newest deal)
   const [cursor1, setCursor1] = useState<string | null>(() => cachedCursor1);
   const [cursor2, setCursor2] = useState<string | null>(() => cachedCursor2);
   const [hasOlder, setHasOlder] = useState(() => cachedHasOlder);
@@ -64,6 +104,9 @@ export function useNearbyFlashDeals() {
   }, [coords, locationMode, locationLabel, locationAddress, deals, cursor1, cursor2, hasOlder, serverMessage, categories]);
 
   const [selectedShop, setSelectedShop] = useState<string | null>(null);
+  const [searchKeyword, setSearchKeyword] = useState<string>("");
+  const debouncedKeyword = useDebounce(searchKeyword.trim(), 350);
+
   const [filters, setFilters] = useState<DealFilterState>({
     distance: [],
     price: [],
@@ -95,7 +138,7 @@ export function useNearbyFlashDeals() {
     };
   }, []);
 
-  // Request browser GPS on user action (hoặc tự động khi đã có quyền)
+  // Request browser GPS on user action (or automatically when permission is already granted)
   const requestGpsLocation = useCallback(() => {
     if (!("geolocation" in navigator)) {
       setGpsError("Geolocation is not supported by your browser.");
@@ -105,34 +148,59 @@ export function useNearbyFlashDeals() {
     setIsGpsLoading(true);
     setGpsError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCoords({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        setLocationMode("gps");
-        setLocationLabel("Current GPS Location");
-        setIsGpsLoading(false);
-        setIsLocationReady(true);
-      },
-      (err) => {
-        setIsGpsLoading(false);
-        setIsLocationReady(false);
-        if (err.code === 1) {
-          setGpsError("Please allow GPS location permission to view deals near you.");
-        } else {
-          setGpsError("Unable to retrieve GPS coordinates. Please try again.");
-        }
-      },
-      { timeout: 8000, enableHighAccuracy: false, maximumAge: 60000 },
-    );
+    const onGeoSuccess = (position: GeolocationPosition) => {
+      const newCoords = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+      cachedCoords = newCoords;
+      cachedLocationMode = "gps";
+      cachedLocationLabel = "Current GPS Location";
+
+      setCoords(newCoords);
+      setLocationMode("gps");
+      setLocationLabel("Current GPS Location");
+      setIsGpsLoading(false);
+      setIsLocationReady(true);
+      setGpsError(null);
+      setLocationVersion((v) => v + 1);
+    };
+
+    const onGeoError = (err: GeolocationPositionError) => {
+      // If high accuracy failed (e.g. timeout or position unavailable), retry once with network/standard accuracy
+      if (err.code !== 1) {
+        navigator.geolocation.getCurrentPosition(
+          onGeoSuccess,
+          () => {
+            setIsGpsLoading(false);
+            setIsLocationReady(false);
+            setGpsError("Unable to retrieve GPS coordinates automatically. Please check your device location settings or use your saved address.");
+          },
+          { timeout: 8000, enableHighAccuracy: false, maximumAge: 300000 },
+        );
+        return;
+      }
+
+      setIsGpsLoading(false);
+      setIsLocationReady(false);
+      if (err.code === 1) {
+        setGpsError("Location permission is blocked in your browser. Please allow location access in your address bar.");
+      } else {
+        setGpsError("Unable to retrieve GPS coordinates automatically. Please check your device location settings or use your saved address.");
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(onGeoSuccess, onGeoError, {
+      timeout: 6000,
+      enableHighAccuracy: true,
+      maximumAge: 60000,
+    });
   }, []);
 
-  // Khởi tạo: kiểm tra quyền GPS tự động nếu user đã cấp trước đó, hoặc dùng địa chỉ lưu nếu đã đăng nhập
+  // Initialization: check GPS permission automatically if previously granted, or use saved address if logged in
   useEffect(() => {
-    // Nếu có địa chỉ lưu của user và người dùng chưa chủ động chọn GPS, ưu tiên dùng địa chỉ lưu
-    if (user?.defaultAddress && cachedLocationMode !== "gps") {
+    // If user has a saved default address, prioritize it and do not call browser GPS API
+    if (user?.defaultAddress) {
       const newCoords = {
         latitude: user.defaultAddress.latitude,
         longitude: user.defaultAddress.longitude,
@@ -143,13 +211,13 @@ export function useNearbyFlashDeals() {
         ? `${user.defaultAddress.label} - ${user.defaultAddress.addressLine}`
         : user.defaultAddress.addressLine;
       cachedLocationLabel = label;
-      const fullAddr = [
-        user.defaultAddress.addressLine,
-        user.defaultAddress.ward,
-        user.defaultAddress.district,
-        user.defaultAddress.city,
-      ].filter(Boolean).join(", ");
-      const addrToDisplay = fullAddr || user.defaultAddress.addressLine;
+      const addrToDisplay =
+        cleanAddressParts([
+          user.defaultAddress.addressLine,
+          user.defaultAddress.ward,
+          user.defaultAddress.district,
+          user.defaultAddress.city,
+        ]) || user.defaultAddress.addressLine;
       cachedLocationAddress = addrToDisplay;
 
       setCoords(newCoords);
@@ -157,38 +225,16 @@ export function useNearbyFlashDeals() {
       setLocationLabel(label);
       setLocationAddress(addrToDisplay);
       setIsLocationReady(true);
+      setLocationVersion((v) => v + 1);
       return;
     }
 
-    // Nếu đã có tọa độ từ phiên trước đó trong cache, dùng ngay không cần gọi lại GPS
+    // If coordinates exist from previous session in module cache, use immediately
     if (cachedCoords) {
       setIsLocationReady(true);
       return;
     }
-
-    // Tự động kiểm tra quyền GPS của trình duyệt
-    if (navigator.permissions && navigator.permissions.query) {
-      navigator.permissions
-        .query({ name: "geolocation" })
-        .then((permission) => {
-          if (permission.state === "granted") {
-            requestGpsLocation();
-          }
-          permission.onchange = () => {
-            if (permission.state === "granted") {
-              requestGpsLocation();
-            } else if (permission.state === "denied") {
-              setCoords(null);
-              cachedCoords = null;
-              setIsLocationReady(false);
-              setLocationMode(null);
-              setLocationLabel("Location Not Set");
-            }
-          };
-        })
-        .catch(() => {});
-    }
-  }, [user?.defaultAddress, requestGpsLocation]);
+  }, [user?.defaultAddress]);
 
   // Switch to saved default address
   const selectSavedAddress = useCallback(() => {
@@ -203,13 +249,13 @@ export function useNearbyFlashDeals() {
         ? `${user.defaultAddress.label} - ${user.defaultAddress.addressLine}`
         : user.defaultAddress.addressLine;
       cachedLocationLabel = label;
-      const fullAddr = [
-        user.defaultAddress.addressLine,
-        user.defaultAddress.ward,
-        user.defaultAddress.district,
-        user.defaultAddress.city,
-      ].filter(Boolean).join(", ");
-      const addrToDisplay = fullAddr || user.defaultAddress.addressLine;
+      const addrToDisplay =
+        cleanAddressParts([
+          user.defaultAddress.addressLine,
+          user.defaultAddress.ward,
+          user.defaultAddress.district,
+          user.defaultAddress.city,
+        ]) || user.defaultAddress.addressLine;
       cachedLocationAddress = addrToDisplay;
 
       setCoords(newCoords);
@@ -218,30 +264,38 @@ export function useNearbyFlashDeals() {
       setLocationAddress(addrToDisplay);
       setGpsError(null);
       setIsLocationReady(true);
+      setLocationVersion((v) => v + 1);
     }
   }, [user?.defaultAddress]);
 
-  // Switch to default location
+  // Switch to default location (uses saved address if available, or requests GPS)
   const selectDefaultLocation = useCallback(() => {
-    requestGpsLocation();
-  }, [requestGpsLocation]);
+    if (user?.defaultAddress) {
+      selectSavedAddress();
+    } else {
+      requestGpsLocation();
+    }
+  }, [user?.defaultAddress, selectSavedAddress, requestGpsLocation]);
 
-  // Tự động phân giải địa chỉ thực tế từ tọa độ GPS để hiển thị
+  // Automatically reverse-geocode physical address from GPS coordinates for display (ONLY FOR GPS)
   useEffect(() => {
-    if (!coords) {
-      setLocationAddress(null);
+    // If using saved default address, directly use the profile address and NEVER call any reverse geocoding API
+    if (locationMode === "saved_address" || user?.defaultAddress) {
+      if (user?.defaultAddress) {
+        const addrToDisplay =
+          cleanAddressParts([
+            user.defaultAddress.addressLine,
+            user.defaultAddress.ward,
+            user.defaultAddress.district,
+            user.defaultAddress.city,
+          ]) || user.defaultAddress.addressLine;
+        setLocationAddress(addrToDisplay);
+      }
       return;
     }
 
-    // Nếu đang dùng địa chỉ lưu (saved_address), dùng trực tiếp thông tin từ profile
-    if (locationMode === "saved_address" && user?.defaultAddress) {
-      const fullAddr = [
-        user.defaultAddress.addressLine,
-        user.defaultAddress.ward,
-        user.defaultAddress.district,
-        user.defaultAddress.city,
-      ].filter(Boolean).join(", ");
-      setLocationAddress(fullAddr || user.defaultAddress.addressLine);
+    // Only GPS mode requires calling the reverse-geocoding API to resolve coordinates to a text address
+    if (locationMode !== "gps" || !coords) {
       return;
     }
 
@@ -264,16 +318,20 @@ export function useNearbyFlashDeals() {
               addr.suburb || addr.quarter || addr.neighbourhood,
               addr.city_district || addr.district || addr.city || addr.town,
               addr.city && addr.city !== addr.city_district && addr.city !== addr.district ? addr.city : null,
-            ].filter(Boolean);
-            if (parts.length > 0 && isMounted) {
-              setLocationAddress(parts.join(", "));
+            ];
+            const cleaned = cleanAddressParts(parts);
+            if (cleaned && isMounted) {
+              setLocationAddress(cleaned);
               return;
             }
           }
           if (data.display_name && isMounted) {
             const chunks = data.display_name.split(", ").slice(0, 4);
-            setLocationAddress(chunks.join(", "));
-            return;
+            const cleaned = cleanAddressParts(chunks);
+            if (cleaned && isMounted) {
+              setLocationAddress(cleaned);
+              return;
+            }
           }
         }
       } catch {
@@ -286,9 +344,10 @@ export function useNearbyFlashDeals() {
         );
         if (res2.ok) {
           const data2 = await res2.json();
-          const parts2 = [data2.locality, data2.city, data2.countryName].filter(Boolean);
-          if (parts2.length > 0 && isMounted) {
-            setLocationAddress(parts2.join(", "));
+          const parts2 = [data2.locality, data2.city, data2.countryName];
+          const cleaned2 = cleanAddressParts(parts2);
+          if (cleaned2 && isMounted) {
+            setLocationAddress(cleaned2);
             return;
           }
         }
@@ -306,12 +365,12 @@ export function useNearbyFlashDeals() {
     return () => {
       isMounted = false;
     };
-  }, [coords]);
+  }, [coords, locationMode, user?.defaultAddress]);
 
-  // 2. Tải ban đầu (Initial load) - Lọc trực tiếp từ Backend kết hợp Cursor Pagination
+  // 2. Initial load - Query backend directly with Cursor Pagination and active filters
   const fetchInitialDeals = useCallback(async () => {
     if (!coords) return;
-    // Chỉ hiện hiệu ứng Skeleton khi chưa có dữ liệu món ăn trong danh sách
+    // Only show Skeleton when there are no deals currently loaded
     if (deals.length === 0) {
       setIsLoading(true);
     }
@@ -319,9 +378,10 @@ export function useNearbyFlashDeals() {
     setNewDealsCount(0);
     setPendingNewDeals([]);
     try {
+      const isSavedAddress = locationMode === "saved_address";
       const res = await flashDealApi.getNearbyDeals({
-        latitude: coords.latitude,
-        longitude: coords.longitude,
+        latitude: isSavedAddress ? undefined : coords.latitude,
+        longitude: isSavedAddress ? undefined : coords.longitude,
         radiusInKm,
         mode: "Initial",
         limit: 9,
@@ -329,6 +389,7 @@ export function useNearbyFlashDeals() {
         distance: filters.distance.length > 0 ? filters.distance.join(",") : undefined,
         price: filters.price.length > 0 ? filters.price.join(",") : undefined,
         shopName: selectedShop ?? undefined,
+        keyword: debouncedKeyword ? debouncedKeyword : undefined,
       });
 
       // Deduplicate deals by ID
@@ -346,65 +407,67 @@ export function useNearbyFlashDeals() {
     } finally {
       setIsLoading(false);
     }
-  }, [coords, radiusInKm, filters, selectedShop, deals.length]);
+  }, [coords, radiusInKm, filters, selectedShop, deals.length, debouncedKeyword, locationMode]);
 
-  // 3. DUAL-CURSOR: Phân trang xuống – kết hợp cả 2 con trỏ trong 1 lần gọi API
+  // 3. DUAL-CURSOR: Pagination downward - combine both cursors in a single API call
   //
-  // Luồng hoạt động:
-  //   - Truyền cursor1 (mốc cũ nhất hiện tại) để lấy thêm deal cũ hơn
-  //   - Truyền cursor2 (mốc mới nhất hiện tại) để backend đồng thời kiểm tra
-  //     có deal nào được tạo mới kể từ lần load gần nhất không
+  // Workflow:
+  //   - Pass cursor1 (current oldest timestamp) to fetch older deals
+  //   - Pass cursor2 (current newest timestamp) to check if new deals have been published
+  //     since the last fetch
   //
-  // Backend trả về: [deal mới hơn cursor2] ++ [deal cũ hơn cursor1 (tối đa limit)]
+  // Backend returns: [deals newer than cursor2] ++ [deals older than cursor1 (up to limit)]
   //
-  // Frontend merge kết quả:
-  //   - Deal mới (prependedCount đầu tiên) → sort lên đầu danh sách
-  //   - Deal cũ → append xuống cuối danh sách
-  //   - Cập nhật cursor2 lên mốc mới nhất vừa nhận được
-  //   - Reset badge thông báo deal mới (đã được tải vào list)
+  // Frontend merges the result:
+  //   - New deals (first prependedCount items) -> prepend with "isNew: true" badge
+  //   - Older deals -> append to bottom of list
+  //   - Update cursor2 to latest timestamp received
+  //   - Reset new deals notification badge
   const loadOlderDeals = useCallback(async () => {
     if (!coords || !cursor1 || isLoadingOlder) return;
     setIsLoadingOlder(true);
     try {
+      const isSavedAddress = locationMode === "saved_address";
       const res = await flashDealApi.getNearbyDeals({
-        latitude: coords.latitude,
-        longitude: coords.longitude,
+        latitude: isSavedAddress ? undefined : coords.latitude,
+        longitude: isSavedAddress ? undefined : coords.longitude,
         radiusInKm,
-        cursor1,          // Con trỏ 1: mốc cũ nhất → lấy deal cũ hơn
-        cursor2: cursor2 ?? undefined, // Con trỏ 2: mốc mới nhất → phát hiện deal mới
+        cursor1,          // Cursor 1: oldest boundary -> fetch older deals
+        cursor2: cursor2 ?? undefined, // Cursor 2: newest boundary -> detect newer deals
         mode: "Older",
         limit: 9,
         category: filters.category.length > 0 ? filters.category.join(",") : undefined,
         distance: filters.distance.length > 0 ? filters.distance.join(",") : undefined,
         price: filters.price.length > 0 ? filters.price.join(",") : undefined,
         shopName: selectedShop ?? undefined,
+        keyword: debouncedKeyword ? debouncedKeyword : undefined,
       });
 
       if (res.deals.length > 0) {
         setDeals((prev) => {
           const existingIds = new Set(prev.map((d) => d.id));
 
-          // Deal mới hơn cursor2 (prependedCount đầu tiên trong res.deals)
-          // Deal cũ hơn cursor1 (phần còn lại)
+          // Deals newer than cursor2 (first prependedCount items in res.deals)
+          // Deals older than cursor1 (remaining items)
           const incomingNew = res.deals
             .slice(0, res.prependedCount)
             .filter((d) => !existingIds.has(d.id))
             .map((d) => ({ ...d, isNew: true }));
           const incomingOld = res.deals.slice(res.prependedCount).filter((d) => !existingIds.has(d.id));
 
-          // Kết quả: [deal hiện có (Page 1 giữ nguyên)] ++ [deal mới tạo (đầu Page 2, có badge NEW)] ++ [deal cũ (tiếp theo Page 2)]
+          // Result: [existing deals] ++ [newly created deals with NEW badge] ++ [older deals]
           return [...prev, ...incomingNew, ...incomingOld];
         });
 
-        // Cập nhật cursor1 nếu có thêm deal cũ
+        // Update cursor1 if older deals were returned
         if (res.cursor1) {
           setCursor1(res.cursor1);
         }
 
-        // Cập nhật cursor2 nếu backend phát hiện deal mới và đã merge vào
+        // Update cursor2 if backend detected new deals and merged them in
         if (res.prependedCount > 0 && res.cursor2) {
           setCursor2(res.cursor2);
-          // Reset badge vì deal mới đã được hiển thị vào danh sách
+          // Reset badge since new deals are now displayed in the list
           setNewDealsCount(0);
           setPendingNewDeals([]);
         }
@@ -417,58 +480,59 @@ export function useNearbyFlashDeals() {
     } finally {
       setIsLoadingOlder(false);
     }
-  }, [coords, radiusInKm, cursor1, cursor2, isLoadingOlder, filters, selectedShop]);
+  }, [coords, radiusInKm, cursor1, cursor2, isLoadingOlder, filters, selectedShop, debouncedKeyword, locationMode]);
 
-  // 4. Con trỏ 2 – POLLING ONLY: Kiểm tra định kỳ xem có deal mới không.
+  // 4. Cursor 2 - POLLING ONLY: Periodically check if new deals exist.
   //
-  // Backend (mode=Newer) chỉ trả về newDealsCount, KHÔNG trả deals, KHÔNG cập nhật cursor2.
-  // Mục đích: hiển thị badge "X deal mới!" → user biết và scroll xuống để load page mới.
-  // Cursor2 sẽ chỉ được cập nhật thực sự khi loadOlderDeals() được gọi.
+  // Backend (mode=Newer) only returns newDealsCount, does not return deals, does not update cursor2.
+  // Purpose: show "X new deals!" badge -> user knows to load new deals.
+  // Cursor2 will only be updated when loadOlderDeals() is called.
   const checkNewerDeals = useCallback(async () => {
     if (!coords || !cursor2 || isCheckingNewer) return;
     setIsCheckingNewer(true);
     try {
+      const isSavedAddress = locationMode === "saved_address";
       const res = await flashDealApi.getNearbyDeals({
-        latitude: coords.latitude,
-        longitude: coords.longitude,
+        latitude: isSavedAddress ? undefined : coords.latitude,
+        longitude: isSavedAddress ? undefined : coords.longitude,
         radiusInKm,
         cursor2,
         mode: "Newer",
       });
 
       if (res.hasNewer && res.newDealsCount > 0) {
-        // Chỉ cập nhật số đếm badge, KHÔNG merge vào danh sách ở đây
+        // Only update badge count, do NOT merge into list here
         setNewDealsCount(res.newDealsCount);
       }
     } catch {
-      // Polling thất bại trong âm thầm, không chặn UI
+      // Polling fails silently without interrupting UI
     } finally {
       setIsCheckingNewer(false);
     }
-  }, [coords, radiusInKm, cursor2, isCheckingNewer]);
+  }, [coords, radiusInKm, cursor2, isCheckingNewer, locationMode]);
 
-  // 5. Khi user click "Update now" trên badge thông báo deal mới:
-  //    Gọi loadOlderDeals() ngay → backend sẽ prepend deal mới lên đầu page tiếp theo.
-  //    Nếu chưa có page nào (chưa scroll), refresh toàn bộ.
+  // 5. When user clicks "Update now" on new deals notification badge:
+  //    Call loadOlderDeals() immediately -> backend prepends new deals.
+  //    If no pages loaded yet, refresh entire list.
   const applyNewDeals = useCallback(() => {
     if (cursor1) {
-      // Đã có page 1 → load page tiếp theo với deal mới được prepend
+      // Page 1 exists -> load next page with new deals prepended
       void loadOlderDeals();
     } else {
-      // Chưa có page nào (vừa mở) → refresh toàn bộ
+      // No pages yet -> refresh entire list
       void fetchInitialDeals();
     }
     setNewDealsCount(0);
     setPendingNewDeals([]);
   }, [cursor1, loadOlderDeals, fetchInitialDeals]);
 
-  // Chạy khi khởi động hoặc đổi vị trí/bán kính
+  // Trigger on init or location/radius change
   useEffect(() => {
     if (!isLocationReady) return;
     void fetchInitialDeals();
   }, [isLocationReady, fetchInitialDeals]);
 
-  // Định kỳ mỗi 45 giây dùng Cursor 2 kiểm tra deal mới
+  // Periodically every 45s check for new deals using Cursor 2
   useEffect(() => {
     if (!cursor2) return;
     const interval = setInterval(() => {
@@ -505,6 +569,9 @@ export function useNearbyFlashDeals() {
     setRadiusInKm,
     selectedShop,
     setSelectedShop,
+    searchKeyword,
+    setSearchKeyword,
+    clearSearch: () => setSearchKeyword(""),
     filters,
     setFilters,
     refreshDeals: fetchInitialDeals,
@@ -521,6 +588,7 @@ export function useNearbyFlashDeals() {
     locationMode,
     locationLabel,
     locationAddress,
+    locationVersion,
     gpsError,
     isGpsLoading,
     requestGpsLocation,

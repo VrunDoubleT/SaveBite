@@ -69,35 +69,35 @@ export async function fetchVietmapRoute(
   if (!response.ok) {
     if (response.status === 423) {
       throw new Error(
-        "VietMap Services key chưa được cấp quyền Route API hoặc đã hết hạn mức.",
+        "VietMap Services key is not authorized for Route API or quota exceeded.",
       );
     }
     if (response.status === 401 || response.status === 403) {
       throw new Error(
-        "Services key không hợp lệ hoặc chưa được kích hoạt tính năng chỉ đường.",
+        "Invalid Services key or route feature is not activated.",
       );
     }
-    throw new Error(`Không thể tìm đường (HTTP ${response.status}).`);
+    throw new Error(`Could not find route (HTTP ${response.status}).`);
   }
 
   const data = await response.json();
   if (data.code && data.code !== "OK") {
     const errorDict: Record<string, string> = {
-      ZERO_RESULTS: "Không tìm được đường đi giữa hai vị trí này.",
-      OVER_DAILY_LIMIT: "API VietMap đã hết hạn mức chỉ đường trong ngày.",
-      INVALID_REQUEST: "Tọa độ hoặc khóa API không hợp lệ.",
+      ZERO_RESULTS: "No route found between these locations.",
+      OVER_DAILY_LIMIT: "VietMap Route API daily quota exceeded.",
+      INVALID_REQUEST: "Invalid coordinates or API key.",
     };
-    throw new Error(errorDict[data.code] || `Lỗi chỉ đường VietMap: ${data.code}`);
+    throw new Error(errorDict[data.code] || `VietMap route error: ${data.code}`);
   }
 
   const path = data.paths && data.paths[0];
   if (!path || typeof path.points !== "string") {
-    throw new Error("Không có dữ liệu tuyến đường hợp lệ từ VietMap.");
+    throw new Error("No valid route data from VietMap.");
   }
 
   const coordinates = decodePolyline(path.points);
   if (coordinates.length < 2) {
-    throw new Error("Không thể vẽ tuyến đường đến cửa hàng.");
+    throw new Error("Could not draw route to this store.");
   }
 
   const distanceMeters = Math.round(path.distance || 0);
@@ -130,11 +130,11 @@ export async function getVietmapStyle(
   const styleUrl = `${VIETMAP_CONFIG.STYLE_BASE_URL}?apikey=${encodeURIComponent(tilemapKey.trim())}`;
   const response = await fetch(styleUrl);
   if (!response.ok) {
-    throw new Error(`Không tải được bản đồ nền: HTTP ${response.status}`);
+    throw new Error(`Failed to load basemap: HTTP ${response.status}`);
   }
   const style = await response.json();
   if (!Array.isArray(style.layers) || !style.sources) {
-    throw new Error("Style bản đồ VietMap không hợp lệ.");
+    throw new Error("Invalid VietMap map style.");
   }
 
   const absoluteUrl = (value: string) =>
@@ -158,7 +158,7 @@ export async function getVietmapStyle(
     if (Array.isArray(source.tiles)) source.tiles = source.tiles.map(absoluteUrl);
   });
 
-  // Giữ lại các nhãn tự nhiên, ẩn các điểm POI tiện ích có sẵn để tránh rối mắt
+  // Retain geographic/natural labels, filter out clutter utility POIs
   const geographicPoiLayers = new Set([
     "water_point",
     "poiz18_beach",

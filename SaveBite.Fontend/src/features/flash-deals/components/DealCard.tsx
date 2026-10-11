@@ -20,11 +20,15 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
   const remainingQty = deal.variants.reduce((sum, v) => sum + (v.availableQuantity || 0), 0);
 
   const soldPct = Math.min(100, Math.round((soldQty / totalQty) * 100));
-  const isSoldOut = remainingQty <= 0;
+  const isDealSoldOut = deal.status === 3 || remainingQty <= 0;
 
   // 2. Countdown timer calculation
   const getTimeLeft = () => {
-    const diff = new Date(deal.orderEndTime).getTime() - Date.now();
+    if (isDealSoldOut) return "Sold Out";
+    const now = Date.now();
+    const startDiff = new Date(deal.saleStartTime).getTime() - now;
+    if (startDiff > 0) return "Upcoming";
+    const diff = new Date(deal.orderEndTime).getTime() - now;
     if (diff <= 0) return "Ended";
     const min = Math.floor(diff / 60000);
     const h = Math.floor(min / 60);
@@ -58,7 +62,7 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
           />
         </Link>
 
-        {/* Góc trên bên trái: Xếp dọc ngăn nắp, KHÔNG BAO GIỜ bị đè chữ */}
+        {/* Top left badges: Neatly stacked vertically */}
         <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-1.5">
           {deal.isNew && (
             <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-lg shadow-orange-500/40 ring-2 ring-white animate-pulse">
@@ -74,7 +78,7 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
           )}
         </div>
 
-        {/* Góc trên bên phải: Countdown Timer độc lập */}
+        {/* Top right badge: Independent countdown timer */}
         <span className="absolute top-3 right-3 z-10 rounded-full bg-neutral-900/75 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs backdrop-blur-xs">
           {timeLeft}
         </span>
@@ -167,12 +171,14 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
         <Link
           to={`/flash-deals/${deal.id}`}
           className={`mt-3 block w-full rounded-lg py-2.5 text-center text-sm font-semibold transition ${
-            isSoldOut
+            isDealSoldOut
               ? "cursor-not-allowed bg-neutral-200 text-neutral-500"
+              : deal.isPurchasable === false
+              ? "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
               : "bg-emerald-600 text-white hover:bg-emerald-700"
           }`}
         >
-          {isSoldOut ? "Sold Out" : "Add to Cart"}
+          {isDealSoldOut ? "Sold Out" : deal.isPurchasable === false ? "View Details" : "Add to Cart"}
         </Link>
       </div>
     </article>

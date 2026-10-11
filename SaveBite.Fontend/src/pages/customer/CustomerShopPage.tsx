@@ -212,8 +212,8 @@ export function CustomerShopPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50/50 pb-20 pt-5">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Thanh Điều Hướng: Nút Quay Lại & Breadcrumb gọn gàng */}
+      <div className="mx-auto max-w-7xl ">
+        {/* Navigation Bar: Back Button & Breadcrumbs */}
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
@@ -231,7 +231,7 @@ export function CustomerShopPage() {
                 size={14}
                 className="text-neutral-500 transition-transform group-hover:-translate-x-0.5 group-hover:text-emerald-600"
               />
-              <span>Quay lại</span>
+              <span>Back</span>
             </button>
 
             <nav
@@ -239,11 +239,11 @@ export function CustomerShopPage() {
               className="hidden sm:flex items-center gap-1.5 text-xs text-neutral-500"
             >
               <Link to="/" className="hover:text-emerald-700 transition">
-                Trang chủ
+                Home
               </Link>
               <ChevronRight size={13} className="text-neutral-300 shrink-0" />
               <span className="truncate max-w-[240px] font-semibold text-neutral-800">
-                {shopName || "Chi tiết cửa hàng"}
+                {shopName || "Store Details"}
               </span>
             </nav>
           </div>
@@ -271,10 +271,10 @@ export function CustomerShopPage() {
             />
             <div className="absolute inset-0 bg-linear-to-t from-black/50 via-transparent to-black/20" />
 
-            {/* Top Right Status Badge: • Đang mở cửa / Đã đóng cửa */}
+            {/* Top Right Status Badge: • Open / Closed */}
             <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full bg-white/95 px-3.5 py-1.5 text-xs font-bold text-emerald-800 shadow-md backdrop-blur-md">
               <span className={`h-2.5 w-2.5 rounded-full ${profile?.isOpen !== false ? "bg-emerald-500 animate-pulse" : "bg-neutral-400"}`} />
-              <span>{profile?.isOpen !== false ? "Đang mở cửa" : "Đã đóng cửa"}</span>
+              <span>{profile?.isOpen !== false ? "Open" : "Closed"}</span>
             </div>
           </div>
 
@@ -333,17 +333,17 @@ export function CustomerShopPage() {
 
                     <span className="flex items-center gap-1 text-neutral-700">
                       <MessageCircle size={15} className="text-emerald-600 shrink-0" />
-                      <span>96% Tỉ lệ phản hồi</span>
+                      <span>96% Response rate</span>
                     </span>
                   </div>
 
-                  {/* Expandable trigger: Xem thêm thông tin quán */}
+                  {/* Expandable trigger: More store info */}
                   <button
                     type="button"
                     onClick={() => setIsStoreInfoExpanded(!isStoreInfoExpanded)}
                     className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-bold text-neutral-700 shadow-2xs transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
                   >
-                    <span>{isStoreInfoExpanded ? "Thu gọn thông tin" : "Xem thêm thông tin quán"}</span>
+                    <span>{isStoreInfoExpanded ? "Collapse info" : "More store info"}</span>
                     {isStoreInfoExpanded ? (
                       <ChevronUp size={15} />
                     ) : (
@@ -370,7 +370,7 @@ export function CustomerShopPage() {
                       ))}
                     </div>
                     <span className="text-xs text-neutral-500">
-                      {totalReviewsCount} đánh giá
+                      {totalReviewsCount} reviews
                     </span>
                   </div>
                 </div>
@@ -380,19 +380,19 @@ export function CustomerShopPage() {
             {/* Expandable Store Details Drawer */}
             {isStoreInfoExpanded && (
               <div className="mt-4 rounded-xl border border-neutral-200/80 bg-neutral-50 p-4 text-xs text-neutral-600 sm:text-sm animate-fade-in">
-                <h3 className="font-bold text-neutral-900">Giới thiệu quán</h3>
+                <h3 className="font-bold text-neutral-900">About Store</h3>
                 <p className="mt-1 leading-relaxed text-neutral-600">
                   {profile?.description ||
                     deals[0]?.description ||
-                    `${shopName} chuyên phục vụ các món ăn tươi ngon chuẩn vị mỗi ngày. Đồng hành cùng SaveBite mang đến những bữa ăn chất lượng với giá ưu đãi đặc biệt cuối ngày, chung tay bảo vệ môi trường và giảm lãng phí thực phẩm.`}
+                    `${shopName} serves delicious, freshly prepared dishes daily. Partnering with SaveBite to offer quality meals at special end-of-day discounts, protecting the environment and reducing food waste together.`}
                 </p>
                 <div className="mt-3 grid grid-cols-1 gap-2 pt-3 border-t border-neutral-200/60 sm:grid-cols-2 text-xs">
                   <div>
-                    <span className="font-semibold text-neutral-700">Địa chỉ quán:</span>{" "}
+                    <span className="font-semibold text-neutral-700">Store address:</span>{" "}
                     {shopAddress}
                   </div>
                   <div>
-                    <span className="font-semibold text-neutral-700">Giờ hoạt động:</span>{" "}
+                    <span className="font-semibold text-neutral-700">Opening hours:</span>{" "}
                     {operatingHours}
                   </div>
                 </div>
@@ -412,7 +412,7 @@ export function CustomerShopPage() {
                 : "text-neutral-500 hover:text-neutral-800"
             }`}
           >
-            <span>Ưu đãi Flash Deal</span>
+            <span>Flash Deals</span>
             <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-extrabold text-emerald-700">
               {deals.length}
             </span>
@@ -427,7 +427,7 @@ export function CustomerShopPage() {
                 : "text-neutral-500 hover:text-neutral-800"
             }`}
           >
-            <span>Đánh giá</span>
+            <span>Reviews</span>
             <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-bold text-neutral-600">
               {reviewsSummary?.totalReviews ?? totalReviewsCount}
             </span>
@@ -470,16 +470,16 @@ export function CustomerShopPage() {
                     <Store size={32} />
                   </div>
                   <h3 className="mt-4 text-base font-bold text-neutral-800">
-                    Chưa có ưu đãi Flash Deal nào
+                    No Flash Deals Available
                   </h3>
                   <p className="mt-1 text-xs text-neutral-500 max-w-sm">
-                    Quán hiện chưa mở bán deal mới hôm nay. Vui lòng quay lại sau nhé!
+                    The store has not published any flash deals today. Please check back later!
                   </p>
                   <Link
                     to="/"
                     className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-700"
                   >
-                    Khám phá các quán khác
+                    Explore Other Stores
                   </Link>
                 </div>
               )}

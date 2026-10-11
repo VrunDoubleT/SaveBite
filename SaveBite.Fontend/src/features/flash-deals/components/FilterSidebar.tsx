@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { Filter, RotateCcw, X, Loader2, Search } from "lucide-react";
+import { Filter, RotateCcw, Loader2, X } from "lucide-react";
 import type { DealFilterState } from "@/features/flash-deals/types/flashDeal.types";
 import { categoryApi } from "@/features/categories/api/categoryApi";
 
@@ -13,9 +13,10 @@ interface FilterSidebarProps {
   categoryCounts?: Record<string, number>;
   categories?: string[];
   isLoadingCategories?: boolean;
+  isSearching?: boolean;
 }
 
-const DISTANCE_OPTIONS = ["Under 2km", "Under 5km", "Over 5km"];
+const DISTANCE_OPTIONS = ["Under 2km", "Under 5km", "Over 5km - 10km"];
 const PRICE_OPTIONS = ["Under 30k", "30k - 50k", "Over 50k"];
 
 export function FilterSidebar({
@@ -27,10 +28,10 @@ export function FilterSidebar({
   categoryCounts = {},
   categories: propCategories,
   isLoadingCategories: propIsLoadingCategories,
+  isSearching = false,
 }: FilterSidebarProps) {
   const [internalCategories, setInternalCategories] = useState<string[]>([]);
   const [internalLoading, setInternalLoading] = useState(false);
-  const [categorySearch, setCategorySearch] = useState("");
 
   // If parent didn't supply categories, fetch directly from backend DB API
   useEffect(() => {
@@ -81,8 +82,7 @@ export function FilterSidebar({
 
   const clearAll = () => {
     setFilters({ distance: [], price: [], category: [] });
-    setRadiusInKm?.(15);
-    setCategorySearch("");
+    setRadiusInKm?.(10);
     onClearShop();
   };
 
@@ -90,12 +90,6 @@ export function FilterSidebar({
     const set = new Set([...activeCategories, ...Object.keys(categoryCounts)]);
     return Array.from(set).filter(Boolean);
   }, [activeCategories, categoryCounts]);
-
-  const filteredCategoryList = useMemo(() => {
-    if (!categorySearch.trim()) return categoryList;
-    const query = categorySearch.trim().toLowerCase();
-    return categoryList.filter((c) => c.toLowerCase().includes(query));
-  }, [categoryList, categorySearch]);
 
   return (
     <aside className="relative lg:sticky lg:top-24 rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
@@ -107,7 +101,7 @@ export function FilterSidebar({
         <button
           type="button"
           onClick={clearAll}
-          className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+          className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
         >
           <RotateCcw size={12} />
           Reset
@@ -115,82 +109,74 @@ export function FilterSidebar({
       </div>
 
       {/* Category Filter */}
-      <div className="border-b border-neutral-100 py-4">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-            Categories
-          </span>
-          {filters.category.length > 0 && (
-            <span className="rounded-full bg-emerald-100 px-1.5 py-0.2 text-[10px] font-bold text-emerald-800">
-              {filters.category.length}
+      {!isSearching ? (
+        <div className="border-b border-neutral-100 py-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+              Categories
             </span>
-          )}
-        </div>
-
-        {/* Quick search input for categories */}
-        {categoryList.length > 5 && (
-          <div className="relative mt-2 mb-1.5">
-            <Search size={13} className="absolute left-2.5 top-2.5 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="Search category..."
-              value={categorySearch}
-              onChange={(e) => setCategorySearch(e.target.value)}
-              className="w-full rounded-md border border-neutral-200 bg-neutral-50/70 py-1.5 pl-8 pr-7 text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-emerald-500 focus:bg-white focus:outline-none transition"
-            />
-            {categorySearch && (
-              <button
-                type="button"
-                onClick={() => setCategorySearch("")}
-                className="absolute right-2 top-2 text-neutral-400 hover:text-neutral-600"
-                aria-label="Clear search"
-              >
-                <X size={12} />
-              </button>
+            {filters.category.length > 0 && (
+              <span className="rounded-full bg-emerald-100 px-1.5 py-0.2 text-[10px] font-bold text-emerald-800">
+                {filters.category.length}
+              </span>
             )}
           </div>
-        )}
 
-        {/* Scrollable list with max-height to avoid overflow */}
-        <div className="mt-2 max-h-52 overflow-y-auto pr-1 space-y-1 overscroll-contain">
-          {isCategoriesLoading && categoryList.length === 0 ? (
-            <div className="flex items-center gap-2 py-3 text-xs text-neutral-400">
-              <Loader2 size={14} className="animate-spin text-emerald-600" />
-              <span>Loading categories...</span>
-            </div>
-          ) : filteredCategoryList.length === 0 ? (
-            <p className="py-2 text-center text-xs text-neutral-400 italic">
-              No matching categories
-            </p>
-          ) : (
-            filteredCategoryList.map((cat) => {
-              const count = categoryCounts[cat] ?? 0;
-              const isChecked = filters.category.includes(cat);
-              return (
-                <label
-                  key={cat}
-                  className="flex cursor-pointer items-center justify-between rounded-md px-1.5 py-1 text-xs text-neutral-700 hover:bg-emerald-50/60 hover:text-emerald-800 transition"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggle("category", cat)}
-                      className="h-3.5 w-3.5 shrink-0 rounded-xs border-neutral-300 accent-emerald-600"
-                    />
-                    <span className="truncate">{cat}</span>
-                  </div>
-                  {count > 0 && (
-                    <span className="ml-2 shrink-0 rounded-full bg-neutral-100 px-1.5 py-0.2 text-[10px] font-semibold text-neutral-500">
-                      {count}
-                    </span>
-                  )}
-                </label>
-              );
-            })
-          )}
+          {/* Scrollable list with max-height to avoid overflow */}
+          <div className="mt-2.5 max-h-52 overflow-y-auto pr-1 space-y-1 overscroll-contain">
+            {isCategoriesLoading && categoryList.length === 0 ? (
+              <div className="flex items-center gap-2 py-3 text-xs text-neutral-400">
+                <Loader2 size={14} className="animate-spin text-emerald-600" />
+                <span>Loading categories...</span>
+              </div>
+            ) : categoryList.length === 0 ? (
+              <p className="py-2 text-center text-xs text-neutral-400 italic">
+                No categories available
+              </p>
+            ) : (
+              categoryList.map((cat) => {
+                const count = categoryCounts[cat] ?? 0;
+                const isChecked = filters.category.includes(cat);
+                return (
+                  <label
+                    key={cat}
+                    className="flex cursor-pointer items-center justify-between rounded-md px-1.5 py-1 text-xs text-neutral-700 hover:bg-emerald-50/60 hover:text-emerald-800 transition"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggle("category", cat)}
+                        className="h-3.5 w-3.5 shrink-0 rounded-xs border-neutral-300 accent-emerald-600"
+                      />
+                      <span className="truncate">{cat}</span>
+                    </div>
+                    {count > 0 && (
+                      <span className="ml-2 shrink-0 rounded-full bg-neutral-100 px-1.5 py-0.2 text-[10px] font-semibold text-neutral-500">
+                        {count}
+                      </span>
+                    )}
+                  </label>
+                );
+              })
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="border-b border-neutral-100 py-3.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+              Categories
+            </span>
+            <span className="text-[10px] font-semibold text-neutral-400 italic">
+              Hidden while searching
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-neutral-400">
+            Clear search to browse categories.
+          </p>
+        </div>
+      )}
 
 
 

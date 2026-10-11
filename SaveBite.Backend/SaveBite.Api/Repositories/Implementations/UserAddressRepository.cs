@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Entities;
@@ -20,6 +20,14 @@ public sealed class UserAddressRepository : IUserAddressRepository
             .ThenByDescending(address => address.UpdatedAt)
             .ThenBy(address => address.CreatedAt)
             .ToListAsync(cancellationToken);
+
+    // Retrieve default address for the current user.
+    public async Task<UserAddress?> GetDefaultByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+        => await _dbContext.UserAddresses.AsNoTracking()
+            .Where(address => address.UserId == userId)
+            .OrderByDescending(address => address.IsDefault)
+            .ThenByDescending(address => address.UpdatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
 
     // Add a new address.
     public async Task<UserAddress> CreateAsync(UserAddress address, bool setAsDefault, CancellationToken cancellationToken = default)

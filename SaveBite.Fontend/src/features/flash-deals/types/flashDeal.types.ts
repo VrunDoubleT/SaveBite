@@ -17,6 +17,7 @@ export interface FlashDealVariant {
   soldQuantity: number;
   availableQuantity: number;
   status: number;
+  isPurchasable?: boolean;
 }
 
 export interface FlashDeal {
@@ -42,8 +43,9 @@ export interface FlashDeal {
   maxDiscountPercent: number;
   attributeGroups?: DealAttributeGroup[];
   variants: FlashDealVariant[];
-  /** Đánh dấu deal mới xuất hiện thông qua Cursor 2 */
+  /** Marks a deal as newly published via Cursor 2 */
   isNew?: boolean;
+  isPurchasable?: boolean;
 }
 
 export type CursorMode = "Initial" | "Older" | "Newer";
@@ -60,6 +62,7 @@ export interface FlashDealCursorParams {
   distance?: string;
   price?: string;
   shopName?: string;
+  keyword?: string;
 }
 
 export interface FlashDealCursorResult {
@@ -68,9 +71,9 @@ export interface FlashDealCursorResult {
   cursor2?: string;
   hasOlder: boolean;
   hasNewer: boolean;
-  /** Số deal mới (tạo sau cursor2 cũ) được prepend vào đầu kết quả mode=Older */
+  /** Number of new deals (created after previous cursor2) prepended to mode=Older results */
   prependedCount: number;
-  /** Số deal mới phát hiện khi polling (mode=Newer), chưa được load vào trang */
+  /** Number of new deals discovered during polling (mode=Newer), not yet loaded into view */
   newDealsCount: number;
   message?: string;
 }

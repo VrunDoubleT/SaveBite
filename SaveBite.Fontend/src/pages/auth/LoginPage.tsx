@@ -15,6 +15,7 @@ import { PasswordField } from "@/features/auth/components/PasswordField";
 import { getApiErrorMessage, getApiValidationErrors } from "@/shared/api";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { Link } from "react-router-dom";
+import { SessionCheckingScreen } from "@/shared/components/SessionCheckingScreen";
 
 interface LoginLocationState {
   message?: string;
@@ -40,11 +41,7 @@ export function LoginPage() {
   });
 
   if (isInitializing) {
-    return (
-      <div className="grid min-h-[65vh] place-items-center text-sm font-semibold text-neutral-500">
-        Checking your session...
-      </div>
-    );
+    return <SessionCheckingScreen minHeight="min-h-[65vh]" />;
   }
 
   if (isAuthenticated && user) {

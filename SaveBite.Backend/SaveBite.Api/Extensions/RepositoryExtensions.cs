@@ -20,6 +20,7 @@ public static class RepositoryExtensions
         services.AddScoped<IUserAddressRepository, UserAddressRepository>();
         services.AddScoped<IShopRepository, ShopRepository>();
         services.AddScoped<IFlashDealRepository, FlashDealRepository>();
+        services.AddScoped<IUserAddressRepository, UserAddressRepository>();
         return services;
     }
 }

@@ -11,10 +11,14 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class ShopService : IShopService
 {
     private readonly IShopRepository _shopRepository;
+    private readonly IUserAddressRepository _userAddressRepository;
 
-    public ShopService(IShopRepository shopRepository)
+    public ShopService(
+        IShopRepository shopRepository,
+        IUserAddressRepository userAddressRepository)
     {
         _shopRepository = shopRepository;
+        _userAddressRepository = userAddressRepository;
     }
 
     public async Task<ShopSummaryResponse> GetOwnerShopAsync(
@@ -29,24 +33,50 @@ public sealed class ShopService : IShopService
 
     public async Task<PagedResult<NearbyShopResponse>> GetNearbyShopsAsync(
         NearbyShopsRequest request,
+        Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
         var page = request.Page <= 0 ? 1 : request.Page;
         var pageSize = request.PageSize <= 0 ? 6 : request.PageSize;
+
+        double userLat;
+        double userLon;
+
+        if (request.Latitude.HasValue && request.Longitude.HasValue && (request.Latitude.Value != 0 || request.Longitude.Value != 0))
+        {
+            userLat = request.Latitude.Value;
+            userLon = request.Longitude.Value;
+        }
+        else if (userId.HasValue)
+        {
+            var defaultAddress = await _userAddressRepository.GetDefaultByUserIdAsync(userId.Value, cancellationToken);
+            if (defaultAddress != null)
+            {
+                userLat = defaultAddress.Latitude;
+                userLon = defaultAddress.Longitude;
+            }
+            else
+            {
+                return PagedResult<NearbyShopResponse>.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0);
+            }
+        }
+        else
+        {
+            return PagedResult<NearbyShopResponse>.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0);
+        }
 
         var shops = await _shopRepository.GetActiveShopsAsync(request.Keyword, cancellationToken);
         if (!shops.Any())
             return PagedResult<NearbyShopResponse>.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0);
 
         var nowTime = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
-        var userLat = request.Latitude ?? 0;
-        var userLon = request.Longitude ?? 0;
 
+        var radiusLimit = Math.Min(request.RadiusInKm <= 0 ? 10.0 : request.RadiusInKm, 10.0);
         var matchingShops = new List<(Shop Shop, double Distance, bool IsOpen)>();
         foreach (var shop in shops)
         {
             var distance = CalculateDistanceInKm(userLat, userLon, shop.Latitude, shop.Longitude);
-            if (distance > request.RadiusInKm) continue;
+            if (distance > radiusLimit) continue;
 
             var isOpen = CheckIsOpen(shop.OpeningTime, shop.ClosingTime, nowTime);
             if (request.OnlyOpen == true && !isOpen) continue;
