@@ -130,8 +130,11 @@ export function Pagination({
       <div className="text-xs text-neutral-500">
         {showTotalItems && totalItems !== undefined ? (
           <span>
-            Showing <strong className="text-neutral-800">{itemStart}–{itemEnd ?? totalItems}</strong> of{" "}
-            <strong className="text-neutral-800">{totalItems}</strong> {itemLabel}
+            Showing{" "}
+            <strong className="text-neutral-800">
+              {itemStart}–{itemEnd ?? totalItems}
+            </strong>{" "}
+            of <strong className="text-neutral-800">{totalItems}</strong> {itemLabel}
           </span>
         ) : (
           <span>

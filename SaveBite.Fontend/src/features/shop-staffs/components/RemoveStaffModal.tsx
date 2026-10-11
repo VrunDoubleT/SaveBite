@@ -49,7 +49,7 @@ export function RemoveStaffModal({
           <div className="rounded-xl bg-gray-50 p-4">
             <p className="font-medium text-gray-900">{staff.displayName}</p>
 
-            {staff.staffNickname && <p className="mt-1 text-sm text-gray-400">{staff.userName}</p>}
+            {staff.staffNickname && <p className="mt-1 text-sm text-gray-400">{staff.staffNickname}</p>}
 
             <p className="mt-1 text-sm text-gray-500">{staff.userEmail}</p>
           </div>

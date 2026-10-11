@@ -19,6 +19,7 @@ import { APP_PATHS } from "@/app/router/paths";
 import { getApiErrorMessage, getApiErrorStatus } from "@/shared/api/httpClient";
 
 import { toast } from "@/shared/stores/toastStore";
+import { Pagination, usePagination } from "@/shared/components/pagination";
 
 export function StaffManagementPage() {
   const [staffs, setStaffs] = useState<ShopStaff[]>([]);
@@ -173,10 +174,25 @@ export function StaffManagementPage() {
     return staffs.filter(
       (staff) =>
         staff.displayName.toLowerCase().includes(q) ||
-        staff.userName.toLowerCase().includes(q) ||
+        Boolean(staff.staffNickname?.toLowerCase().includes(q)) ||
         staff.userEmail.toLowerCase().includes(q),
     );
   }, [staffs, keyword]);
+
+  // --------------------------------------------------
+  // Pagination
+  // --------------------------------------------------
+
+  const {
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    paginatedItems: paginatedStaffs,
+    totalItems: totalStaffCount,
+  } = usePagination({
+    items: filteredStaffs,
+    initialPageSize: 10,
+  });
 
   // --------------------------------------------------
   // Statistics
@@ -269,22 +285,35 @@ export function StaffManagementPage() {
           ))}
         </div>
       ) : (
-        <StaffTable
-          staffs={filteredStaffs}
-          onEdit={(staff) => {
-            setEditingStaff(staff);
-          }}
-          onView={(staff) => {
-            navigate(`${APP_PATHS.STORE_OWNER}/staff/${staff.id}`, {
-              state: {
-                staff,
-              },
-            });
-          }}
-          onRemove={(staff) => {
-            setRemovingStaff(staff);
-          }}
-        />
+        <div className="space-y-4">
+          <StaffTable
+            staffs={paginatedStaffs}
+            onEdit={(staff) => {
+              setEditingStaff(staff);
+            }}
+            onView={(staff) => {
+              navigate(`${APP_PATHS.STORE_OWNER}/staff/${staff.id}`, {
+                state: {
+                  staff,
+                },
+              });
+            }}
+            onRemove={(staff) => {
+              setRemovingStaff(staff);
+            }}
+          />
+
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalStaffCount}
+              pageSize={10}
+              itemLabel="staff members"
+              onPageChange={setCurrentPage}
+            />
+          )}
+        </div>
       )}
 
       {/* Edit modal */}

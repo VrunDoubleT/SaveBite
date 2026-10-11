@@ -67,7 +67,7 @@ export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
                       <p className="truncate font-medium text-gray-900">{staff.displayName}</p>
 
                       {staff.staffNickname && (
-                        <p className="truncate text-xs text-gray-400">{staff.userName}</p>
+                        <p className="truncate text-xs text-gray-400">{staff.staffNickname}</p>
                       )}
 
                       <p className="truncate text-sm text-gray-500">{staff.userEmail}</p>
