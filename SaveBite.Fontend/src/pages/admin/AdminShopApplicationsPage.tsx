@@ -1,19 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { Pagination } from "@/shared/components/pagination/Pagination";
+import { usePagination } from "@/shared/components/pagination/usePagination";
 import { adminShopApplicationApi } from "@/features/shop-applications/api/adminShopApplicationApi";
 import { AdminShopApplicationDetail } from "@/features/shop-applications/components/AdminShopApplicationDetail";
-import { AdminShopApplicationsList } from "@/features/shop-applications/components/AdminShopApplicationsList";
+import {
+  AdminShopApplicationsList,
+  type SortOrder,
+} from "@/features/shop-applications/components/AdminShopApplicationsList";
 import { ADMIN_SHOP_APPLICATION_FILTERS } from "@/features/shop-applications/schemas/adminShopApplication.schema";
 import type {
   ShopApplication,
   ShopApplicationAdminFilter,
 } from "@/features/shop-applications/types/adminShopApplication.types";
 
+const PAGE_SIZE = 5;
+
 export function AdminShopApplicationsPage() {
   const [items, setItems] = useState<ShopApplication[]>([]);
   const [selected, setSelected] = useState<ShopApplication | null>(null);
   const [filter, setFilter] = useState<ShopApplicationAdminFilter>("All");
+  const [sort, setSort] = useState<SortOrder>("newest");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -26,8 +34,7 @@ export function AdminShopApplicationsPage() {
     setError("");
 
     try {
-      const applications = await adminShopApplicationApi.getAll();
-      setItems(applications);
+      setItems(await adminShopApplicationApi.getAll());
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
@@ -39,10 +46,24 @@ export function AdminShopApplicationsPage() {
     void load();
   }, [load]);
 
-  const visibleItems = useMemo(
-    () => items.filter((item) => filter === "All" || item.status === filter),
-    [items, filter],
-  );
+  const sortedItems = useMemo(() => {
+    const filtered = items.filter((item) => filter === "All" || item.status === filter);
+
+    return filtered.sort((a, b) => {
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return sort === "newest" ? -diff : diff;
+    });
+  }, [items, filter, sort]);
+
+  const {
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    totalItems,
+    pageSize,
+    paginatedItems,
+    resetPage,
+  } = usePagination({ items: sortedItems, initialPageSize: PAGE_SIZE });
 
   const counts = useMemo(() => {
     const result: Record<string, number> = { All: items.length };
@@ -54,6 +75,16 @@ export function AdminShopApplicationsPage() {
     return result;
   }, [items]);
 
+  const handleFilterChange = (value: string) => {
+    setFilter(value as ShopApplicationAdminFilter);
+    resetPage();
+  };
+
+  const handleSortChange = (value: SortOrder) => {
+    setSort(value);
+    resetPage();
+  };
+
   const openDetail = async (item: ShopApplication) => {
     setError("");
     setSuccess("");
@@ -61,8 +92,7 @@ export function AdminShopApplicationsPage() {
     setOpeningId(item.id);
 
     try {
-      const application = await adminShopApplicationApi.getById(item.id);
-      setSelected(application);
+      setSelected(await adminShopApplicationApi.getById(item.id));
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
@@ -123,15 +153,30 @@ export function AdminShopApplicationsPage() {
 
   return (
     <AdminShopApplicationsList
-      visibleItems={visibleItems}
+      visibleItems={paginatedItems}
       loading={loading}
       filter={filter}
-      setFilter={(value) => setFilter(value as ShopApplicationAdminFilter)}
+      setFilter={handleFilterChange}
+      sort={sort}
+      onSortChange={handleSortChange}
       counts={counts}
       error={error}
       load={() => void load()}
       openDetail={(item) => void openDetail(item)}
       openingId={openingId}
+      pagination={
+        !loading && totalItems > 0 ? (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            itemLabel="applications"
+            showFirstLast
+          />
+        ) : null
+      }
     />
   );
 }

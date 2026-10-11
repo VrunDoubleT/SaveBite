@@ -16,7 +16,11 @@ import {
 } from "lucide-react";
 
 import { shopApplicationApi } from "../api/shopApplicationApi";
-import type { ShopApplication, ShopApplicationReviewLog, ShopApplicationStatus } from "../types/shopApplication.types";
+import type {
+  ShopApplication,
+  ShopApplicationReviewLog,
+  ShopApplicationStatus,
+} from "../types/shopApplication.types";
 
 const PAGE_SIZE = 5;
 
@@ -26,34 +30,59 @@ const STATUS_LABELS: Record<ShopApplicationStatus, string> = {
   Pending: "Pending",
   Approved: "Approved",
   Rejected: "Rejected",
-  Cancelled: "Canceled",
+  Cancelled: "Cancelled",
 };
 
-const STATUS_META: Record<
-  ShopApplicationStatus,
-  { icon: LucideIcon; badge: string; dot: string }
-> = {
-  Pending: {
-    icon: Clock,
-    badge: "bg-amber-50 text-amber-800 ring-amber-200",
-    dot: "bg-amber-100 text-amber-700 ring-amber-200",
-  },
-  Approved: {
-    icon: CheckCircle2,
-    badge: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-    dot: "bg-emerald-100 text-emerald-700 ring-emerald-200",
-  },
-  Rejected: {
-    icon: XCircle,
-    badge: "bg-red-50 text-red-800 ring-red-200",
-    dot: "bg-red-100 text-red-700 ring-red-200",
-  },
-  Cancelled: {
-    icon: Ban,
-    badge: "bg-slate-100 text-slate-700 ring-slate-200",
-    dot: "bg-slate-100 text-slate-600 ring-slate-200",
-  },
+const STATUS_META: Record<ShopApplicationStatus, { icon: LucideIcon; badge: string; dot: string }> =
+  {
+    Pending: {
+      icon: Clock,
+      badge: "bg-amber-50 text-amber-800 ring-amber-200",
+      dot: "bg-amber-100 text-amber-700 ring-amber-200",
+    },
+    Approved: {
+      icon: CheckCircle2,
+      badge: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+      dot: "bg-emerald-100 text-emerald-700 ring-emerald-200",
+    },
+    Rejected: {
+      icon: XCircle,
+      badge: "bg-red-50 text-red-800 ring-red-200",
+      dot: "bg-red-100 text-red-700 ring-red-200",
+    },
+    Cancelled: {
+      icon: Ban,
+      badge: "bg-slate-100 text-slate-700 ring-slate-200",
+      dot: "bg-slate-100 text-slate-600 ring-slate-200",
+    },
+  };
+
+const FALLBACK_META: { icon: LucideIcon; badge: string; dot: string } = {
+  icon: Clock,
+  badge: "bg-slate-100 text-slate-700 ring-slate-200",
+  dot: "bg-slate-100 text-slate-600 ring-slate-200",
 };
+
+// "Cancelled" / "Cancelled" / "cancelled" -> "Cancelled", "pending" -> "Pending"...
+function normalizeStatus(status?: string | null): ShopApplicationStatus | null {
+  if (!status) return null;
+  const key = status.trim().toLowerCase();
+  if (key === "Cancelled" || key === "cancelled") return "Cancelled";
+  if (key === "pending") return "Pending";
+  if (key === "approved") return "Approved";
+  if (key === "rejected") return "Rejected";
+  return null;
+}
+
+function getStatusMeta(status?: string | null) {
+  const normalized = normalizeStatus(status);
+  return normalized ? STATUS_META[normalized] : FALLBACK_META;
+}
+
+function getStatusLabel(status?: string | null) {
+  const normalized = normalizeStatus(status);
+  return normalized ? STATUS_LABELS[normalized] : (status ?? "Unknown");
+}
 
 type HistoryEntry = {
   application: ShopApplication;
@@ -85,7 +114,10 @@ function valueOrDash(value?: string | number | null) {
  * re-uploaded are inherited from the most recent earlier revision; a replaced
  * document stays available for older history entries.
  */
-function getRevisionDocuments(application: ShopApplication, revisionNumber: number): ApplicationDocument[] {
+function getRevisionDocuments(
+  application: ShopApplication,
+  revisionNumber: number,
+): ApplicationDocument[] {
   const latestByType = new Map<ApplicationDocument["documentType"], ApplicationDocument>();
 
   application.documents
@@ -102,11 +134,13 @@ function getRevisionDocuments(application: ShopApplication, revisionNumber: numb
       }
     });
 
-  return Array.from(latestByType.values()).sort((a, b) => a.documentType.localeCompare(b.documentType));
+  return Array.from(latestByType.values()).sort((a, b) =>
+    a.documentType.localeCompare(b.documentType),
+  );
 }
 
-function StatusBadge({ status, size = "md" }: { status: ShopApplicationStatus; size?: "sm" | "md" }) {
-  const { icon: Icon, badge } = STATUS_META[status];
+function StatusBadge({ status, size = "md" }: { status?: string | null; size?: "sm" | "md" }) {
+  const { icon: Icon, badge } = getStatusMeta(status);
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full font-semibold ring-1 ring-inset ${badge} ${
@@ -114,7 +148,7 @@ function StatusBadge({ status, size = "md" }: { status: ShopApplicationStatus; s
       }`}
     >
       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      {STATUS_LABELS[status]}
+      {getStatusLabel(status)}
     </span>
   );
 }
@@ -123,7 +157,9 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   return (
     <div className="flex flex-col gap-0.5 py-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
       <dt className="shrink-0 text-xs text-slate-500">{label}</dt>
-      <dd className="min-w-0 break-words text-sm font-medium text-slate-900 sm:text-right">{children}</dd>
+      <dd className="min-w-0 break-words text-sm font-medium text-slate-900 sm:text-right">
+        {children}
+      </dd>
     </div>
   );
 }
@@ -137,8 +173,19 @@ function InfoCard({ title, children }: { title: string; children: React.ReactNod
   );
 }
 
-function ApplicationDetails({ application, revisionNumber }: { application: ShopApplication; revisionNumber: number }) {
-  const address = [application.addressLine, application.ward, application.district, application.city]
+function ApplicationDetails({
+  application,
+  revisionNumber,
+}: {
+  application: ShopApplication;
+  revisionNumber: number;
+}) {
+  const address = [
+    application.addressLine,
+    application.ward,
+    application.district,
+    application.city,
+  ]
     .filter(Boolean)
     .join(", ");
   const documents = getRevisionDocuments(application, revisionNumber);
@@ -146,7 +193,11 @@ function ApplicationDetails({ application, revisionNumber }: { application: Shop
   return (
     <div className="mt-4 overflow-hidden rounded-xl bg-slate-50 ring-1 ring-inset ring-slate-200">
       {application.coverImageUrl && (
-        <img src={application.coverImageUrl} alt="Shop cover" className="h-24 w-full object-cover sm:h-28" />
+        <img
+          src={application.coverImageUrl}
+          alt="Shop cover"
+          className="h-24 w-full object-cover sm:h-28"
+        />
       )}
 
       <div className="space-y-3 p-3.5 sm:p-4">
@@ -171,7 +222,9 @@ function ApplicationDetails({ application, revisionNumber }: { application: Shop
         </div>
 
         {application.description && (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{application.description}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-600">
+            {application.description}
+          </p>
         )}
 
         {/* Info cards */}
@@ -182,7 +235,8 @@ function ApplicationDetails({ application, revisionNumber }: { application: Shop
               {formatCoordinate(application.latitude)}, {formatCoordinate(application.longitude)}
             </InfoRow>
             <InfoRow label="Opening hours">
-              {application.openingTime?.slice(0, 5) ?? "—"} – {application.closingTime?.slice(0, 5) ?? "—"}
+              {application.openingTime?.slice(0, 5) ?? "—"} –{" "}
+              {application.closingTime?.slice(0, 5) ?? "—"}
             </InfoRow>
           </InfoCard>
 
@@ -214,7 +268,9 @@ function ApplicationDetails({ application, revisionNumber }: { application: Shop
             Documents <span className="font-normal text-slate-500">({documents.length})</span>
           </h5>
           {documents.length === 0 ? (
-            <p className="mt-1.5 text-sm text-slate-500">No documents were attached to this revision.</p>
+            <p className="mt-1.5 text-sm text-slate-500">
+              No documents were attached to this revision.
+            </p>
           ) : (
             <ul className="mt-2 grid gap-2 sm:grid-cols-2">
               {documents.map((document) => (
@@ -225,12 +281,20 @@ function ApplicationDetails({ application, revisionNumber }: { application: Shop
                     rel="noreferrer"
                     className="group flex items-center gap-2.5 rounded-lg bg-white px-3 py-2 ring-1 ring-inset ring-slate-200 hover:ring-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                   >
-                    <FileText className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-emerald-600" aria-hidden="true" />
+                    <FileText
+                      className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-emerald-600"
+                      aria-hidden="true"
+                    />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-slate-900">{document.originalFileName}</span>
+                      <span className="block truncate text-sm font-medium text-slate-900">
+                        {document.originalFileName}
+                      </span>
                       <span className="block text-xs text-slate-500">{document.documentType}</span>
                     </span>
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-300 group-hover:text-emerald-600" aria-hidden="true" />
+                    <ExternalLink
+                      className="h-3.5 w-3.5 shrink-0 text-slate-300 group-hover:text-emerald-600"
+                      aria-hidden="true"
+                    />
                   </a>
                 </li>
               ))}
@@ -277,7 +341,10 @@ export default function ShopApplicationHistory({ refreshKey = 0 }: { refreshKey?
         if (active) setApplications(result);
       })
       .catch((err: any) => {
-        if (active) setError(err?.response?.data?.message || err?.message || "Unable to load status history.");
+        if (active)
+          setError(
+            err?.response?.data?.message || err?.message || "Unable to load status history.",
+          );
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -316,8 +383,8 @@ export default function ShopApplicationHistory({ refreshKey = 0 }: { refreshKey?
             Application status history
           </h2>
           <p className="mt-0.5 max-w-prose text-sm text-slate-500">
-            Every status change on your shop applications, from the first submission to the latest review, with the
-            admin's notes.
+            Every status change on your shop applications, from the first submission to the latest
+            review, with the admin's notes.
           </p>
         </div>
         {!loading && !error && entries.length > 0 && (
@@ -331,7 +398,10 @@ export default function ShopApplicationHistory({ refreshKey = 0 }: { refreshKey?
         {loading && <HistorySkeleton />}
 
         {!loading && error && (
-          <div role="alert" className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            role="alert"
+            className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+          >
             <p className="text-sm text-red-900">{error}</p>
             <button
               type="button"
@@ -362,7 +432,8 @@ export default function ShopApplicationHistory({ refreshKey = 0 }: { refreshKey?
                 const key = `${application.id}-${log.revisionNumber}-${log.createdAt}-${log.toStatus}`;
                 const expanded = expandedEntry === key;
                 const isLast = index === pageEntries.length - 1;
-                const { icon: StatusIcon, dot } = STATUS_META[log.toStatus];
+                const { icon: StatusIcon, dot } = getStatusMeta(log.toStatus);
+                const isRejected = normalizeStatus(log.toStatus) === "Rejected";
                 const panelId = `details-${key}`;
 
                 return (
@@ -374,14 +445,21 @@ export default function ShopApplicationHistory({ refreshKey = 0 }: { refreshKey?
                       >
                         <StatusIcon className="h-[18px] w-[18px]" aria-hidden="true" />
                       </span>
-                      {!isLast && <span className="mt-1 w-px flex-1 bg-slate-200" aria-hidden="true" />}
+                      {!isLast && (
+                        <span className="mt-1 w-px flex-1 bg-slate-200" aria-hidden="true" />
+                      )}
                     </div>
 
                     <div className={`min-w-0 flex-1 ${isLast ? "" : "pb-6"}`}>
                       <div className="rounded-xl border border-slate-200 p-4 sm:p-5">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                          <p className="min-w-0 truncate text-base font-semibold text-slate-900">{application.name}</p>
-                          <time dateTime={log.createdAt} className="shrink-0 text-xs text-slate-500">
+                          <p className="min-w-0 truncate text-base font-semibold text-slate-900">
+                            {application.name}
+                          </p>
+                          <time
+                            dateTime={log.createdAt}
+                            className="shrink-0 text-xs text-slate-500"
+                          >
                             {dateTime(log.createdAt)}
                           </time>
                         </div>
@@ -390,13 +468,19 @@ export default function ShopApplicationHistory({ refreshKey = 0 }: { refreshKey?
                           {log.fromStatus ? (
                             <>
                               <StatusBadge status={log.fromStatus} size="sm" />
-                              <ArrowRight className="h-3.5 w-3.5 text-slate-400" aria-label="changed to" />
+                              <ArrowRight
+                                className="h-3.5 w-3.5 text-slate-400"
+                                aria-label="changed to"
+                              />
                               <StatusBadge status={log.toStatus} />
                             </>
                           ) : (
                             <>
                               <span className="text-sm text-slate-600">Initial submission</span>
-                              <ArrowRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                              <ArrowRight
+                                className="h-3.5 w-3.5 text-slate-400"
+                                aria-hidden="true"
+                              />
                               <StatusBadge status={log.toStatus} />
                             </>
                           )}
@@ -405,16 +489,21 @@ export default function ShopApplicationHistory({ refreshKey = 0 }: { refreshKey?
                           </span>
                         </div>
 
-                        {log.toStatus === "Rejected" && log.note && (
+                        {isRejected && log.note && (
                           <div className="mt-4 flex gap-3 rounded-lg border-l-4 border-red-500 bg-red-50 px-3.5 py-3">
-                            <MessageSquareWarning className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden="true" />
+                            <MessageSquareWarning
+                              className="mt-0.5 h-4 w-4 shrink-0 text-red-600"
+                              aria-hidden="true"
+                            />
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-red-900">Note from admin</p>
-                              <p className="mt-1 whitespace-pre-wrap text-sm text-red-900/90">{log.note}</p>
+                              <p className="mt-1 whitespace-pre-wrap text-sm text-red-900/90">
+                                {log.note}
+                              </p>
                             </div>
                           </div>
                         )}
-                        {log.note && log.toStatus !== "Rejected" && (
+                        {log.note && !isRejected && (
                           <p className="mt-3 whitespace-pre-wrap rounded-lg bg-slate-50 px-3.5 py-2.5 text-sm text-slate-700">
                             {log.note}
                           </p>
@@ -436,7 +525,10 @@ export default function ShopApplicationHistory({ refreshKey = 0 }: { refreshKey?
 
                         {expanded && (
                           <div id={panelId}>
-                            <ApplicationDetails application={application} revisionNumber={log.revisionNumber} />
+                            <ApplicationDetails
+                              application={application}
+                              revisionNumber={log.revisionNumber}
+                            />
                           </div>
                         )}
                       </div>
@@ -451,8 +543,8 @@ export default function ShopApplicationHistory({ refreshKey = 0 }: { refreshKey?
               className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <p className="text-sm text-slate-500">
-                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, entries.length)} of {entries.length}{" "}
-                status changes
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, entries.length)} of{" "}
+                {entries.length} status changes
               </p>
               <div className="flex items-center justify-between gap-2 sm:justify-end">
                 <button
@@ -464,7 +556,10 @@ export default function ShopApplicationHistory({ refreshKey = 0 }: { refreshKey?
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                   Previous
                 </button>
-                <span className="min-w-16 text-center text-sm tabular-nums text-slate-600" aria-live="polite">
+                <span
+                  className="min-w-16 text-center text-sm tabular-nums text-slate-600"
+                  aria-live="polite"
+                >
                   {page} / {pageCount}
                 </span>
                 <button

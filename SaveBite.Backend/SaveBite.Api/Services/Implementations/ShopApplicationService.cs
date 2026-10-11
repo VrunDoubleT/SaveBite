@@ -17,19 +17,22 @@ public sealed class ShopApplicationService : IShopApplicationService
     private readonly IValidator<CreateShopApplicationRequest> _createValidator;
     private readonly IValidator<ResubmitShopApplicationRequest> _resubmitValidator;
     private readonly IValidator<ShopApplicationDocumentsValidationRequest> _documentsValidator;
+    private readonly IValidator<ShopApplicationLogoValidationRequest> _logoValidator;
 
     public ShopApplicationService(
         IShopApplicationRepository repository,
         ICloudinaryService cloudinary,
         IValidator<CreateShopApplicationRequest> createValidator,
         IValidator<ResubmitShopApplicationRequest> resubmitValidator,
-        IValidator<ShopApplicationDocumentsValidationRequest> documentsValidator)
+        IValidator<ShopApplicationDocumentsValidationRequest> documentsValidator,
+        IValidator<ShopApplicationLogoValidationRequest> logoValidator)
     {
         _repository = repository;
         _cloudinary = cloudinary;
         _createValidator = createValidator;
         _resubmitValidator = resubmitValidator;
         _documentsValidator = documentsValidator;
+        _logoValidator = logoValidator;
     }
 
     public async Task<ShopApplicationResponse?> GetMyApplicationAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -54,6 +57,8 @@ public sealed class ShopApplicationService : IShopApplicationService
         CancellationToken cancellationToken = default)
     {
         await _createValidator.ValidateAndThrowAsync(request, cancellationToken);
+        await _logoValidator.ValidateAndThrowAsync(
+            new ShopApplicationLogoValidationRequest(logo, IsRequired: true), cancellationToken);
         await ValidateDocumentsAsync(documents, documentTypes, cancellationToken);
 
         if (await _repository.HasActiveApplicationAsync(userId, cancellationToken))
@@ -128,6 +133,9 @@ public sealed class ShopApplicationService : IShopApplicationService
         if (application.Status is not (ShopApplicationStatus.Rejected or ShopApplicationStatus.Cancelled))
             throw AppException.Conflict("Only rejected or cancelled shop applications can be edited and resubmitted.");
 
+        await _logoValidator.ValidateAndThrowAsync(
+            new ShopApplicationLogoValidationRequest(logo, IsRequired: string.IsNullOrWhiteSpace(application.LogoUrl)), cancellationToken);
+        
         var now = DateTime.UtcNow;
 
         application.Name = request.Name.Trim();
@@ -389,6 +397,17 @@ public sealed class ShopApplicationService : IShopApplicationService
         {
             throw AppException.BadRequest("Decision must be Approved or Rejected.");
         }
+        if (nextStatus == ShopApplicationStatus.Approved)
+        {
+            if (application.Shop is not null)
+                throw AppException.Conflict("A shop has already been created for this application.");
+
+            if (application.ApplicantUser is null)
+                throw AppException.Conflict("The applicant account could not be found.");
+            
+            if (application.ApplicantUser.Role is not (UserRole.User or UserRole.StoreOwner))
+                throw AppException.Conflict("Only an eligible user account can become a store owner.");
+        }
 
         var now = DateTime.UtcNow;
         application.Status = nextStatus;
@@ -404,7 +423,11 @@ public sealed class ShopApplicationService : IShopApplicationService
             CreatedAt = now
         });
 
-        await _repository.SaveChangesAsync(cancellationToken);
+        if (nextStatus == ShopApplicationStatus.Approved)
+            await _repository.SaveApprovedApplicationAsync(application, cancellationToken);
+        else
+            await _repository.SaveChangesAsync(cancellationToken);
+
         return Map(application);
     }
 }

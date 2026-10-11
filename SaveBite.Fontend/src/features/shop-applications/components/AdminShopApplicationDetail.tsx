@@ -38,7 +38,7 @@ export function AdminShopApplicationDetail({
   const isPending = app.status === "Pending";
   const finalMeta = getStatusMeta(app.status);
   return (
-    <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6">
+    <div className="space-y-5">
       <button
         onClick={() => {
           onBack();

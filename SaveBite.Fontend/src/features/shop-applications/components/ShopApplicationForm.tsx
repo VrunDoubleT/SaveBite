@@ -19,7 +19,7 @@ import {
 
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { shopApplicationApi } from "../api/shopApplicationApi";
-import { validateShopApplication } from "../schemas/shopApplication.schema";
+import { validateShopApplication, validateLogoFile } from "../schemas/shopApplication.schema";
 
 import type {
   ShopApplication,
@@ -34,7 +34,7 @@ interface Props {
   onCancel: () => void;
 }
 
-type FormFieldErrors = Partial<Record<keyof FormValues | "documents", string>>;
+type FormFieldErrors = Partial<Record<keyof FormValues | "documents" | "logo", string>>;
 
 const EMPTY_FORM: FormValues = {
   name: "",
@@ -56,10 +56,7 @@ const EMPTY_FORM: FormValues = {
   payosChecksumKey: "",
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Shared styles                                                              */
-/* -------------------------------------------------------------------------- */
-
+/*  Shared styles */
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-border-default bg-bg-surface px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none transition hover:border-neutral-300 focus:border-primary-500 focus:ring-4 focus:ring-primary-100 aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger/20";
 
@@ -68,10 +65,7 @@ const labelClass = "block text-sm font-medium text-text-primary";
 const focusRing =
   "focus-within:ring-4 focus-within:ring-primary-100 focus-within:border-primary-500";
 
-/* -------------------------------------------------------------------------- */
-/*  Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
+/*  Helpers */
 function toForm(application?: ShopApplication | null): FormValues {
   if (!application) {
     return { ...EMPTY_FORM };
@@ -133,10 +127,7 @@ function usePreviewUrl(file?: File) {
   return url;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Main form                                                                  */
-/* -------------------------------------------------------------------------- */
-
+/*  Main form */
 export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
   const [form, setForm] = useState<FormValues>(() => toForm(application));
 
@@ -197,7 +188,10 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
         form,
         hasPayos,
         documents,
-        application?.documents.filter((document) => document.isCurrent).map((document) => document.documentType) ?? [],
+        application?.documents
+          .filter((document) => document.isCurrent)
+          .map((document) => document.documentType) ?? [],
+        { file: logo, hasExisting: Boolean(application?.logoUrl) },
       );
       const message = validation.errors[field];
 
@@ -206,7 +200,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
         [field]: message,
       }));
     },
-    [form, hasPayos, documents],
+    [form, hasPayos, documents, logo, application],
   );
 
   function useCurrentLocation() {
@@ -233,6 +227,25 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
         timeout: 10000,
       },
     );
+  }
+
+  function handleLogoChange(file?: File) {
+    if (!file) {
+      setLogo(undefined);
+      setFieldErrors((current) => ({ ...current, logo: undefined }));
+      return;
+    }
+
+    const message = validateLogoFile(file);
+
+    if (message) {
+      setFieldErrors((current) => ({ ...current, logo: message }));
+      return;
+    }
+
+    setLogo(file);
+    setFieldErrors((current) => ({ ...current, logo: undefined }));
+    setError("");
   }
 
   function addDocument(type: ShopDocumentType, file?: File) {
@@ -274,7 +287,10 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
       form,
       hasPayos,
       documents,
-      application?.documents.filter((document) => document.isCurrent).map((document) => document.documentType) ?? [],
+      application?.documents
+        .filter((document) => document.isCurrent)
+        .map((document) => document.documentType) ?? [],
+      { file: logo, hasExisting: Boolean(application?.logoUrl) },
     );
 
     setFieldErrors(validation.errors);
@@ -414,8 +430,9 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
               cover={coverImage}
               existingLogoUrl={application?.logoUrl}
               existingCoverUrl={application?.coverImageUrl}
-              onLogoChange={setLogo}
+              onLogoChange={handleLogoChange}
               onCoverChange={setCoverImage}
+              logoError={fieldErrors.logo}
             />
           </Section>
 
@@ -552,7 +569,9 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
             description="Add your business license or food safety certificate."
           >
             {application?.documents?.some(
-              (document) => document.isCurrent && !documents.some((upload) => upload.type === document.documentType),
+              (document) =>
+                document.isCurrent &&
+                !documents.some((upload) => upload.type === document.documentType),
             ) ? (
               <div className="mb-5">
                 <p className="mb-2 text-sm font-medium text-text-primary">Current documents</p>
@@ -561,7 +580,8 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                   {application.documents
                     .filter(
                       (document) =>
-                        document.isCurrent && !documents.some((upload) => upload.type === document.documentType),
+                        document.isCurrent &&
+                        !documents.some((upload) => upload.type === document.documentType),
                     )
                     .map((document) => (
                       <ExistingDocument key={document.id} document={document} />
@@ -711,10 +731,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Layout pieces                                                              */
-/* -------------------------------------------------------------------------- */
-
+/*  Layout pieces */
 function Section({
   icon,
   title,
@@ -747,10 +764,7 @@ function Section({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Field                                                                      */
-/* -------------------------------------------------------------------------- */
-
+/*  Field */
 function Field({
   label,
   value,
@@ -810,10 +824,7 @@ function Field({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Logo + cover                                                               */
-/* -------------------------------------------------------------------------- */
-
+/*  Logo + cover */
 function BrandingUploader({
   logo,
   cover,
@@ -821,6 +832,7 @@ function BrandingUploader({
   existingCoverUrl,
   onLogoChange,
   onCoverChange,
+  logoError,
 }: {
   logo?: File;
   cover?: File;
@@ -828,6 +840,7 @@ function BrandingUploader({
   existingCoverUrl?: string | null;
   onLogoChange: (file?: File) => void;
   onCoverChange: (file?: File) => void;
+  logoError?: string;
 }) {
   const logoPreview = usePreviewUrl(logo);
   const coverPreview = usePreviewUrl(cover);
@@ -887,7 +900,9 @@ function BrandingUploader({
 
         {/* Logo */}
         <label
-          className={`group absolute bottom-0 left-5 z-10 block h-24 w-24 cursor-pointer overflow-hidden rounded-3xl border-4 border-white bg-white shadow-lg shadow-black/10 ring-1 ring-border-default ${focusRing}`}
+          className={`group absolute bottom-0 left-5 z-10 block h-24 w-24 cursor-pointer overflow-hidden rounded-3xl border-4 bg-white shadow-lg shadow-black/10 ring-1 ${
+            logoError ? "border-danger ring-danger" : "border-white ring-border-default"
+          } ${focusRing}`}
         >
           {logoUrl ? (
             <img
@@ -917,7 +932,9 @@ function BrandingUploader({
         </label>
 
         <div className="absolute bottom-1 left-[8.25rem] right-0 min-w-0">
-          <p className="text-sm font-medium text-text-primary">Logo</p>
+          <p className="text-sm font-medium text-text-primary">
+            Logo<span className="ml-0.5 text-danger">*</span>
+          </p>
 
           <div className="flex items-center gap-3">
             <p className="truncate text-xs text-text-secondary">
@@ -937,15 +954,18 @@ function BrandingUploader({
         </div>
       </div>
 
+      {logoError && (
+        <p role="alert" className="mt-1 text-xs font-normal text-danger">
+          {logoError}
+        </p>
+      )}
+
       {cover && <p className="mt-1 truncate text-xs text-text-secondary">Cover: {cover.name}</p>}
     </div>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Documents                                                                  */
-/* -------------------------------------------------------------------------- */
-
+/*  Documents */
 function ExistingDocument({ document }: { document: ShopApplication["documents"][number] }) {
   return (
     <a
