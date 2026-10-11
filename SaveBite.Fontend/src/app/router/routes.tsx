@@ -3,7 +3,7 @@ import { Navigate, type RouteObject } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { ProtectedRoute } from "@/app/router/ProtectedRoute";
 import { CustomerRoute } from "@/app/router/CustomerRoute";
-import { ADMIN_ROLES, CUSTOMER_ROLES, STAFF_ROLES } from "@/app/router/routeAccess";
+import { ADMIN_ROLES, CUSTOMER_ROLES, STAFF_ROLES, STORE_OWNER_ROLES } from "@/app/router/routeAccess";
 
 import { AdminLayout } from "@/shared/layouts/AdminLayout";
 import { CustomerLayout } from "@/shared/layouts/CustomerLayout";
@@ -226,7 +226,7 @@ export const routes: RouteObject[] = [
     children: [
       {
         path: APP_PATHS.STAFF,
-        element: <Navigate to={APP_PATHS.ACCOUNT_WORKSPACE} replace />,
+        element: <Navigate to={APP_PATHS.HOME} replace />,
       },
       {
         path: `${APP_PATHS.STAFF}/shops/:shopId`,
@@ -252,35 +252,39 @@ export const routes: RouteObject[] = [
   },
 
   {
-    path: APP_PATHS.STORE_OWNER,
-    element: <StoreOwnerLayout />,
+    element: <ProtectedRoute allowedRoles={STORE_OWNER_ROLES} />,
     children: [
       {
-        index: true,
-        element: (
-          <ComingSoonPage
-            title="Store owner overview"
-            description="Store management data will appear here when its APIs are ready."
-            backTo={APP_PATHS.STORE_OWNER}
-          />
-        ),
-      },
-      {
-        path: "staff",
-        element: <StaffManagementPage />,
-      },
-      {
-        path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
-        element: <StoreOwnerStaffInvitationsPage />,
-      },
+        path: APP_PATHS.STORE_OWNER,
+        element: <StoreOwnerLayout />,
+        children: [
+          {
+            index: true,
+            element: (
+              <ComingSoonPage
+                title="Store owner overview"
+                description="Store management data will appear here when its APIs are ready."
+                backTo={APP_PATHS.STORE_OWNER}
+              />
+            ),
+          },
+          {
+            path: "staff",
+            element: <StaffManagementPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
+            element: <StoreOwnerStaffInvitationsPage />,
+          },
 
-      {
-        path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
-        element: <StaffDetailPage />,
+          {
+            path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
+            element: <StaffDetailPage />,
+          },
+        ],
       },
     ],
   },
-
   {
     path: APP_PATHS.NOT_FOUND,
     element: <NotFoundPage />,

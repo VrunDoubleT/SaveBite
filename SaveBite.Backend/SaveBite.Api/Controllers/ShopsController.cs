@@ -1,7 +1,8 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SaveBite.Backend.Authorization;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Services.Interfaces;
