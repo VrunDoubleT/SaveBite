@@ -45,6 +45,11 @@ export interface ForgotPasswordInput {
   newPassword: string;
 }
 
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface TokenPair {
   accessToken: string;
   accessTokenExpiresAt: string;

@@ -30,7 +30,7 @@ export function StaffInvitationsPage() {
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const refreshCurrentUser = useAuthStore((state) => state.refreshCurrentUser);
+  const refreshCurrentUser = useAuthStore((state) => state.refreshUser);
 
   const loadInvitations = useCallback(async () => {
     try {

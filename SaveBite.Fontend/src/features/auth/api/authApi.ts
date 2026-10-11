@@ -5,6 +5,7 @@ import type {
   AuthUser,
   CurrentUserResponse,
   CustomerStatus,
+  ChangePasswordInput,
   ForgotPasswordInput,
   LoginCredentials,
   RegisterInput,
@@ -39,6 +40,14 @@ function toAuthUser(response: CurrentUserResponse): AuthUser {
 }
 
 export const authApi = {
+  async changePassword(input: ChangePasswordInput): Promise<string | undefined> {
+    const response = await httpClient.put<ApiMessageResponse>(
+      API_ENDPOINTS.AUTH.CHANGE_PASSWORD,
+      input,
+    );
+    return response.data.message;
+  },
+
   async login(credentials: LoginCredentials): Promise<TokenPair> {
     const response = await httpClient.post<ApiResponse<TokenPair>>(
       API_ENDPOINTS.AUTH.LOGIN,

@@ -173,7 +173,7 @@ export function StaffManagementPage() {
     return staffs.filter(
       (staff) =>
         staff.displayName.toLowerCase().includes(q) ||
-        staff.userName.toLowerCase().includes(q) ||
+        (staff.staffNickname ?? "").toLowerCase().includes(q) ||
         staff.userEmail.toLowerCase().includes(q),
     );
   }, [staffs, keyword]);

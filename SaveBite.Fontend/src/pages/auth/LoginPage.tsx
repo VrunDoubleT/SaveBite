@@ -17,7 +17,6 @@ import { useAuthStore } from "@/shared/stores/authStore";
 import { Link } from "react-router-dom";
 
 interface LoginLocationState {
-  from?: { pathname?: string };
   message?: string;
 }
 
@@ -55,10 +54,8 @@ export function LoginPage() {
   const onSubmit = handleSubmit(async (credentials) => {
     try {
       const authenticatedUser = await login(credentials);
-      const requestedPath = locationState?.from?.pathname;
-
       const defaultPath = HOME_PATH_BY_ROLE[authenticatedUser.role];
-      navigate(requestedPath ?? defaultPath, { replace: true });
+      navigate(defaultPath, { replace: true });
     } catch (loginError) {
       const apiErrors = getApiValidationErrors(loginError);
       if (apiErrors.email) setError("email", { message: apiErrors.email });

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, Inbox, ShoppingCart } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Bell, Inbox, LogOut, ShoppingCart } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { useAuthStore } from "@/shared/stores/authStore";
 
@@ -8,6 +8,19 @@ export function AuthenticatedHeaderActions() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const isLoggingOut = useAuthStore((state) => state.isLoggingOut);
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch {
+      // The store clears the local session even if revocation fails.
+    } finally {
+      navigate(APP_PATHS.LOGIN, { replace: true });
+    }
+  }
 
   useEffect(() => {
     if (!notificationsOpen) return;
@@ -81,6 +94,17 @@ export function AuthenticatedHeaderActions() {
           {user.fullName}
         </span>
       </Link>
+      <button
+        type="button"
+        onClick={() => void handleLogout()}
+        disabled={isLoggingOut}
+        aria-label={isLoggingOut ? "Signing out..." : "Sign out"}
+        title="Sign out"
+        className="ml-1 inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold text-danger transition-colors hover:bg-danger/10 focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <LogOut className="size-5" aria-hidden="true" />
+        <span className="hidden sm:inline">{isLoggingOut ? "Signing out..." : "Sign out"}</span>
+      </button>
     </div>
   );
 }

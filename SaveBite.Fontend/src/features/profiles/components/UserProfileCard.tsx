@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "r
 import {
   Camera,
   CircleCheck,
+  LockKeyhole,
   Mail,
   Pencil,
   Phone,
@@ -12,6 +13,7 @@ import {
 import type { CustomerStatus } from "@/features/auth/types/auth.types";
 import { profileApi } from "@/features/profiles/api/profileApi";
 import { EditProfileForm } from "@/features/profiles/components/EditProfileForm";
+import { ChangePasswordSection } from "@/features/profiles/components/ChangePasswordSection";
 import type { UpdateUserProfileInput } from "@/features/profiles/types/profile.types";
 import { useAuthStore } from "@/shared/stores/authStore";
 
@@ -47,6 +49,8 @@ export function UserProfileCard() {
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const passwordButtonRef = useRef<HTMLButtonElement>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
@@ -129,7 +133,7 @@ export function UserProfileCard() {
       aria-labelledby="profile-heading"
       className="rounded-2xl border border-border-default bg-bg-surface p-6 sm:p-8"
     >
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex min-w-0 items-center gap-5">
           <div className="relative shrink-0">
             {displayedAvatarUrl ? (
@@ -190,18 +194,40 @@ export function UserProfileCard() {
         </div>
 
         {!isEditing && (
-          <button
-            type="button"
-            onClick={handleEditToggle}
-            className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-5 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-          >
-            <Pencil className="size-4" aria-hidden="true" />
-            Edit profile
-          </button>
+          <div className="flex shrink-0 flex-nowrap items-center gap-2 xl:justify-end">
+            <button
+              type="button"
+              onClick={handleEditToggle}
+              disabled={isChangingPassword}
+              className="inline-flex w-fit shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-primary-200 bg-primary-50 px-3 py-2.5 text-xs font-semibold sm:px-5 sm:text-sm text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Pencil className="size-4" aria-hidden="true" />
+              Edit profile
+            </button>
+            <button
+              ref={passwordButtonRef}
+              type="button"
+              onClick={() => setIsChangingPassword(true)}
+              aria-expanded={isChangingPassword}
+              aria-controls={isChangingPassword ? "change-password-form" : undefined}
+              disabled={isChangingPassword}
+              className="inline-flex w-fit shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-border-default px-3 py-2.5 text-xs font-semibold sm:px-5 sm:text-sm text-text-secondary transition-colors hover:bg-bg-subtle disabled:opacity-60"
+            >
+              <LockKeyhole className="size-4" aria-hidden="true" />
+              Change password
+            </button>
+          </div>
         )}
       </div>
 
-      {isEditing ? (
+      {isChangingPassword ? (
+        <ChangePasswordSection
+          onClose={() => {
+            setIsChangingPassword(false);
+            requestAnimationFrame(() => passwordButtonRef.current?.focus());
+          }}
+        />
+      ) : isEditing ? (
         <EditProfileForm
           user={user}
           isSubmitting={isSavingProfile}
