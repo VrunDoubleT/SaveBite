@@ -13,11 +13,11 @@ namespace SaveBite.Backend.Controllers;
 [AllowAnonymous]
 public sealed class ShopsController : ControllerBase
 {
-    private readonly IShopViewService _shopViewService;
+    private readonly IShopService _shopService;
 
-    public ShopsController(IShopViewService shopViewService)
+    public ShopsController(IShopService shopService)
     {
-        _shopViewService = shopViewService;
+        _shopService = shopService;
     }
 
 
@@ -27,7 +27,7 @@ public sealed class ShopsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var userId = TryGetCurrentUserId();
-        var result = await _shopViewService.GetNearbyShopsAsync(request, userId, cancellationToken);
+        var result = await _shopService.GetNearbyShopsAsync(request, userId, cancellationToken);
         var message = result.TotalItems > 0
             ? null
             : $"No shops found within a {request.RadiusInKm} km radius of your location.";
@@ -46,7 +46,7 @@ public sealed class ShopsController : ControllerBase
             throw AppException.BadRequest("Shop ID is invalid.");
         }
 
-        var profile = await _shopViewService.GetShopProfileAsync(id, cancellationToken);
+        var profile = await _shopService.GetShopProfileAsync(id, cancellationToken);
         return Ok(ApiResponse<ShopProfileResponse>.Ok(profile));
     }
 
@@ -62,7 +62,7 @@ public sealed class ShopsController : ControllerBase
             throw AppException.BadRequest("Shop ID is invalid.");
         }
 
-        var reviews = await _shopViewService.GetStoreReviewsAsync(id, request, cancellationToken);
+        var reviews = await _shopService.GetStoreReviewsAsync(id, request, cancellationToken);
         var message = reviews.TotalReviews > 0
             ? null
             : "This shop currently has no reviews.";

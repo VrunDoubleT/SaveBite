@@ -7,12 +7,12 @@ using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Services.Implementations;
 
-public sealed class ShopViewService : IShopViewService
+public sealed class ShopService : IShopService
 {
     private readonly IShopRepository _shopRepository;
     private readonly IUserAddressRepository _userAddressRepository;
 
-    public ShopViewService(
+    public ShopService(
         IShopRepository shopRepository,
         IUserAddressRepository userAddressRepository)
     {

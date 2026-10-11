@@ -3,7 +3,7 @@ using SaveBite.Backend.Models.Responses;
 
 namespace SaveBite.Backend.Services.Interfaces;
 
-public interface IShopViewService
+public interface IShopService
 {
     Task<PagedResult<NearbyShopResponse>> GetNearbyShopsAsync(NearbyShopsRequest request, Guid? userId = null, CancellationToken cancellationToken = default);
     Task<ShopProfileResponse> GetShopProfileAsync(Guid shopId, CancellationToken cancellationToken = default);
