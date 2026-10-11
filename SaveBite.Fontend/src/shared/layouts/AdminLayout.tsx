@@ -1,4 +1,12 @@
-import { ClipboardCheck, LayoutDashboard, Package, ShoppingBag, Store, Users, Tags } from "lucide-react";
+import {
+  ClipboardCheck,
+  LayoutDashboard,
+  Package,
+  ShoppingBag,
+  Store,
+  Users,
+  Tags,
+} from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
 
@@ -8,11 +16,6 @@ const navigation = [
     label: "Overview",
     end: true,
     icon: LayoutDashboard,
-  },
-  {
-    to: APP_PATHS.ADMIN_CATEGORIES,
-    label: "Categories",
-    icon: Tags,
   },
   {
     to: APP_PATHS.ADMIN_USERS,
@@ -39,10 +42,10 @@ const navigation = [
     label: "Stores",
     icon: Store,
   },
-  { 
-    to: APP_PATHS.ADMIN_SHOP_APPLICATIONS, 
-    label: "Store Applications", 
-    icon: ClipboardCheck, 
+  {
+    to: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
+    label: "Store Applications",
+    icon: ClipboardCheck,
   },
 ] as const;
 

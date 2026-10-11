@@ -10,8 +10,9 @@ export interface AdminUser {
 
 export interface UserLogResponse {
   action: string;
+  target: "Account" | "Customer";
   reason: string;
-  changedValues: string;
+  changedValues: Record<string, unknown> | null;
   createdAt: string;
   adminId: string;
 }
