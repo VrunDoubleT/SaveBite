@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -295,4 +296,37 @@ public class ShopStaffRepository(AppDbContext context)
                 cancellationToken
             );
     }
+    
+    public Task<IDbContextTransaction> BeginTransactionAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return context.Database.BeginTransactionAsync(cancellationToken);
+    }
+
+    public async Task<bool> HasActiveStaffMembershipPlatformWideAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.ShopStaffMembers
+            .AnyAsync(
+                s => s.UserId == userId && s.Status == ShopStaffStatus.Active,
+                cancellationToken
+            );
+    }
+
+    public async Task<bool> UserOwnsApprovedShopAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.Shops
+            .AnyAsync(
+                s => s.OwnerUserId == userId,
+                cancellationToken
+            ) || await context.ShopApplications
+            .AnyAsync(
+                a => a.ApplicantUserId == userId && a.Status == ShopApplicationStatus.Approved,
+                cancellationToken
+            );
+    }
+
 }

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-
 import { staffInvitationApi } from "@/features/staff-invitations/api/staffInvitationApi";
 import type {
   StaffInvitation,
@@ -8,6 +7,7 @@ import type {
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 import { useAuthStore } from "@/shared/stores/authStore";
+import { Pagination, usePagination } from "@/shared/components/pagination";
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -26,18 +26,16 @@ function getDisplayedStatus(invitation: StaffInvitation): StaffInvitationStatus 
   return isExpired ? "Expired" : invitation.status;
 }
 
-export function StaffInvitationsPage() {
+export function CustomerStaffInvitationsPage() {
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const refreshCurrentUser = useAuthStore((state) => state.refreshUser);
+  const refreshUser = useAuthStore((state) => state.refreshUser);
 
   const loadInvitations = useCallback(async () => {
     try {
       setIsLoading(true);
-
       const result = await staffInvitationApi.getMyInvitations();
-
       setInvitations(result);
     } catch (error) {
       toast.error(getApiErrorMessage(error) || "Failed to load staff invitations.");
@@ -58,16 +56,23 @@ export function StaffInvitationsPage() {
     [invitations],
   );
 
+  const {
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    paginatedItems: paginatedInvitations,
+    totalItems: totalInvitationsCount,
+  } = usePagination({
+    items: sortedInvitations,
+    initialPageSize: 5,
+  });
+
   const handleAccept = async (invitationId: string) => {
     try {
       setProcessingId(invitationId);
-
       await staffInvitationApi.acceptInvitation(invitationId);
-
-      await refreshCurrentUser();
-
+      await refreshUser();
       toast.success("Staff invitation accepted successfully.");
-
       await loadInvitations();
     } catch (error) {
       toast.error(getApiErrorMessage(error) || "Failed to accept staff invitation.");
@@ -79,11 +84,8 @@ export function StaffInvitationsPage() {
   const handleDecline = async (invitationId: string) => {
     try {
       setProcessingId(invitationId);
-
       await staffInvitationApi.declineInvitation(invitationId);
-
       toast.success("Staff invitation declined successfully.");
-
       await loadInvitations();
     } catch (error) {
       toast.error(getApiErrorMessage(error) || "Failed to decline staff invitation.");
@@ -104,25 +106,21 @@ export function StaffInvitationsPage() {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Staff Invitations</h1>
-
         <p className="mt-1 text-sm text-gray-500">View and respond to invitations from shops.</p>
       </div>
 
       {sortedInvitations.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <p className="font-medium text-gray-900">No staff invitations</p>
-
           <p className="mt-1 text-sm text-gray-500">
             You do not have any staff invitations at the moment.
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {sortedInvitations.map((invitation) => {
+          {paginatedInvitations.map((invitation) => {
             const status = getDisplayedStatus(invitation);
-
             const isPending = status === "Pending";
-
             const isProcessing = processingId === invitation.id;
 
             return (
@@ -134,7 +132,6 @@ export function StaffInvitationsPage() {
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-3">
                       <h2 className="text-lg font-semibold text-gray-900">{invitation.shopName}</h2>
-
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
                           status === "Pending"
@@ -152,7 +149,6 @@ export function StaffInvitationsPage() {
 
                     <div className="space-y-1 text-sm text-gray-500">
                       <p>Invited: {formatDate(invitation.createdAt)}</p>
-
                       <p>Expires: {formatDate(invitation.expiresAt)}</p>
                     </div>
                   </div>
@@ -182,8 +178,25 @@ export function StaffInvitationsPage() {
               </div>
             );
           })}
+
+          {totalPages > 1 && (
+            <div className="pt-2">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalInvitationsCount}
+                pageSize={5}
+                itemLabel="invitations"
+                onPageChange={setCurrentPage}
+                showFirstLast={true}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
+
+export { CustomerStaffInvitationsPage as StaffInvitationsPage };
+export default CustomerStaffInvitationsPage;

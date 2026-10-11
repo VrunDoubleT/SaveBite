@@ -1,30 +1,25 @@
 import { useEffect, useState } from "react";
-
 import { ArrowLeft, Mail, RefreshCw, Send, Trash2, Users } from "lucide-react";
-
 import { useNavigate } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
-
 import { shopStaffApi } from "@/features/shop-staffs/api/shopStaffApi";
-
 import type { StaffInvitation } from "@/features/shop-staffs/types/shopStaff.types";
-
 import { getApiErrorMessage } from "@/shared/api/httpClient";
-
 import { toast } from "@/shared/stores/toastStore";
+import { Pagination, usePagination } from "@/shared/components/pagination";
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString("vi-VN", {
+  return new Date(date).toLocaleDateString("en-US", {
+    month: "short",
     day: "2-digit",
-    month: "2-digit",
     year: "numeric",
   });
 }
 
 function formatDateTime(date: string) {
-  return new Date(date).toLocaleString("vi-VN", {
+  return new Date(date).toLocaleString("en-US", {
+    month: "short",
     day: "2-digit",
-    month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
@@ -35,20 +30,14 @@ function getStatusClass(status: string) {
   switch (status.toLowerCase()) {
     case "pending":
       return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
-
     case "accepted":
       return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
-
     case "declined":
       return "bg-red-50 text-red-700 ring-1 ring-red-200";
-
     case "expired":
-      return "bg-gray-100 text-gray-600 ring-1 ring-gray-200";
-
     case "cancelled":
     case "canceled":
       return "bg-gray-100 text-gray-600 ring-1 ring-gray-200";
-
     default:
       return "bg-gray-100 text-gray-600 ring-1 ring-gray-200";
   }
@@ -58,20 +47,15 @@ function getStatusLabel(status: string) {
   switch (status.toLowerCase()) {
     case "pending":
       return "Pending";
-
     case "accepted":
       return "Accepted";
-
     case "declined":
       return "Declined";
-
     case "expired":
       return "Expired";
-
     case "cancelled":
     case "canceled":
       return "Cancelled";
-
     default:
       return status;
   }
@@ -90,7 +74,6 @@ function RevokeInvitationModal({ invitation, loading, onClose, onConfirm }: Revo
       <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
         <div className="border-b border-gray-100 px-6 py-5">
           <h2 className="text-lg font-semibold text-gray-900">Revoke invitation</h2>
-
           <p className="mt-1 text-sm text-gray-500">
             This invitation will no longer be available to the customer.
           </p>
@@ -99,7 +82,6 @@ function RevokeInvitationModal({ invitation, loading, onClose, onConfirm }: Revo
         <div className="px-6 py-5">
           <div className="rounded-xl bg-gray-50 p-4">
             <p className="font-medium text-gray-900">{invitation.invitedUserName}</p>
-
             <p className="mt-1 text-sm text-gray-500">{invitation.invitedUserEmail}</p>
           </div>
 
@@ -125,7 +107,6 @@ function RevokeInvitationModal({ invitation, loading, onClose, onConfirm }: Revo
             className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
           >
             <Trash2 size={16} />
-
             {loading ? "Revoking..." : "Revoke"}
           </button>
         </div>
@@ -134,30 +115,32 @@ function RevokeInvitationModal({ invitation, loading, onClose, onConfirm }: Revo
   );
 }
 
-export function StaffInvitationsPage() {
+export function StoreOwnerStaffInvitationsPage() {
   const navigate = useNavigate();
 
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
-
   const [loading, setLoading] = useState(false);
-
   const [revoking, setRevoking] = useState(false);
-
   const [selectedInvitation, setSelectedInvitation] = useState<StaffInvitation | null>(null);
-  // --------------------------------------------------
-  // Load invitations
-  // --------------------------------------------------
+
+  const {
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    paginatedItems: paginatedInvitations,
+    totalItems: totalInvitationsCount,
+  } = usePagination({
+    items: invitations,
+    initialPageSize: 10,
+  });
 
   async function loadInvitations() {
     try {
       setLoading(true);
-
       const result = await shopStaffApi.getInvitations();
-
       setInvitations(result);
     } catch (error) {
       console.error(error);
-
       toast.error(getApiErrorMessage(error) || "Unable to load staff invitations.");
     } finally {
       setLoading(false);
@@ -168,28 +151,17 @@ export function StaffInvitationsPage() {
     void loadInvitations();
   }, []);
 
-  // --------------------------------------------------
-  // Revoke invitation
-  // --------------------------------------------------
-
   async function handleRevoke() {
-    if (!selectedInvitation) {
-      return;
-    }
+    if (!selectedInvitation) return;
 
     try {
       setRevoking(true);
-
       const response = await shopStaffApi.revokeInvitation(selectedInvitation.id);
-
       setSelectedInvitation(null);
-
       toast.success(response.data.message ?? "Staff invitation revoked successfully.");
-
       await loadInvitations();
     } catch (error) {
       console.error(error);
-
       toast.error(getApiErrorMessage(error) || "Unable to revoke this invitation.");
     } finally {
       setRevoking(false);
@@ -197,14 +169,11 @@ export function StaffInvitationsPage() {
   }
 
   const pendingCount = invitations.filter((item) => item.status.toLowerCase() === "pending").length;
-
-  const acceptedCount = invitations.filter(
-    (item) => item.status.toLowerCase() === "accepted",
-  ).length;
+  const acceptedCount = invitations.filter((item) => item.status.toLowerCase() === "accepted").length;
 
   return (
     <div className="space-y-6">
-      {/* Back */}
+      {/* Back button */}
       <button
         type="button"
         onClick={() => navigate(`${APP_PATHS.STORE_OWNER}/staff`)}
@@ -218,7 +187,6 @@ export function StaffInvitationsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Staff Invitations</h1>
-
           <p className="mt-1 text-sm text-gray-500">
             View and manage staff invitations sent from your shop.
           </p>
@@ -227,9 +195,7 @@ export function StaffInvitationsPage() {
         <button
           type="button"
           disabled={loading}
-          onClick={() => {
-            void loadInvitations();
-          }}
+          onClick={() => void loadInvitations()}
           className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
@@ -237,17 +203,15 @@ export function StaffInvitationsPage() {
         </button>
       </div>
 
-      {/* Summary */}
+      {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <Send size={20} />
             </div>
-
             <div>
               <p className="text-sm text-gray-500">Total invitations</p>
-
               <p className="text-2xl font-bold text-gray-900">{invitations.length}</p>
             </div>
           </div>
@@ -258,10 +222,8 @@ export function StaffInvitationsPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
               <Mail size={20} />
             </div>
-
             <div>
               <p className="text-sm text-gray-500">Pending</p>
-
               <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
             </div>
           </div>
@@ -272,10 +234,8 @@ export function StaffInvitationsPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
               <Users size={20} />
             </div>
-
             <div>
               <p className="text-sm text-gray-500">Accepted</p>
-
               <p className="text-2xl font-bold text-gray-900">{acceptedCount}</p>
             </div>
           </div>
@@ -296,9 +256,7 @@ export function StaffInvitationsPage() {
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
             <Mail size={22} />
           </div>
-
           <p className="font-medium text-gray-900">No invitations yet</p>
-
           <p className="mt-1 text-sm text-gray-500">
             Invitations you send to customers will appear here.
           </p>
@@ -312,19 +270,15 @@ export function StaffInvitationsPage() {
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Customer
                   </th>
-
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Status
                   </th>
-
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Sent date
                   </th>
-
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Expires
                   </th>
-
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Actions
                   </th>
@@ -332,7 +286,7 @@ export function StaffInvitationsPage() {
               </thead>
 
               <tbody className="divide-y divide-gray-100">
-                {invitations.map((invitation) => {
+                {paginatedInvitations.map((invitation) => {
                   const isPending = invitation.status.toLowerCase() === "pending";
 
                   return (
@@ -342,23 +296,15 @@ export function StaffInvitationsPage() {
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">
                             {invitation.invitedUserName?.charAt(0).toUpperCase() ?? "U"}
                           </div>
-
                           <div>
-                            <p className="font-medium text-gray-900">
-                              {invitation.invitedUserName}
-                            </p>
-
+                            <p className="font-medium text-gray-900">{invitation.invitedUserName}</p>
                             <p className="text-sm text-gray-500">{invitation.invitedUserEmail}</p>
                           </div>
                         </div>
                       </td>
 
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClass(
-                            invitation.status,
-                          )}`}
-                        >
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClass(invitation.status)}`}>
                           {getStatusLabel(invitation.status)}
                         </span>
                       </td>
@@ -391,6 +337,21 @@ export function StaffInvitationsPage() {
               </tbody>
             </table>
           </div>
+
+          {totalPages > 1 && (
+            <div className="border-t border-gray-100 p-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalInvitationsCount}
+                pageSize={10}
+                itemLabel="invitations"
+                onPageChange={setCurrentPage}
+                showFirstLast = {true}
+        
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -410,3 +371,6 @@ export function StaffInvitationsPage() {
     </div>
   );
 }
+
+export { StoreOwnerStaffInvitationsPage as StaffInvitationsPage };
+export default StoreOwnerStaffInvitationsPage;

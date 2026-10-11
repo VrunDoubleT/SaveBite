@@ -3,11 +3,7 @@ import { Navigate, type RouteObject } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { ProtectedRoute } from "@/app/router/ProtectedRoute";
 import { CustomerRoute } from "@/app/router/CustomerRoute";
-import {
-  ADMIN_ROLES,
-  CUSTOMER_ROLES,
-  STAFF_ROLES,
-} from "@/app/router/routeAccess";
+import { ADMIN_ROLES, CUSTOMER_ROLES, STAFF_ROLES } from "@/app/router/routeAccess";
 
 import { AdminLayout } from "@/shared/layouts/AdminLayout";
 import { CustomerLayout } from "@/shared/layouts/CustomerLayout";
@@ -21,9 +17,9 @@ import { RegisterPage } from "@/pages/auth/RegisterPage";
 
 import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
 import { AccountLayout } from "@/shared/layouts/AccountLayout";
-import {
-  StaffInvitationsPage as CustomerStaffInvitationsPage,
-} from "@/pages/customer/StaffInvitationsPage";
+import { CustomerStaffInvitationsPage } from "@/pages/customer/StaffInvitationsPage";
+import { StoreOwnerStaffInvitationsPage } from "@/pages/store-owner/StaffInvitationsPage";
+
 import { WorkspacePage } from "@/pages/customer/WorkspacePage";
 import { ShopApplicationFormPage } from "@/pages/customer/ShopApplicationFormPage";
 import ShopApplicationPage from "@/pages/customer/ShopApplicationPage";
@@ -37,10 +33,6 @@ import { UserManagementPage } from "@/pages/admin/UserManagementPage";
 
 import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
 import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
-import {
-  StaffInvitationsPage as OwnerStaffInvitationsPage,
-} from "@/pages/store-owner/StaffInvitationsPage";
-
 import { StaffShopDetailPage } from "@/pages/staff/StaffShopDetailPage";
 
 import { CustomerShopPage } from "@/pages/customer/CustomerShopPage";
@@ -223,7 +215,7 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
             element: <AdminShopApplicationsPage />,
-        },
+          },
         ],
       },
     ],
@@ -279,8 +271,9 @@ export const routes: RouteObject[] = [
       },
       {
         path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
-        element: <OwnerStaffInvitationsPage />,
+        element: <StoreOwnerStaffInvitationsPage />,
       },
+
       {
         path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
         element: <StaffDetailPage />,

@@ -46,7 +46,7 @@ export const API_ENDPOINTS = {
     REVIEW: (applicationId: string) => `/shop-applications/${applicationId}/reviews`,
   },
   SHOP_STAFFS: {
-    LIST: "/shop-staff/shop",
+    LIST: "/shop-staff",
     DETAIL: (staffId: string) => `/shop-staff/${staffId}`,
     ACTIVITY_LOGS: (staffId: string) => `/shop-staff/${staffId}/activity-logs`,
   },

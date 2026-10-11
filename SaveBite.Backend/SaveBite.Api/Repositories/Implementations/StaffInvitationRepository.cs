@@ -3,8 +3,6 @@ using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
-
-using InvitationStatus = SaveBite.Backend.Models.Enums.StaffInvitation;
 using StaffInvitation = SaveBite.Backend.Models.Entities.StaffInvitation;
 
 namespace SaveBite.Backend.Repositories.Implementations;
@@ -13,10 +11,10 @@ public sealed class StaffInvitationRepository(AppDbContext context)
     : IStaffInvitationRepository
 {
     private const string StatusPending =
-        nameof(InvitationStatus.Pending);
+        nameof(StaffInvitationStatus.Pending);
 
     private const string StatusCancelled =
-        nameof(InvitationStatus.Cancelled);
+        nameof(StaffInvitationStatus.Cancelled);
 
     private const int InvitationLifetimeDays = 3;
 
@@ -190,24 +188,18 @@ public sealed class StaffInvitationRepository(AppDbContext context)
         return (items, totalItems);
     }
 
-    public async Task<IEnumerable<StaffInvitation>>
-        GetInvitationsByUserIdAsync(
-            Guid userId,
-            CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<StaffInvitation>> GetInvitationsByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
     {
         return await context.StaffInvitations
-            .AsNoTracking()
             .Include(i => i.Shop)
             .Include(i => i.InvitedUser)
-            .Where(i =>
-                i.InvitedUserId == userId
-                && i.Status != StatusCancelled
-            )
-            .OrderByDescending(i =>
-                i.InvitedAt
-            )
+            .Where(i => i.InvitedUserId == userId)
+            .OrderByDescending(i => i.InvitedAt)
             .ToListAsync(cancellationToken);
     }
+
 
     public async Task AddInvitationAsync(
         StaffInvitation invitation,
