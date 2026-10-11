@@ -13,6 +13,7 @@ public static class RepositoryExtensions
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IShopRepository, ShopRepository>();
         services.AddScoped<IFlashDealRepository, FlashDealRepository>();
+        services.AddScoped<IUserAddressRepository, UserAddressRepository>();
         return services;
     }
 }
