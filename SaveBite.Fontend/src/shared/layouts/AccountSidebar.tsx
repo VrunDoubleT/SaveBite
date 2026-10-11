@@ -6,7 +6,7 @@ export function AccountSidebar() {
   return (
     <nav
       aria-label="Account navigation"
-      className="rounded-lg border border-border-default bg-bg-surface p-2 shadow-sm min-[900px]:sticky min-[900px]:top-20 min-[900px]:p-3"
+      className="min-w-0 rounded-lg border border-border-default bg-bg-surface p-2 shadow-sm min-[900px]:sticky min-[900px]:top-20 min-[900px]:p-3"
     >
       {ACCOUNT_NAV_GROUPS.map((group, index) => (
         <Fragment key={group.label}>

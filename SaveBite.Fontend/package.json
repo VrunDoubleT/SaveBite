@@ -9,6 +9,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
+    "test:address-location": "node tests/address-location.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

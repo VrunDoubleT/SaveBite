@@ -17,7 +17,7 @@ export function AccountLayout() {
         {current?.description ?? "Manage your account"}
       </p>
 
-      <div className="grid items-start gap-6 min-[900px]:grid-cols-[248px_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 min-[900px]:grid-cols-[248px_minmax(0,1fr)]">
         <AccountSidebar />
 
         <section className="min-w-0" aria-live="polite">

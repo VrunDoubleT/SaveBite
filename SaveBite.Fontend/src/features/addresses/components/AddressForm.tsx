@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { useForm } from "react-hook-form";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, LoaderCircle, MapPin, X } from "lucide-react";
 
@@ -16,6 +16,13 @@ import {
   type UpdateAddressFormValues,
 } from "@/features/addresses/schemas/address.schema";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { AddressLocationMap } from "@/features/addresses/components/AddressLocationMap";
+import { useAddressLocation } from "@/features/addresses/hooks/useAddressLocation";
+import {
+  parseCoordinates,
+  type AddressCoordinates,
+  type ResolvedAddress,
+} from "@/features/addresses/utils/addressLocation";
 
 interface AddressFormProps {
   /**
@@ -26,34 +33,6 @@ interface AddressFormProps {
   isFirstAddress?: boolean;
   onSaved: (address: UserAddress) => void;
   onCancel: () => void;
-}
-
-interface ReverseGeocodeResponse {
-  display_name?: string;
-  address?: {
-    house_number?: string;
-    road?: string;
-    pedestrian?: string;
-    neighbourhood?: string;
-    suburb?: string;
-    quarter?: string;
-    ward?: string;
-    city_district?: string;
-    district?: string;
-    city?: string;
-    town?: string;
-    village?: string;
-    municipality?: string;
-    state?: string;
-    province?: string;
-  };
-}
-
-interface ResolvedAddress {
-  addressLine: string;
-  ward: string;
-  district: string;
-  city: string;
 }
 
 const inputClass =
@@ -100,48 +79,6 @@ function toFormValues(address: UserAddress): AddressFormValues {
   };
 }
 
-function resolveAddress(address: ReverseGeocodeResponse["address"] = {}): ResolvedAddress {
-  return {
-    addressLine: [address.house_number, address.road ?? address.pedestrian]
-      .filter(Boolean)
-      .join(" "),
-
-    ward: address.ward ?? address.suburb ?? address.neighbourhood ?? address.quarter ?? "",
-
-    district: address.district ?? address.city_district ?? "",
-
-    city:
-      address.city ??
-      address.town ??
-      address.village ??
-      address.municipality ??
-      address.province ??
-      address.state ??
-      "",
-  };
-}
-
-async function reverseGeocode(latitude: number, longitude: number): Promise<ResolvedAddress> {
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
-      latitude,
-    )}&lon=${encodeURIComponent(longitude)}&zoom=18&addressdetails=1`,
-    {
-      headers: {
-        Accept: "application/json",
-      },
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error("Unable to retrieve the address for your location.");
-  }
-
-  const data = (await response.json()) as ReverseGeocodeResponse;
-
-  return resolveAddress(data.address);
-}
-
 export function AddressForm({
   address,
   isFirstAddress = false,
@@ -160,10 +97,11 @@ export function AddressForm({
   const isDefaultLocked = isEditing ? Boolean(address?.isDefault) : isFirstAddress;
 
   const [isSaving, setIsSaving] = useState(false);
-  const [isLocating, setIsLocating] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setError,
@@ -179,49 +117,44 @@ export function AddressForm({
     reset(address ? toFormValues(address) : getEmptyValues(isFirstAddress));
   }, [address, isFirstAddress, reset]);
 
-  const isBusy = isSaving || isLocating;
+  const [latitude, longitude] = useWatch({ control, name: ["latitude", "longitude"] });
+  const point = useMemo(() => parseCoordinates(latitude, longitude), [latitude, longitude]);
 
-  function fillField(name: keyof AddressFormValues, value: string, validate = false) {
-    setValue(name, value, {
-      shouldDirty: true,
-      shouldValidate: validate,
-    });
-  }
+  const fillPoint = useCallback(
+    (selected: AddressCoordinates) => {
+      setShowMap(true);
+      setValue("latitude", String(selected.latitude), { shouldDirty: true, shouldValidate: true });
+      setValue("longitude", String(selected.longitude), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      // Never retain address text belonging to the previously selected point.
+      for (const name of ["addressLine", "ward", "district", "city"] as const) {
+        setValue(name, "", { shouldDirty: true });
+      }
+    },
+    [setValue],
+  );
+
+  const fillAddress = useCallback(
+    (resolved: ResolvedAddress) => {
+      for (const name of ["addressLine", "ward", "district", "city"] as const) {
+        setValue(name, resolved[name], { shouldDirty: true, shouldValidate: true });
+      }
+    },
+    [setValue],
+  );
+
+  const location = useAddressLocation(fillPoint, fillAddress);
+  const isBusy = isSaving || location.phase !== "idle";
 
   function fillFromCurrentLocation() {
-    if (!navigator.geolocation) return;
-
-    setIsLocating(true);
-
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        fillField("latitude", String(coords.latitude), true);
-        fillField("longitude", String(coords.longitude), true);
-
-        try {
-          const resolved = await reverseGeocode(coords.latitude, coords.longitude);
-
-          fillField("addressLine", resolved.addressLine, true);
-          fillField("ward", resolved.ward);
-          fillField("district", resolved.district);
-          fillField("city", resolved.city);
-        } catch {
-          // Coordinates are already filled in;
-          // the user can complete the rest manually.
-        } finally {
-          setIsLocating(false);
-        }
-      },
-      () => setIsLocating(false),
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 60000,
-      },
-    );
+    setShowMap(true);
+    location.locate();
   }
 
   const submit = handleSubmit(async (values) => {
+    if (isBusy) return;
     setIsSaving(true);
 
     try {
@@ -289,17 +222,47 @@ export function AddressForm({
           disabled={isBusy}
           className={buttonClass("soft")}
         >
-          {isLocating ? (
+          {location.phase !== "idle" ? (
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
           ) : (
             <MapPin className="size-4" aria-hidden="true" />
           )}
 
-          {isLocating ? "Locating..." : "Use my location"}
+          {location.phase === "locating"
+            ? "Locating..."
+            : location.phase === "resolving"
+              ? "Finding address..."
+              : "Use my location"}
         </button>
       </div>
 
-      <div className="mt-5 space-y-5">
+      <div className="mt-4 space-y-3">
+        {location.error && (
+          <p
+            role="alert"
+            className="rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger"
+          >
+            {location.error}
+          </p>
+        )}
+        {location.phase !== "idle" && (
+          <p role="status" aria-live="polite" className="text-sm text-text-secondary">
+            {location.phase === "locating"
+              ? "Waiting for your browser location..."
+              : "Updating address for the selected point..."}
+          </p>
+        )}
+        {location.accuracy !== null && (
+          <p className="text-xs text-text-secondary">
+            GPS accuracy: approximately {Math.round(location.accuracy)} m. Check the pin and adjust
+            it if needed.
+          </p>
+        )}
+        {showMap && (
+          <AddressLocationMap point={point} disabled={isSaving} onSelect={location.selectPoint} />
+        )}
+      </div>
+      <fieldset disabled={isBusy} className="mt-5 min-w-0 space-y-5 disabled:opacity-60">
         {/* ADDRESS DETAILS */}
         <FormSection title="Address details">
           <div className="grid gap-4 md:grid-cols-2">
@@ -405,7 +368,7 @@ export function AddressForm({
             <span className="mt-0.5 block text-xs text-text-secondary">{defaultHint}</span>
           </span>
         </label>
-      </div>
+      </fieldset>
 
       {/* SERVER ERROR */}
       {errors.root?.server?.message && (
@@ -422,7 +385,7 @@ export function AddressForm({
         <button
           type="button"
           onClick={onCancel}
-          disabled={isBusy}
+          disabled={isSaving}
           className={buttonClass("outline")}
         >
           <X className="size-4" aria-hidden="true" />
@@ -452,7 +415,7 @@ interface FormSectionProps {
 
 function FormSection({ title, description, required, children }: FormSectionProps) {
   return (
-    <fieldset className="rounded-xl border border-border-default bg-bg-surface p-4">
+    <fieldset className="min-w-0 rounded-xl border border-border-default bg-bg-surface p-4">
       <legend className="px-2 text-sm font-semibold text-text-primary">
         {title}
         {required && <span className="ml-1 text-danger">*</span>}
