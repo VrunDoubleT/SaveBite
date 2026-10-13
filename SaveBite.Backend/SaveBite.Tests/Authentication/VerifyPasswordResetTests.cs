@@ -1,0 +1,339 @@
+using System.Net;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Moq;
+using SaveBite.Backend.Caching;
+using SaveBite.Backend.Caching.Interfaces;
+using SaveBite.Backend.Configurations;
+using SaveBite.Backend.Constants;
+using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Helpers;
+using SaveBite.Backend.Messaging.Interfaces;
+using SaveBite.Backend.Models.DTOs;
+using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Models.Enums;
+using SaveBite.Backend.Models.Requests;
+using SaveBite.Backend.Repositories.Interfaces;
+using SaveBite.Backend.Services.Implementations;
+using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.Validators;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace SaveBite.Tests.Authentication;
+
+/// <summary>
+/// Unit Tests for Feature: Verify Password Reset
+/// Service: AuthService.ResetPasswordAsync & ResetPasswordRequestValidator
+/// Function Code: UT-48
+/// Sheet Name: UT_VerifyPasswordReset
+/// </summary>
+public class VerifyPasswordResetTests
+{
+    private readonly ITestOutputHelper _output;
+    private readonly Mock<IAuthRepository> _authRepoMock = new();
+    private readonly Mock<IUserService> _userServiceMock = new();
+    private readonly Mock<IAuthRedisService> _redisMock = new();
+    private readonly Mock<IPasswordHasherService> _passwordHasherMock = new();
+    private readonly Mock<IRefreshTokenService> _refreshTokenServiceMock = new();
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
+    private readonly Mock<ILogger<AuthService>> _loggerMock = new();
+    private readonly AuthService _service;
+    private readonly ResetPasswordRequestValidator _validator = new();
+
+    private const string SigningKey = "test-signing-key-that-is-long-enough-32chars";
+    private const string ValidEmail = "user@savebite.vn";
+    private const string ExpiredEmail = "expired@savebite.vn";
+    private const string InvalidEmail = "invalid-email";
+    private const string ValidOtp = "123456";
+    private const string IncorrectOtp = "999999";
+    private const string ShortOtp = "12345";
+    private const string Salt = "test-salt-reset";
+    private const string NewHashedPassword = "hashed-new-password";
+
+    public VerifyPasswordResetTests(ITestOutputHelper output)
+    {
+        _output = output;
+
+        var authSettings = Options.Create(new AuthSettings
+        {
+            OtpLifetimeMinutes = 15,
+            OtpResendCooldownSeconds = 60,
+            MaxOtpRequestsPerEmailPerDay = 5,
+            MaxOtpVerificationAttempts = 5,
+            LoginAttemptWindowMinutes = 15,
+            MaxLoginAttemptsPerEmail = 5
+        });
+
+        var jwtSettings = Options.Create(new JwtSettings
+        {
+            SigningKey = SigningKey,
+            Issuer = "savebite-test",
+            Audience = "savebite-test",
+            AccessTokenLifetimeMinutes = 15,
+            RefreshTokenLifetimeDays = 30
+        });
+
+        _service = new AuthService(
+            _authRepoMock.Object,
+            _userServiceMock.Object,
+            _redisMock.Object,
+            _passwordHasherMock.Object,
+            _refreshTokenServiceMock.Object,
+            _publisherMock.Object,
+            _loggerMock.Object,
+            authSettings,
+            jwtSettings,
+            TimeProvider.System
+        );
+    }
+
+    private static string CreateOtpRecordJson(string purpose, string email, string otp, string salt)
+    {
+        var normalizedEmail = EmailAddressHelper.Normalize(email);
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(SigningKey));
+        var hash = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes($"{purpose}:{normalizedEmail}:{salt}:{otp}")));
+        return JsonSerializer.Serialize(new OtpRecord(salt, hash));
+    }
+
+    private static User CreateExistingUser(string email)
+    {
+        var normalizedEmail = EmailAddressHelper.Normalize(email);
+        return new User
+        {
+            Id = Guid.NewGuid(),
+            Email = normalizedEmail,
+            PasswordHash = "old-hashed-password",
+            FullName = "Nguyen Van A",
+            EmailVerifiedAt = DateTime.UtcNow.AddDays(-10),
+            Status = UserStatus.Active,
+            CreatedAt = DateTime.UtcNow.AddDays(-10),
+            UpdatedAt = DateTime.UtcNow.AddDays(-10)
+        };
+    }
+
+    // =========================================================================
+    // TCID01: Valid OTP, active reset request -> Password updated & sessions revoked (Normal - N)
+    // =========================================================================
+    [Fact]
+    public async Task TCID01_VerifyPasswordReset_ValidOtp_PasswordUpdatedSuccessfully_Normal()
+    {
+        // Arrange
+        var request = new ResetPasswordRequest
+        {
+            Email = ValidEmail,
+            Otp = ValidOtp
+        };
+
+        var normalizedEmail = EmailAddressHelper.Normalize(ValidEmail);
+        var subjectHash = HashingHelper.ComputeSha256Hex(normalizedEmail);
+        var pendingKey = RedisKeys.AuthPendingPasswordReset(subjectHash);
+        var otpKey = RedisKeys.AuthOtp("password-reset", subjectHash);
+        var attemptsKey = RedisKeys.AuthOtpAttempts("password-reset", subjectHash);
+
+        var pending = new PendingPasswordReset(NewHashedPassword);
+        var rawOtpRecord = CreateOtpRecordJson("password-reset", normalizedEmail, ValidOtp, Salt);
+        var existingUser = CreateExistingUser(normalizedEmail);
+
+        _redisMock.Setup(r => r.GetJsonAsync<PendingPasswordReset>(pendingKey))
+            .ReturnsAsync(pending);
+        _redisMock.Setup(r => r.GetStringAsync(otpKey))
+            .ReturnsAsync(rawOtpRecord);
+        _redisMock.Setup(r => r.DeleteIfValueMatchesAsync(otpKey, rawOtpRecord))
+            .ReturnsAsync(true);
+        _redisMock.Setup(r => r.RemoveAsync(attemptsKey))
+            .Returns(Task.CompletedTask);
+        _redisMock.Setup(r => r.RemoveAsync(pendingKey))
+            .Returns(Task.CompletedTask);
+
+        _authRepoMock.Setup(r => r.GetUserByEmailAsync(normalizedEmail, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingUser);
+        _authRepoMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _refreshTokenServiceMock.Setup(r => r.RevokeAllAsync(existingUser.Id, "Password reset", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        Func<Task> act = async () => await _service.ResetPasswordAsync(request);
+
+        // Assert
+        await act.Should().NotThrowAsync();
+
+        existingUser.PasswordHash.Should().Be(NewHashedPassword);
+        _authRepoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _refreshTokenServiceMock.Verify(r => r.RevokeAllAsync(existingUser.Id, "Password reset", It.IsAny<CancellationToken>()), Times.Once);
+        _redisMock.Verify(r => r.RemoveAsync(pendingKey), Times.Once);
+
+        _output.WriteLine("TCID01 PASSED: Password reset verified, password hash updated, and all sessions revoked.");
+    }
+
+    // =========================================================================
+    // TCID02: Pending reset data not found or expired -> Throws 400 BadRequest (Abnormal - A)
+    // =========================================================================
+    [Fact]
+    public async Task TCID02_VerifyPasswordReset_PendingDataNotFoundOrExpired_ThrowsBadRequest_Abnormal()
+    {
+        // Arrange
+        var request = new ResetPasswordRequest
+        {
+            Email = ExpiredEmail,
+            Otp = ValidOtp
+        };
+
+        var normalizedEmail = EmailAddressHelper.Normalize(ExpiredEmail);
+        var subjectHash = HashingHelper.ComputeSha256Hex(normalizedEmail);
+        var pendingKey = RedisKeys.AuthPendingPasswordReset(subjectHash);
+
+        _redisMock.Setup(r => r.GetJsonAsync<PendingPasswordReset>(pendingKey))
+            .ReturnsAsync((PendingPasswordReset?)null);
+
+        // Act
+        Func<Task> act = async () => await _service.ResetPasswordAsync(request);
+
+        // Assert
+        var ex = await act.Should().ThrowAsync<AppException>();
+        ex.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        ex.Which.Message.Should().Be("Password-reset data or OTP has expired.");
+        ex.Which.ErrorCode.Should().Be(ErrorCodes.InvalidOtp);
+
+        _output.WriteLine($"TCID02 PASSED: Threw expected AppException 400: {ex.Which.Message}");
+    }
+
+    // =========================================================================
+    // TCID03: Incorrect OTP, under max attempts -> Increments attempt, throws 400 (Abnormal - A)
+    // =========================================================================
+    [Fact]
+    public async Task TCID03_VerifyPasswordReset_IncorrectOtp_UnderMaxAttempts_ThrowsBadRequest_Abnormal()
+    {
+        // Arrange
+        var request = new ResetPasswordRequest
+        {
+            Email = ValidEmail,
+            Otp = IncorrectOtp
+        };
+
+        var normalizedEmail = EmailAddressHelper.Normalize(ValidEmail);
+        var subjectHash = HashingHelper.ComputeSha256Hex(normalizedEmail);
+        var pendingKey = RedisKeys.AuthPendingPasswordReset(subjectHash);
+        var otpKey = RedisKeys.AuthOtp("password-reset", subjectHash);
+        var attemptsKey = RedisKeys.AuthOtpAttempts("password-reset", subjectHash);
+
+        var pending = new PendingPasswordReset(NewHashedPassword);
+        var rawOtpRecord = CreateOtpRecordJson("password-reset", normalizedEmail, ValidOtp, Salt);
+
+        _redisMock.Setup(r => r.GetJsonAsync<PendingPasswordReset>(pendingKey))
+            .ReturnsAsync(pending);
+        _redisMock.Setup(r => r.GetStringAsync(otpKey))
+            .ReturnsAsync(rawOtpRecord);
+        _redisMock.Setup(r => r.IncrementAsync(attemptsKey, It.IsAny<TimeSpan>()))
+            .ReturnsAsync(1); // 1st failed attempt < 5
+
+        // Act
+        Func<Task> act = async () => await _service.ResetPasswordAsync(request);
+
+        // Assert
+        var ex = await act.Should().ThrowAsync<AppException>();
+        ex.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        ex.Which.Message.Should().Be("OTP is invalid or has expired.");
+        ex.Which.ErrorCode.Should().Be(ErrorCodes.InvalidOtp);
+
+        _redisMock.Verify(r => r.IncrementAsync(attemptsKey, It.IsAny<TimeSpan>()), Times.Once);
+
+        _output.WriteLine($"TCID03 PASSED: Threw expected AppException 400: {ex.Which.Message}");
+    }
+
+    // =========================================================================
+    // TCID04: Incorrect OTP, reaches max attempts -> Removes reset session, throws 400 (Abnormal - A)
+    // =========================================================================
+    [Fact]
+    public async Task TCID04_VerifyPasswordReset_IncorrectOtp_ExceedsMaxAttempts_RemovesSessionAndThrows_Abnormal()
+    {
+        // Arrange
+        var request = new ResetPasswordRequest
+        {
+            Email = ValidEmail,
+            Otp = IncorrectOtp
+        };
+
+        var normalizedEmail = EmailAddressHelper.Normalize(ValidEmail);
+        var subjectHash = HashingHelper.ComputeSha256Hex(normalizedEmail);
+        var pendingKey = RedisKeys.AuthPendingPasswordReset(subjectHash);
+        var otpKey = RedisKeys.AuthOtp("password-reset", subjectHash);
+        var attemptsKey = RedisKeys.AuthOtpAttempts("password-reset", subjectHash);
+
+        var pending = new PendingPasswordReset(NewHashedPassword);
+        var rawOtpRecord = CreateOtpRecordJson("password-reset", normalizedEmail, ValidOtp, Salt);
+
+        _redisMock.Setup(r => r.GetJsonAsync<PendingPasswordReset>(pendingKey))
+            .ReturnsAsync(pending);
+        _redisMock.Setup(r => r.GetStringAsync(otpKey))
+            .ReturnsAsync(rawOtpRecord);
+        _redisMock.Setup(r => r.IncrementAsync(attemptsKey, It.IsAny<TimeSpan>()))
+            .ReturnsAsync(5); // 5th failed attempt >= 5
+        _redisMock.Setup(r => r.RemoveAsync(It.IsAny<string[]>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        Func<Task> act = async () => await _service.ResetPasswordAsync(request);
+
+        // Assert
+        var ex = await act.Should().ThrowAsync<AppException>();
+        ex.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        ex.Which.Message.Should().Be("Too many incorrect OTP attempts. Request a new code.");
+        ex.Which.ErrorCode.Should().Be(ErrorCodes.InvalidOtp);
+
+        _redisMock.Verify(r => r.RemoveAsync(It.Is<string[]>(keys => keys.Contains(pendingKey) && keys.Contains(otpKey))), Times.Once);
+
+        _output.WriteLine($"TCID04 PASSED: Threw expected AppException 400: {ex.Which.Message}");
+    }
+
+    // =========================================================================
+    // TCID05: Validator - Email invalid format -> Validation fails on Email (Abnormal - A)
+    // =========================================================================
+    [Fact]
+    public void TCID05_VerifyPasswordReset_InvalidEmailFormat_ValidationFails_Abnormal()
+    {
+        // Arrange
+        var request = new ResetPasswordRequest
+        {
+            Email = InvalidEmail,
+            Otp = ValidOtp
+        };
+
+        // Act
+        var result = _validator.Validate(request);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(ResetPasswordRequest.Email));
+
+        _output.WriteLine($"TCID05 PASSED: Validation failed on Email as expected: {result.Errors.First(e => e.PropertyName == "Email").ErrorMessage}");
+    }
+
+    // =========================================================================
+    // TCID06: Validator - OTP invalid length (5 digits) -> Validation fails on Otp (Boundary - B)
+    // =========================================================================
+    [Fact]
+    public void TCID06_VerifyPasswordReset_InvalidOtpLength_ValidationFails_Boundary()
+    {
+        // Arrange
+        var request = new ResetPasswordRequest
+        {
+            Email = ValidEmail,
+            Otp = ShortOtp // 5 digits
+        };
+
+        // Act
+        var result = _validator.Validate(request);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(ResetPasswordRequest.Otp));
+
+        _output.WriteLine($"TCID06 PASSED: Validation failed on Otp as expected: {result.Errors.First(e => e.PropertyName == "Otp").ErrorMessage}");
+    }
+}
