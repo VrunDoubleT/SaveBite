@@ -8,6 +8,8 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 {
     public void Configure(EntityTypeBuilder<Product> builder)
     {
+        builder.HasIndex(x => new { x.ShopId, x.DeletedAt, x.CreatedAt });
+
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)
@@ -47,6 +49,13 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             .HasColumnType("timestamp with time zone")
             .IsRequired();
         
+        builder.Property(x => x.DeletedAt)
+            .HasColumnName("deleted_at");
+
+        builder.Property(x => x.Version)
+            .HasColumnName("version")
+            .IsConcurrencyToken();
+
         builder.HasOne(x => x.Category)
             .WithMany(x => x.Products)
             .HasForeignKey(x => x.CategoryId)

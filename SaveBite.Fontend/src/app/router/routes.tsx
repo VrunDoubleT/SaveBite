@@ -163,13 +163,44 @@ export const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: (
-              <ComingSoonPage
-                title="Store owner overview"
-                description="Store management data will appear here when its APIs are ready."
-                backTo={APP_PATHS.STORE_OWNER}
-              />
-            ),
+            element: <Navigate to={APP_PATHS.STORE_OWNER_PRODUCTS} replace />,
+          },
+          {
+            path: "products",
+            lazy: async () => ({
+              Component: (await import("@/features/products/pages/ProductsWorkspace"))
+                .ProductsWorkspace,
+            }),
+            children: [
+              {
+                index: true,
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/ProductListPage"))
+                    .ProductListPage,
+                }),
+              },
+              {
+                path: "new",
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/CreateProductPage"))
+                    .CreateProductPage,
+                }),
+              },
+              {
+                path: ":productId",
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/ProductDetailPage"))
+                    .ProductDetailPage,
+                }),
+              },
+              {
+                path: ":productId/flash-deals",
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/ProductHistoryPage"))
+                    .ProductHistoryPage,
+                }),
+              },
+            ],
           },
         ],
       },

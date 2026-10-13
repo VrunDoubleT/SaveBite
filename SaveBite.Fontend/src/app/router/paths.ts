@@ -14,6 +14,7 @@ export const APP_PATHS = {
   ADMIN_STORES: "/admin/stores",
   STAFF: "/staff",
   STORE_OWNER: "/store-owner",
+  STORE_OWNER_PRODUCTS: "/store-owner/products",
   NOT_FOUND: "*",
 } as const;
 

@@ -1,0 +1,143 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="savebite-system" name="System Architecture">
+    <mxGraphModel dx="1900" dy="1320" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="1320" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="SAVEBITE — SYSTEM ARCHITECTURE" style="text;html=0;align=left;fontSize=27;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="15" width="1300" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="system" value="SaveBite Application" style="swimlane;horizontal=1;startSize=45;container=1;collapsible=0;rounded=0;fillColor=#f8fafc;swimlaneFillColor=#f8fafc;strokeColor=#94a3b8;fontSize=21;" vertex="1" parent="1">
+          <mxGeometry x="40" y="230" width="1260" height="790" as="geometry" />
+        </mxCell>
+        <mxCell id="backend" value="Backend — ASP.NET Core 8 / one process" style="swimlane;horizontal=1;startSize=45;container=1;collapsible=0;rounded=0;fillColor=#eff6ff;swimlaneFillColor=#eff6ff;strokeColor=#94a3b8;fontSize=21;" vertex="1" parent="system">
+          <mxGeometry x="570" y="60" width="650" height="685" as="geometry" />
+        </mxCell>
+        <mxCell id="infra" value="Data &amp; Messaging Infrastructure" style="swimlane;horizontal=1;startSize=45;container=1;collapsible=0;rounded=0;fillColor=#f0fdf4;swimlaneFillColor=#f0fdf4;strokeColor=#94a3b8;fontSize=21;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="270" width="510" height="685" as="geometry" />
+        </mxCell>
+        <mxCell id="users" value="Users&#10;&#10;Application users" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#fff7ed;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="90" y="70" width="410" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend" value="Web Frontend&#10;&#10;User interface · Navigation&#10;Client state · API communication&#10;React SPA / browser runtime" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#eef2ff;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="system">
+          <mxGeometry x="50" y="80" width="430" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="api" value="API &amp; Request Processing&#10;&#10;Request handling · Access control&#10;Input validation · Error handling" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="backend">
+          <mxGeometry x="50" y="60" width="550" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="business" value="Application Services&#10;&#10;Business rules · Use-case orchestration&#10;Coordination of data and integrations" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="backend">
+          <mxGeometry x="50" y="250" width="550" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="data" value="Data Access&#10;&#10;Data queries · Persistence&#10;Repository / ORM adapters" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="backend">
+          <mxGeometry x="50" y="445" width="250" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="email" value="Background Consumers&#10;&#10;Message processing&#10;Asynchronous task execution" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="backend">
+          <mxGeometry x="350" y="445" width="250" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="pg" value="Relational Database&#10;&#10;Persistent application data&#10;PostgreSQL" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="infra">
+          <mxGeometry x="60" y="80" width="390" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="redis" value="Cache &amp; Temporary State&#10;&#10;Short-lived data · Expiration&#10;Redis" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="infra">
+          <mxGeometry x="60" y="290" width="390" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="rabbit" value="Message Broker&#10;&#10;Asynchronous messaging · Routing&#10;RabbitMQ" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="infra">
+          <mxGeometry x="60" y="500" width="390" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="cloud" value="Media Service — external&#10;&#10;Media storage · Management · Delivery&#10;Cloudinary" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#fdf2f8;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1410" y="65" width="390" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="smtp" value="Email Service — external&#10;&#10;Email transmission / SMTP provider" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#fdf2f8;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1410" y="1040" width="390" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="mailbox" value="Recipient Mailbox&#10;&#10;Receives application emails" style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;fillColor=#fff7ed;strokeColor=#475569;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="960" y="1040" width="300" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="connection-0" value="1. Browser interaction" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.47674418604651164;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="users" target="frontend">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-1" value="2. REST API / HTTP(S)" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=1.0;exitY=0.4105263157894737;exitPerimeter=0;entryX=0.0;entryY=0.34545454545454546;entryPerimeter=0;" edge="1" parent="1" source="frontend" target="api">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-2" value="3. In-process calls" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=0.2818181818181818;exitY=1.0;exitPerimeter=0;entryX=0.2818181818181818;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="api" target="business">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-3" value="4. Data access" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=0.23636363636363636;exitY=1.0;exitPerimeter=0;entryX=0.52;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="business" target="data">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-4" value="5. Database protocol / SQL" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=1.0;exitY=0.6923076923076923;exitPerimeter=0;entryX=0.0;entryY=0.496;entryPerimeter=0;" edge="1" parent="1" source="data" target="pg">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="930" y="825" />
+              <mxPoint x="930" y="700" />
+              <mxPoint x="1325" y="700" />
+              <mxPoint x="1325" y="412" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-5" value="6. Cache operations" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=1.0;exitY=0.4956521739130435;exitPerimeter=0;entryX=0.0;entryY=0.296;entryPerimeter=0;" edge="1" parent="1" source="business" target="redis">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-6" value="7. Publish events / AMQP" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=1.0;exitY=0.782608695652174;exitPerimeter=0;entryX=0.0;entryY=0.336;entryPerimeter=0;" edge="1" parent="1" source="business" target="rabbit">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1310" y="630" />
+              <mxPoint x="1310" y="812" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-7" value="8. Message delivery / AMQP" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=0.0;exitY=0.68;exitPerimeter=0;entryX=0.5;entryY=1.0;entryPerimeter=0;" edge="1" parent="1" source="rabbit" target="email">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1335" y="855" />
+              <mxPoint x="1335" y="923" />
+              <mxPoint x="1085" y="923" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-8" value="9. Email integration / SMTP" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=1.0;exitY=0.7307692307692307;exitPerimeter=0;entryX=0.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="email" target="smtp">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1280" y="830" />
+              <mxPoint x="1280" y="1095" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-9" value="10. Email delivery" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=0.0;exitY=0.7272727272727273;exitPerimeter=0;entryX=1.0;entryY=0.7272727272727273;entryPerimeter=0;" edge="1" parent="1" source="smtp" target="mailbox">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-10" value="11. Media API / HTTPS" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=0.9363636363636364;exitY=0.0;exitPerimeter=0;entryX=0.0;entryY=0.504;entryPerimeter=0;" edge="1" parent="1" source="business" target="cloud">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1175" y="128" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="connection-11" value="12. Media retrieval / HTTPS" style="edgeStyle=segmentEdgeStyle;rounded=0;endArrow=block;endFill=1;strokeColor=#475569;strokeWidth=1.6;fontSize=14;labelBackgroundColor=#ffffff;exitX=0.8953488372093024;exitY=0.0;exitPerimeter=0;entryX=0.0;entryY=0.24;entryPerimeter=0;dashed=1;" edge="1" parent="1" source="frontend" target="cloud">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="475" y="207" />
+              <mxPoint x="1380" y="207" />
+              <mxPoint x="1380" y="95" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note" value="Arrows show the main request / event direction; synchronous responses return over the same connection.&#10;Solid: application calls / messages. Dashed: direct browser image retrieval. Hosting topology is not assumed." style="text;html=0;align=left;whiteSpace=wrap;fontSize=17;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1205" width="1800" height="85" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

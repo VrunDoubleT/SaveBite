@@ -5,6 +5,9 @@ public class ProductAttributeValue
     public Guid Id { get; set; }
     public Guid AttributeId { get; set; }
 
+    public int SortOrder { get; set; }
+    public string? PublicId { get; set; }
+
     public string Value { get; set; } = string.Empty;
     public string? ImageUrl { get; set; }
 

@@ -1123,6 +1123,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
                     b.Property<string>("Description")
                         .HasColumnType("text")
                         .HasColumnName("description");
@@ -1147,11 +1151,16 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("version");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
 
-                    b.HasIndex("ShopId");
+                    b.HasIndex("ShopId", "DeletedAt", "CreatedAt");
 
                     b.ToTable("Products");
                 });
@@ -1173,6 +1182,10 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid")
                         .HasColumnName("product_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
 
                     b.HasKey("Id");
 
@@ -1196,6 +1209,15 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Property<string>("ImageUrl")
                         .HasColumnType("text")
                         .HasColumnName("image_url");
+
+                    b.Property<string>("PublicId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
 
                     b.Property<string>("Value")
                         .IsRequired()
@@ -1474,6 +1496,15 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid")
                         .HasColumnName("product_id");
+
+                    b.Property<string>("PublicId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
 
                     b.HasKey("Id");
 
@@ -1898,7 +1929,8 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasIndex("ApplicationId")
                         .IsUnique();
 
-                    b.HasIndex("OwnerUserId");
+                    b.HasIndex("OwnerUserId")
+                        .IsUnique();
 
                     b.ToTable("shops", (string)null);
                 });
@@ -3451,8 +3483,8 @@ namespace SaveBite.Backend.Data.Migrations
                         .IsRequired();
 
                     b.HasOne("SaveBite.Backend.Models.Entities.User", "Owner")
-                        .WithMany("OwnedShops")
-                        .HasForeignKey("OwnerUserId")
+                        .WithOne("OwnedShop")
+                        .HasForeignKey("SaveBite.Backend.Models.Entities.Shop", "OwnerUserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
@@ -3948,7 +3980,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.Navigation("Orders");
 
-                    b.Navigation("OwnedShops");
+                    b.Navigation("OwnedShop");
 
                     b.Navigation("ProductFeedbackReplies");
 
