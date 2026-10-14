@@ -31,6 +31,13 @@ public class ProductAttributeValueConfiguration
             .HasColumnName("image_url")
             .HasColumnType("text");
 
+        builder.Property(x => x.SortOrder)
+            .HasColumnName("sort_order");
+
+        builder.Property(x => x.PublicId)
+            .HasColumnName("public_id")
+            .HasMaxLength(255);
+
         builder.HasOne(x => x.Attribute)
             .WithMany(x => x.Values)
             .HasForeignKey(x => x.AttributeId)

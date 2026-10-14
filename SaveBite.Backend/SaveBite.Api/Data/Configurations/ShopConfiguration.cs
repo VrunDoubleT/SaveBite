@@ -101,8 +101,8 @@ public class ShopConfiguration : IEntityTypeConfiguration<Shop>
             .IsRequired();
 
         builder.HasOne(x => x.Owner)
-            .WithMany(x => x.OwnedShops)
-            .HasForeignKey(x => x.OwnerUserId)
+            .WithOne(x => x.OwnedShop)
+            .HasForeignKey<Shop>(x => x.OwnerUserId)
             .OnDelete(DeleteBehavior.NoAction);
     }
 }

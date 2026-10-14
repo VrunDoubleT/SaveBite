@@ -1,0 +1,76 @@
+@startuml
+title SaveBite Backend — Single Boundary Package Diagram
+top to bottom direction
+skinparam packageStyle folder
+skinparam shadowing false
+package "SaveBite.Backend (SaveBite.Api)" {
+  package "Controllers" as C
+  package "Authorization" as A
+  package "Services.Interfaces" as SI
+  package "Models.Requests" as Req
+  package "Models.Responses" as Res
+  package "Filters" as F
+  package "Validators" as V
+  package "Services.Implementations" as S
+  package "Helpers" as H
+  package "EmailTemplates" as T
+  package "Middlewares" as MW
+  package "Exceptions" as EX
+  package "Repositories.Interfaces" as RI
+  package "Models.DTOs" as DTO
+  package "Configurations" as CFG
+  package "Caching.Implementations" as K
+  package "Caching.Interfaces" as KI
+  package "Repositories.Implementations" as R
+  package "Models.Entities" as E
+  package "Constants" as Const
+  package "Messaging" as Q
+  package "Messaging.Interfaces" as QI
+  package "Data" as D
+  package "Models.Enums" as EN
+  package "Messaging.Events" as QE
+  C ..> SI
+  C ..> A
+  C ..> Req
+  C ..> Res
+  A ..> SI
+  F ..> Res
+  V ..> Req
+  MW ..> EX
+  S ..> SI
+  S ..> RI
+  S ..> KI
+  S ..> QI
+  S ..> QE
+  S ..> H
+  S ..> T
+  S ..> Req
+  S ..> Res
+  S ..> DTO
+  S ..> E
+  S ..> CFG
+  S ..> EX
+  R ..> RI
+  R ..> D
+  R ..> E
+  R ..> Req
+  R ..> Res
+  R ..> DTO
+  K ..> KI
+  Q ..> QI
+  Q ..> QE
+  Q ..> SI
+  D ..> E
+  D ..> EN
+  E ..> EN
+  H ..> Const
+}
+legend bottom
+  Một khung ngoài duy nhất; các package bên trong không bao thêm layer.
+  A ..> B: dependency trong code; không phải thứ tự request.
+  Sơ đồ tổng quan lược bớt cạnh dùng chung.
+  Data gộp AppDbContext, Configurations, Migrations, Seed.
+  Messaging gộp Publisher, Consumer, Configuration, Constants, Models, Extensions.
+  Services.Interfaces gồm interface nghiệp vụ và adapter hạ tầng.
+endlegend
+@enduml

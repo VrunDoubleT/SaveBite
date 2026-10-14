@@ -26,6 +26,9 @@ public class ProductAttributeConfiguration
             .HasMaxLength(100)
             .IsRequired();
 
+        builder.Property(x => x.SortOrder)
+            .HasColumnName("sort_order");
+
         builder.HasOne(x => x.Product)
             .WithMany(x => x.Attributes)
             .HasForeignKey(x => x.ProductId)

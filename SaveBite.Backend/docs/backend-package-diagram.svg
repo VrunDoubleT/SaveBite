@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1470" viewBox="0 0 1900 1470">
+<defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M1 1 L10 6 L1 11" fill="none" stroke="#64748b" stroke-width="1.4"/></marker></defs>
+<rect width="1900" height="1470" fill="white"/>
+<rect x="30" y="30" width="1840" height="1400" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+<path d="M30 85 H1870" stroke="#64748b"/>
+<text x="55" y="65" font-family="Arial,sans-serif" font-size="26" fill="#172033">SaveBite.Backend (SaveBite.Api) — UML Package Diagram</text>
+<polyline points="222.5,140 222.5,116 922.5,116 922.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="365,186 430,186" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="222.5,140 222.5,102 1272.5,102 1272.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="222.5,140 222.5,95 1622.5,95 1622.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="715,186 780,186" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="222.5,482 222.5,513 390,513 390,109 1622.5,109 1622.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="572.5,482 572.5,520 747,520 747,102 1272.5,102 1272.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="365,686 430,686" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,506 1083,506 1083,116 922.5,116 922.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,513 1090,513 1090,609 922.5,609 922.5,640" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,520 1097,520 1097,852 572.5,852 572.5,890" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,527 1104,527 1104,1095 572.5,1095 572.5,1140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,506 1083,506 1083,1116 1622.5,1116 1622.5,1140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="1065,436 1130,436" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,390 922.5,352 1622.5,352 1622.5,390" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,527 1104,527 1104,95 1272.5,95 1272.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,506 1083,506 1083,116 1622.5,116 1622.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,513 1090,513 1090,609 1272.5,609 1272.5,640" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,520 1097,520 1097,852 1272.5,852 1272.5,890" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,527 1104,527 1104,595 1622.5,595 1622.5,640" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,482 922.5,506 1083,506 1083,616 572.5,616 572.5,640" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,982 922.5,1013 1090,1013 1090,609 922.5,609 922.5,640" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,982 922.5,1020 1097,1020 1097,1102 922.5,1102 922.5,1140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="1065,936 1130,936" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,982 922.5,1006 1083,1006 1083,116 1272.5,116 1272.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,982 922.5,1013 1090,1013 1090,109 1622.5,109 1622.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,982 922.5,1020 1097,1020 1097,602 1272.5,602 1272.5,640" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="365,936 430,936" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="365,1186 430,1186" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="222.5,1140 222.5,1109 1622.5,1109 1622.5,1140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="222.5,1232 222.5,1270 397,1270 397,102 922.5,102 922.5,140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="922.5,1232 922.5,1277 1104,1277 1104,845 1272.5,845 1272.5,890" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="1065,1186 1130,1186" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="1272.5,982 1272.5,1013 1440,1013 1440,1109 1272.5,1109 1272.5,1140" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="1272.5,482 1272.5,520 1447,520 1447,852 1622.5,852 1622.5,890" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path d="M80,160 V140 H155 V160 H365 V232 H80 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="92" y="198" font-family="Arial,sans-serif" font-size="17" fill="#172033">Controllers</text>
+<path d="M430,160 V140 H505 V160 H715 V232 H430 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="442" y="198" font-family="Arial,sans-serif" font-size="17" fill="#172033">Authorization</text>
+<path d="M780,160 V140 H855 V160 H1065 V232 H780 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="792" y="198" font-family="Arial,sans-serif" font-size="17" fill="#172033">Services.Interfaces</text>
+<path d="M1130,160 V140 H1205 V160 H1415 V232 H1130 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1142" y="198" font-family="Arial,sans-serif" font-size="17" fill="#172033">Models.Requests</text>
+<path d="M1480,160 V140 H1555 V160 H1765 V232 H1480 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1492" y="198" font-family="Arial,sans-serif" font-size="17" fill="#172033">Models.Responses</text>
+<path d="M80,410 V390 H155 V410 H365 V482 H80 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="92" y="448" font-family="Arial,sans-serif" font-size="17" fill="#172033">Filters</text>
+<path d="M430,410 V390 H505 V410 H715 V482 H430 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="442" y="448" font-family="Arial,sans-serif" font-size="17" fill="#172033">Validators</text>
+<path d="M780,410 V390 H855 V410 H1065 V482 H780 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="792" y="448" font-family="Arial,sans-serif" font-size="17" fill="#172033">Services.Implementations</text>
+<path d="M1130,410 V390 H1205 V410 H1415 V482 H1130 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1142" y="448" font-family="Arial,sans-serif" font-size="17" fill="#172033">Helpers</text>
+<path d="M1480,410 V390 H1555 V410 H1765 V482 H1480 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1492" y="448" font-family="Arial,sans-serif" font-size="17" fill="#172033">EmailTemplates</text>
+<path d="M80,660 V640 H155 V660 H365 V732 H80 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="92" y="698" font-family="Arial,sans-serif" font-size="17" fill="#172033">Middlewares</text>
+<path d="M430,660 V640 H505 V660 H715 V732 H430 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="442" y="698" font-family="Arial,sans-serif" font-size="17" fill="#172033">Exceptions</text>
+<path d="M780,660 V640 H855 V660 H1065 V732 H780 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="792" y="698" font-family="Arial,sans-serif" font-size="17" fill="#172033">Repositories.Interfaces</text>
+<path d="M1130,660 V640 H1205 V660 H1415 V732 H1130 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1142" y="698" font-family="Arial,sans-serif" font-size="17" fill="#172033">Models.DTOs</text>
+<path d="M1480,660 V640 H1555 V660 H1765 V732 H1480 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1492" y="698" font-family="Arial,sans-serif" font-size="17" fill="#172033">Configurations</text>
+<path d="M80,910 V890 H155 V910 H365 V982 H80 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="92" y="948" font-family="Arial,sans-serif" font-size="17" fill="#172033">Caching.Implementations</text>
+<path d="M430,910 V890 H505 V910 H715 V982 H430 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="442" y="948" font-family="Arial,sans-serif" font-size="17" fill="#172033">Caching.Interfaces</text>
+<path d="M780,910 V890 H855 V910 H1065 V982 H780 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="792" y="948" font-family="Arial,sans-serif" font-size="17" fill="#172033">Repositories.Implementations</text>
+<path d="M1130,910 V890 H1205 V910 H1415 V982 H1130 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1142" y="948" font-family="Arial,sans-serif" font-size="17" fill="#172033">Models.Entities</text>
+<path d="M1480,910 V890 H1555 V910 H1765 V982 H1480 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1492" y="948" font-family="Arial,sans-serif" font-size="17" fill="#172033">Constants</text>
+<path d="M80,1160 V1140 H155 V1160 H365 V1232 H80 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="92" y="1198" font-family="Arial,sans-serif" font-size="17" fill="#172033">Messaging</text>
+<path d="M430,1160 V1140 H505 V1160 H715 V1232 H430 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="442" y="1198" font-family="Arial,sans-serif" font-size="17" fill="#172033">Messaging.Interfaces</text>
+<path d="M780,1160 V1140 H855 V1160 H1065 V1232 H780 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="792" y="1198" font-family="Arial,sans-serif" font-size="17" fill="#172033">Data</text>
+<path d="M1130,1160 V1140 H1205 V1160 H1415 V1232 H1130 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1142" y="1198" font-family="Arial,sans-serif" font-size="17" fill="#172033">Models.Enums</text>
+<path d="M1480,1160 V1140 H1555 V1160 H1765 V1232 H1480 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1492" y="1198" font-family="Arial,sans-serif" font-size="17" fill="#172033">Messaging.Events</text>
+<text x="80" y="1320" font-family="Arial,sans-serif" font-size="20" fill="#172033">A → B: package A phụ thuộc / sử dụng package B. Dependency nét đứt, đầu mũi tên thường.</text>
+<text x="80" y="1355" font-family="Arial,sans-serif" font-size="18" fill="#172033">Một khung ngoài duy nhất. Tên package tương đối với namespace SaveBite.Backend.</text>
+<text x="80" y="1390" font-family="Arial,sans-serif" font-size="18" fill="#172033">Bản tổng quan lược bớt dependency hỗ trợ; Data và Messaging gộp các package con.</text>
+</svg>

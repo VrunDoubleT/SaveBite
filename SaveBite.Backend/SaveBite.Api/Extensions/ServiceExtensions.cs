@@ -8,6 +8,7 @@ public static class ServiceExtensions
     public static IServiceCollection AddServices(
         this IServiceCollection services)
     {
+        services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
