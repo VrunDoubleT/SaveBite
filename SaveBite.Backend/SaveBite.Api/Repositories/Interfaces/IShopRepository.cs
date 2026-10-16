@@ -20,4 +20,6 @@ public interface IShopRepository
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
+    Task<Shop?> GetShopProfileByOwnerUserIdAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
+    Task UpdateShopAsync(Shop shop, CancellationToken cancellationToken = default);
 }

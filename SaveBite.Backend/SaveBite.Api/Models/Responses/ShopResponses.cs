@@ -35,6 +35,9 @@ public class ShopProfileResponse
     public TimeOnly? OpeningTime { get; set; }
     public TimeOnly? ClosingTime { get; set; }
     public bool IsOpen { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string? BusinessLicenseNo { get; set; }
+    public IReadOnlyList<ShopProfileDocumentResponse> Documents { get; set; } = Array.Empty<ShopProfileDocumentResponse>();
     public double AverageRating { get; set; }
     public int TotalReviews { get; set; }
     public Dictionary<int, int> RatingBreakdown { get; set; } = new();
@@ -69,4 +72,14 @@ public class StoreReviewsSummaryResponse
     public int TotalReviews { get; set; }
     public Dictionary<int, int> RatingBreakdown { get; set; } = new();
     public PagedResult<StoreReviewResponse> Reviews { get; set; } = null!;
+}
+
+public sealed class ShopProfileDocumentResponse
+{
+    public Guid Id { get; set; }
+    public string DocumentType { get; set; } = string.Empty;
+    public string FileUrl { get; set; } = string.Empty;
+    public string OriginalFileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public DateTime UploadedAt { get; set; }
 }

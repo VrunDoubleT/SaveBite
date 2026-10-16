@@ -75,4 +75,39 @@ public sealed class ShopsController : ControllerBase
             ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
         return Guid.TryParse(value, out var id) ? id : null;
     }
+
+    [HttpGet("me")]
+    [StoreOwnerAnyStatusAccess]
+    public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> GetOwnerProfile(CancellationToken cancellationToken)
+    {
+        var ownerUserId = GetRequiredCurrentUserId();
+        var profile = await _shopService.GetOwnerShopProfileAsync(ownerUserId, cancellationToken);
+        return Ok(ApiResponse<ShopProfileResponse>.Ok(profile, "Shop profile retrieved successfully."));
+    }
+
+    [HttpPut("me/business-info")]
+    [StoreOwnerAnyStatusAccess]
+    public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> UpdateBusinessInfo([FromBody] UpdateBusinessInfoRequest request, CancellationToken cancellationToken)
+    {
+        var response = await _shopService.UpdateBusinessInfoAsync(GetRequiredCurrentUserId(), request, cancellationToken);
+        return Ok(ApiResponse<ShopProfileResponse>.Ok(response, "Shop business information updated successfully."));
+    }
+
+    [HttpPut("me/images")]
+    [StoreOwnerAnyStatusAccess]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> UpdateShopImages([FromForm] UpdateShopImagesRequest request, CancellationToken cancellationToken)
+    {
+        var response = await _shopService.UpdateShopImagesAsync(GetRequiredCurrentUserId(), request, cancellationToken);
+        return Ok(ApiResponse<ShopProfileResponse>.Ok(response, "Shop images updated successfully."));
+    }
+
+    private Guid GetRequiredCurrentUserId()
+    {
+        var id = TryGetCurrentUserId();
+        if (!id.HasValue || id.Value == Guid.Empty) 
+            throw AppException.Unauthorized("Unable to identify the authenticated user.");
+        
+        return id.Value;
+    }
 }
