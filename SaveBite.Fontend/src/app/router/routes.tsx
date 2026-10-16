@@ -40,6 +40,9 @@ import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage"
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
+import { StoreOwnerFlashDealsPage } from "@/pages/store-owner/StoreOwnerFlashDealsPage";
+import { StoreOwnerFlashDealDetailPage } from "@/pages/store-owner/StoreOwnerFlashDealDetailPage";
+import { StoreOwnerFlashDealFormPage } from "@/pages/store-owner/StoreOwnerFlashDealFormPage";
 
 export const routes: RouteObject[] = [
   {
@@ -267,6 +270,22 @@ export const routes: RouteObject[] = [
                 backTo={APP_PATHS.STORE_OWNER}
               />
             ),
+          },
+          {
+            path: "flash-deals",
+            element: <StoreOwnerFlashDealsPage />,
+          },
+          {
+            path: "flash-deals/create",
+            element: <StoreOwnerFlashDealFormPage />,
+          },
+          {
+            path: "flash-deals/:id",
+            element: <StoreOwnerFlashDealDetailPage />,
+          },
+          {
+            path: "flash-deals/:id/edit",
+            element: <StoreOwnerFlashDealFormPage />,
           },
           {
             path: "staff",

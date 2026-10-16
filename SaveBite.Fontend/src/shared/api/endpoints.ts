@@ -67,5 +67,13 @@ export const API_ENDPOINTS = {
     NEARBY: "/flash-deals",
     BY_SHOP: (shopId: string) => `/shops/${shopId}/flash-deals`,
     DETAIL: (dealId: string) => `/flash-deals/${dealId}`,
+    SHOP_LIST: "/flash-deals/shop",
+    SHOP_DETAIL: (dealId: string) => `/flash-deals/shop/${dealId}`,
+    ELIGIBLE_PRODUCTS: "/flash-deals/eligible-products",
+    CREATE: "/flash-deals",
+    UPDATE: (dealId: string) => `/flash-deals/${dealId}`,
+    CANCEL: (dealId: string) => `/flash-deals/${dealId}/cancellations`,
+    HIDE: (dealId: string) => `/flash-deals/${dealId}/hides`,
+    UNHIDE: (dealId: string) => `/flash-deals/${dealId}/hides`,
   },
 } as const;
