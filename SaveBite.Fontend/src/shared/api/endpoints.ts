@@ -35,6 +35,8 @@ export const API_ENDPOINTS = {
     ME: "/shops/me",
     PROFILE: (shopId: string) => `/shops/${shopId}`,
     REVIEWS: (shopId: string) => `/shops/${shopId}/reviews`,
+    PAYMENT_CONFIG: "/shops/me/payment-config",
+    UPDATE_PAYMENT_CONFIG: "/shops/me/payment-config",
   },
   SHOP_APPLICATIONS: {
     BASE: "/shop-applications",
