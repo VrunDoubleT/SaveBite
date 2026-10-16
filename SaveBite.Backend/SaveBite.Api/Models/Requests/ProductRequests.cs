@@ -79,6 +79,16 @@ public sealed class ProductListRequest : ProductPageRequest
     public Guid? CategoryId { get; set; }
     public ProductStatus? Status { get; set; }
 }
+public sealed class UpdateProductVariantRequest
+{
+    public decimal OriginalPrice { get; set; }
+    public decimal DealPrice { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+public sealed class UpdateProductStatusRequest
+{
+    public ProductStatus Status { get; set; }
+}
 
 public sealed class ProductFlashDealListRequest : ProductPageRequest
 {

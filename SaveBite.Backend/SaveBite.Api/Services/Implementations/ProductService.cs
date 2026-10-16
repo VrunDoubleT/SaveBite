@@ -6,6 +6,7 @@ using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.Models.Common;
 
 namespace SaveBite.Backend.Services.Implementations;
 
@@ -66,11 +67,11 @@ public sealed class ProductService : IProductService
                 throw AppException.BadRequest("Without attributes, provide one variant price with an empty valueIds list.");
             var attribute = new ProductAttribute
             {
-                Id = Guid.NewGuid(), ProductId = product.Id, Name = "Loại"
+                Id = Guid.NewGuid(), ProductId = product.Id, Name = "Type"
             };
             var value = new ProductAttributeValue
             {
-                Id = Guid.NewGuid(), AttributeId = attribute.Id, Value = "Mặc định"
+                Id = Guid.NewGuid(), AttributeId = attribute.Id, Value = "Default"
             };
             attribute.Values.Add(value);
             product.Attributes.Add(attribute);
@@ -353,6 +354,7 @@ public sealed class ProductService : IProductService
         product.UpdatedAt = Now();
         product.Version = Guid.NewGuid();
     }
+    
 
     private static IReadOnlyList<ProductImageResponse> MapImages(Product product)
         => product.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.Id)
@@ -378,4 +380,53 @@ public sealed class ProductService : IProductService
                     v.IsActive, v.VariantValues.Select(x => x.AttributeValueId).OrderBy(id => id).ToArray())).ToArray(),
             review is null ? null : new ProductReviewResponse(review.Status, review.ReviewNote, review.ReviewedAt));
     }
+    
+    public async Task<ProductResponse> UpdateVariantAsync(Guid userId, Guid productId,
+        Guid variantId, UpdateProductVariantRequest request, CancellationToken ct)
+    {
+        var product = await RequireProductAsync(userId, productId, false, ct);
+        var variant = product.Variants.SingleOrDefault(v => v.Id == variantId)
+                      ?? throw AppException.NotFound("Product variant was not found.");
+        if (!request.IsActive && product.Status == ProductStatus.Active &&
+            !product.Variants.Any(v => v.Id != variantId && v.IsActive))
+        {
+            throw AppException.BadRequest("An active product must have at least one active variant.");
+        }
+        var maxDealPrice = await _repository.GetMaxActiveFlashDealPriceForVariantAsync(variantId, ct);
+        if (maxDealPrice.HasValue && request.OriginalPrice <= maxDealPrice.Value)
+        {
+            throw AppException.BadRequest(
+                $"Original price cannot be less than or equal to the deal price ({maxDealPrice.Value:N0} đ) of an active or pending flash deal.");
+        }
+        variant.OriginalPrice = request.OriginalPrice;
+        variant.DealPrice = request.DealPrice;
+        variant.IsActive = request.IsActive;
+        Touch(product);
+        await _repository.SaveChangesAsync(ct);
+        return Map(product);
+    }
+    
+    public async Task<ProductResponse> UpdateStatusAsync(Guid userId, Guid productId,
+        UpdateProductStatusRequest request, CancellationToken ct)
+    {
+        var product = await RequireProductAsync(userId, productId, true, ct);
+        if (request.Status == ProductStatus.Active)
+        {
+            await RequireCategoryAsync(product.CategoryId, ct);
+            if (!product.Variants.Any(v => v.IsActive))
+            {
+                throw AppException.BadRequest("Cannot activate a product without any active variants.");
+            }
+            product.DeletedAt = null;
+            product.Status = ProductStatus.Active;
+        }
+        else
+        {
+            product.Status = ProductStatus.Hidden;
+        }
+        Touch(product);
+        await _repository.SaveChangesAsync(ct);
+        return Map(product);
+    }
 }
+

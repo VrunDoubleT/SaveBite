@@ -153,3 +153,21 @@ public sealed class ProductFlashDealListRequestValidator : AbstractValidator<Pro
         RuleFor(x => x.Status).IsInEnum();
     }
 }
+public sealed class UpdateProductVariantRequestValidator : AbstractValidator<UpdateProductVariantRequest>
+{
+    public UpdateProductVariantRequestValidator()
+    {
+        RuleFor(x => x.OriginalPrice).GreaterThan(0).PrecisionScale(12, 2, false)
+            .WithMessage("Original price must be greater than 0.");
+        RuleFor(x => x.DealPrice).GreaterThanOrEqualTo(0)
+            .LessThan(x => x.OriginalPrice).PrecisionScale(12, 2, false)
+            .WithMessage("Deal price must be greater than or equal to 0 and less than original price.");
+    }
+}
+public sealed class UpdateProductStatusRequestValidator : AbstractValidator<UpdateProductStatusRequest>
+{
+    public UpdateProductStatusRequestValidator()
+    {
+        RuleFor(x => x.Status).IsInEnum();
+    }
+}

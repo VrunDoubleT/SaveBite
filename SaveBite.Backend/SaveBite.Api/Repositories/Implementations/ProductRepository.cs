@@ -31,8 +31,7 @@ public sealed class ProductRepository : IProductRepository
         if (shops.Length > 1)
             throw AppException.Conflict("This owner has multiple shops. Each owner must have exactly one shop.");
         var shop = shops.SingleOrDefault();
-        return shop is null || shop.Status == ShopStatus.Suspended
-            ? null : new ProductShopOption(shop.Id, shop.Name);
+        return shop is null ? null : new ProductShopOption(shop.Id, shop.Name);
     }
 
     public async Task<ProductSummaryResponse> GetSummaryAsync(Guid shopId, CancellationToken ct)
@@ -55,7 +54,8 @@ public sealed class ProductRepository : IProductRepository
         bool includeDeleted, CancellationToken ct)
         => Details(_db.Products).SingleOrDefaultAsync(x => x.Id == productId &&
             x.ShopId == shopId && x.Shop.OwnerUserId == userId &&
-            x.Shop.Status != ShopStatus.Suspended && (includeDeleted || x.DeletedAt == null), ct);
+            (includeDeleted || x.DeletedAt == null), ct);
+
 
     private static IQueryable<Product> Details(IQueryable<Product> query)
         => query.Include(x => x.Category).Include(x => x.Images)
@@ -107,6 +107,12 @@ public sealed class ProductRepository : IProductRepository
     public void AddVariants(IEnumerable<ProductVariant> variants) => _db.ProductVariants.AddRange(variants);
     public void AddImages(IEnumerable<ProductImage> images) => _db.ProductImages.AddRange(images);
     public void RemoveImages(IEnumerable<ProductImage> images) => _db.ProductImages.RemoveRange(images);
+    public async Task<decimal?> GetMaxActiveFlashDealPriceForVariantAsync(Guid variantId, CancellationToken ct)
+        => await _db.FlashDealVariants.AsNoTracking()
+            .Where(fdv => fdv.VariantId == variantId &&
+                          (fdv.FlashDeal.Status == FlashDealStatus.Pending || fdv.FlashDeal.Status == FlashDealStatus.OnSale))
+            .Select(fdv => (decimal?)fdv.DealPrice)
+            .MaxAsync(ct); 
 
     public async Task SaveChangesAsync(CancellationToken ct)
     {

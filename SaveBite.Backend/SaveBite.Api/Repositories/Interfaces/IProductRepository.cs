@@ -18,5 +18,6 @@ public interface IProductRepository
     void AddVariants(IEnumerable<ProductVariant> variants);
     void AddImages(IEnumerable<ProductImage> images);
     void RemoveImages(IEnumerable<ProductImage> images);
-    Task SaveChangesAsync(CancellationToken ct);
+    Task<decimal?> GetMaxActiveFlashDealPriceForVariantAsync(Guid variantId, CancellationToken ct);
+    Task SaveChangesAsync(CancellationToken ct);    
 }
