@@ -33,6 +33,8 @@ export const API_ENDPOINTS = {
   SHOPS: {
     NEARBY: "/shops",
     ME: "/shops/me",
+    BUSINESS_INFO: "/shops/me/business-info",
+    IMAGES: "/shops/me/images",
     PROFILE: (shopId: string) => `/shops/${shopId}`,
     REVIEWS: (shopId: string) => `/shops/${shopId}/reviews`,
   },
