@@ -68,4 +68,23 @@ export const API_ENDPOINTS = {
     BY_SHOP: (shopId: string) => `/shops/${shopId}/flash-deals`,
     DETAIL: (dealId: string) => `/flash-deals/${dealId}`,
   },
+  TRUST_SCORE: {
+    ME: "/trust-score/me",
+    LEVEL_PROGRESS: "/trust-score/me/level-progress",
+    HISTORY: "/trust-score/me/history",
+    LEVELS: "/trust-score/levels",
+    PENALTIES: "/trust-score/me/penalties",
+    PENALTY_RECOVERY: (penaltyId: string) => `/trust-score/me/penalties/${penaltyId}/recovery`,
+  },
+  ADMIN_TRUST: {
+    LEVELS: "/admin/trust/levels",
+    LEVEL_BENEFITS: (levelId: string) => `/admin/trust/levels/${levelId}/benefits`,
+    LEVEL_REQUIREMENTS: (levelId: string) => `/admin/trust/levels/${levelId}/requirements`,
+    PENALTY_RULES: "/admin/trust/penalty-rules",
+    PENALTY_RULE: (ruleId: string) => `/admin/trust/penalty-rules/${ruleId}`,
+    SCORE_RULES: "/admin/trust/score-rules",
+    SCORE_RULE: (ruleId: string) => `/admin/trust/score-rules/${ruleId}`,
+    EARNING_RULES: "/admin/trust/earning-rules",
+    EARNING_RULE: (ruleId: string) => `/admin/trust/earning-rules/${ruleId}`,
+  },
 } as const;
