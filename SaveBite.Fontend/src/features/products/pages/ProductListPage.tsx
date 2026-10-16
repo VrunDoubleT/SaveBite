@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Layers, Plus, Search } from "lucide-react";
-import { Pagination } from "@/shared/components/Pagination";
+import { ArrowUpRight, CheckCircle2, EyeOff, Layers, Package, Plus, Search } from "lucide-react";
+import { Pagination } from "@/shared/components/pagination";
 import { productApi } from "../api/productApi";
 import { useProductResource } from "../hooks/useProductResource";
 import { useProductWorkspace } from "../hooks/useProductWorkspace";
@@ -16,26 +16,37 @@ import {
 import { ProductListSkeleton } from "../components/ProductListSkeleton";
 import { money } from "../utils/productForm";
 
-const statuses = [
-  { value: "", label: "All" },
-  { value: "Active", label: "Active" },
-  { value: "Hidden", label: "Hidden" },
+const statuses: { value: number | ""; label: string }[] = [
+  { value: 0, label: "Active" },
+  { value: 1, label: "Hidden" },
 ];
 
 export function ProductListPage() {
   const { shop, categories, productPath } = useProductWorkspace();
   const [searchInput, setSearchInput] = useState("");
-  const [query, setQuery] = useState({
+  const [query, setQuery] = useState<{
+    page: number;
+    pageSize: number;
+    search: string;
+    categoryId: string;
+    status: number | "";
+  }>({
     page: 1,
-    pageSize: 10,
+    pageSize: 20,
     search: "",
     categoryId: "",
     status: "",
   });
+  const loadSummary = useCallback((signal: AbortSignal) => productApi.summary(signal), []);
+  const { data: summary } = useProductResource(`${shop.id}:product-summary`, loadSummary);
   const load = useCallback(
     (signal: AbortSignal) =>
       productApi.list(
-        { ...query, categoryId: query.categoryId || undefined, status: query.status || undefined },
+        {
+          ...query,
+          categoryId: query.categoryId || undefined,
+          status: query.status !== "" ? query.status : undefined,
+        },
         signal,
       ),
     [query],
@@ -44,7 +55,7 @@ export function ProductListPage() {
     `${shop.id}:${JSON.stringify(query)}`,
     load,
   );
-  const filtered = Boolean(query.search || query.categoryId || query.status);
+  const filtered = Boolean(query.search || query.categoryId || query.status !== "");
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -59,6 +70,54 @@ export function ProductListPage() {
           Add product
         </Link>
       </div>
+      {/* Summary counters */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <Package className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Total products</p>
+              <p className="text-xl font-bold text-neutral-900">{summary?.totalProducts ?? "—"}</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Active</p>
+              <p className="text-xl font-bold text-emerald-600">{summary?.activeProducts ?? "—"}</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <EyeOff className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Hidden</p>
+              <p className="text-xl font-bold text-amber-600">{summary?.hiddenProducts ?? "—"}</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+              <Layers className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Total variants</p>
+              <p className="text-xl font-bold text-primary-700">{summary?.totalVariants ?? "—"}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <form
           className="flex min-w-56 flex-1 gap-2"
@@ -207,7 +266,7 @@ export function ProductListPage() {
                   className={secondaryButton}
                   onClick={() => {
                     setSearchInput("");
-                    setQuery({ page: 1, pageSize: 10, search: "", categoryId: "", status: "" });
+                    setQuery({ page: 1, pageSize: 20, search: "", categoryId: "", status: "" });
                   }}
                 >
                   Clear filters
@@ -224,10 +283,15 @@ export function ProductListPage() {
       </div>
       {!loading && !error && data && data.totalItems > 0 && (
         <Pagination
-          page={data.page}
-          pages={data.totalPages}
-          total={data.totalItems}
-          onPage={(page) => setQuery({ ...query, page })}
+          currentPage={data.page}
+          totalPages={data.totalPages}
+          totalItems={data.totalItems}
+          pageSize={data.pageSize}
+          onPageChange={(page) => setQuery((prev) => ({ ...prev, page }))}
+          itemLabel="products"
+          showTotalItems={true}
+          showFirstLast={true}
+          className="w-full"
         />
       )}
     </div>

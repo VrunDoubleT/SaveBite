@@ -1,4 +1,4 @@
-import { Pagination } from "@/shared/components/Pagination";
+import { Pagination } from "@/shared/components/pagination";
 import { useCallback, useState } from "react";
 import { CalendarDays, ChevronDown, Zap } from "lucide-react";
 import { productApi } from "../api/productApi";
@@ -142,10 +142,15 @@ export function ProductDealsPanel({ productId }: { productId: string }) {
             );
           })}
           <Pagination
-            page={data.page}
-            pages={data.totalPages}
-            total={data.totalItems}
-            onPage={setPage}
+            currentPage={data.page}
+            totalPages={data.totalPages}
+            totalItems={data.totalItems}
+            pageSize={data.pageSize}
+            onPageChange={setPage}
+            itemLabel="flash deals"
+            showTotalItems={true}
+            showFirstLast={true}
+            className="w-full"
           />
         </>
       ) : (

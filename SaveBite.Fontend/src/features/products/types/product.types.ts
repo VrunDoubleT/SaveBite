@@ -67,8 +67,10 @@ export interface Page<T> {
   pageSize: number;
   totalItems: number;
   totalPages: number;
-  hasPrevious: boolean;
-  hasNext: boolean;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+  hasPrevious?: boolean;
+  hasNext?: boolean;
 }
 export interface FlashDeal {
   id: string;
@@ -117,7 +119,7 @@ export interface ProductListQuery {
   pageSize: number;
   search?: string;
   categoryId?: string;
-  status?: string;
+  status?: number;
 }
 
 export interface ProductSummary {

@@ -68,4 +68,18 @@ export const API_ENDPOINTS = {
     BY_SHOP: (shopId: string) => `/shops/${shopId}/flash-deals`,
     DETAIL: (dealId: string) => `/flash-deals/${dealId}`,
   },
+  PRODUCTS: {
+    BASE: "/products",
+    OPTIONS: "/products/options",
+    SUMMARY: "/products/summary",
+    DETAIL: (productId: string) => `/products/${productId}`,
+    STATUS: (productId: string) => `/products/${productId}/status`,
+    IMAGES: (productId: string) => `/products/${productId}/images`,
+    ATTRIBUTE_VALUES: (productId: string) => `/products/${productId}/attribute-values`,
+    VALUE_IMAGE: (productId: string, valueId: string) =>
+      `/products/${productId}/values/${valueId}/image`,
+    VARIANTS: (productId: string, variantId: string) =>
+      `/products/${productId}/variants/${variantId}`,
+    FLASH_DEALS: (productId: string) => `/products/${productId}/flash-deals`,
+  },
 } as const;

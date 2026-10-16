@@ -13,9 +13,9 @@ export function ProductsWorkspace() {
   const { data, error, loading, reload } = useProductResource("product-options", load);
   if (loading)
     return pathname.replace(/\/$/, "") === APP_PATHS.STORE_OWNER_PRODUCTS ? (
-      <div className="mx-auto max-w-7xl space-y-5">
-        <h1 className="text-2xl font-bold tracking-tight">Product management</h1>
-        <div className="overflow-hidden rounded-2xl border border-neutral-100 bg-white">
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Product management</h1>
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <ProductListSkeleton />
         </div>
       </div>
@@ -38,7 +38,7 @@ export function ProductsWorkspace() {
     productPath: (suffix = "") => `${APP_PATHS.STORE_OWNER_PRODUCTS}${suffix}`,
   };
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="space-y-6">
       <Outlet key={shop.id} context={context} />
     </div>
   );

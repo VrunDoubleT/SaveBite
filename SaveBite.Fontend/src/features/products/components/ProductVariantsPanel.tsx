@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import { productApi } from "../api/productApi";
-import type { DraftAttribute, PriceMap, Product } from "../types/product.types";
+import type { DraftAttribute, PriceMap, Product, ProductVariant } from "../types/product.types";
 import {
   appendAttributes,
   appendPrices,
@@ -15,18 +15,25 @@ import {
 } from "../utils/productForm";
 import { AttributesEditor } from "./AttributesEditor";
 import { VariantPrices } from "./VariantPrices";
-import { Alert, Panel, primaryButton, secondaryButton, StatusBadge } from "./ProductUi";
+import {
+  Alert,
+  inputClass,
+  Modal,
+  Panel,
+  primaryButton,
+  secondaryButton,
+  StatusBadge,
+} from "./ProductUi";
 
 export function ProductVariantsPanel({
   product,
-
   onSaved,
 }: {
   product: Product;
-
   onSaved: (product: Product) => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
   const valueNames = new Map(
     product.attributes.flatMap((a) => a.values.map((v) => [v.id, v.value] as const)),
   );
@@ -34,7 +41,7 @@ export function ProductVariantsPanel({
     <div className="space-y-5">
       <Panel
         title={`Product variants · ${product.variants.length}/100`}
-        description="Prices and SKUs are fixed. Add values to existing attributes to create new variants."
+        description="Manage prices, status, and attributes for your variants. Add values to create new variants."
         aside={
           !adding && (
             <button
@@ -65,6 +72,7 @@ export function ProductVariantsPanel({
                     {label}
                   </th>
                 ))}
+                <th className="px-3 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -90,6 +98,16 @@ export function ProductVariantsPanel({
                   <td className="px-3 py-4">
                     <StatusBadge hidden={!v.isActive} />
                   </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-right">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:border-primary-400 hover:text-primary-700"
+                      onClick={() => setEditingVariant(v)}
+                    >
+                      <Pencil className="size-3.5" />
+                      Edit
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -106,17 +124,24 @@ export function ProductVariantsPanel({
           }}
         />
       )}
+      {editingVariant && (
+        <EditVariantModal
+          product={product}
+          variant={editingVariant}
+          onClose={() => setEditingVariant(null)}
+          onSaved={onSaved}
+        />
+      )}
     </div>
   );
 }
+
 function AddValuesForm({
   product,
-
   onCancel,
   onSaved,
 }: {
   product: Product;
-
   onCancel: () => void;
   onSaved: (product: Product) => void;
 }) {
@@ -198,5 +223,154 @@ function AddValuesForm({
         </div>
       </form>
     </Panel>
+  );
+}
+
+function EditVariantModal({
+  product,
+  variant,
+  onClose,
+  onSaved,
+}: {
+  product: Product;
+  variant: ProductVariant;
+  onClose: () => void;
+  onSaved: (product: Product) => void;
+}) {
+  const [originalPrice, setOriginalPrice] = useState(String(variant.originalPrice));
+  const [dealPrice, setDealPrice] = useState(String(variant.dealPrice));
+  const [isActive, setIsActive] = useState(variant.isActive);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const valueNames = new Map(
+    product.attributes.flatMap((a) => a.values.map((v) => [v.id, v.value] as const)),
+  );
+  const variantTitle =
+    variant.valueIds.map((id) => valueNames.get(id) ?? "—").join(" / ") || "Default";
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+
+    const op = Number(originalPrice);
+    const dp = Number(dealPrice);
+
+    if (isNaN(op) || op <= 0) {
+      setError("Original price must be greater than 0.");
+      return;
+    }
+    if (isNaN(dp) || dp < 0) {
+      setError("Deal price must be greater than or equal to 0.");
+      return;
+    }
+    if (dp >= op) {
+      setError("Deal price must be less than original price.");
+      return;
+    }
+    if (!isActive && product.status === 0) {
+      const hasOtherActive = product.variants.some((v) => v.id !== variant.id && v.isActive);
+      if (!hasOtherActive) {
+        setError("An active product must have at least one active variant.");
+        return;
+      }
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await productApi.updateVariant(product.id, variant.id, {
+        originalPrice: op,
+        dealPrice: dp,
+        isActive,
+      });
+      onSaved(updated);
+      onClose();
+    } catch (err) {
+      setError(describeError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={`Edit variant · ${variantTitle}`} busy={busy} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {variant.sku && (
+          <div>
+            <span className="text-xs font-medium text-neutral-500">SKU</span>
+            <p className="mt-0.5 font-mono text-sm text-neutral-800">{variant.sku}</p>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-neutral-800">
+            Original price (VND) <span className="text-red-500">*</span>
+            <input
+              type="number"
+              step="any"
+              min="1"
+              required
+              className={inputClass}
+              value={originalPrice}
+              onChange={(e) => setOriginalPrice(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-neutral-800">
+            Deal price (VND) <span className="text-red-500">*</span>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              required
+              className={inputClass}
+              value={dealPrice}
+              onChange={(e) => setDealPrice(e.target.value)}
+            />
+          </label>
+          {Number(originalPrice) > 0 &&
+            Number(dealPrice) >= 0 &&
+            Number(dealPrice) < Number(originalPrice) && (
+              <p className="mt-1 text-xs font-medium text-primary-600">
+                Discount:{" "}
+                {Math.round(
+                  ((Number(originalPrice) - Number(dealPrice)) / Number(originalPrice)) * 100,
+                )}
+                %
+              </p>
+            )}
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <input
+            id="variant-active-toggle"
+            type="checkbox"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+            className="size-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+          />
+          <label
+            htmlFor="variant-active-toggle"
+            className="cursor-pointer text-sm font-medium text-neutral-800"
+          >
+            Active for sale
+          </label>
+        </div>
+
+        {error && <Alert>{error}</Alert>}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button type="button" disabled={busy} className={secondaryButton} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" disabled={busy} className={primaryButton}>
+            {busy ? "Saving…" : "Save variant"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

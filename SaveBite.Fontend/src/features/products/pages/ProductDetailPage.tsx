@@ -101,16 +101,40 @@ function Detail({
             </div>
           </div>
         </div>
-        <button
-          className={`${secondaryButton} border-red-200! text-red-600! hover:bg-red-50!`}
-          onClick={() => {
-            setDeleting(true);
-            setDeleteError("");
-          }}
-        >
-          <Trash2 className="size-4" />
-          Delete product
-        </button>
+       <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            className={secondaryButton}
+            onClick={async () => {
+              if (busy) return;
+              const newStatus = product.status === 0 ? 1 : 0;
+              setBusy(true);
+              try {
+                const res = await productApi.updateStatus(product.id, newStatus);
+                saved(res);
+                setNotice(`Product status updated to ${newStatus === 0 ? "Active" : "Hidden"}.`);
+              } catch (err) {
+                setNotice(describeError(err));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {product.status === 0 ? "Hide product" : "Activate product"}
+          </button>
+          <button
+            type="button"
+            className={`${secondaryButton} border-red-200! text-red-600! hover:bg-red-50!`}
+            onClick={() => {
+              setDeleting(true);
+              setDeleteError("");
+            }}
+          >
+            <Trash2 className="size-4" />
+            Delete product
+          </button>
+        </div>
       </div>
       {notice && <Alert success>{notice}</Alert>}
       {product.latestReview && [3, 4].includes(product.latestReview.status) && (
