@@ -223,4 +223,52 @@ public sealed class ShopService : IShopService
             ? now >= opening.Value && now <= closing.Value
             : now >= opening.Value || now <= closing.Value;
     }
+
+    public async Task<ShopPaymentConfigResponse> GetOwnerPaymentConfigAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
+    {
+        var paymentConfig = await _shopRepository.GetPaymentConfigByOwnerUserIdAsync(ownerUserId, cancellationToken);
+        if (paymentConfig == null)
+            throw AppException.NotFound("Shop payment configuration not found.");
+
+        return MapPaymentConfigResponse(paymentConfig);
+    }
+
+    public async Task<ShopPaymentConfigResponse> UpdateOwnerPaymentConfigAsync(Guid ownerUserId, UpdateShopPaymentConfigRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var paymentConfig = await _shopRepository.GetPaymentConfigByOwnerUserIdAsync(ownerUserId, cancellationToken);
+        if (paymentConfig == null)
+            throw AppException.NotFound("Shop payment configuration not found.");
+
+        paymentConfig.BankName = string.IsNullOrWhiteSpace(request.BankName) ? null : request.BankName.Trim();
+        paymentConfig.BankAccountNumber = string.IsNullOrWhiteSpace(request.BankAccountNumber) ? null : request.BankAccountNumber.Trim();
+        paymentConfig.BankAccountHolder = string.IsNullOrWhiteSpace(request.BankAccountHolder) ? null : request.BankAccountHolder.Trim();
+
+        if (!string.IsNullOrWhiteSpace(request.PayosClientId))
+            paymentConfig.PayosClientId = request.PayosClientId.Trim();
+        
+        if (!string.IsNullOrWhiteSpace(request.PayosApiKey))
+            paymentConfig.PayosApiKey = request.PayosApiKey.Trim();
+        
+        if (!string.IsNullOrWhiteSpace(request.PayosChecksumKey))
+            paymentConfig.PayosChecksumKey = request.PayosChecksumKey.Trim();
+        
+        paymentConfig.UpdatedAt = DateTime.UtcNow;
+        await _shopRepository.SaveChangesAsync(cancellationToken);
+        return MapPaymentConfigResponse(paymentConfig);
+    }
+
+    private static ShopPaymentConfigResponse MapPaymentConfigResponse(ShopPaymentConfig config)
+    {
+        return new ShopPaymentConfigResponse
+        {
+            BankName = config.BankName,
+            BankAccountNumber = config.BankAccountNumber,
+            BankAccountHolder = config.BankAccountHolder,
+            PayosClientId = config.PayosClientId,
+            HasPayosApiKey = !string.IsNullOrWhiteSpace(config.PayosApiKey),
+            HasPayosChecksumKey = !string.IsNullOrWhiteSpace(config.PayosChecksumKey),
+            UpdatedAt = config.UpdatedAt
+        };
+    }
 }

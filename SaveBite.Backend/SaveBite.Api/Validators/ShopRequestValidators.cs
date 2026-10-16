@@ -48,3 +48,24 @@ public sealed class StoreReviewsQueryRequestValidator : AbstractValidator<StoreR
             .WithMessage("Rating must be between 1 and 5 stars.");
     }
 }
+
+public sealed class UpdateShopPaymentConfigRequestValidator : AbstractValidator<UpdateShopPaymentConfigRequest>
+{
+    public UpdateShopPaymentConfigRequestValidator()
+    {
+        RuleFor(x => x.BankName).MaximumLength(100).When(x => x.BankName is not null);
+        RuleFor(x => x.BankAccountNumber).MaximumLength(50).When(x => x.BankAccountNumber is not null);
+        RuleFor(x => x.BankAccountHolder).MaximumLength(150).When(x => x.BankAccountHolder is not null);
+        RuleFor(x => x.PayosClientId).NotEmpty().MaximumLength(255);
+        RuleFor(x => x.PayosApiKey).MaximumLength(500);
+        RuleFor(x => x.PayosChecksumKey).MaximumLength(500);
+        RuleFor(x => x).Must(x =>
+            (string.IsNullOrWhiteSpace(x.BankName) &&
+             string.IsNullOrWhiteSpace(x.BankAccountNumber) &&
+             string.IsNullOrWhiteSpace(x.BankAccountHolder)) ||
+            (!string.IsNullOrWhiteSpace(x.BankName) &&
+             !string.IsNullOrWhiteSpace(x.BankAccountNumber) &&
+             !string.IsNullOrWhiteSpace(x.BankAccountHolder)))
+            .WithMessage("Bank name, account number and account holder must all be provided together.");
+    }
+}

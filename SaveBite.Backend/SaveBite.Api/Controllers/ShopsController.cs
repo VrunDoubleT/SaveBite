@@ -75,4 +75,27 @@ public sealed class ShopsController : ControllerBase
             ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
         return Guid.TryParse(value, out var id) ? id : null;
     }
+
+    [HttpGet("me/payment-config")]
+    public async Task<ActionResult<ApiResponse<ShopPaymentConfigResponse>>> GetMyPaymentConfig(CancellationToken cancellationToken)
+    {
+        var ownerUserId = GetRequiredCurrentUserId();
+        var result = await _shopService.GetOwnerPaymentConfigAsync(ownerUserId, cancellationToken);
+        return Ok(ApiResponse<ShopPaymentConfigResponse>.Ok(result, "Shop payment configuration retrieved successfully. "));
+    }
+
+    [HttpPut("me/payment-config")]
+    public async Task<ActionResult<ApiResponse<ShopPaymentConfigResponse>>> UpdateMyPaymentConfig([FromBody] UpdateShopPaymentConfigRequest request, CancellationToken cancellationToken)
+    {
+        var ownerUserId = GetRequiredCurrentUserId();
+        var result = await _shopService.UpdateOwnerPaymentConfigAsync(ownerUserId, request, cancellationToken);
+        return Ok(ApiResponse<ShopPaymentConfigResponse>.Ok(result, "Shop payment configuration updated successfully."));
+    }
+
+    private Guid GetRequiredCurrentUserId()
+    {
+        var id = TryGetCurrentUserId();
+        if (!id.HasValue || id.Value == Guid.Empty) throw AppException.Unauthorized("Unable to identify the authenticated user.");
+        return id.Value;
+    }
 }

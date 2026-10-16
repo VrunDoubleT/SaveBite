@@ -20,4 +20,6 @@ public interface IShopRepository
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
+    Task<ShopPaymentConfig?> GetPaymentConfigByOwnerUserIdAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
+    Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }
