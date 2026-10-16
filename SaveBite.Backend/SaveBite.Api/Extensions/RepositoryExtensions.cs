@@ -1,5 +1,6 @@
 using SaveBite.Backend.Repositories.Implementations;
 using SaveBite.Backend.Repositories.Interfaces;
+using FlashDealRepository = SaveBite.Backend.Repositories.Implementations.FlashDealRepository;
 
 namespace SaveBite.Backend.Extensions;
 
