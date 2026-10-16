@@ -1,4 +1,4 @@
-import { Store, Users } from "lucide-react";
+import { Package, Store, Users } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
 
@@ -9,14 +9,18 @@ const navigation = [
     end: true,
     icon: Store,
   },
-
   {
-    to: `${APP_PATHS.STORE_OWNER}/staff`,
+    to: APP_PATHS.STORE_OWNER_STAFF,
     label: "Staff Management",
     end: false,
     icon: Users,
   },
-
+  {
+    to: APP_PATHS.STORE_OWNER_PRODUCTS,
+    label: "Products",
+    end: false,
+    icon: Package,
+  },
 ] as const;
 
 export function StoreOwnerLayout() {

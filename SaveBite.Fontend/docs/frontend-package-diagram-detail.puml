@@ -1,0 +1,90 @@
+@startuml
+title SaveBite Frontend — UML Package Diagram
+top to bottom direction
+skinparam packageStyle folder
+skinparam shadowing false
+skinparam linetype polyline
+
+package "Composition & Routing Layer" #eef2ff {
+  package "app (App.tsx)" as App
+  package "app/providers" as Providers
+  package "app/router" as Router
+}
+package "Presentation Layer" #eff6ff {
+  package "pages (auth, customer, commons)" as Pages
+  package "features/products/pages" as PP
+  package "features/auth/components" as AC
+  package "features/products/components" as PC
+  package "shared/layout" as Layout
+  package "shared/components" as SC
+}
+package "State & Feature Logic Layer" #f0fdf4 {
+  package "shared/stores" as Stores
+  package "features/products/hooks" as Hooks
+  package "features/products/utils" as Utils
+  package "features/auth/schemas" as Schemas
+}
+package "API / Infrastructure Layer" #faf5ff {
+  package "features/auth/api" as AA
+  package "features/products/api" as PA
+  package "shared/api" as HTTP
+}
+package "Contracts & Types" #fffbeb {
+  package "features/auth/types" as AT
+  package "features/products/types" as PT
+  package "shared/types" as ST
+}
+AA ..> AT
+AA ..> HTTP
+AA ..> ST
+App ..> Providers
+App ..> Router
+HTTP ..> ST
+Hooks ..> HTTP
+Hooks ..> PT
+Layout ..> Router
+Layout ..> SC
+PA ..> HTTP
+PA ..> PT
+PA ..> ST
+PC ..> Hooks
+PC ..> PA
+PC ..> PT
+PC ..> SC
+PC ..> Utils
+PP ..> Hooks
+PP ..> PA
+PP ..> PC
+PP ..> PT
+PP ..> Router
+PP ..> SC
+PP ..> Utils
+Pages ..> AA
+Pages ..> AC
+Pages ..> HTTP
+Pages ..> Router
+Pages ..> Schemas
+Pages ..> Stores
+Providers ..> Stores
+Router ..> AT
+Router ..> Layout
+Router ..> PP
+Router ..> Pages
+Router ..> Stores
+SC ..> Router
+SC ..> Stores
+Stores ..> AA
+Stores ..> AT
+Stores ..> HTTP
+Utils ..> HTTP
+Utils ..> PT
+legend bottom
+  A ..> B: A imports / re-exports types or code from B.
+  Dynamic imports and type-only imports are included.
+  Paths are relative to src; layers are logical groupings.
+  No realization arrows; no invented service / repository interfaces.
+  app/router and UI have mutual package dependencies through paths and route imports.
+  shared/stores imports features/auth/api and features/auth/types in current code.
+  Entry: main.tsx -> App.tsx re-export -> app/App.tsx.
+endlegend
+@enduml
