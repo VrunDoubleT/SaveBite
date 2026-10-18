@@ -1,0 +1,67 @@
+using Hangfire;
+using Hangfire.PostgreSql;
+using Microsoft.Extensions.Options;
+using SaveBite.Backend.BackgroundJobs.Configuration;
+
+namespace SaveBite.Backend.BackgroundJobs.Extensions;
+
+public static class HangfireExtensions
+{
+    public static IServiceCollection AddBackgroundJobs(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<HangfireOptions>()
+            .Bind(configuration.GetSection(HangfireOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        var connectionString = configuration.GetConnectionString("Hangfire");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            connectionString = configuration.GetConnectionString("Postgres");
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Hangfire requires ConnectionStrings:Hangfire or ConnectionStrings:Postgres.");
+        }
+
+        services.AddHangfire((provider, config) =>
+        {
+            var options = provider.GetRequiredService<IOptions<HangfireOptions>>().Value;
+            config.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UsePostgreSqlStorage(storage => storage.UseNpgsqlConnection(connectionString),
+                    new PostgreSqlStorageOptions
+                    {
+                        SchemaName = "hangfire",
+                        PrepareSchemaIfNecessary = true
+                    })
+                .UseFilter(new AutomaticRetryAttribute { Attempts = options.RetryAttempts });
+        });
+
+        services.AddHangfireServer((provider, options) =>
+        {
+            options.WorkerCount = provider.GetRequiredService<IOptions<HangfireOptions>>().Value.WorkerCount;
+            options.Queues = new[] { "default" };
+        });
+
+        // Register scoped job classes here as they are added.
+        return services;
+    }
+
+    public static WebApplication UseBackgroundJobs(this WebApplication app)
+    {
+        var options = app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value;
+        if (app.Environment.IsDevelopment() && options.DashboardEnabled)
+        {
+            // Hangfire's default dashboard authorization only permits local requests.
+            app.UseHangfireDashboard("/hangfire");
+        }
+
+        return app;
+    }
+}

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.BackgroundJobs.Extensions;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Data.Seed;
 using SaveBite.Backend.Extensions;
@@ -21,6 +22,7 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 builder.Services.AddDatabase(builder.Configuration);
+builder.Services.AddBackgroundJobs(builder.Configuration);
 
 builder.Services.AddRabbitMq(builder.Configuration);
 builder.Services.AddAllRabbitMqConsumers();
@@ -67,6 +69,7 @@ app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseBackgroundJobs();
 
 app.MapControllers();
 
