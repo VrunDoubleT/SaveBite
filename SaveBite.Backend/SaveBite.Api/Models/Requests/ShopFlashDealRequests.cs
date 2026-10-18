@@ -31,6 +31,7 @@ public class UpdateFlashDealVariantRequest
     public Guid VariantId { get; set; }
     public decimal DealPrice { get; set; }
     public int TotalQuantity { get; set; }
+    public FlashDealVariantStatus Status { get; set; } = FlashDealVariantStatus.Active;
 }
 
 public class ShopFlashDealQueryRequest

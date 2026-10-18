@@ -20,12 +20,11 @@ public sealed class FlashDealRepository : IFlashDealRepository
     public async Task<FlashDeal?> GetActiveDealByIdAsync(Guid dealId, CancellationToken cancellationToken = default)
     {
         return await _context.Set<FlashDeal>()
-            .AsNoTracking()
+            .AsNoTrackingWithIdentityResolution()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
             .Include(d => d.Product).ThenInclude(p => p.Category)
             .Include(d => d.Product).ThenInclude(p => p.Attributes).ThenInclude(a => a.Values)
-            .Include(d => d.Product).ThenInclude(p => p.Variants).ThenInclude(pv => pv.VariantValues).ThenInclude(vv => vv.AttributeValue).ThenInclude(av => av.Attribute)
             .Include(d => d.Variants).ThenInclude(v => v.Variant).ThenInclude(pv => pv.VariantValues).ThenInclude(vv => vv.AttributeValue).ThenInclude(av => av.Attribute)
             .FirstOrDefaultAsync(d => d.Id == dealId, cancellationToken);
     }
@@ -34,11 +33,10 @@ public sealed class FlashDealRepository : IFlashDealRepository
     {
         var now = DateTime.UtcNow;
         return await _context.Set<FlashDeal>()
-            .AsNoTracking()
+            .AsNoTrackingWithIdentityResolution()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
             .Include(d => d.Product).ThenInclude(p => p.Category)
-            .Include(d => d.Product).ThenInclude(p => p.Variants)
             .Include(d => d.Variants).ThenInclude(v => v.Variant)
             .Where(d => d.ShopId == shopId
                 && (d.Status == FlashDealStatus.OnSale || d.Status == FlashDealStatus.SoldOut)
@@ -50,11 +48,10 @@ public sealed class FlashDealRepository : IFlashDealRepository
     {
         var now = DateTime.UtcNow;
         return await _context.Set<FlashDeal>()
-            .AsNoTracking()
+            .AsNoTrackingWithIdentityResolution()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
             .Include(d => d.Product).ThenInclude(p => p.Category)
-            .Include(d => d.Product).ThenInclude(p => p.Variants)
             .Include(d => d.Variants).ThenInclude(v => v.Variant)
             .Where(d => (d.Status == FlashDealStatus.OnSale || d.Status == FlashDealStatus.SoldOut)
                 && d.Shop != null && d.Shop.Status == ShopStatus.Active
@@ -213,7 +210,22 @@ public sealed class FlashDealRepository : IFlashDealRepository
     // Update an existing flash deal in the database.
     public async Task UpdateAsync(FlashDeal deal, CancellationToken cancellationToken = default)
     {
-        _context.Set<FlashDeal>().Update(deal);
+        var entry = _context.Entry(deal);
+        if (entry.State == EntityState.Detached)
+        {
+            _context.Set<FlashDeal>().Attach(deal);
+            entry.State = EntityState.Modified;
+        }
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    // Direct atomic status update avoiding change tracking graph conflicts
+    public async Task UpdateStatusAsync(Guid dealId, FlashDealStatus status, CancellationToken cancellationToken = default)
+    {
+        await _context.Set<FlashDeal>()
+            .Where(d => d.Id == dealId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(d => d.Status, status)
+                .SetProperty(d => d.UpdatedAt, DateTime.UtcNow), cancellationToken);
     }
 }

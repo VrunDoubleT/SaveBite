@@ -1,5 +1,10 @@
+using Hangfire;
+using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.Caching.Interfaces;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Constants;
+using SaveBite.Backend.Messaging.Events;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
@@ -16,11 +21,15 @@ public sealed class FlashDealService : IFlashDealService
     private readonly IUserAddressRepository _userAddressRepository;
     private readonly IShopRepository _shopRepository;
     private readonly ILogger<FlashDealService> _logger;
+    private readonly IBackgroundJobClient _backgroundJobClient;
+    private readonly IRabbitMqPublisher _publisher;
     public FlashDealService(
         IFlashDealRedisService redisService,
         IFlashDealRepository dealRepository,
         IUserAddressRepository userAddressRepository,
         IShopRepository shopRepository,
+        IBackgroundJobClient backgroundJobClient,
+        IRabbitMqPublisher publisher,
         ILogger<FlashDealService> logger)
     {
         _redisService = redisService;
@@ -28,6 +37,8 @@ public sealed class FlashDealService : IFlashDealService
         _userAddressRepository = userAddressRepository;
         _shopRepository = shopRepository;
         _logger = logger;
+        _backgroundJobClient = backgroundJobClient;
+        _publisher = publisher;
     }
 
     public async Task<FlashDealCursorListResponse> GetNearbyAsync(
@@ -153,18 +164,7 @@ public sealed class FlashDealService : IFlashDealService
 
         if (request.Mode == CursorMode.Older && request.Cursor1.HasValue)
         {
-
-            // Combine Cursor1 and Cursor2 for pagination.
-
-            // Step 1: Retrieve all deals created after Cursor2.
-            // Prepend deals created after the initial page was loaded to the new page.
-
-            // Step 2: Retrieve up to Limit deals created before Cursor1.
-            // Continue pagination toward older deals.
-
-            // Return new deals followed by older deals.
-
-
+            
             // Step 1: Retrieve deals newer than Cursor2 when Cursor2 is provided.
             var newerPrepend = new List<FlashDealResponse>();
             if (request.Cursor2.HasValue)
@@ -404,15 +404,16 @@ public sealed class FlashDealService : IFlashDealService
     {
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var pagedDeals = await _dealRepository.GetShopDealsAsync(shop.Id, request, cancellationToken);
-        var responses = pagedDeals.Items.Select(MapToShopListItemResponse).ToList();
+        
         return new PagedResult<ShopFlashDealListItemResponse>
         {
-            Items = responses,
+            Items = pagedDeals.Items.Select(MapToShopListItemResponse).ToList(),
             TotalItems = pagedDeals.TotalItems,
             Page = pagedDeals.Page,
             PageSize = pagedDeals.PageSize
         };
     }
+    
     // 2. View Flash Deal Details for Shop
     public async Task<ShopFlashDealDetailResponse> GetShopDealDetailAsync(
         Guid userId, 
@@ -421,9 +422,11 @@ public sealed class FlashDealService : IFlashDealService
     {
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
-            ?? throw AppException.NotFound("Flash deal not found.");
+                   ?? throw AppException.NotFound("Flash deal not found.");
+
         return MapToShopDetailResponse(deal);
     }
+    
     // 3. Create Flash Deal
     public async Task<ShopFlashDealDetailResponse> CreateDealAsync(
         Guid userId, 
@@ -459,10 +462,37 @@ public sealed class FlashDealService : IFlashDealService
         {
             throw AppException.BadRequest("Cannot create flash deal for an inactive product.");
         }
+        
         var now = DateTime.UtcNow;
-        var initialStatus = now >= request.SaleStartTime && now <= request.OrderEndTime 
-            ? FlashDealStatus.OnSale 
-            : FlashDealStatus.Pending;
+        
+        
+        if (request.SaleStartTime.Date != request.OrderEndTime.Date)
+        {
+            throw AppException.BadRequest("Flash deals only take place within a single day.");
+        }
+
+        var duration = request.OrderEndTime - request.SaleStartTime;
+        if (duration < TimeSpan.FromMinutes(30) || duration > TimeSpan.FromMinutes(120))
+        {
+            throw AppException.BadRequest("The duration of a flash deal must be between 30 minutes and a maximum of 120 minutes.");
+        }
+
+        var isSellImmediately = request.SaleStartTime <= now.AddMinutes(5);
+        if (!isSellImmediately)
+        {
+            if (request.SaleStartTime < now.AddMinutes(15))
+            {
+                throw AppException.BadRequest("The scheduled start time must be at least 15 minutes from the present, or you may choose to start immediately.");
+            }
+            if (request.SaleStartTime > now.AddMinutes(90))
+            {
+                throw AppException.BadRequest("Sales can be scheduled to open no more than 90 minutes in advance.");
+            }
+        }
+        
+        var isOpenNow = now >= request.SaleStartTime && now <= request.OrderEndTime;
+        var initialStatus = isOpenNow ? FlashDealStatus.OnSale : FlashDealStatus.Pending;
+        
         var deal = new FlashDeal
         {
             Id = Guid.NewGuid(),
@@ -505,14 +535,35 @@ public sealed class FlashDealService : IFlashDealService
             });
         }
         await _dealRepository.AddAsync(deal, cancellationToken);
+        // --- SCHEDULING AND EVENT DISPATCHING ---
+        if (isOpenNow)
+        {
+            // 1. Open now: Publish flash sale.opened
+            await _publisher.PublishAsync(
+                RabbitMqRoutingKeys.FlashDealOpened,
+                new FlashDealEvent { FlashDealId = deal.Id },
+                cancellationToken);
+        }
+        else if (request.SaleStartTime > now)
+        {
+            // 2. Future opening: Schedule Hangfire to run at SaleStartTime
+            var delayToStart = request.SaleStartTime - now;
+            _backgroundJobClient.Schedule<IFlashDealJobService>(
+                job => job.PublishDealOpenedAsync(deal.Id),
+                delayToStart);
+        }
+        // 3. Always schedule the end time at OrderEndTime
+        var delayToEnd = request.OrderEndTime - now;
+        if (delayToEnd > TimeSpan.Zero)
+        {
+            _backgroundJobClient.Schedule<IFlashDealJobService>(
+                job => job.PublishDealExpiredAsync(deal.Id),
+                delayToEnd);
+        }
         var createdDeal = await _dealRepository.GetShopDealByIdAsync(shop.Id, deal.Id, cancellationToken);
-
-        // Always save created deal into Redis cache so it can be retrieved instantly.
-        var customerResponse = MapToResponse(createdDeal!);
-        await _redisService.SaveDealAsync(customerResponse, shop.Latitude, shop.Longitude);
-
         return MapToShopDetailResponse(createdDeal!);
     }
+    
     // 4. Update Flash Deal
     public async Task<ShopFlashDealDetailResponse> UpdateDealAsync(
         Guid userId, 
@@ -523,6 +574,9 @@ public sealed class FlashDealService : IFlashDealService
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
             ?? throw AppException.NotFound("Flash deal not found.");
+        var product = await _dealRepository.GetProductForDealCreationAsync(shop.Id, deal.ProductId, cancellationToken)
+            ?? throw AppException.NotFound("Product not found or does not belong to your shop.");
+
         if (deal.Status == FlashDealStatus.Cancelled || deal.Status == FlashDealStatus.Closed)
         {
             throw AppException.BadRequest("Cannot update a closed or cancelled flash deal.");
@@ -539,12 +593,56 @@ public sealed class FlashDealService : IFlashDealService
         {
             throw AppException.BadRequest("Another flash deal already overlaps with the updated schedule.");
         }
-        deal.SaleStartTime = request.SaleStartTime;
+
+        var now = DateTime.UtcNow;
+
+        if (deal.Status == FlashDealStatus.Pending)
+        {
+            if (request.SaleStartTime.Date != request.OrderEndTime.Date)
+            {
+                throw AppException.BadRequest("Flash deals only take place within a single day.");
+            }
+
+            var duration = request.OrderEndTime - request.SaleStartTime;
+            if (duration < TimeSpan.FromMinutes(30) || duration > TimeSpan.FromMinutes(120))
+            {
+                throw AppException.BadRequest("The duration of a flash deal must be between 30 minutes and a maximum of 120 minutes.");
+            }
+
+            var isSellImmediately = request.SaleStartTime <= now.AddMinutes(5);
+            if (!isSellImmediately)
+            {
+                if (request.SaleStartTime < now.AddMinutes(15))
+                {
+                    throw AppException.BadRequest("The scheduled start time must be at least 15 minutes from the present, or you may choose to start immediately.");
+                }
+                if (request.SaleStartTime > now.AddMinutes(90))
+                {
+                    throw AppException.BadRequest("Sales can be scheduled to open no more than 90 minutes in advance.");
+                }
+            }
+
+            deal.SaleStartTime = request.SaleStartTime;
+        }
+        else if (deal.Status == FlashDealStatus.OnSale)
+        {
+            if (request.OrderEndTime - deal.SaleStartTime > TimeSpan.FromMinutes(120))
+            {
+                throw AppException.BadRequest("Order end time cannot exceed 120 minutes from the sale start time.");
+            }
+            if (request.OrderEndTime <= now)
+            {
+                throw AppException.BadRequest("Order end time must be in the future.");
+            }
+        }
+
         deal.OrderEndTime = request.OrderEndTime;
         deal.ShopClosingTime = request.ShopClosingTime;
-        deal.UpdatedAt = DateTime.UtcNow;
+        deal.UpdatedAt = now;
 
         var existingDealVariants = deal.Variants.ToDictionary(v => v.VariantId);
+        var productVariants = product.Variants.ToDictionary(v => v.Id);
+
         foreach (var reqVariant in request.Variants)
         {
             if (existingDealVariants.TryGetValue(reqVariant.VariantId, out var dealVariant))
@@ -556,15 +654,54 @@ public sealed class FlashDealService : IFlashDealService
                 dealVariant.TotalQuantity = reqVariant.TotalQuantity;
                 dealVariant.DealPrice = reqVariant.DealPrice;
                 dealVariant.DiscountPercent = Math.Round(((dealVariant.OriginalPrice - reqVariant.DealPrice) / dealVariant.OriginalPrice) * 100, 2);
-                dealVariant.UpdatedAt = DateTime.UtcNow;
+                dealVariant.Status = reqVariant.Status; 
+                dealVariant.UpdatedAt = now;
+            }
+            else
+            {
+                if (!productVariants.TryGetValue(reqVariant.VariantId, out var productVariant))
+                {
+                    throw AppException.BadRequest($"Variant with ID {reqVariant.VariantId} does not belong to this product.");
+                }
+                if (reqVariant.DealPrice >= productVariant.OriginalPrice)
+                {
+                    throw AppException.BadRequest($"Deal price ({reqVariant.DealPrice}) must be less than original price ({productVariant.OriginalPrice}).");
+                }
+                var discountPercent = Math.Round(((productVariant.OriginalPrice - reqVariant.DealPrice) / productVariant.OriginalPrice) * 100, 2);
+                deal.Variants.Add(new FlashDealVariant
+                {
+                    Id = Guid.NewGuid(),
+                    FlashDealId = deal.Id,
+                    VariantId = reqVariant.VariantId,
+                    OriginalPrice = productVariant.OriginalPrice,
+                    DealPrice = reqVariant.DealPrice,
+                    DiscountPercent = discountPercent,
+                    TotalQuantity = reqVariant.TotalQuantity,
+                    ReservedQuantity = 0,
+                    SoldQuantity = 0,
+                    Status = reqVariant.Status,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
             }
         }
         await _dealRepository.UpdateAsync(deal, cancellationToken);
 
+        // New completion timer with Hangfire
+        var delayToEnd = request.OrderEndTime - DateTime.UtcNow;
+        if (delayToEnd > TimeSpan.Zero)
+        {
+            _backgroundJobClient.Schedule<IFlashDealJobService>(
+                job => job.PublishDealExpiredAsync(deal.Id),
+                delayToEnd);
+        }
+        // If the deal is OnSale, update the Redis cache by publishing an event
         if (deal.Status == FlashDealStatus.OnSale)
         {
-            var customerResponse = MapToResponse(deal);
-            await _redisService.SaveDealAsync(customerResponse, shop.Latitude, shop.Longitude);
+            await _publisher.PublishAsync(
+                RabbitMqRoutingKeys.FlashDealOpened,
+                new FlashDealEvent { FlashDealId = deal.Id },
+                cancellationToken);
         }
         return MapToShopDetailResponse(deal);
     }
@@ -574,14 +711,21 @@ public sealed class FlashDealService : IFlashDealService
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
             ?? throw AppException.NotFound("Flash deal not found.");
+        
         if (deal.Status == FlashDealStatus.Cancelled || deal.Status == FlashDealStatus.Closed)
         {
             throw AppException.BadRequest("This flash deal is already finished or cancelled.");
         }
+        
         deal.Status = FlashDealStatus.Cancelled;
         deal.UpdatedAt = DateTime.UtcNow;
         await _dealRepository.UpdateAsync(deal, cancellationToken);
-        await _redisService.DeleteDealAsync(deal.Id, shop.Id);
+        // Fire an event to have the Consumer remove the deal from Redis
+        await _publisher.PublishAsync(
+            RabbitMqRoutingKeys.FlashDealClosed,
+            new FlashDealEvent { FlashDealId = deal.Id },
+            cancellationToken);
+        
     }
     // 6. Hide Flash Deal
     public async Task HideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
@@ -596,7 +740,11 @@ public sealed class FlashDealService : IFlashDealService
         deal.Status = FlashDealStatus.Hidden;
         deal.UpdatedAt = DateTime.UtcNow;
         await _dealRepository.UpdateAsync(deal, cancellationToken);
-        await _redisService.DeleteDealAsync(deal.Id, shop.Id);
+        // Emit an event for the Consumer to remove the temporary deal from Redis
+        await _publisher.PublishAsync(
+            RabbitMqRoutingKeys.FlashDealHidden,
+            new FlashDealEvent { FlashDealId = deal.Id },
+            cancellationToken);
     }
     // 7. Unhide Flash Deal
     public async Task UnhideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
@@ -604,6 +752,7 @@ public sealed class FlashDealService : IFlashDealService
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
             ?? throw AppException.NotFound("Flash deal not found.");
+        
         if (deal.Status != FlashDealStatus.Hidden)
         {
             throw AppException.BadRequest("Only hidden deals can be restored to visible status.");
@@ -616,10 +765,13 @@ public sealed class FlashDealService : IFlashDealService
         deal.Status = now >= deal.SaleStartTime ? FlashDealStatus.OnSale : FlashDealStatus.Pending;
         deal.UpdatedAt = now;
         await _dealRepository.UpdateAsync(deal, cancellationToken);
+        // If the sale start time has been reached, publish the event so that the Consumer can reload data into Redis
         if (deal.Status == FlashDealStatus.OnSale)
         {
-            var response = MapToResponse(deal);
-            await _redisService.SaveDealAsync(response, shop.Latitude, shop.Longitude);
+            await _publisher.PublishAsync(
+                RabbitMqRoutingKeys.FlashDealOpened,
+                new FlashDealEvent { FlashDealId = deal.Id },
+                cancellationToken);
         }
     }
 

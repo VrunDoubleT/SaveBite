@@ -37,26 +37,26 @@ public class GlobalExceptionHandler : IExceptionHandler
                 status = appEx.StatusCode;
                 response = ApiResponse.Fail(appEx.Message, appEx.ErrorCode);
                 _logger.LogWarning(exception,
-                    "Lỗi nghiệp vụ {ErrorCode} tại {Path}",
+                    "Business exception {ErrorCode} at {Path}",
                     appEx.ErrorCode, httpContext.Request.Path);
                 break;
 
             case UnauthorizedAccessException:
                 status = HttpStatusCode.Unauthorized;
                 response = ApiResponse.Fail(
-                    "Bạn cần đăng nhập để tiếp tục.", ErrorCodes.Unauthorized);
+                    "Please sign in to continue.", ErrorCodes.Unauthorized);
                 break;
 
             default:
                 status = HttpStatusCode.InternalServerError;
                 _logger.LogError(exception,
-                    "Lỗi chưa xử lý tại {Path}", httpContext.Request.Path);
+                    "Unhandled exception at {Path}", httpContext.Request.Path);
 
                 // Expose exception details only in the development environment.
                 response = ApiResponse.Fail(
                     _env.IsDevelopment()
                         ? exception.Message
-                        : "Đã có lỗi xảy ra, vui lòng thử lại sau.",
+                        : "An error occurred. Please try again later.",
                     ErrorCodes.InternalError);
                 break;
         }

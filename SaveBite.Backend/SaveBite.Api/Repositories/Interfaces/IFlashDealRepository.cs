@@ -1,5 +1,6 @@
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
 
 namespace SaveBite.Backend.Repositories.Interfaces;
@@ -25,4 +26,5 @@ public interface IFlashDealRepository
     Task<List<Product>> GetShopEligibleProductsAsync(Guid shopId, CancellationToken cancellationToken = default);
     Task AddAsync(FlashDeal deal, CancellationToken cancellationToken = default);
     Task UpdateAsync(FlashDeal deal, CancellationToken cancellationToken = default);
+    Task UpdateStatusAsync(Guid dealId, FlashDealStatus status, CancellationToken cancellationToken = default);
 }

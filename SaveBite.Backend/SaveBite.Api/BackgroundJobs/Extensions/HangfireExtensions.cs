@@ -2,6 +2,8 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.Extensions.Options;
 using SaveBite.Backend.BackgroundJobs.Configuration;
+using SaveBite.Backend.BackgroundJobs.Interfaces;
+using SaveBite.Backend.BackgroundJobs.Service;
 
 namespace SaveBite.Backend.BackgroundJobs.Extensions;
 
@@ -50,6 +52,8 @@ public static class HangfireExtensions
         });
 
         // Register scoped job classes here as they are added.
+        services.AddScoped<IFlashDealJobService, FlashDealJobService>();
+
         return services;
     }
 
