@@ -95,6 +95,13 @@ export const FlashDealStatusEnum = {
 
 export type FlashDealStatusEnum = (typeof FlashDealStatusEnum)[keyof typeof FlashDealStatusEnum];
 
+export const FlashDealVariantStatusEnum = {
+  Active: 0,
+  Hide: 1,
+} as const;
+
+export type FlashDealVariantStatusEnum = (typeof FlashDealVariantStatusEnum)[keyof typeof FlashDealVariantStatusEnum];
+
 export interface ShopFlashDealListItem {
   id: string;
   productId: string;
@@ -185,6 +192,7 @@ export interface UpdateFlashDealVariantPayload {
   variantId: string;
   dealPrice: number;
   totalQuantity: number;
+  status?: FlashDealVariantStatusEnum | number;
 }
 
 export interface UpdateFlashDealPayload {

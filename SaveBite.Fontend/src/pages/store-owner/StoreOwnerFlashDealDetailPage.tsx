@@ -13,6 +13,7 @@ import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import {
   FlashDealStatusEnum,
+  FlashDealVariantStatusEnum,
   type ShopFlashDealDetail,
 } from "@/features/flash-deals/types/flashDeal.types";
 import { CancelFlashDealModal } from "@/features/flash-deals/components/CancelFlashDealModal";
@@ -440,7 +441,7 @@ export function StoreOwnerFlashDealDetailPage() {
                     <td className="px-4 py-3.5 text-neutral-700">{v.reservedQuantity}</td>
                     <td className="px-4 py-3.5 font-semibold text-neutral-900">{v.availableQuantity}</td>
                     <td className="px-4 py-3.5">
-                      {isHidden ? (
+                      {v.status === FlashDealVariantStatusEnum.Hide || isHidden ? (
                         <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
                           Hidden
                         </span>
