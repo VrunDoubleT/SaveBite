@@ -1,5 +1,6 @@
 import { useEffect, type PropsWithChildren } from "react";
 import { useAuthStore } from "@/shared/stores/authStore";
+import { RealtimeProvider } from "./RealtimeProvider";
 import { StoreProvider } from "./StoreProvider";
 
 import { ToastViewport } from "@/shared/components/feedback/ToastViewport";
@@ -11,7 +12,10 @@ export function AppProvider({ children }: PropsWithChildren) {
     return () => window.removeEventListener("auth:unauthorized", handleUnauthorized);
   }, []);
 
-  return <StoreProvider>{children}
+  return (
+    <StoreProvider>
+      <RealtimeProvider>{children}</RealtimeProvider>
       <ToastViewport />
-      </StoreProvider>;
+    </StoreProvider>
+  );
 }

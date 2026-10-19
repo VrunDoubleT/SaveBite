@@ -4,6 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { useAuthStore } from "@/shared/stores/authStore";
 
+import { useCartStore } from "@/features/cart/stores/cartStore";
+
 export function AuthenticatedHeaderActions() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -11,7 +13,11 @@ export function AuthenticatedHeaderActions() {
   const logout = useAuthStore((state) => state.logout);
   const isLoggingOut = useAuthStore((state) => state.isLoggingOut);
   const navigate = useNavigate();
-
+  const cartDealCount = useCartStore(
+    (state) =>
+      state.totalFlashDeals ??
+      new Set(state.cart?.shops.flatMap((shop) => shop.items.map((item) => item.flashDealId))).size,
+  );
   async function handleLogout() {
     try {
       await logout();
@@ -76,10 +82,18 @@ export function AuthenticatedHeaderActions() {
 
       <Link
         to={APP_PATHS.CART}
-        aria-label="Cart"
-        className="flex size-10 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-primary-50 hover:text-primary-600 focus-visible:outline-none focus-visible:shadow-focus"
+        aria-label={`Cart, ${cartDealCount} flash deals`}
+        className="relative flex size-10 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-primary-50 hover:text-primary-600 focus-visible:outline-none focus-visible:shadow-focus"
       >
         <ShoppingCart className="size-5" aria-hidden="true" />
+        {cartDealCount > 0 && (
+          <span
+            className="absolute -right-1 -top-1 min-w-5 rounded-full bg-emerald-600 px-1 text-center text-[10px] font-bold leading-5 text-white"
+            aria-hidden="true"
+          >
+            {cartDealCount > 99 ? "99+" : cartDealCount}
+          </span>
+        )}
       </Link>
 
       <Link

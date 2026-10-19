@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { LogOut, type LucideIcon } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -8,6 +8,7 @@ import { useAuthStore } from "@/shared/stores/authStore";
 import { useUiStore } from "@/shared/stores/uiStore";
 
 export interface WorkspaceNavigationItem {
+  badge?: ReactNode;
   end?: boolean;
   icon: LucideIcon;
   label: string;

@@ -1,4 +1,5 @@
-import { Store, Users } from "lucide-react";
+import { ShopOrderWorkspaceNotifications } from "@/features/shop-orders/components/ShopOrderWorkspaceNotifications";
+import { Store, Users, ClipboardList } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
 
@@ -9,6 +10,10 @@ const navigation = [
     end: true,
     icon: Store,
   },
+  {
+    to: `${APP_PATHS.STORE_OWNER}/orders`, label: "Orders", end: false, icon: ClipboardList,
+    badge: <ShopOrderWorkspaceNotifications ordersPath={`${APP_PATHS.STORE_OWNER}/orders`} />,
+  },
 
   {
     to: `${APP_PATHS.STORE_OWNER}/staff`,
@@ -16,7 +21,6 @@ const navigation = [
     end: false,
     icon: Users,
   },
-
 ] as const;
 
 export function StoreOwnerLayout() {

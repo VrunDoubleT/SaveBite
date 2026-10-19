@@ -1,9 +1,16 @@
+import { PaymentsPage } from "@/pages/customer/PaymentsPage";
+import { PaymentDetailPage } from "@/pages/customer/PaymentDetailPage";
 import { Navigate, type RouteObject } from "react-router-dom";
 
 import { APP_PATHS } from "@/app/router/paths";
 import { ProtectedRoute } from "@/app/router/ProtectedRoute";
 import { CustomerRoute } from "@/app/router/CustomerRoute";
-import { ADMIN_ROLES, CUSTOMER_ROLES, STAFF_ROLES, STORE_OWNER_ROLES } from "@/app/router/routeAccess";
+import {
+  ADMIN_ROLES,
+  CUSTOMER_ROLES,
+  STAFF_ROLES,
+  STORE_OWNER_ROLES,
+} from "@/app/router/routeAccess";
 
 import { AdminLayout } from "@/shared/layouts/AdminLayout";
 import { CustomerLayout } from "@/shared/layouts/CustomerLayout";
@@ -15,6 +22,9 @@ import { LoginPage } from "@/pages/auth/LoginPage";
 import { OtpVerificationPage } from "@/pages/auth/OtpVerificationPage";
 import { RegisterPage } from "@/pages/auth/RegisterPage";
 
+import { CartPage } from "@/pages/customer/CartPage";
+import { CheckoutSimulationPage } from "@/pages/customer/CheckoutSimulationPage";
+import { CheckoutPage } from "@/pages/customer/CheckoutPage";
 import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
 import { AccountLayout } from "@/shared/layouts/AccountLayout";
 import { CustomerStaffInvitationsPage } from "@/pages/customer/StaffInvitationsPage";
@@ -25,6 +35,7 @@ import { ShopApplicationFormPage } from "@/pages/customer/ShopApplicationFormPag
 import ShopApplicationPage from "@/pages/customer/ShopApplicationPage";
 import { TrustScorePage } from "@/pages/customer/TrustScorePage";
 import { ReviewsPage } from "@/pages/customer/ReviewsPage";
+import { OrderDetailPage } from "@/pages/customer/OrderDetailPage";
 import { OrdersPage } from "@/pages/customer/OrdersPage";
 import { ProfilePage } from "@/pages/customer/ProfilePage";
 
@@ -40,6 +51,9 @@ import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage"
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
+
+import { ShopOrdersPage } from "@/pages/shop/ShopOrdersPage";
+import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
 
 export const routes: RouteObject[] = [
   {
@@ -97,12 +111,19 @@ export const routes: RouteObject[] = [
               },
               {
                 path: APP_PATHS.CART,
-                element: (
-                  <ComingSoonPage
-                    title="Cart"
-                    description="Your cart page is ready for checkout integration."
-                  />
-                ),
+                element: <CartPage />,
+              },
+              {
+                path: "/checkout/simulation",
+                element: <CheckoutSimulationPage />,
+              },
+              {
+                path: APP_PATHS.ORDER_DETAIL,
+                element: <OrderDetailPage />,
+              },
+              {
+                path: APP_PATHS.CHECKOUT,
+                element: <CheckoutPage />,
               },
               {
                 path: APP_PATHS.ACCOUNT,
@@ -120,6 +141,8 @@ export const routes: RouteObject[] = [
                     path: "orders",
                     element: <OrdersPage />,
                   },
+                  { path: "payments", element: <PaymentsPage /> },
+                  { path: "payments/:paymentId", element: <PaymentDetailPage /> },
                   {
                     path: "reviews",
                     element: <ReviewsPage />,
@@ -242,6 +265,8 @@ export const routes: RouteObject[] = [
               />
             ),
           },
+          { path: "orders", element: <ShopOrdersPage /> },
+          { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
           {
             path: "info",
             element: <StaffShopDetailPage />,
@@ -268,6 +293,8 @@ export const routes: RouteObject[] = [
               />
             ),
           },
+          { path: "orders", element: <ShopOrdersPage /> },
+          { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
           {
             path: "staff",
             element: <StaffManagementPage />,

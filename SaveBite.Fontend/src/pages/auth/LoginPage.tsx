@@ -19,6 +19,7 @@ import { SessionCheckingScreen } from "@/shared/components/SessionCheckingScreen
 
 interface LoginLocationState {
   message?: string;
+  from?: { pathname?: string; search?: string };
 }
 
 export function LoginPage() {
@@ -52,7 +53,18 @@ export function LoginPage() {
     try {
       const authenticatedUser = await login(credentials);
       const defaultPath = HOME_PATH_BY_ROLE[authenticatedUser.role];
-      navigate(defaultPath, { replace: true });
+      const from = locationState?.from;
+      const returnPath = from?.pathname;
+      const isCustomer = authenticatedUser.role !== "admin";
+      navigate(
+        isCustomer &&
+          returnPath?.startsWith("/") &&
+          !returnPath.startsWith("//") &&
+          returnPath !== APP_PATHS.LOGIN
+          ? `${returnPath}${from?.search ?? ""}`
+          : defaultPath,
+        { replace: true },
+      );
     } catch (loginError) {
       const apiErrors = getApiValidationErrors(loginError);
       if (apiErrors.email) setError("email", { message: apiErrors.email });
