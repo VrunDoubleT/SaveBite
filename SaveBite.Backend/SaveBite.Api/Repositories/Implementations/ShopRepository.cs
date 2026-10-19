@@ -127,4 +127,15 @@ public sealed class ShopRepository : IShopRepository
 
         return (items, totalItems);
     }
+
+    public async Task<ShopPaymentConfig?> GetPaymentConfigByOwnerUserIdAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Set<ShopPaymentConfig>()
+            .FirstOrDefaultAsync(config => config.Shop.OwnerUserId == ownerUserId, cancellationToken);
+    }
+
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }

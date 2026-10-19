@@ -70,3 +70,14 @@ public class StoreReviewsSummaryResponse
     public Dictionary<int, int> RatingBreakdown { get; set; } = new();
     public PagedResult<StoreReviewResponse> Reviews { get; set; } = null!;
 }
+
+public class ShopPaymentConfigResponse
+{
+    public string? BankName { get; set; }
+    public string? BankAccountNumber { get; set; }
+    public string? BankAccountHolder { get; set; }
+    public string PayosClientId { get; set; } = string.Empty;
+    public bool HasPayosApiKey { get; set; }
+    public bool HasPayosChecksumKey { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}

@@ -1,4 +1,4 @@
-import { Pagination } from "@/shared/components/pagination";
+import { Pagination } from "@/shared/components/pagination/Pagination";
 import { useCallback, useState } from "react";
 import { CalendarDays, ChevronDown, Zap } from "lucide-react";
 import { productApi } from "../api/productApi";

@@ -3,7 +3,12 @@ import { Navigate, type RouteObject } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { ProtectedRoute } from "@/app/router/ProtectedRoute";
 import { CustomerRoute } from "@/app/router/CustomerRoute";
-import { ADMIN_ROLES, CUSTOMER_ROLES, STAFF_ROLES, STORE_OWNER_ROLES } from "@/app/router/routeAccess";
+import {
+  ADMIN_ROLES,
+  CUSTOMER_ROLES,
+  STAFF_ROLES,
+  STORE_OWNER_ROLES,
+} from "@/app/router/routeAccess";
 
 import { AdminLayout } from "@/shared/layouts/AdminLayout";
 import { CustomerLayout } from "@/shared/layouts/CustomerLayout";
@@ -40,6 +45,7 @@ import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage"
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
+import { PaymentSettingsPage } from "@/pages/store-owner/PaymentSettingsPage";
 
 export const routes: RouteObject[] = [
   {
@@ -307,10 +313,13 @@ export const routes: RouteObject[] = [
             path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
             element: <StoreOwnerStaffInvitationsPage />,
           },
-
           {
             path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
             element: <StaffDetailPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_PAYMENT_SETTINGS,
+            element: <PaymentSettingsPage />,
           },
         ],
       },
