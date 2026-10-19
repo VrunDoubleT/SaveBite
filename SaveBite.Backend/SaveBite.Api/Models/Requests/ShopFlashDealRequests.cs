@@ -5,7 +5,8 @@ namespace SaveBite.Backend.Models.Requests;
 public class CreateFlashDealRequest
 {
     public Guid ProductId { get; set; }
-    public DateTime SaleStartTime { get; set; }
+    public bool IsImmediate { get; set; } = false;
+    public DateTime? SaleStartTime { get; set; }
     public DateTime OrderEndTime { get; set; }
     public DateTime ShopClosingTime { get; set; }
     public List<CreateFlashDealVariantRequest> Variants { get; set; } = new();

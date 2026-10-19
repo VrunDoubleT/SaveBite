@@ -434,8 +434,11 @@ public sealed class FlashDealService : IFlashDealService
         CancellationToken cancellationToken = default)
     {
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
+        var now = DateTime.UtcNow;
+        var effectiveStartTime = request.IsImmediate ? now : request.SaleStartTime!.Value;
+
         // Validate time intervals.
-        if (request.SaleStartTime >= request.OrderEndTime)
+        if (effectiveStartTime >= request.OrderEndTime)
         {
             throw AppException.BadRequest("Sale start time must be before order end time.");
         }
@@ -447,7 +450,7 @@ public sealed class FlashDealService : IFlashDealService
         var hasOverlap = await _dealRepository.HasOverlappingDealAsync(
             shop.Id, 
             request.ProductId, 
-            request.SaleStartTime, 
+            effectiveStartTime, 
             request.OrderEndTime, 
             null, 
             cancellationToken);
@@ -463,34 +466,7 @@ public sealed class FlashDealService : IFlashDealService
             throw AppException.BadRequest("Cannot create flash deal for an inactive product.");
         }
         
-        var now = DateTime.UtcNow;
-        
-        
-        if (request.SaleStartTime.Date != request.OrderEndTime.Date)
-        {
-            throw AppException.BadRequest("Flash deals only take place within a single day.");
-        }
-
-        var duration = request.OrderEndTime - request.SaleStartTime;
-        if (duration < TimeSpan.FromMinutes(30) || duration > TimeSpan.FromMinutes(120))
-        {
-            throw AppException.BadRequest("The duration of a flash deal must be between 30 minutes and a maximum of 120 minutes.");
-        }
-
-        var isSellImmediately = request.SaleStartTime <= now.AddMinutes(5);
-        if (!isSellImmediately)
-        {
-            if (request.SaleStartTime < now.AddMinutes(15))
-            {
-                throw AppException.BadRequest("The scheduled start time must be at least 15 minutes from the present, or you may choose to start immediately.");
-            }
-            if (request.SaleStartTime > now.AddMinutes(90))
-            {
-                throw AppException.BadRequest("Sales can be scheduled to open no more than 90 minutes in advance.");
-            }
-        }
-        
-        var isOpenNow = now >= request.SaleStartTime && now <= request.OrderEndTime;
+        var isOpenNow = request.IsImmediate || (now >= effectiveStartTime && now <= request.OrderEndTime);
         var initialStatus = isOpenNow ? FlashDealStatus.OnSale : FlashDealStatus.Pending;
         
         var deal = new FlashDeal
@@ -498,7 +474,7 @@ public sealed class FlashDealService : IFlashDealService
             Id = Guid.NewGuid(),
             ShopId = shop.Id,
             ProductId = product.Id,
-            SaleStartTime = request.SaleStartTime,
+            SaleStartTime = effectiveStartTime,
             OrderEndTime = request.OrderEndTime,
             ShopClosingTime = request.ShopClosingTime,
             Status = initialStatus,
@@ -544,10 +520,10 @@ public sealed class FlashDealService : IFlashDealService
                 new FlashDealEvent { FlashDealId = deal.Id },
                 cancellationToken);
         }
-        else if (request.SaleStartTime > now)
+        else if (!request.IsImmediate && effectiveStartTime > now)
         {
             // 2. Future opening: Schedule Hangfire to run at SaleStartTime
-            var delayToStart = request.SaleStartTime - now;
+            var delayToStart = effectiveStartTime - now;
             _backgroundJobClient.Schedule<IFlashDealJobService>(
                 job => job.PublishDealOpenedAsync(deal.Id),
                 delayToStart);
