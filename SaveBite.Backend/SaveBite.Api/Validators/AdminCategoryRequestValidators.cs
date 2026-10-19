@@ -19,6 +19,9 @@ public sealed class CreateCategoryRequestValidator : AbstractValidator<CreateCat
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("The category name is required.")
             .MaximumLength(150).WithMessage("The category name must not exceed 150 characters.");
+        RuleFor(x => x.Description)
+            .MaximumLength(500).WithMessage("The category description must not exceed 500 characters.")
+            .When(x => !string.IsNullOrEmpty(x.Description));
     }
 }
 
@@ -29,5 +32,8 @@ public sealed class UpdateCategoryRequestValidator : AbstractValidator<UpdateCat
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("The category name is required.")
             .MaximumLength(150).WithMessage("The category name must not exceed 150 characters.");
+        RuleFor(x => x.Description)
+            .MaximumLength(500).WithMessage("The category description must not exceed 500 characters.")
+            .When(x => !string.IsNullOrEmpty(x.Description));
     }
 }

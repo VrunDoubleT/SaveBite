@@ -17,10 +17,7 @@ public sealed class ProductRepository : IProductRepository
     public async Task<ProductOptionsResponse> GetOptionsAsync(Guid userId, CancellationToken ct)
     {
         var shop = await GetAvailableShopAsync(userId, ct);
-        var categories = await _db.Categories.AsNoTracking().Where(x => x.IsActive)
-            .OrderBy(x => x.Name).ThenBy(x => x.Id)
-            .Select(x => new ProductCategoryOption(x.Id, x.Name)).ToArrayAsync(ct);
-        return new ProductOptionsResponse(shop, categories);
+        return new ProductOptionsResponse(shop, Array.Empty<ProductCategoryOption>());
     }
 
     public async Task<ProductShopOption?> GetAvailableShopAsync(Guid userId, CancellationToken ct)

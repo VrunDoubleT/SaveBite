@@ -58,9 +58,12 @@ public sealed class CreateProductRequestValidator : AbstractValidator<CreateProd
     public CreateProductRequestValidator(ProductImageFileValidator images,
         CreateProductAttributeRequestValidator attributes, ProductVariantPriceRequestValidator variants)
     {
-        RuleFor(x => x.CategoryId).NotEmpty();
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.Description).MaximumLength(ProductLimits.DescriptionLength);
+        RuleFor(x => x.CategoryId).NotEmpty().WithMessage("Category is required.");
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Product name is required.")
+            .MinimumLength(2).WithMessage("Product name must be at least 2 characters.")
+            .MaximumLength(200).WithMessage("Product name must not exceed 200 characters.");
+        RuleFor(x => x.Description).MaximumLength(ProductLimits.DescriptionLength)
+            .WithMessage($"Description must not exceed {ProductLimits.DescriptionLength} characters.");
         RuleFor(x => x.Images).Cascade(CascadeMode.Stop).NotNull()
             .Must(x => x.Count <= ProductLimits.Images).WithMessage("At most 10 gallery images are allowed.");
         RuleForEach(x => x.Images).NotNull().SetValidator(images);
@@ -78,9 +81,12 @@ public sealed class UpdateProductRequestValidator : AbstractValidator<UpdateProd
 {
     public UpdateProductRequestValidator()
     {
-        RuleFor(x => x.CategoryId).NotEmpty();
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.Description).MaximumLength(ProductLimits.DescriptionLength);
+        RuleFor(x => x.CategoryId).NotEmpty().WithMessage("Category is required.");
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Product name is required.")
+            .MinimumLength(2).WithMessage("Product name must be at least 2 characters.")
+            .MaximumLength(200).WithMessage("Product name must not exceed 200 characters.");
+        RuleFor(x => x.Description).MaximumLength(ProductLimits.DescriptionLength)
+            .WithMessage($"Description must not exceed {ProductLimits.DescriptionLength} characters.");
     }
 }
 
