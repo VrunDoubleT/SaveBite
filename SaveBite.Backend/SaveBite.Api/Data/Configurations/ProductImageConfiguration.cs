@@ -25,7 +25,14 @@ public class ProductImageConfiguration
             .HasColumnName("image_url")
             .HasColumnType("text")
             .IsRequired();
-        
+
+        builder.Property(x => x.SortOrder)
+            .HasColumnName("sort_order");
+
+        builder.Property(x => x.PublicId)
+            .HasColumnName("public_id")
+            .HasMaxLength(255);
+
         builder.HasOne(x => x.Product)
             .WithMany(x => x.Images)
             .HasForeignKey(x => x.ProductId)

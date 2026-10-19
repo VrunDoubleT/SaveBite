@@ -8,6 +8,7 @@ public static class ServiceExtensions
     public static IServiceCollection AddServices(
         this IServiceCollection services)
     {
+        services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
@@ -21,6 +22,8 @@ public static class ServiceExtensions
 
         services.AddScoped<IShopService, ShopService>();
         services.AddScoped<IFlashDealService, FlashDealService>();
+        services.AddScoped<ITrustScoreService, TrustScoreService>();
+        services.AddScoped<ITrustConfigService, TrustConfigService>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();

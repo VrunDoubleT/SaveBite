@@ -9,10 +9,11 @@ public static class RepositoryExtensions
         this IServiceCollection services)
     {
         services.AddScoped<IUserAccessRepository, UserAccessRepository>();
+        services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<IShopStaffRepository, ShopStaffRepository>();
         services.AddScoped<IStaffInvitationRepository, StaffInvitationRepository>();
-       
+
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IShopApplicationRepository, ShopApplicationRepository>();
@@ -20,7 +21,8 @@ public static class RepositoryExtensions
         services.AddScoped<IUserAddressRepository, UserAddressRepository>();
         services.AddScoped<IShopRepository, ShopRepository>();
         services.AddScoped<IFlashDealRepository, FlashDealRepository>();
-        services.AddScoped<IUserAddressRepository, UserAddressRepository>();
+        services.AddScoped<ITrustScoreRepository, TrustScoreRepository>();
+        services.AddScoped<ITrustConfigRepository, TrustConfigRepository>();
         return services;
     }
 }

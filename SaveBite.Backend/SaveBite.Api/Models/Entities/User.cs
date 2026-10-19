@@ -35,7 +35,7 @@ public class User
     public ICollection<TrustScoreHistory> TrustScoreHistories { get; set; } = new List<TrustScoreHistory>();
     public ICollection<UserTrustLevelHistory> TrustLevelHistories { get; set; } = new List<UserTrustLevelHistory>();
     public ICollection<UserRoleChangeLog> RoleChangeLogs { get; set; } = new List<UserRoleChangeLog>();
-    public ICollection<Shop> OwnedShops { get; set; } = new List<Shop>();
+    public Shop? OwnedShop { get; set; }
     public ICollection<ShopApplication> ShopApplications { get; set; } = new List<ShopApplication>();
     public ICollection<ShopApplicationDocument> UploadedShopApplicationDocuments { get; set; } = new List<ShopApplicationDocument>();
     public ICollection<ShopApplicationReviewLog> ReviewedShopApplications { get; set; } = new List<ShopApplicationReviewLog>();

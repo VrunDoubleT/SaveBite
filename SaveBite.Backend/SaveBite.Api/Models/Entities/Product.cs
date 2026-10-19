@@ -10,6 +10,9 @@ public class Product
     public string? Description { get; set; }
     public ProductStatus Status { get; set; } = ProductStatus.Active;
 
+    public DateTime? DeletedAt { get; set; }
+    public Guid Version { get; set; } = Guid.NewGuid();
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

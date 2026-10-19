@@ -12,13 +12,16 @@ public sealed class ShopService : IShopService
 {
     private readonly IShopRepository _shopRepository;
     private readonly IUserAddressRepository _userAddressRepository;
+    private readonly ICloudinaryService _cloudinaryService;
 
     public ShopService(
         IShopRepository shopRepository,
-        IUserAddressRepository userAddressRepository)
+        IUserAddressRepository userAddressRepository,
+        ICloudinaryService cloudinaryService)
     {
         _shopRepository = shopRepository;
         _userAddressRepository = userAddressRepository;
+        _cloudinaryService = cloudinaryService;
     }
 
     public async Task<ShopSummaryResponse> GetOwnerShopAsync(
@@ -222,5 +225,152 @@ public sealed class ShopService : IShopService
         return opening.Value <= closing.Value
             ? now >= opening.Value && now <= closing.Value
             : now >= opening.Value || now <= closing.Value;
+    }
+    // ===== iss-12: payment config =====
+
+    public async Task<ShopPaymentConfigResponse> GetOwnerPaymentConfigAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
+    {
+        var paymentConfig = await _shopRepository.GetPaymentConfigByOwnerUserIdAsync(ownerUserId, cancellationToken);
+        if (paymentConfig == null)
+            throw AppException.NotFound("Shop payment configuration not found.");
+
+        return MapPaymentConfigResponse(paymentConfig);
+    }
+
+    public async Task<ShopPaymentConfigResponse> UpdateOwnerPaymentConfigAsync(Guid ownerUserId, UpdateShopPaymentConfigRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var paymentConfig = await _shopRepository.GetPaymentConfigByOwnerUserIdAsync(ownerUserId, cancellationToken);
+        if (paymentConfig == null)
+            throw AppException.NotFound("Shop payment configuration not found.");
+
+        paymentConfig.BankName = string.IsNullOrWhiteSpace(request.BankName) ? null : request.BankName.Trim();
+        paymentConfig.BankAccountNumber = string.IsNullOrWhiteSpace(request.BankAccountNumber) ? null : request.BankAccountNumber.Trim();
+        paymentConfig.BankAccountHolder = string.IsNullOrWhiteSpace(request.BankAccountHolder) ? null : request.BankAccountHolder.Trim();
+
+        if (!string.IsNullOrWhiteSpace(request.PayosClientId))
+            paymentConfig.PayosClientId = request.PayosClientId.Trim();
+
+        if (!string.IsNullOrWhiteSpace(request.PayosApiKey))
+            paymentConfig.PayosApiKey = request.PayosApiKey.Trim();
+
+        if (!string.IsNullOrWhiteSpace(request.PayosChecksumKey))
+            paymentConfig.PayosChecksumKey = request.PayosChecksumKey.Trim();
+
+        paymentConfig.UpdatedAt = DateTime.UtcNow;
+        await _shopRepository.SaveChangesAsync(cancellationToken);
+        return MapPaymentConfigResponse(paymentConfig);
+    }
+
+    private static ShopPaymentConfigResponse MapPaymentConfigResponse(ShopPaymentConfig config)
+    {
+        return new ShopPaymentConfigResponse
+        {
+            BankName = config.BankName,
+            BankAccountNumber = config.BankAccountNumber,
+            BankAccountHolder = config.BankAccountHolder,
+            PayosClientId = config.PayosClientId,
+            HasPayosApiKey = !string.IsNullOrWhiteSpace(config.PayosApiKey),
+            HasPayosChecksumKey = !string.IsNullOrWhiteSpace(config.PayosChecksumKey),
+            UpdatedAt = config.UpdatedAt
+        };
+    }
+
+    // ===== iss-13: store profile & operating management =====
+
+    public Task<ShopProfileResponse> GetOwnerShopProfileAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
+    {
+        return ToShopProfileResponseAsync(ownerUserId, cancellationToken);
+    }
+
+    public async Task<ShopProfileResponse> UpdateBusinessInfoAsync(Guid ownerUserId, UpdateBusinessInfoRequest request, CancellationToken cancellationToken = default)
+    {
+        var shop = await _shopRepository.GetShopByOwnerUserIdAsync(ownerUserId, cancellationToken)
+                   ?? throw AppException.NotFound("Shop not found.");
+
+        shop.Name = request.Name.Trim();
+        shop.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        shop.AddressLine = request.AddressLine.Trim();
+        shop.Ward = string.IsNullOrWhiteSpace(request.Ward) ? null : request.Ward.Trim();
+        shop.District = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim();
+        shop.City = string.IsNullOrWhiteSpace(request.City) ? null : request.City.Trim();
+        shop.Latitude = request.Latitude;
+        shop.Longitude = request.Longitude;
+        shop.OpeningTime = request.OpeningTime;
+        shop.ClosingTime = request.ClosingTime;
+        shop.UpdatedAt = DateTime.UtcNow;
+
+        await _shopRepository.UpdateShopAsync(shop, cancellationToken);
+
+        return await ToShopProfileResponseAsync(ownerUserId, cancellationToken);
+    }
+
+    public async Task<ShopProfileResponse> UpdateShopImagesAsync(Guid ownerUserId, UpdateShopImagesRequest request, CancellationToken cancellationToken = default)
+    {
+        var shop = await _shopRepository.GetShopByOwnerUserIdAsync(ownerUserId, cancellationToken)
+                   ?? throw AppException.NotFound("Shop not found.");
+
+        if (request.Logo is null && string.IsNullOrWhiteSpace(shop.LogoUrl))
+            throw AppException.BadRequest("Shop logo is required.");
+
+        if (request.Logo is not null)
+        {
+            var upload = await _cloudinaryService.UploadImageAsync(request.Logo, cancellationToken);
+            shop.LogoUrl = upload.Url;
+        }
+
+        if (request.CoverImage is not null)
+        {
+            var upload = await _cloudinaryService.UploadImageAsync(request.CoverImage, cancellationToken);
+            shop.CoverImageUrl = upload.Url;
+        }
+
+        shop.UpdatedAt = DateTime.UtcNow;
+        await _shopRepository.UpdateShopAsync(shop, cancellationToken);
+        return await ToShopProfileResponseAsync(ownerUserId, cancellationToken);
+    }
+
+    private async Task<ShopProfileResponse> ToShopProfileResponseAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
+    {
+        var shop = await _shopRepository.GetShopProfileByOwnerUserIdAsync(ownerUserId, cancellationToken)
+                    ?? throw AppException.NotFound("Shop not found.");
+
+        var (avgRating, totalReviews, breakdown) = await _shopRepository.GetShopReviewStatsAsync(shop.Id, cancellationToken);
+        var nowTime = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+
+        return new ShopProfileResponse
+        {
+            Id = shop.Id,
+            Name = shop.Name,
+            Description = shop.Description,
+            AddressLine = shop.AddressLine,
+            Ward = shop.Ward,
+            District = shop.District,
+            City = shop.City,
+            Latitude = shop.Latitude,
+            Longitude = shop.Longitude,
+            LogoUrl = shop.LogoUrl,
+            CoverImageUrl = shop.CoverImageUrl,
+            OpeningTime = shop.OpeningTime,
+            ClosingTime = shop.ClosingTime,
+            IsOpen = CheckIsOpen(shop.OpeningTime, shop.ClosingTime, nowTime),
+            Status = shop.Status.ToString(),
+            BusinessLicenseNo = shop.Application?.BusinessLicenseNo,
+            Documents = shop.Application?.Documents
+                .Where(document => document.IsCurrent)
+                .OrderBy(document => document.DocumentType)
+                .Select(document => new ShopProfileDocumentResponse
+                {
+                    Id = document.Id,
+                    DocumentType = document.DocumentType.ToString(),
+                    FileUrl = document.FileUrl,
+                    OriginalFileName = document.OriginalFileName,
+                    ContentType = document.ContentType,
+                    UploadedAt = document.UploadedAt
+                }).ToList() ?? new List<ShopProfileDocumentResponse>(),
+            AverageRating = Math.Round(avgRating, 1),
+            TotalReviews = totalReviews,
+            RatingBreakdown = breakdown
+        };
     }
 }
