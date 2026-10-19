@@ -12,6 +12,8 @@ import {
   Eye,
   EyeOff,
   Check,
+  Zap,
+  Info,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
@@ -66,6 +68,9 @@ export function StoreOwnerFlashDealFormPage() {
   // Existing deal data if editing
   const [existingDeal, setExistingDeal] = useState<ShopFlashDealDetail | null>(null);
 
+  // Selling mode: "immediate" (sell immediately) or "scheduled" (schedule for later)
+  const [saleMode, setSaleMode] = useState<"immediate" | "scheduled">("immediate");
+
   // Split date and time states for easy input and selection
   const [startDate, setStartDate] = useState<string>("");
   const [startTime, setStartTime] = useState<string>("");
@@ -112,6 +117,7 @@ export function StoreOwnerFlashDealFormPage() {
           const deal = await flashDealApi.getShopFlashDealDetail(id);
           setExistingDeal(deal);
           setSelectedProductId(deal.productId);
+          setSaleMode(deal.status === FlashDealStatusEnum.OnSale ? "immediate" : "scheduled");
 
           const start = new Date(deal.saleStartTime);
           const end = new Date(deal.orderEndTime);
@@ -134,15 +140,14 @@ export function StoreOwnerFlashDealFormPage() {
             }))
           );
         } else {
-          // Create mode default: start rounded to next 15 mins, end in 60 mins (within 30-120m)
+          // Create mode default: immediate selling mode
           const now = new Date();
-          const remainder = 15 - (now.getMinutes() % 15);
-          const start = new Date(now.getTime() + remainder * 60 * 1000);
-          const end = new Date(start.getTime() + 60 * 60 * 1000);
-
-          setStartDate(formatDate(start));
-          setStartTime(formatTime(start));
-          setEndDate(formatDate(start)); // Same day
+          const today = formatDate(now);
+          setStartDate(today);
+          setEndDate(today); // Same day
+          setStartTime(formatTime(now));
+          // Default end time: +60 mins from now (within 30-120m)
+          const end = new Date(now.getTime() + 60 * 60 * 1000);
           setEndTime(formatTime(end));
         }
       } catch (err) {
@@ -181,22 +186,39 @@ export function StoreOwnerFlashDealFormPage() {
 
   // Schedule Summary & Validity
   const scheduleSummary = useMemo(() => {
-    const start = parseDateTime(startDate, startTime);
+    const now = new Date();
+    const isImmediate = !isEditMode ? saleMode === "immediate" : (existingDeal?.status === FlashDealStatusEnum.OnSale);
+
+    const start = isImmediate ? now : parseDateTime(startDate, startTime);
     const end = parseDateTime(endDate, endTime);
     if (!start || !end) return null;
 
     const diffMs = end.getTime() - start.getTime();
     const durationMins = Math.round(diffMs / (1000 * 60));
-    const isSameDay = startDate === endDate;
+    const isSameDay = isImmediate ? (endDate === formatDate(now)) : (startDate === endDate);
     const isDurationValid = durationMins >= 30 && durationMins <= 120;
-    const isValid = diffMs > 0 && isSameDay && isDurationValid;
+
+    let isAdvanceValid = true;
+    let advanceErrorMessage = "";
+
+    if (!isImmediate && !isDealOnSale) {
+      const diffStartMins = Math.round((start.getTime() - now.getTime()) / (1000 * 60));
+      if (diffStartMins < 14) {
+        isAdvanceValid = false;
+        advanceErrorMessage = "Start time must be at least 15 minutes from now.";
+      } else if (diffStartMins > 91) {
+        isAdvanceValid = false;
+        advanceErrorMessage = `Sales can only be scheduled up to 90 minutes in advance (currently ${diffStartMins} mins).`;
+      }
+    }
+
+    const isValid = diffMs > 0 && isSameDay && isDurationValid && isAdvanceValid;
 
     const hours = Math.floor(durationMins / 60);
     const minutes = durationMins % 60;
 
-    const now = new Date();
-    const isCurrentlyActive = start <= now && end >= now;
-    const isUpcoming = start > now;
+    const isCurrentlyActive = isImmediate || (start <= now && end >= now);
+    const isUpcoming = !isImmediate && start > now;
 
     // Closing time is order cutoff + 30 mins
     const closingTime = new Date(end.getTime() + 30 * 60 * 1000);
@@ -208,13 +230,16 @@ export function StoreOwnerFlashDealFormPage() {
       durationMins,
       isSameDay,
       isDurationValid,
+      isAdvanceValid,
+      advanceErrorMessage,
       hours,
       minutes,
       isCurrentlyActive,
       isUpcoming,
       closingTime,
+      isImmediate,
     };
-  }, [startDate, startTime, endDate, endTime]);
+  }, [startDate, startTime, endDate, endTime, saleMode, isEditMode, isDealOnSale, existingDeal]);
 
   // Handle selecting product in create mode
   function handleSelectProduct(productId: string) {
@@ -297,17 +322,21 @@ export function StoreOwnerFlashDealFormPage() {
       return;
     }
 
-    const startDateObj = parseDateTime(startDate, startTime);
+    const now = new Date();
+    const isImmediate = !isEditMode ? saleMode === "immediate" : (existingDeal?.status === FlashDealStatusEnum.OnSale);
+
+    const startDateObj = isImmediate ? now : parseDateTime(startDate, startTime);
     const endDateObj = parseDateTime(endDate, endTime);
 
-    if (!startDateObj || !endDateObj) {
-      toast.error("Please select both start and cutoff dates and times.");
+    if (!endDateObj || !startDateObj) {
+      toast.error("Please select both start and end times.");
       return;
     }
 
-    // 1. Must be on the same day
-    if (startDate !== endDate) {
-      toast.error("Flash Deals can only take place within a single calendar day.");
+    // 1. Must take place within the same calendar day
+    const expectedDate = isImmediate ? formatDate(now) : startDate;
+    if (endDate !== expectedDate) {
+      toast.error("Flash deals can only take place within a single calendar day.");
       return;
     }
 
@@ -316,57 +345,50 @@ export function StoreOwnerFlashDealFormPage() {
       return;
     }
 
-    // 2. Duration must be between 30 and 120 minutes
+    // 2. Deal duration between 30 and 120 minutes
     const durationMins = Math.round((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60));
     if (durationMins < 30 || durationMins > 120) {
-      toast.error(`The duration of a flash deal must be between 30 and 120 minutes (currently: ${durationMins} mins).`);
+      toast.error(`Deal duration must be between 30 and 120 minutes (currently: ${durationMins} mins).`);
       return;
     }
 
-    const now = new Date();
-    const isDealOnSale = isEditMode && existingDeal?.status === FlashDealStatusEnum.OnSale;
-
     if (isDealOnSale) {
       // If currently OnSale: order cutoff cannot exceed 120 mins from original start time
-      const origStart = new Date(existingDeal.saleStartTime);
+      const origStart = new Date(existingDeal!.saleStartTime);
       const durationFromStart = Math.round((endDateObj.getTime() - origStart.getTime()) / (1000 * 60));
       if (durationFromStart > 120) {
-        toast.error("Order cutoff time cannot exceed 120 minutes from the initial sale start time.");
+        toast.error("End time cannot exceed 120 minutes from the initial sale start time.");
         return;
       }
       if (endDateObj <= now) {
         toast.error("Order cutoff time must be in the future.");
         return;
       }
-    } else {
-      // Create mode or Pending deal: check advance scheduling window (15m to 90m) or immediate start (<= 5m)
+    } else if (!isImmediate) {
+      // Scheduled deal: check advance scheduling window (15m to 90m)
       const diffStartMins = Math.round((startDateObj.getTime() - now.getTime()) / (1000 * 60));
-      const isImmediate = diffStartMins <= 5;
-
-      if (!isImmediate) {
-        if (diffStartMins < 15) {
-          toast.error("Start time must be at least 15 minutes from now, or choose immediate opening.");
-          return;
-        }
-        if (diffStartMins > 90) {
-          toast.error(`Sales can only be scheduled up to 90 minutes in advance (currently: ${diffStartMins} mins).`);
-          return;
-        }
+      if (diffStartMins < 14) {
+        toast.error("Start time must be at least 15 minutes from now, or choose immediate selling.");
+        return;
+      }
+      if (diffStartMins > 91) {
+        toast.error(`Flash deals can only be scheduled up to 90 minutes in advance (currently: ${diffStartMins} mins).`);
+        return;
       }
     }
 
     if (variants.length === 0) {
-      toast.error("Please configure at least one variant.");
+      toast.error("Please configure at least one variant for the deal.");
       return;
     }
 
     for (const v of variants) {
       if (v.dealPrice === "" || Number(v.dealPrice) <= 0) {
-        toast.error(`Flash Deal price for ${v.variantName} must be greater than 0.`);
+        toast.error(`Deal price for ${v.variantName} must be greater than 0.`);
         return;
       }
       if (Number(v.dealPrice) >= v.originalPrice) {
-        toast.error(`Flash Deal price for ${v.variantName} must be lower than original price (${v.originalPrice.toLocaleString()}đ).`);
+        toast.error(`Deal price for ${v.variantName} must be lower than original price (${v.originalPrice.toLocaleString()}đ).`);
         return;
       }
       if (v.totalQuantity === "" || Number(v.totalQuantity) <= 0) {
@@ -374,7 +396,7 @@ export function StoreOwnerFlashDealFormPage() {
         return;
       }
       if (v.soldQuantity !== undefined && Number(v.totalQuantity) < (v.soldQuantity + (v.reservedQuantity || 0))) {
-        toast.error(`Total quantity for ${v.variantName} cannot be less than already sold quantity (${v.soldQuantity}).`);
+        toast.error(`Deal quantity for ${v.variantName} cannot be less than already sold quantity (${v.soldQuantity}).`);
         return;
       }
     }
@@ -396,11 +418,12 @@ export function StoreOwnerFlashDealFormPage() {
             status: v.status ?? FlashDealVariantStatusEnum.Active,
           })),
         });
-        toast.success("Flash Deal updated successfully!");
+        toast.success("Flash deal updated successfully!");
       } else {
         await flashDealApi.createFlashDeal({
           productId: selectedProductId,
-          saleStartTime: startDateObj.toISOString(),
+          isImmediate: isImmediate,
+          saleStartTime: isImmediate ? undefined : startDateObj.toISOString(),
           orderEndTime: endDateObj.toISOString(),
           shopClosingTime: closingDateObj.toISOString(),
           variants: variants.map((v) => ({
@@ -409,7 +432,7 @@ export function StoreOwnerFlashDealFormPage() {
             totalQuantity: Number(v.totalQuantity),
           })),
         });
-        toast.success("Flash Deal created successfully and scheduled!");
+        toast.success(isImmediate ? "Flash deal created and activated immediately!" : "Flash deal scheduled successfully!");
       }
       navigate(APP_PATHS.STORE_OWNER_FLASH_DEALS);
     } catch (err) {
@@ -562,13 +585,13 @@ export function StoreOwnerFlashDealFormPage() {
         )}
       </div>
 
-      {/* Block 2: Schedule & Status (Easy Date/Time Input & Selection) */}
+      {/* Block 2: Sale Mode & Schedule */}
       <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-neutral-100 pb-3.5">
           <div>
-            <h2 className="text-sm font-bold text-neutral-900">Schedule & Status</h2>
+            <h2 className="text-sm font-bold text-neutral-900">Sale Mode & Schedule</h2>
             <p className="mt-0.5 text-xs text-neutral-500">
-              Easily type or select date and time. Orders automatically cutoff 30 minutes before store closing.
+              Choose to sell immediately or schedule sale opening ahead (15m - 90m). Deal runs for 30m to 120m.
             </p>
           </div>
 
@@ -577,11 +600,11 @@ export function StoreOwnerFlashDealFormPage() {
             scheduleSummary.isCurrentlyActive ? (
               <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
                 <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                Active Immediately
+                ⚡ Active Immediately
               </span>
             ) : scheduleSummary.isUpcoming ? (
               <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-inset ring-blue-600/20">
-                Upcoming Deal
+                ⏰ Scheduled (Pending)
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
@@ -589,219 +612,307 @@ export function StoreOwnerFlashDealFormPage() {
               </span>
             )
           ) : (
-            <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-500">
-              Draft
+            <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
+              Incomplete / Invalid Timing
             </span>
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {/* Box 1: Sale Starts */}
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50/40 p-4 space-y-3.5">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1.5 text-xs font-bold text-neutral-800">
-                <Calendar className="size-4 text-emerald-600" />
-                <span>Sale Starts</span>
-              </label>
-              <span className="text-[11px] text-neutral-400">Deal opening time</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Start Date */}
-              <div>
-                <label className="block text-[11px] font-medium text-neutral-600 mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  required
-                  disabled={isDealOnSale}
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setEndDate(e.target.value);
-                  }}
-                  className={`w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                    isDealOnSale ? "cursor-not-allowed bg-neutral-100 text-neutral-500" : ""
+        {/* Mode Selector Cards (Only in Create Mode) */}
+        {!isEditMode && (
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-neutral-700">
+              Select Selling Mode <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Option 1: Sell Immediately */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSaleMode("immediate");
+                  const now = new Date();
+                  const today = formatDate(now);
+                  setStartDate(today);
+                  setEndDate(today);
+                  setStartTime(formatTime(now));
+                  // Default end time: +60 mins from now
+                  const end = new Date(now.getTime() + 60 * 60 * 1000);
+                  setEndTime(formatTime(end));
+                }}
+                className={`group relative flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all ${
+                  saleMode === "immediate"
+                    ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
+                    : "border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50"
+                }`}
+              >
+                <div
+                  className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                    saleMode === "immediate"
+                      ? "bg-emerald-600 text-white shadow-2xs"
+                      : "bg-neutral-100 text-neutral-500 group-hover:bg-neutral-200"
                   }`}
-                />
-                {/* Date Quick Chips */}
-                {!isDealOnSale ? (
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const today = formatDate(new Date());
-                        setStartDate(today);
-                        setEndDate(today);
-                      }}
-                      className={`rounded-md border px-2 py-0.5 text-[10px] font-medium transition ${
-                        startDate === formatDate(new Date())
-                          ? "border-emerald-500 bg-emerald-50 text-emerald-800 font-bold"
-                          : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100"
+                >
+                  <Zap className="size-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-neutral-900 truncate">
+                      Sell Immediately
+                    </p>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${
+                        saleMode === "immediate"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-neutral-100 text-neutral-600"
                       }`}
                     >
-                      Today
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const tomorrow = new Date();
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        const str = formatDate(tomorrow);
-                        setStartDate(str);
-                        setEndDate(str);
-                      }}
-                      className="rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100"
-                    >
-                      Tomorrow
-                    </button>
+                      Active Now
+                    </span>
                   </div>
-                ) : (
-                  <p className="mt-1.5 text-[10px] font-medium text-amber-600">
-                    🔒 Deal is currently live. Start time cannot be modified.
+                  <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
+                    Deal is activated immediately upon saving. Customers can order right away, you only need to select the end time.
                   </p>
-                )}
+                </div>
+              </button>
+
+              {/* Option 2: Schedule for Later */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSaleMode("scheduled");
+                  const now = new Date();
+                  const today = formatDate(now);
+                  // Default start time: +30 mins from now
+                  const start = new Date(now.getTime() + 30 * 60 * 1000);
+                  const end = new Date(start.getTime() + 60 * 60 * 1000);
+                  setStartDate(today);
+                  setEndDate(today);
+                  setStartTime(formatTime(start));
+                  setEndTime(formatTime(end));
+                }}
+                className={`group relative flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all ${
+                  saleMode === "scheduled"
+                    ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
+                    : "border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50"
+                }`}
+              >
+                <div
+                  className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                    saleMode === "scheduled"
+                      ? "bg-emerald-600 text-white shadow-2xs"
+                      : "bg-neutral-100 text-neutral-500 group-hover:bg-neutral-200"
+                  }`}
+                >
+                  <Clock className="size-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-neutral-900 truncate">
+                      Schedule for Later
+                    </p>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${
+                        saleMode === "scheduled"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-neutral-100 text-neutral-600"
+                      }`}
+                    >
+                      Ahead (15m - 90m)
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
+                    Schedule sale opening 15 to 90 minutes in advance. The deal will automatically go live at your chosen time.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 2 Balanced Columns for Timing Configuration */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {/* Box 1: Sale Starts */}
+          <div className="flex flex-col justify-between rounded-xl border border-neutral-200 bg-neutral-50/40 p-4 min-h-[170px]">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-neutral-800">
+                  {saleMode === "immediate" ? (
+                    <Zap className="size-4 text-emerald-600" />
+                  ) : (
+                    <Calendar className="size-4 text-emerald-600" />
+                  )}
+                  <span>
+                    {saleMode === "immediate" ? "Sale Start Time" : "1. Sale Start Time"}
+                  </span>
+                </label>
+                <span className="text-[11px] text-neutral-400">
+                  {saleMode === "immediate" ? "Automatic live start" : "15m - 90m in advance"}
+                </span>
               </div>
 
-              {/* Start Time */}
-              <div>
-                <label className="block text-[11px] font-medium text-neutral-600 mb-1">
-                  Start Time
-                </label>
-                <input
-                  type="time"
-                  required
-                  disabled={isDealOnSale}
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className={`w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                    isDealOnSale ? "cursor-not-allowed bg-neutral-100 text-neutral-500" : ""
-                  }`}
-                />
-                {/* Time Quick Chips */}
-                {!isDealOnSale && (
-                  <div className="flex flex-wrap items-center gap-1 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const now = new Date();
-                        const rem = 15 - (now.getMinutes() % 15);
-                        const t = new Date(now.getTime() + rem * 60 * 1000);
-                        setStartDate(formatDate(t));
-                        setStartTime(formatTime(t));
-                        setEndDate(formatDate(t));
-                      }}
-                      className="rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100"
-                    >
-                      Now
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStartTime("11:30")}
-                      className="rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100"
-                    >
-                      11:30
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStartTime("17:00")}
-                      className="rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100"
-                    >
-                      17:00
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStartTime("18:00")}
-                      className="rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100"
-                    >
-                      18:00
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStartTime("19:00")}
-                      className="rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100"
-                    >
-                      19:00
-                    </button>
+              {saleMode === "immediate" ? (
+                /* Immediate Info Card */
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3.5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-bold text-emerald-900">
+                      Starts immediately upon saving
+                    </span>
                   </div>
-                )}
-              </div>
+                  <p className="text-[11px] leading-relaxed text-emerald-800">
+                    The current timestamp will be used as the start time. Customers will see this deal live on the homepage immediately.
+                  </p>
+                  <div className="pt-0.5 flex items-center gap-2 text-[11px] font-medium text-neutral-600">
+                    <Clock className="size-3.5 text-emerald-600" />
+                    <span>Start Timestamp: <strong>Today ({formatDate(new Date())}) - Right Now</strong></span>
+                  </div>
+                </div>
+              ) : (
+                /* Scheduled Time Inputs */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-neutral-600 mb-1">
+                      Start Date (Today)
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      readOnly
+                      disabled
+                      value={startDate}
+                      className="w-full rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-xs text-neutral-600 cursor-not-allowed shadow-2xs font-medium"
+                    />
+                    <p className="mt-1 text-[10px] text-neutral-400">
+                      Flash deals can only take place today.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-neutral-600 mb-1">
+                      Start Time
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      disabled={isDealOnSale}
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
+                    />
+                    {/* Quick chips for Start Time: +15m, +30m, +45m, +60m, +90m */}
+                    <div className="flex flex-wrap items-center gap-1 mt-2">
+                      {[15, 30, 45, 60, 90].map((mins) => (
+                        <button
+                          key={mins}
+                          type="button"
+                          onClick={() => {
+                            const now = new Date();
+                            const target = new Date(now.getTime() + mins * 60 * 1000);
+                            setStartDate(formatDate(target));
+                            setStartTime(formatTime(target));
+                            setEndDate(formatDate(target));
+                          }}
+                          className="rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100 hover:border-emerald-400 hover:text-emerald-700 transition"
+                        >
+                          +{mins}m
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {saleMode === "scheduled" && (
+              <p className="mt-3 text-[11px] text-neutral-500 flex items-center gap-1.5 border-t border-neutral-100 pt-2">
+                <Info className="size-3.5 text-blue-500 shrink-0" />
+                <span>Start time must be between 15 and 90 minutes from now.</span>
+              </p>
+            )}
           </div>
 
           {/* Box 2: Order Cutoff */}
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50/40 p-4 space-y-3.5">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1.5 text-xs font-bold text-neutral-800">
-                <Clock className="size-4 text-amber-600" />
-                <span>Order Cutoff</span>
-              </label>
-              <span className="text-[11px] text-neutral-400">Deadline for customer orders</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Cutoff Date */}
-              <div>
-                <label className="block text-[11px] font-medium text-neutral-600 mb-1">
-                  Cutoff Date (Same Day)
+          <div className="flex flex-col justify-between rounded-xl border border-neutral-200 bg-neutral-50/40 p-4 min-h-[170px]">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-neutral-800">
+                  <Clock className="size-4 text-amber-600" />
+                  <span>
+                    {saleMode === "immediate" ? "Deal End Time" : "2. Deal End Time"}
+                  </span>
                 </label>
-                <input
-                  type="date"
-                  required
-                  readOnly
-                  disabled
-                  value={startDate}
-                  className="w-full rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-xs text-neutral-600 cursor-not-allowed shadow-2xs"
-                />
-                <p className="mt-1.5 text-[10px] text-neutral-500">
-                  Flash Deal must take place within the same calendar day.
-                </p>
+                <span className="text-[11px] text-neutral-400">Duration: 30m - 120m</span>
               </div>
 
-              {/* Cutoff Time */}
-              <div>
-                <label className="block text-[11px] font-medium text-neutral-600 mb-1">
-                  Cutoff Time (30m - 120m duration)
-                </label>
-                <input
-                  type="time"
-                  required
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-                {/* Duration Quick Chips: 30m, 45m, 60m, 90m, 120m */}
-                <div className="flex flex-wrap items-center gap-1 mt-2">
-                  {[30, 45, 60, 90, 120].map((mins) => (
-                    <button
-                      key={mins}
-                      type="button"
-                      onClick={() => {
-                        const s = parseDateTime(startDate, startTime);
-                        if (s) {
-                          const target = new Date(s.getTime() + mins * 60 * 1000);
-                          setEndDate(formatDate(s));
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Cutoff Date */}
+                <div>
+                  <label className="block text-[11px] font-medium text-neutral-600 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    readOnly
+                    disabled
+                    value={endDate}
+                    className="w-full rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-xs text-neutral-600 cursor-not-allowed shadow-2xs font-medium"
+                  />
+                  <p className="mt-1 text-[10px] text-neutral-400">
+                    Must end within the same day.
+                  </p>
+                </div>
+
+                {/* Cutoff Time */}
+                <div>
+                  <label className="block text-[11px] font-medium text-neutral-600 mb-1">
+                    Order Cutoff Time
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
+                  />
+
+                  {/* Duration Quick Chips: 30m, 45m, 60m, 90m, 120m */}
+                  <div className="flex flex-wrap items-center gap-1 mt-2">
+                    {[30, 45, 60, 90, 120].map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => {
+                          const base = saleMode === "immediate"
+                            ? new Date()
+                            : (parseDateTime(startDate, startTime) || new Date());
+                          const target = new Date(base.getTime() + mins * 60 * 1000);
+                          setEndDate(formatDate(base));
                           setEndTime(formatTime(target));
-                        }
-                      }}
-                      className="rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100 hover:border-emerald-400 hover:text-emerald-700 transition"
-                    >
-                      +{mins}m
-                    </button>
-                  ))}
+                        }}
+                        className="rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100 hover:border-emerald-400 hover:text-emerald-700 transition"
+                      >
+                        +{mins}m
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
+
+            <p className="mt-3 text-[11px] text-neutral-500 flex items-center gap-1.5 border-t border-neutral-100 pt-2">
+              <Info className="size-3.5 text-amber-500 shrink-0" />
+              <span>Deal duration must be between 30 and 120 minutes (max 120m).</span>
+            </p>
           </div>
         </div>
 
         {/* Live Schedule Summary Preview */}
         {scheduleSummary && (
           <div
-            className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border p-3.5 text-xs ${
+            className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border p-3.5 text-xs transition-all ${
               scheduleSummary.isValid
-                ? "border-emerald-200 bg-emerald-50/40 text-neutral-800"
+                ? "border-emerald-200 bg-emerald-50/50 text-neutral-800"
                 : "border-red-200 bg-red-50 text-red-700"
             }`}
           >
@@ -816,15 +927,19 @@ export function StoreOwnerFlashDealFormPage() {
                   </span>
                   <span className="text-neutral-400">•</span>
                   <span className="text-neutral-600">
-                    From <strong className="text-neutral-800">{startTime}</strong> ({startDate})
+                    {scheduleSummary.isImmediate ? (
+                      <>Starts: <strong className="text-neutral-800">Immediately</strong></>
+                    ) : (
+                      <>From: <strong className="text-neutral-800">{startTime}</strong></>
+                    )}
                   </span>
                   <span className="text-neutral-400">➔</span>
                   <span className="text-neutral-600">
-                    Until <strong className="text-neutral-800">{endTime}</strong> ({endDate})
+                    Until: <strong className="text-neutral-800">{endTime}</strong> ({endDate})
                   </span>
                 </div>
 
-                <div className="text-[11px] text-neutral-500 font-medium">
+                <div className="text-[11px] text-neutral-600 font-medium">
                   🔒 Store Closes: <strong>{formatTime(scheduleSummary.closingTime)}</strong> (includes 30m pickup buffer)
                 </div>
               </>
@@ -833,10 +948,12 @@ export function StoreOwnerFlashDealFormPage() {
                 <AlertCircle className="size-4 shrink-0 text-red-500" />
                 <span>
                   {!scheduleSummary.isSameDay
-                    ? "Flash Deals must take place within the same calendar day."
+                    ? "Flash deals can only take place within a single calendar day."
                     : !scheduleSummary.isDurationValid
-                    ? `Duration must be between 30 and 120 minutes (currently ${scheduleSummary.durationMins} mins).`
-                    : "Cutoff time must be strictly after the sale start time."}
+                    ? `Deal duration must be between 30 and 120 minutes (currently ${scheduleSummary.durationMins} mins).`
+                    : !scheduleSummary.isAdvanceValid
+                    ? scheduleSummary.advanceErrorMessage
+                    : "End time must be after start time."}
                 </span>
               </div>
             )}
@@ -891,23 +1008,25 @@ export function StoreOwnerFlashDealFormPage() {
               return (
                 <div
                   key={v.variantId}
-                  className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3.5 rounded-xl border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-300 sm:flex-row sm:items-center sm:justify-between shadow-2xs"
                 >
-                  <div className="min-w-32">
-                    <p className="font-semibold text-xs text-neutral-900">{v.variantName}</p>
-                    {v.sku && <p className="text-[10px] text-neutral-400">{v.sku}</p>}
+                  {/* Left: Variant Information */}
+                  <div className="min-w-0 sm:w-48 shrink-0">
+                    <p className="font-semibold text-xs text-neutral-900 truncate">{v.variantName}</p>
+                    {v.sku && <p className="text-[10px] text-neutral-400 font-mono mt-0.5">{v.sku}</p>}
                     <p className="mt-1 text-xs text-neutral-500">
                       Original: <span className="font-medium text-neutral-700">{v.originalPrice.toLocaleString("vi-VN")}đ</span>
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center sm:gap-4">
+                  {/* Right: Inputs & Actions */}
+                  <div className="flex flex-1 flex-wrap items-center justify-end gap-3 sm:gap-4">
                     {/* Deal Price Input */}
-                    <div className="w-full sm:w-36">
-                      <label className="block text-[11px] font-medium text-neutral-500">
-                        Deal Price
+                    <div className="w-full sm:w-40">
+                      <label className="block text-[11px] font-medium text-neutral-600 mb-1">
+                        Flash Deal Price
                       </label>
-                      <div className="relative mt-1">
+                      <div className="relative">
                         <input
                           type="number"
                           min="1000"
@@ -916,21 +1035,25 @@ export function StoreOwnerFlashDealFormPage() {
                           value={v.dealPrice}
                           onChange={(e) => handleUpdateVariant(index, "dealPrice", e.target.value)}
                           placeholder="25000"
-                          className="w-full rounded-md border border-neutral-200 py-1.5 pl-2.5 pr-6 text-xs text-neutral-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          className="w-full rounded-lg border border-neutral-300 py-1.5 pl-3 pr-7 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
                         />
-                        <span className="absolute right-2 top-1.5 text-[11px] text-neutral-400">đ</span>
+                        <span className="absolute right-2.5 top-1.5 text-xs text-neutral-400 font-medium">đ</span>
                       </div>
-                      {discountPercent > 0 && (
-                        <p className="mt-0.5 text-[10px] font-medium text-emerald-600">
-                          {discountPercent}% off
+                      {discountPercent > 0 ? (
+                        <p className="mt-1 text-[10px] font-semibold text-emerald-600">
+                          {discountPercent}% off original price
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-[10px] text-neutral-400">
+                          Enter deal price
                         </p>
                       )}
                     </div>
 
                     {/* Quantity Input */}
                     <div className="w-full sm:w-36">
-                      <label className="block text-[11px] font-medium text-neutral-500">
-                        Quantity
+                      <label className="block text-[11px] font-medium text-neutral-600 mb-1">
+                        Deal Quantity
                       </label>
                       <input
                         type="number"
@@ -938,12 +1061,16 @@ export function StoreOwnerFlashDealFormPage() {
                         required
                         value={v.totalQuantity}
                         onChange={(e) => handleUpdateVariant(index, "totalQuantity", e.target.value)}
-                        placeholder="100"
-                        className="mt-1 w-full rounded-md border border-neutral-200 py-1.5 px-2.5 text-xs text-neutral-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="50"
+                        className="w-full rounded-lg border border-neutral-300 py-1.5 px-3 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
                       />
-                      {v.soldQuantity !== undefined && (
-                        <p className="mt-0.5 text-[10px] text-neutral-400">
+                      {v.soldQuantity !== undefined ? (
+                        <p className="mt-1 text-[10px] text-neutral-400">
                           Sold {v.soldQuantity}, reserved {v.reservedQuantity || 0}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-[10px] text-neutral-400">
+                          Allocated deal stock
                         </p>
                       )}
                     </div>
@@ -951,7 +1078,7 @@ export function StoreOwnerFlashDealFormPage() {
                     {/* Status Toggle in Edit Mode */}
                     {isEditMode && (
                       <div className="w-full sm:w-28">
-                        <label className="block text-[11px] font-medium text-neutral-500">
+                        <label className="block text-[11px] font-medium text-neutral-600 mb-1">
                           Status
                         </label>
                         <button
@@ -963,7 +1090,7 @@ export function StoreOwnerFlashDealFormPage() {
                                 : FlashDealVariantStatusEnum.Hide;
                             handleUpdateVariant(index, "status", newStatus);
                           }}
-                          className={`mt-1 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
+                          className={`w-full inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2.5 text-xs font-semibold transition ${
                             v.status === FlashDealVariantStatusEnum.Hide
                               ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
                               : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
@@ -985,14 +1112,16 @@ export function StoreOwnerFlashDealFormPage() {
                     )}
 
                     {/* Delete variant */}
-                    <button
-                      type="button"
-                      title="Remove variant"
-                      onClick={() => handleRemoveVariant(index)}
-                      className="self-end sm:self-center mt-2 sm:mt-4 p-1.5 text-neutral-400 hover:text-red-500"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
+                    <div className="self-end sm:self-center pt-2 sm:pt-4">
+                      <button
+                        type="button"
+                        title="Remove variant"
+                        onClick={() => handleRemoveVariant(index)}
+                        className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

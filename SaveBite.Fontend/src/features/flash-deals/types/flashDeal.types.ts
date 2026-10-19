@@ -182,7 +182,8 @@ export interface CreateFlashDealVariantPayload {
 
 export interface CreateFlashDealPayload {
   productId: string;
-  saleStartTime: string;
+  isImmediate?: boolean;
+  saleStartTime?: string;
   orderEndTime: string;
   shopClosingTime: string;
   variants: CreateFlashDealVariantPayload[];
