@@ -29,6 +29,11 @@ export function CreateProductPage() {
   const [prices, setPrices] = useState<PriceMap>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    categoryId?: string;
+    description?: string;
+  }>({});
   const variants = combinations(attributes);
   async function submit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,16 +42,37 @@ export function CreateProductPage() {
       ...files,
       ...attributes.flatMap((a) => a.values.flatMap((v) => (v.image ? [v.image] : []))),
     ];
-    const validation = !name.trim()
-      ? "Please enter a product name."
-      : !categoryId
-        ? "Please select a category."
-        : validateAttributes(attributes) ||
-          (variants.count > 100 ? "A product cannot have more than 100 variants." : "") ||
-          validatePrices(variants.rows, prices) ||
-          fileError(images);
-    if (validation) {
-      setError(validation);
+    const errors: { name?: string; categoryId?: string; description?: string } = {};
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      errors.name = "Please enter a product name.";
+    } else if (trimmedName.length < 2) {
+      errors.name = "Product name must be at least 2 characters.";
+    } else if (trimmedName.length > 200) {
+      errors.name = "Product name cannot exceed 200 characters.";
+    }
+    if (!categoryId) {
+      errors.categoryId = "Please select a category.";
+    }
+    if (description.length > 10000) {
+      errors.description = "Description cannot exceed 10,000 characters.";
+    }
+    setFieldErrors(errors);
+    const hasFieldErrors = Boolean(errors.name || errors.categoryId || errors.description);
+    const attrValidation = validateAttributes(attributes);
+    const variantValidation =
+      variants.count > 100 ? "A product cannot have more than 100 variants." : "";
+    const priceValidation = validatePrices(variants.rows, prices);
+    const imgValidation = fileError(images);
+    const firstOtherError = attrValidation || variantValidation || priceValidation || imgValidation;
+    if (hasFieldErrors || firstOtherError) {
+      setError(
+        firstOtherError ||
+          errors.name ||
+          errors.categoryId ||
+          errors.description ||
+          "Please fix validation errors.",
+      );
       return;
     }
     setBusy(true);
@@ -83,7 +109,11 @@ export function CreateProductPage() {
         <h1 className="text-3xl font-bold tracking-tight">Create product</h1>
         <p className="mt-2 text-sm text-text-secondary">Set up once and reuse across sales.</p>
       </div>
-      <form onSubmit={submit} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <form
+        onSubmit={submit}
+        noValidate
+        className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]"
+      >
         <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-70">
           <Panel
             title="01 · Product information"
@@ -93,21 +123,40 @@ export function CreateProductPage() {
               <label className="block text-sm font-medium">
                 Product name <span className="text-danger">*</span>
                 <input
-                  className={inputClass}
+                  className={`${inputClass} ${
+                    fieldErrors.name ? "border-danger focus:border-danger focus:ring-danger" : ""
+                  }`}
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+                  }}
                   maxLength={200}
-                  required
                   placeholder="E.g. Honey grilled chicken rice"
                 />
+                <div className="mt-1 flex items-center justify-between">
+                  {fieldErrors.name ? (
+                    <p className="text-xs font-medium text-danger">{fieldErrors.name}</p>
+                  ) : (
+                    <span />
+                  )}
+                  <p className="text-xs text-neutral-400">{name.length}/200 characters</p>
+                </div>
               </label>
               <label className="block text-sm font-medium">
                 Category <span className="text-danger">*</span>
                 <select
-                  className={inputClass}
+                  className={`${inputClass} ${
+                    fieldErrors.categoryId
+                      ? "border-danger focus:border-danger focus:ring-danger"
+                      : ""
+                  }`}
                   value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setCategoryId(e.target.value);
+                    if (fieldErrors.categoryId)
+                      setFieldErrors((prev) => ({ ...prev, categoryId: undefined }));
+                  }}
                 >
                   <option value="">Select a category</option>
                   {categories.map((c) => (
@@ -116,6 +165,9 @@ export function CreateProductPage() {
                     </option>
                   ))}
                 </select>
+                {fieldErrors.categoryId && (
+                  <p className="mt-1 text-xs font-medium text-danger">{fieldErrors.categoryId}</p>
+                )}
               </label>
               {!categories.length && (
                 <Alert>
@@ -126,17 +178,31 @@ export function CreateProductPage() {
               <label className="block text-sm font-medium">
                 Description
                 <textarea
-                  className={inputClass}
+                  className={`${inputClass} ${
+                    fieldErrors.description
+                      ? "border-danger focus:border-danger focus:ring-danger"
+                      : ""
+                  }`}
                   rows={4}
                   maxLength={10000}
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    if (fieldErrors.description)
+                      setFieldErrors((prev) => ({ ...prev, description: undefined }));
+                  }}
                   placeholder="Describe the food, ingredients, portions, and any notes…"
                 />
+                <div className="mt-1 flex items-center justify-between">
+                  {fieldErrors.description ? (
+                    <p className="text-xs font-medium text-danger">{fieldErrors.description}</p>
+                  ) : (
+                    <span />
+                  )}
+                  <p className="text-xs text-neutral-400">{description.length}/10,000 characters</p>
+                </div>
               </label>
-              <p className="text-right text-xs text-neutral-400">
-                {description.length}/10,000 characters
-              </p>
+            
             </div>
           </Panel>
           <Panel

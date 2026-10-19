@@ -295,7 +295,7 @@ function EditVariantModal({
 
   return (
     <Modal title={`Edit variant · ${variantTitle}`} busy={busy} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
+     <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {variant.sku && (
           <div>
             <span className="text-xs font-medium text-neutral-500">SKU</span>
@@ -310,7 +310,6 @@ function EditVariantModal({
               type="number"
               step="any"
               min="1"
-              required
               className={inputClass}
               value={originalPrice}
               onChange={(e) => setOriginalPrice(e.target.value)}
@@ -325,7 +324,6 @@ function EditVariantModal({
               type="number"
               step="any"
               min="0"
-              required
               className={inputClass}
               value={dealPrice}
               onChange={(e) => setDealPrice(e.target.value)}

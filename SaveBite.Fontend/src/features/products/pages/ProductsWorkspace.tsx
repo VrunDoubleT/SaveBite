@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { productApi } from "../api/productApi";
+import { categoryApi } from "@/features/categories/api/categoryApi";
 import { useProductResource } from "../hooks/useProductResource";
 import { Empty, ErrorState, Loading } from "../components/ProductUi";
 import { ProductListSkeleton } from "../components/ProductListSkeleton";
@@ -9,8 +10,17 @@ import type { ProductWorkspaceContext } from "../hooks/useProductWorkspace";
 
 export function ProductsWorkspace() {
   const { pathname } = useLocation();
-  const load = useCallback((signal: AbortSignal) => productApi.options(signal), []);
-  const { data, error, loading, reload } = useProductResource("product-options", load);
+  const load = useCallback(async (signal: AbortSignal) => {
+    const [optionsData, catalogCategories] = await Promise.all([
+      productApi.options(signal),
+      categoryApi.getCategories(),
+    ]);
+    return {
+      shop: optionsData.shop,
+      categories: catalogCategories.map((c) => ({ id: c.id, name: c.name })),
+    };
+  }, []);
+  const { data, error, loading, reload } = useProductResource("product-workspace", load);
   if (loading)
     return pathname.replace(/\/$/, "") === APP_PATHS.STORE_OWNER_PRODUCTS ? (
       <div className="space-y-6">

@@ -91,7 +91,6 @@ export function VariantPrices({
                       type="number"
                       step="0.01"
                       min={field === "originalPrice" ? "0.01" : "0"}
-                      required
                       value={prices[row.key]?.[field] ?? ""}
                       onChange={(e) =>
                         onChange({
