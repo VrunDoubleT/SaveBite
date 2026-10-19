@@ -3,7 +3,12 @@ import { Navigate, type RouteObject } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { ProtectedRoute } from "@/app/router/ProtectedRoute";
 import { CustomerRoute } from "@/app/router/CustomerRoute";
-import { ADMIN_ROLES, CUSTOMER_ROLES, STAFF_ROLES, STORE_OWNER_ROLES } from "@/app/router/routeAccess";
+import {
+  ADMIN_ROLES,
+  CUSTOMER_ROLES,
+  STAFF_ROLES,
+  STORE_OWNER_ROLES,
+} from "@/app/router/routeAccess";
 
 import { AdminLayout } from "@/shared/layouts/AdminLayout";
 import { CustomerLayout } from "@/shared/layouts/CustomerLayout";
@@ -30,6 +35,7 @@ import { ProfilePage } from "@/pages/customer/ProfilePage";
 
 import { CategoryManagementPage } from "@/pages/admin/CategoryManagementPage";
 import { UserManagementPage } from "@/pages/admin/UserManagementPage";
+import { TrustConfigurationPage } from "@/pages/admin/TrustConfigurationPage";
 
 import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
 import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
@@ -40,6 +46,8 @@ import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage"
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
+import { PaymentSettingsPage } from "@/pages/store-owner/PaymentSettingsPage";
+import { ShopProfilePage } from "@/pages/store-owner/ShopProfilePage";
 
 export const routes: RouteObject[] = [
   {
@@ -183,6 +191,10 @@ export const routes: RouteObject[] = [
             element: <CategoryManagementPage />,
           },
           {
+            path: APP_PATHS.ADMIN_TRUST,
+            element: <TrustConfigurationPage />,
+          },
+          {
             path: APP_PATHS.ADMIN_PRODUCTS,
             element: (
               <ComingSoonPage
@@ -260,13 +272,44 @@ export const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: (
-              <ComingSoonPage
-                title="Store owner overview"
-                description="Store management data will appear here when its APIs are ready."
-                backTo={APP_PATHS.STORE_OWNER}
-              />
-            ),
+            element: <Navigate to={APP_PATHS.STORE_OWNER_PRODUCTS} replace />,
+          },
+          {
+            path: "products",
+            lazy: async () => ({
+              Component: (await import("@/features/products/pages/ProductsWorkspace"))
+                .ProductsWorkspace,
+            }),
+            children: [
+              {
+                index: true,
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/ProductListPage"))
+                    .ProductListPage,
+                }),
+              },
+              {
+                path: "new",
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/CreateProductPage"))
+                    .CreateProductPage,
+                }),
+              },
+              {
+                path: ":productId",
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/ProductDetailPage"))
+                    .ProductDetailPage,
+                }),
+              },
+              {
+                path: ":productId/flash-deals",
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/ProductHistoryPage"))
+                    .ProductHistoryPage,
+                }),
+              },
+            ],
           },
           {
             path: "staff",
@@ -276,10 +319,17 @@ export const routes: RouteObject[] = [
             path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
             element: <StoreOwnerStaffInvitationsPage />,
           },
-
-          {
+                    {
             path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
             element: <StaffDetailPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_PAYMENT_SETTINGS,
+            element: <PaymentSettingsPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_PROFILE,
+            element: <ShopProfilePage />,
           },
         ],
       },

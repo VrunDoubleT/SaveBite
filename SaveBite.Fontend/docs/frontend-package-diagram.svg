@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1370" viewBox="0 0 1400 1370">
+<defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M1 1 L10 6 L1 11" fill="none" stroke="#475569" stroke-width="1.4"/></marker></defs>
+<rect width="1400" height="1370" fill="white"/>
+<text x="40" y="44" font-family="Arial,sans-serif" font-size="27" fill="#172033">SAVEBITE FRONTEND — UML PACKAGE DIAGRAM</text>
+<text x="40" y="77" font-family="Arial,sans-serif" font-size="17" fill="#172033">General architecture • Package paths relative to src • Features grouped as one extensible package</text>
+<rect x="40" y="115" width="1020" height="175" fill="#eef2ff" stroke="#94a3b8"/>
+<text x="56" y="144" font-family="Arial,sans-serif" font-size="20" fill="#172033">Composition &amp; Routing Layer</text>
+<rect x="40" y="345" width="1020" height="180" fill="#eff6ff" stroke="#94a3b8"/>
+<text x="56" y="374" font-family="Arial,sans-serif" font-size="20" fill="#172033">Presentation Layer</text>
+<rect x="40" y="595" width="1020" height="215" fill="#f0fdf4" stroke="#94a3b8"/>
+<text x="56" y="624" font-family="Arial,sans-serif" font-size="20" fill="#172033">Feature Modules Layer</text>
+<rect x="40" y="910" width="1020" height="210" fill="#faf5ff" stroke="#94a3b8"/>
+<text x="56" y="939" font-family="Arial,sans-serif" font-size="20" fill="#172033">Shared State &amp; Infrastructure</text>
+<rect x="1130" y="595" width="230" height="525" fill="#fffbeb" stroke="#94a3b8"/>
+<text x="1146" y="624" font-family="Arial,sans-serif" font-size="20" fill="#172033">Shared Contracts</text>
+<polyline points="320,222 420,222" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="200,185 200,163 880,163 880,185" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="540,261 540,315 25,315 25,1038 80,1038" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="820,261 820,298 15,298 15,1058 80,1058" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="790,261 790,325 200,325 200,415" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="900,261 900,330 540,330 540,415" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="1000,242 1080,242 1080,700 720,700" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="80,445 60,445 60,305 1000,305 1000,222" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="660,452 710,452 710,222 760,222" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="1000,452 1040,452 1040,204 1000,204" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="660,468 760,468" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="200,491 200,705 380,705" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="80,471 55,471 55,1020 80,1020" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="130,491 130,552 1090,552 1090,1038 960,1038" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="880,491 880,565 220,565 220,1000" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="720,680 1105,680 1105,185 1000,185" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="660,660 660,570 930,570 930,491" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="620,770 620,868 820,868 820,1000" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="720,742 1115,742 1115,1018 1150,1018" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="280,1000 280,850 460,850 460,770" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="360,1038 680,1038" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<polyline points="960,1058 1150,1058" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path d="M80,205 V185 H160 V205 H320 V261 H80 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="93" y="232" font-family="Arial,sans-serif" font-size="19" fill="#172033">app</text>
+<path d="M420,205 V185 H500 V205 H660 V261 H420 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="433" y="232" font-family="Arial,sans-serif" font-size="19" fill="#172033">app/providers</text>
+<path d="M760,205 V185 H840 V205 H1000 V261 H760 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="773" y="232" font-family="Arial,sans-serif" font-size="19" fill="#172033">app/router</text>
+<path d="M80,435 V415 H160 V435 H320 V491 H80 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="93" y="462" font-family="Arial,sans-serif" font-size="19" fill="#172033">pages</text>
+<path d="M420,435 V415 H500 V435 H660 V491 H420 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="433" y="462" font-family="Arial,sans-serif" font-size="19" fill="#172033">shared/layout</text>
+<path d="M760,435 V415 H840 V435 H1000 V491 H760 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="773" y="462" font-family="Arial,sans-serif" font-size="19" fill="#172033">shared/components</text>
+<path d="M380,680 V660 H460 V680 H720 V770 H380 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="393" y="707" font-family="Arial,sans-serif" font-size="19" fill="#172033">features</text>
+<text x="393" y="732" font-family="Arial,sans-serif" font-size="16" fill="#172033">Feature modules</text>
+<text x="393" y="755" font-family="Arial,sans-serif" font-size="15" fill="#172033">UI · hooks · API · types · validation</text>
+<path d="M80,1020 V1000 H160 V1020 H360 V1076 H80 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="93" y="1047" font-family="Arial,sans-serif" font-size="19" fill="#172033">shared/stores</text>
+<path d="M680,1020 V1000 H760 V1020 H960 V1076 H680 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="693" y="1047" font-family="Arial,sans-serif" font-size="19" fill="#172033">shared/api</text>
+<path d="M1150,1020 V1000 H1230 V1020 H1340 V1076 H1150 Z" fill="white" stroke="#334155" stroke-width="1.5"/>
+<text x="1163" y="1047" font-family="Arial,sans-serif" font-size="19" fill="#172033">shared/types</text>
+<text x="70" y="797" font-family="Arial,sans-serif" font-size="15" fill="#172033">Module contents vary by feature; new features stay inside this package.</text>
+<text x="40" y="1180" font-family="Arial,sans-serif" font-size="18" fill="#172033">Dashed line + open arrow: A imports / depends on B. Arrows are not execution order.</text>
+<text x="40" y="1220" font-family="Arial,sans-serif" font-size="18" fill="#172033">features is a vertical module boundary: it contains UI, logic, API code and local types.</text>
+<text x="40" y="1260" font-family="Arial,sans-serif" font-size="17" fill="#172033">Current dependencies are retained, including shared/stores → features and UI → app/router.</text>
+<text x="40" y="1300" font-family="Arial,sans-serif" font-size="17" fill="#172033">Detailed feature packages are available in frontend-package-diagram-detail.puml.</text>
+</svg>

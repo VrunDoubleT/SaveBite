@@ -1,0 +1,62 @@
+@startuml
+title SaveBite Frontend — General Package Diagram
+top to bottom direction
+skinparam packageStyle folder
+skinparam shadowing false
+skinparam linetype polyline
+package "Composition & Routing Layer" #eef2ff {
+  package "app" as App
+  package "app/providers" as Providers
+  package "app/router" as Router
+}
+package "Presentation Layer" #eff6ff {
+  package "pages" as Pages
+  package "shared/layout" as Layout
+  package "shared/components" as Components
+}
+package "Feature Modules Layer" #f0fdf4 {
+  package "features" as Features
+}
+package "Shared State & Infrastructure" #faf5ff {
+  package "shared/stores" as Stores
+  package "shared/api" as API
+}
+package "Shared Contracts" #fffbeb {
+  package "shared/types" as Types
+}
+API ..> Types
+App ..> Providers
+App ..> Router
+Components ..> Router
+Components ..> Stores
+Features ..> API
+Features ..> Components
+Features ..> Router
+Features ..> Types
+Layout ..> Components
+Layout ..> Router
+Pages ..> API
+Pages ..> Features
+Pages ..> Router
+Pages ..> Stores
+Providers ..> Stores
+Router ..> Features
+Router ..> Layout
+Router ..> Pages
+Router ..> Stores
+Stores ..> API
+Stores ..> Features
+note bottom of Features
+  Chứa các module tính năng hiện tại và mở rộng sau này.
+  Mỗi module có thể có pages, components, hooks,
+  api, types, schemas hoặc utils tùy nhu cầu.
+  Đây là package features thật, không giả định mọi module có đủ thư mục.
+end note
+legend bottom
+  Tên package tương đối với src. Khung layer là phân nhóm logic.
+  A ..> B: dependency trong mã nguồn (import / re-export / import type).
+  features chứa cả UI, logic, API và types của từng tính năng.
+  Các cạnh tổng hợp từ import hiện tại; không thêm module chưa triển khai.
+  Không dùng realization; không biểu diễn thứ tự xử lý.
+endlegend
+@enduml

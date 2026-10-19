@@ -40,3 +40,7 @@ Thumbs.db
 # Local deployment configuration
 .vercel/
 .netlify/
+
+# Browser test artifacts
+/test-results/
+/playwright-report/

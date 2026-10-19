@@ -1,0 +1,21 @@
+/* Short fade used when switching tabs. Opacity only, so nothing moves or reflows. */
+@keyframes trust-panel-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.trust-panel {
+  animation: trust-panel-in 160ms ease-out;
+  /* Keeps the page from collapsing and re-growing (and the scrollbar from toggling) between tabs. */
+  min-height: 32rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trust-panel {
+    animation: none;
+  }
+}

@@ -1,0 +1,358 @@
+{
+  "API -> Types": [
+    {
+      "file": "shared/api/httpClient.ts",
+      "import": "@/shared/types"
+    }
+  ],
+  "Layout -> Router": [
+    {
+      "file": "shared/layout/StaffLayout.tsx",
+      "import": "@/app/router/paths"
+    },
+    {
+      "file": "shared/layout/AdminLayout.tsx",
+      "import": "@/app/router/paths"
+    },
+    {
+      "file": "shared/layout/StoreOwnerLayout.tsx",
+      "import": "@/app/router/paths"
+    }
+  ],
+  "Layout -> Components": [
+    {
+      "file": "shared/layout/CustomerLayout.tsx",
+      "import": "@/shared/components/header/CustomerHeader"
+    },
+    {
+      "file": "shared/layout/WorkspaceLayout.tsx",
+      "import": "@/shared/components/header/WorkspaceHeader"
+    },
+    {
+      "file": "shared/layout/WorkspaceLayout.tsx",
+      "import": "@/shared/components/navigation/WorkspaceSidebar"
+    }
+  ],
+  "Stores -> Features": [
+    {
+      "file": "shared/stores/authStore.ts",
+      "import": "@/features/auth/api/authApi"
+    },
+    {
+      "file": "shared/stores/authStore.ts",
+      "import": "@/features/auth/types/auth.types"
+    },
+    {
+      "file": "shared/stores/authStore.ts",
+      "import": "@/features/auth/types/auth.types"
+    }
+  ],
+  "Stores -> API": [
+    {
+      "file": "shared/stores/authStore.ts",
+      "import": "@/shared/api"
+    }
+  ],
+  "Components -> Router": [
+    {
+      "file": "shared/components/AppLogo.tsx",
+      "import": "@/app/router/paths"
+    },
+    {
+      "file": "shared/components/header/GuestHeaderActions.tsx",
+      "import": "@/app/router/paths"
+    },
+    {
+      "file": "shared/components/header/AuthenticatedHeaderActions.tsx",
+      "import": "@/app/router/paths"
+    }
+  ],
+  "Components -> Stores": [
+    {
+      "file": "shared/components/header/AuthenticatedHeaderActions.tsx",
+      "import": "@/shared/stores/authStore"
+    },
+    {
+      "file": "shared/components/header/WorkspaceHeader.tsx",
+      "import": "@/shared/stores/authStore"
+    },
+    {
+      "file": "shared/components/header/WorkspaceHeader.tsx",
+      "import": "@/shared/stores/uiStore"
+    },
+    {
+      "file": "shared/components/header/CustomerHeader.tsx",
+      "import": "@/shared/stores/authStore"
+    },
+    {
+      "file": "shared/components/navigation/WorkspaceSidebar.tsx",
+      "import": "@/shared/stores/authStore"
+    },
+    {
+      "file": "shared/components/navigation/WorkspaceSidebar.tsx",
+      "import": "@/shared/stores/uiStore"
+    }
+  ],
+  "Pages -> Router": [
+    {
+      "file": "pages/auth/OtpVerificationPage.tsx",
+      "import": "@/app/router/paths"
+    },
+    {
+      "file": "pages/auth/ForgotPasswordPage.tsx",
+      "import": "@/app/router/paths"
+    },
+    {
+      "file": "pages/auth/LoginPage.tsx",
+      "import": "@/app/router/paths"
+    },
+    {
+      "file": "pages/auth/LoginPage.tsx",
+      "import": "@/app/router/rolePaths"
+    },
+    {
+      "file": "pages/auth/RegisterPage.tsx",
+      "import": "@/app/router/paths"
+    },
+    {
+      "file": "pages/commons/NotFoundPage.tsx",
+      "import": "@/app/router/paths"
+    },
+    {
+      "file": "pages/commons/ComingSoonPage.tsx",
+      "import": "@/app/router/paths"
+    }
+  ],
+  "Pages -> Features": [
+    {
+      "file": "pages/auth/OtpVerificationPage.tsx",
+      "import": "@/features/auth/api/authApi"
+    },
+    {
+      "file": "pages/auth/ForgotPasswordPage.tsx",
+      "import": "@/features/auth/api/authApi"
+    },
+    {
+      "file": "pages/auth/RegisterPage.tsx",
+      "import": "@/features/auth/api/authApi"
+    },
+    {
+      "file": "pages/auth/OtpVerificationPage.tsx",
+      "import": "@/features/auth/components/AuthFormCard"
+    },
+    {
+      "file": "pages/auth/ForgotPasswordPage.tsx",
+      "import": "@/features/auth/components/AuthFormCard"
+    },
+    {
+      "file": "pages/auth/ForgotPasswordPage.tsx",
+      "import": "@/features/auth/components/PasswordField"
+    },
+    {
+      "file": "pages/auth/LoginPage.tsx",
+      "import": "@/features/auth/components/AuthFormCard"
+    },
+    {
+      "file": "pages/auth/LoginPage.tsx",
+      "import": "@/features/auth/components/PasswordField"
+    },
+    {
+      "file": "pages/auth/RegisterPage.tsx",
+      "import": "@/features/auth/components/AuthFormCard"
+    },
+    {
+      "file": "pages/auth/RegisterPage.tsx",
+      "import": "@/features/auth/components/PasswordField"
+    },
+    {
+      "file": "pages/auth/OtpVerificationPage.tsx",
+      "import": "@/features/auth/schemas/auth.schema"
+    },
+    {
+      "file": "pages/auth/ForgotPasswordPage.tsx",
+      "import": "@/features/auth/schemas/auth.schema"
+    },
+    {
+      "file": "pages/auth/LoginPage.tsx",
+      "import": "@/features/auth/schemas/auth.schema"
+    },
+    {
+      "file": "pages/auth/RegisterPage.tsx",
+      "import": "@/features/auth/schemas/auth.schema"
+    }
+  ],
+  "Pages -> API": [
+    {
+      "file": "pages/auth/OtpVerificationPage.tsx",
+      "import": "@/shared/api"
+    },
+    {
+      "file": "pages/auth/ForgotPasswordPage.tsx",
+      "import": "@/shared/api"
+    },
+    {
+      "file": "pages/auth/LoginPage.tsx",
+      "import": "@/shared/api"
+    },
+    {
+      "file": "pages/auth/RegisterPage.tsx",
+      "import": "@/shared/api"
+    }
+  ],
+  "Pages -> Stores": [
+    {
+      "file": "pages/auth/LoginPage.tsx",
+      "import": "@/shared/stores/authStore"
+    }
+  ],
+  "App -> Providers": [
+    {
+      "file": "app/App.tsx",
+      "import": "@/app/providers/AppProvider"
+    }
+  ],
+  "App -> Router": [
+    {
+      "file": "app/App.tsx",
+      "import": "@/app/router/AppRouter"
+    }
+  ],
+  "Router -> Layout": [
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/shared/layout/AdminLayout"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/shared/layout/CustomerLayout"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/shared/layout/StaffLayout"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/shared/layout/StoreOwnerLayout"
+    }
+  ],
+  "Router -> Pages": [
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/pages/auth/ForgotPasswordPage"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/pages/auth/LoginPage"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/pages/auth/OtpVerificationPage"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/pages/auth/RegisterPage"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/pages/customer/CustomerHomePage"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/pages/commons/ComingSoonPage"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/pages/commons/NotFoundPage"
+    }
+  ],
+  "Router -> Features": [
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/features/products/pages/ProductsWorkspace"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/features/products/pages/ProductListPage"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/features/products/pages/CreateProductPage"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/features/products/pages/ProductDetailPage"
+    },
+    {
+      "file": "app/router/routes.tsx",
+      "import": "@/features/products/pages/ProductHistoryPage"
+    },
+    {
+      "file": "app/router/routeAccess.ts",
+      "import": "@/features/auth/types/auth.types"
+    },
+    {
+      "file": "app/router/rolePaths.ts",
+      "import": "@/features/auth/types/auth.types"
+    }
+  ],
+  "Router -> Stores": [
+    {
+      "file": "app/router/ProtectedRoute.tsx",
+      "import": "@/shared/stores/authStore"
+    },
+    {
+      "file": "app/router/CustomerRoute.tsx",
+      "import": "@/shared/stores/authStore"
+    }
+  ],
+  "Providers -> Stores": [
+    {
+      "file": "app/providers/AppProvider.tsx",
+      "import": "@/shared/stores/authStore"
+    }
+  ],
+  "Features -> API": [
+    {
+      "file": "features/auth/api/authApi.ts",
+      "import": "@/shared/api"
+    },
+    {
+      "file": "features/products/api/productApi.ts",
+      "import": "@/shared/api"
+    },
+    {
+      "file": "features/products/utils/productForm.ts",
+      "import": "@/shared/api"
+    },
+    {
+      "file": "features/products/hooks/useProductResource.ts",
+      "import": "@/shared/api"
+    }
+  ],
+  "Features -> Types": [
+    {
+      "file": "features/auth/api/authApi.ts",
+      "import": "@/shared/types"
+    },
+    {
+      "file": "features/products/api/productApi.ts",
+      "import": "@/shared/types"
+    }
+  ],
+  "Features -> Components": [
+    {
+      "file": "features/products/pages/ProductListPage.tsx",
+      "import": "@/shared/components/Pagination"
+    },
+    {
+      "file": "features/products/components/ProductDealsPanel.tsx",
+      "import": "@/shared/components/Pagination"
+    }
+  ],
+  "Features -> Router": [
+    {
+      "file": "features/products/pages/ProductsWorkspace.tsx",
+      "import": "@/app/router/paths"
+    }
+  ]
+}

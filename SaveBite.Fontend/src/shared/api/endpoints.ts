@@ -33,8 +33,12 @@ export const API_ENDPOINTS = {
   SHOPS: {
     NEARBY: "/shops",
     ME: "/shops/me",
+    BUSINESS_INFO: "/shops/me/business-info",
+    IMAGES: "/shops/me/images",
     PROFILE: (shopId: string) => `/shops/${shopId}`,
     REVIEWS: (shopId: string) => `/shops/${shopId}/reviews`,
+    PAYMENT_CONFIG: "/shops/me/payment-config",
+    UPDATE_PAYMENT_CONFIG: "/shops/me/payment-config",
   },
   SHOP_APPLICATIONS: {
     BASE: "/shop-applications",
@@ -67,5 +71,38 @@ export const API_ENDPOINTS = {
     NEARBY: "/flash-deals",
     BY_SHOP: (shopId: string) => `/shops/${shopId}/flash-deals`,
     DETAIL: (dealId: string) => `/flash-deals/${dealId}`,
+  },
+  PRODUCTS: {
+    BASE: "/products",
+    OPTIONS: "/products/options",
+    SUMMARY: "/products/summary",
+    DETAIL: (productId: string) => `/products/${productId}`,
+    STATUS: (productId: string) => `/products/${productId}/status`,
+    IMAGES: (productId: string) => `/products/${productId}/images`,
+    ATTRIBUTE_VALUES: (productId: string) => `/products/${productId}/attribute-values`,
+    VALUE_IMAGE: (productId: string, valueId: string) =>
+      `/products/${productId}/values/${valueId}/image`,
+    VARIANTS: (productId: string, variantId: string) =>
+      `/products/${productId}/variants/${variantId}`,
+    FLASH_DEALS: (productId: string) => `/products/${productId}/flash-deals`,
+  },
+  TRUST_SCORE: {
+    ME: "/trust-score/me",
+    LEVEL_PROGRESS: "/trust-score/me/level-progress",
+    HISTORY: "/trust-score/me/history",
+    LEVELS: "/trust-score/levels",
+    PENALTIES: "/trust-score/me/penalties",
+    PENALTY_RECOVERY: (penaltyId: string) => `/trust-score/me/penalties/${penaltyId}/recovery`,
+  },
+  ADMIN_TRUST: {
+    LEVELS: "/admin/trust/levels",
+    LEVEL_BENEFITS: (levelId: string) => `/admin/trust/levels/${levelId}/benefits`,
+    LEVEL_REQUIREMENTS: (levelId: string) => `/admin/trust/levels/${levelId}/requirements`,
+    PENALTY_RULES: "/admin/trust/penalty-rules",
+    PENALTY_RULE: (ruleId: string) => `/admin/trust/penalty-rules/${ruleId}`,
+    SCORE_RULES: "/admin/trust/score-rules",
+    SCORE_RULE: (ruleId: string) => `/admin/trust/score-rules/${ruleId}`,
+    EARNING_RULES: "/admin/trust/earning-rules",
+    EARNING_RULE: (ruleId: string) => `/admin/trust/earning-rules/${ruleId}`,
   },
 } as const;
