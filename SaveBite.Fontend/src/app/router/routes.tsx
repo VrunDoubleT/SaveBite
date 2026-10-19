@@ -47,6 +47,7 @@ import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
 import { PaymentSettingsPage } from "@/pages/store-owner/PaymentSettingsPage";
+import { ShopProfilePage } from "@/pages/store-owner/ShopProfilePage";
 
 export const routes: RouteObject[] = [
   {
@@ -318,13 +319,17 @@ export const routes: RouteObject[] = [
             path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
             element: <StoreOwnerStaffInvitationsPage />,
           },
-          {
+                    {
             path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
             element: <StaffDetailPage />,
           },
           {
             path: APP_PATHS.STORE_OWNER_PAYMENT_SETTINGS,
             element: <PaymentSettingsPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_PROFILE,
+            element: <ShopProfilePage />,
           },
         ],
       },

@@ -1,4 +1,4 @@
-import { CreditCard, Package, Store, Users } from "lucide-react";
+import { CreditCard, Package, Settings2, Store, Users } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
 
@@ -26,6 +26,12 @@ const navigation = [
     label: "Payment Settings",
     end: false,
     icon: CreditCard,
+  },
+  {
+    to: APP_PATHS.STORE_OWNER_PROFILE,
+    label: "Shop Profile",
+    end: false,
+    icon: Settings2,
   },
 ] as const;
 

@@ -127,7 +127,6 @@ public sealed class ShopRepository : IShopRepository
 
         return (items, totalItems);
     }
-
     public async Task<ShopPaymentConfig?> GetPaymentConfigByOwnerUserIdAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
         return await _context.Set<ShopPaymentConfig>()
@@ -136,6 +135,23 @@ public sealed class ShopRepository : IShopRepository
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<Shop?> GetShopProfileByOwnerUserIdAsync(
+        Guid ownerUserId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Shops
+            .AsNoTracking()
+            .Include(shop => shop.Application)
+            .ThenInclude(application => application.Documents.Where(document => document.IsCurrent))
+            .FirstOrDefaultAsync(shop => shop.OwnerUserId == ownerUserId, cancellationToken);
+    }
+
+    public async Task UpdateShopAsync(Shop shop, CancellationToken cancellationToken = default)
+    {
+        _context.Shops.Update(shop);
         await _context.SaveChangesAsync(cancellationToken);
     }
 }

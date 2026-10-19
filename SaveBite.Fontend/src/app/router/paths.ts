@@ -30,9 +30,10 @@ export const APP_PATHS = {
   STORE_OWNER: "/store-owner",
   STORE_OWNER_STAFF: "/store-owner/staff",
   STORE_OWNER_STAFF_DETAIL: "/store-owner/staff/:staffId",
-   STORE_OWNER_STAFF_INVITATIONS: "staff/invitations",
+  STORE_OWNER_STAFF_INVITATIONS: "staff/invitations",
   STORE_OWNER_PRODUCTS: "/store-owner/products",
   STORE_OWNER_PAYMENT_SETTINGS: "/store-owner/payment-settings",
+  STORE_OWNER_PROFILE: "/store-owner/profile",
   NOT_FOUND: "*",
 } as const;
 
