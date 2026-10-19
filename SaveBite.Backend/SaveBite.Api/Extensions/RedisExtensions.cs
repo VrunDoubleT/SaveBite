@@ -20,6 +20,9 @@ public static class RedisExtensions
         services.AddSingleton<IRedisCacheService, RedisCacheService>();
         services.AddSingleton<IAuthRedisService, AuthRedisService>();
         services.AddSingleton<IFlashDealRedisService, FlashDealRedisService>();
+        services.AddSingleton<IOrderCodeCache, RedisOrderCodeCache>();
+        services.AddSingleton<ICheckoutQuoteStore, RedisCheckoutQuoteStore>();
+        services.AddScoped<ICheckoutStockCache, CheckoutStockCache>();
 
         return services;
     }

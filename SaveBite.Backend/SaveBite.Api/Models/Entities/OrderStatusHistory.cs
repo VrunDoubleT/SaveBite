@@ -12,6 +12,8 @@ public class OrderStatusHistory
 
     public Guid? ChangedBy { get; set; }
     public string? Note { get; set; }
+    public string? ActorNameSnapshot { get; set; }
+    public string? ActorRoleSnapshot { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

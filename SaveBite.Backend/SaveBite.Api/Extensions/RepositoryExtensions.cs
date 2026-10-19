@@ -21,6 +21,13 @@ public static class RepositoryExtensions
         services.AddScoped<IShopRepository, ShopRepository>();
         services.AddScoped<IFlashDealRepository, FlashDealRepository>();
         services.AddScoped<IUserAddressRepository, UserAddressRepository>();
+        services.AddScoped<ICartRepository, CartRepository>();
+
+        services.AddScoped<ICheckoutRepository, CheckoutRepository>();
+        services.AddScoped<IPaymentHistoryRepository, PaymentHistoryRepository>();
+        services.AddScoped<IOrderEventRepository, OrderEventRepository>();
+        services.AddScoped<IShopOrderRepository, ShopOrderRepository>();
+
         return services;
     }
 }

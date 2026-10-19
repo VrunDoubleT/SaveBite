@@ -18,6 +18,7 @@ public static class DbSeeder
         if (hasBaseSeed && hasExtendedSeed)
         {
             await EnsureCategoriesSeededAsync(context);
+            await EnsureDepositPoliciesSeededAsync(context);
             return;
         }
 
@@ -44,9 +45,76 @@ public static class DbSeeder
             }
 
             await EnsureCategoriesSeededAsync(context);
+            await EnsureDepositPoliciesSeededAsync(context);
 
             await transaction.CommitAsync();
         });
+    }
+
+    private static async Task EnsureDepositPoliciesSeededAsync(AppDbContext context)
+    {
+        var now = DateTime.UtcNow;
+        var names = new[] { "Bronze", "Silver", "Gold", "Platinum", "Diamond" };
+        // Sample requirements and VND amounts; existing admin configuration is preserved.
+        var minScores = new[] { 0, 80, 90, 95, 100 };
+        var minOrders = new[] { 0, 3, 10, 25, 50 };
+        var minValues = new[] { 0m, 100000m, 500000m, 1500000m, 3000000m };
+        var freeAmounts = new[] { 0m, 10000m, 20000m, 50000m, 100000m };
+        var maxAmounts = new[] { 0m, 100000m, 200000m, 500000m, 1000000m };
+        var levels = await context.TrustLevels.Include(x => x.Requirement)
+            .Include(x => x.DepositPolicy).ToListAsync();
+
+        for (var rank = 1; rank <= 5; rank++)
+        {
+            var i = rank - 1;
+            var level = levels.SingleOrDefault(x => x.Rank == rank);
+            if (level == null)
+            {
+                level = new TrustLevel
+                {
+                    Id = Guid.NewGuid(), Name = names[i], Rank = rank, IsActive = true,
+                    Description = $"Cap do {rank}.", CreatedAt = now, UpdatedAt = now
+                };
+                context.TrustLevels.Add(level);
+            }
+            if (level.Requirement == null)
+            {
+                level.Requirement = new TrustLevelRequirement
+                {
+                    Id = Guid.NewGuid(), TrustLevelId = level.Id,
+                    MinScore = minScores[i], MinCompletedOrders = minOrders[i], MinTotalOrderValue = minValues[i]
+                };
+                context.TrustLevelRequirements.Add(level.Requirement);
+            }
+            if (level.DepositPolicy != null)
+                continue;
+
+            var policy = new TrustLevelDepositPolicy
+            {
+                Id = Guid.NewGuid(), TrustLevelId = level.Id, RequireFullOnlinePayment = rank == 1,
+                DepositFreeOrderAmount = rank == 1 ? null : freeAmounts[i],
+                MaxDepositOrderAmount = rank == 1 ? null : maxAmounts[i],
+                CreatedAt = now, UpdatedAt = now
+            };
+            level.DepositPolicy = policy;
+            context.TrustLevelDepositPolicies.Add(policy);
+            if (rank == 1)
+                continue;
+
+            var bounds = new[] { freeAmounts[i], maxAmounts[i] * 0.4m, maxAmounts[i] * 0.8m, maxAmounts[i] };
+            var deposits = new[] { maxAmounts[i] * 0.05m, maxAmounts[i] * 0.2m, maxAmounts[i] * 0.3m };
+            for (var j = 0; j < 3; j++)
+            {
+                var range = new TrustLevelDepositRange
+                {
+                    Id = Guid.NewGuid(), DepositPolicyId = policy.Id,
+                    FromOrderAmount = bounds[j], ToOrderAmount = bounds[j + 1], DepositAmount = deposits[j]
+                };
+                policy.Ranges.Add(range);
+                context.TrustLevelDepositRanges.Add(range);
+            }
+        }
+        await context.SaveChangesAsync();
     }
 
     private static async Task EnsureCategoriesSeededAsync(AppDbContext context)

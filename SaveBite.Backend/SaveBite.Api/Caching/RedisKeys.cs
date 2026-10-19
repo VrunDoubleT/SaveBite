@@ -2,6 +2,11 @@ namespace SaveBite.Backend.Caching;
 
 public static class RedisKeys
 {
+    public static string OrderCode(Guid shopId, DateOnly date) => $"order-code:{shopId:N}:{date:yyyyMMdd}";
+
+    public static string CheckoutQuote(Guid userId, Guid quoteId)
+        => $"checkout:quote:{userId:N}:{quoteId:N}";
+
     public static string AuthPendingRegistration(string subjectHash)
         => $"auth:register:pending:{subjectHash}";
 

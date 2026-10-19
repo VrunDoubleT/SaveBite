@@ -25,6 +25,40 @@ public static class ServiceExtensions
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();
 
+        services.AddScoped<ICartService, CartService>();
+        services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<IPaymentHistoryService, PaymentHistoryService>();
+        services.AddScoped<IOrderEventPublisher, OrderEventPublisher>();
+        services.AddScoped<IShopOrderEventService, ShopOrderEventService>();
+
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<ICheckoutService, CheckoutService>();
+        services.AddScoped<IShopOrderService, ShopOrderService>();
+        services.AddScoped<ICheckoutPaymentService, CheckoutPaymentService>();
+        services.AddScoped<ICheckoutPaymentGateway>(provider =>
+        {
+            var configuration = provider.GetRequiredService<IConfiguration>();
+            var environment = provider.GetRequiredService<IHostEnvironment>();
+            if (configuration["Checkout:PaymentProvider"] == "Simulated")
+            {
+                if (!environment.IsDevelopment()) throw new InvalidOperationException("Simulated payments require Development.");
+                return new DevelopmentCheckoutGateway();
+            }
+            return ActivatorUtilities.CreateInstance<PayOsCheckoutGateway>(provider);
+        });
+        services.AddScoped<ITravelTimeService, VietMapTravelTimeService>();
+        services.AddHttpClient("VietMapRouting", client =>
+        {
+            client.BaseAddress = new Uri("https://maps.vietmap.vn/");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).RemoveAllLoggers();
+        services.AddHttpClient("PayOsCheckout", client =>
+        {
+            client.BaseAddress = new Uri("https://api-merchant.payos.vn/");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).RemoveAllLoggers();
+        services.AddScoped<ICartDealEventService, CartDealEventService>();
+
         return services;
     }
 }

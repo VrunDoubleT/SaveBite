@@ -10,6 +10,12 @@ public class Payment
     public PaymentType PaymentType { get; set; }
     public PaymentMethod Method { get; set; }
     public decimal Amount { get; set; }
+    public decimal CollectedAmount { get; set; }
+
+    public bool GatewayCreationAttempted { get; set; }
+    public long? GatewayOrderCode { get; set; }
+    public string? GatewayCheckoutUrl { get; set; }
+    public string? GatewayQrCode { get; set; }
 
     public string? GatewayTransactionId { get; set; }
     public PaymentStatus Status { get; set; }

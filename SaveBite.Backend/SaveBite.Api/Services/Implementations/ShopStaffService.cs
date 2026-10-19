@@ -221,7 +221,9 @@ public class ShopStaffService(
                     log.Action.ToString(), 
                     log.Note ?? string.Empty,
                     log.OrderId,
-                    log.CreatedAt
+                    log.CreatedAt,
+                    log.ActorNameSnapshot ?? staff.DisplayName,
+                    log.ActorRoleSnapshot ?? "Staff"
                 ))
             .ToList();
 

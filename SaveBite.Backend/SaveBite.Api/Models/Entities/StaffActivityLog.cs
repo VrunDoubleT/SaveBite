@@ -11,6 +11,8 @@ public class StaffActivityLog
 
     public OrderStatus Action { get; set; } = OrderStatus.Confirmed;
     public string? Note { get; set; }
+    public string? ActorNameSnapshot { get; set; }
+    public string? ActorRoleSnapshot { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

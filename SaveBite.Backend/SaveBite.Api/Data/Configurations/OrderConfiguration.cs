@@ -21,7 +21,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasMaxLength(30)
             .IsRequired();
 
-        builder.HasIndex(x => x.OrderCode).IsUnique();
+        builder.Property(x => x.OrderDate).HasColumnName("order_date")
+            .HasComputedColumnSql("(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date", stored: true);
+        builder.HasIndex(x => new { x.ShopId, x.OrderDate, x.OrderCode })
+            .IsUnique().HasDatabaseName("ux_orders_shop_date_code");
 
         builder.Property(x => x.CustomerId)
             .HasColumnName("customer_id")
@@ -80,6 +83,19 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(x => x.NoShow)
             .HasColumnName("no_show")
             .IsRequired();
+
+        builder.Property(x => x.CheckoutQuoteId).HasColumnName("checkout_quote_id");
+        builder.Property(x => x.CheckoutRequestId).HasColumnName("checkout_request_id");
+        builder.Property(x => x.CheckoutPolicySnapshotJson).HasColumnName("checkout_policy_snapshot_json").HasColumnType("jsonb");
+        builder.Property(x => x.RequiredOnlineAmount).HasColumnName("required_online_amount").HasPrecision(12, 2);
+        builder.Property(x => x.PaymentExpiresAt).HasColumnName("payment_expires_at");
+        builder.Property(x => x.ConfirmationExpirationJobId).HasColumnName("confirmation_expiration_job_id").HasMaxLength(100);
+        builder.Property(x => x.PaymentExpirationJobId).HasColumnName("payment_expiration_job_id").HasMaxLength(100);
+        builder.Property(x => x.InventoryReservationActive).HasColumnName("inventory_reservation_active");
+        builder.Property(x => x.PaymentReviewRequired).HasColumnName("payment_review_required");
+        builder.HasIndex(x => new { x.CustomerId, x.CheckoutRequestId }).IsUnique();
+        builder.HasIndex(x => x.CheckoutQuoteId).IsUnique();
+        builder.HasIndex(x => new { x.InventoryReservationActive, x.PaymentExpiresAt });
 
         builder.Property(x => x.CancelReason)
             .HasColumnName("cancel_reason")
