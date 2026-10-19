@@ -35,6 +35,7 @@ import { ProfilePage } from "@/pages/customer/ProfilePage";
 
 import { CategoryManagementPage } from "@/pages/admin/CategoryManagementPage";
 import { UserManagementPage } from "@/pages/admin/UserManagementPage";
+import { TrustConfigurationPage } from "@/pages/admin/TrustConfigurationPage";
 
 import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
 import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
@@ -187,6 +188,10 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.ADMIN_CATEGORIES,
             element: <CategoryManagementPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_TRUST,
+            element: <TrustConfigurationPage />,
           },
           {
             path: APP_PATHS.ADMIN_PRODUCTS,

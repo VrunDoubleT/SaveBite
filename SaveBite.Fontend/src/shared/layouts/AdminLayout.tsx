@@ -2,6 +2,7 @@ import {
   ClipboardCheck,
   LayoutDashboard,
   Package,
+  ShieldCheck,
   ShoppingBag,
   Store,
   Users,
@@ -41,6 +42,11 @@ const navigation = [
     to: APP_PATHS.ADMIN_STORES,
     label: "Stores",
     icon: Store,
+  },
+  {
+    to: APP_PATHS.ADMIN_TRUST,
+    label: "Trust Score",
+    icon: ShieldCheck,
   },
   {
     to: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
