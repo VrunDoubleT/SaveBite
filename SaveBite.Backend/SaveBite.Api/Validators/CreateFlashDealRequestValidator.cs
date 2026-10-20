@@ -18,9 +18,7 @@ public sealed class CreateFlashDealRequestValidator : AbstractValidator<CreateFl
                 .Must(orderEnd => orderEnd >= DateTime.UtcNow.AddMinutes(29)) // 1-minute buffer for request network latency
                 .WithMessage("Deal duration must be at least 30 minutes from current time.")
                 .Must(orderEnd => orderEnd <= DateTime.UtcNow.AddMinutes(121))
-                .WithMessage("Deal duration cannot exceed 120 minutes.")
-                .Must(orderEnd => orderEnd.ToLocalTime().Date == DateTime.Now.Date)
-                .WithMessage("Flash deal must end within today.");
+                .WithMessage("Deal duration cannot exceed 120 minutes.");
         });
         // === 2. SCHEDULED SELLING MODE ===
         When(x => !x.IsImmediate, () =>
@@ -40,13 +38,7 @@ public sealed class CreateFlashDealRequestValidator : AbstractValidator<CreateFl
                     var duration = orderEnd - req.SaleStartTime.Value;
                     return duration >= TimeSpan.FromMinutes(30) && duration <= TimeSpan.FromMinutes(120);
                 })
-                .WithMessage("The duration of a flash deal must be between 30 and 120 minutes.")
-                .Must((req, orderEnd) =>
-                {
-                    if (!req.SaleStartTime.HasValue) return false;
-                    return req.SaleStartTime.Value.ToLocalTime().Date == orderEnd.ToLocalTime().Date;
-                })
-                .WithMessage("Flash deals can only take place within a single calendar day.");
+                .WithMessage("The duration of a flash deal must be between 30 and 120 minutes.");
         });
         RuleFor(x => x.ShopClosingTime)
             .GreaterThanOrEqualTo(x => x.OrderEndTime)
@@ -55,7 +47,9 @@ public sealed class CreateFlashDealRequestValidator : AbstractValidator<CreateFl
         RuleForEach(x => x.Variants).ChildRules(v =>
         {
             v.RuleFor(x => x.VariantId).NotEmpty().WithMessage("Variant ID is required.");
-            v.RuleFor(x => x.DealPrice).GreaterThan(0).WithMessage("Deal price must be greater than 0.");
+            v.RuleFor(x => x.DealPrice)
+                .GreaterThanOrEqualTo(1000).WithMessage("Deal price must be at least 1,000 VND.")
+                .Must(p => p % 1000 == 0).WithMessage("Deal price must be a multiple of 1,000 VND.");
             v.RuleFor(x => x.TotalQuantity).GreaterThan(0).WithMessage("Total quantity must be greater than 0.");
         });
     }
@@ -83,7 +77,9 @@ public sealed class UpdateFlashDealRequestValidator : AbstractValidator<UpdateFl
         RuleForEach(x => x.Variants).ChildRules(v =>
         {
             v.RuleFor(x => x.VariantId).NotEmpty().WithMessage("Variant ID is required.");
-            v.RuleFor(x => x.DealPrice).GreaterThan(0).WithMessage("Deal price must be greater than 0.");
+            v.RuleFor(x => x.DealPrice)
+                .GreaterThanOrEqualTo(1000).WithMessage("Deal price must be at least 1,000 VND.")
+                .Must(p => p % 1000 == 0).WithMessage("Deal price must be a multiple of 1,000 VND.");
             v.RuleFor(x => x.TotalQuantity).GreaterThan(0).WithMessage("Total quantity must be greater than 0.");
         });
     }
