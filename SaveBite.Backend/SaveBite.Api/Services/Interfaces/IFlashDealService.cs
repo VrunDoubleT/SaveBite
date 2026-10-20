@@ -11,9 +11,9 @@ public interface IFlashDealService
     Task<FlashDealCursorListResponse> GetNearbyAsync(FlashDealCursorRequest request, Guid? userId = null, CancellationToken cancellationToken = default);
     Task<FlashDealResponse> GetByIdAsync(Guid dealId, CancellationToken cancellationToken = default);
 
-    // Store owner:
+    // Store owner & staff:
     Task<PagedResult<ShopFlashDealListItemResponse>> GetShopDealsAsync(Guid userId, ShopFlashDealQueryRequest request, CancellationToken cancellationToken = default);
-    Task<ShopFlashDealDetailResponse> GetShopDealDetailAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default);
+    Task<ShopFlashDealDetailResponse> GetShopDealDetailAsync(Guid userId, Guid dealId, Guid? shopId = null, CancellationToken cancellationToken = default);
     Task<ShopFlashDealDetailResponse> CreateDealAsync(Guid userId, CreateFlashDealRequest request, CancellationToken cancellationToken = default);
     Task<ShopFlashDealDetailResponse> UpdateDealAsync(Guid userId, Guid dealId, UpdateFlashDealRequest request, CancellationToken cancellationToken = default);
     Task CancelDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default);

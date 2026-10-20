@@ -76,7 +76,7 @@ public sealed class FlashDealsController : ControllerBase
     
     // 1. View Flash Deals for Shop
     [HttpGet("flash-deals/shop")]
-    [StoreOwnerAnyStatusAccess]
+    [StoreOwnerOrStaffAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<PagedResult<ShopFlashDealListItemResponse>>>> GetShopDeals(
         [FromQuery] ShopFlashDealQueryRequest request,
         CancellationToken cancellationToken)
@@ -87,13 +87,14 @@ public sealed class FlashDealsController : ControllerBase
 
     // 2. View Flash Deal Details for Shop
     [HttpGet("flash-deals/shop/{id:guid}")]
-    [StoreOwnerAnyStatusAccess]
+    [StoreOwnerOrStaffAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<ShopFlashDealDetailResponse>>> GetShopDealDetail(
         Guid id,
+        [FromQuery] Guid? shopId,
         CancellationToken cancellationToken)
     {
         if (id == Guid.Empty) throw AppException.BadRequest("Flash deal ID is invalid.");
-        var result = await _flashDealService.GetShopDealDetailAsync(GetRequiredUserId(), id, cancellationToken);
+        var result = await _flashDealService.GetShopDealDetailAsync(GetRequiredUserId(), id, shopId, cancellationToken);
         return Ok(ApiResponse<ShopFlashDealDetailResponse>.Ok(result));
     }
 

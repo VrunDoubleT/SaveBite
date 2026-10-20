@@ -20,6 +20,7 @@ public sealed class FlashDealService : IFlashDealService
     private readonly IFlashDealRepository _dealRepository;
     private readonly IUserAddressRepository _userAddressRepository;
     private readonly IShopRepository _shopRepository;
+    private readonly IShopStaffRepository _staffRepository;
     private readonly ILogger<FlashDealService> _logger;
     private readonly IBackgroundJobClient _backgroundJobClient;
     private readonly IRabbitMqPublisher _publisher;
@@ -28,6 +29,7 @@ public sealed class FlashDealService : IFlashDealService
         IFlashDealRepository dealRepository,
         IUserAddressRepository userAddressRepository,
         IShopRepository shopRepository,
+        IShopStaffRepository staffRepository,
         IBackgroundJobClient backgroundJobClient,
         IRabbitMqPublisher publisher,
         ILogger<FlashDealService> logger)
@@ -36,6 +38,7 @@ public sealed class FlashDealService : IFlashDealService
         _dealRepository = dealRepository;
         _userAddressRepository = userAddressRepository;
         _shopRepository = shopRepository;
+        _staffRepository = staffRepository;
         _logger = logger;
         _backgroundJobClient = backgroundJobClient;
         _publisher = publisher;
@@ -402,7 +405,7 @@ public sealed class FlashDealService : IFlashDealService
         ShopFlashDealQueryRequest request, 
         CancellationToken cancellationToken = default)
     {
-        var shop = await GetShopOrThrowAsync(userId, cancellationToken);
+        var shop = await GetShopForViewOrThrowAsync(userId, request.ShopId, cancellationToken);
         var pagedDeals = await _dealRepository.GetShopDealsAsync(shop.Id, request, cancellationToken);
         
         return new PagedResult<ShopFlashDealListItemResponse>
@@ -418,9 +421,10 @@ public sealed class FlashDealService : IFlashDealService
     public async Task<ShopFlashDealDetailResponse> GetShopDealDetailAsync(
         Guid userId, 
         Guid dealId, 
+        Guid? shopId = null,
         CancellationToken cancellationToken = default)
     {
-        var shop = await GetShopOrThrowAsync(userId, cancellationToken);
+        var shop = await GetShopForViewOrThrowAsync(userId, shopId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
                    ?? throw AppException.NotFound("Flash deal not found.");
 
@@ -843,6 +847,57 @@ public sealed class FlashDealService : IFlashDealService
                 ImageUrl = v.VariantValues.FirstOrDefault(vv => !string.IsNullOrEmpty(vv.AttributeValue?.ImageUrl))?.AttributeValue?.ImageUrl
             }).ToList()
         }).ToList();
+    }
+
+    private async Task<Shop> GetShopForViewOrThrowAsync(Guid userId, Guid? requestedShopId, CancellationToken cancellationToken)
+    {
+        if (requestedShopId.HasValue && requestedShopId.Value != Guid.Empty)
+        {
+            var ownedShop = await _shopRepository.GetShopByOwnerUserIdAsync(userId, cancellationToken);
+            if (ownedShop != null && ownedShop.Id == requestedShopId.Value)
+            {
+                return ownedShop;
+            }
+
+            var staff = await _staffRepository.GetStaffByShopAndUserAsync(requestedShopId.Value, userId, cancellationToken);
+            if (staff != null && staff.Status == ShopStaffStatus.Active)
+            {
+                if (staff.Shop != null)
+                {
+                    return staff.Shop;
+                }
+                var shop = await _shopRepository.GetActiveShopByIdAsync(requestedShopId.Value, cancellationToken);
+                if (shop != null)
+                {
+                    return shop;
+                }
+            }
+
+            throw AppException.Forbidden("You do not have access to view this shop's flash deals.");
+        }
+
+        var shopByOwner = await _shopRepository.GetShopByOwnerUserIdAsync(userId, cancellationToken);
+        if (shopByOwner != null)
+        {
+            return shopByOwner;
+        }
+
+        var memberships = await _staffRepository.GetShopsByStaffUserIdAsync(userId, cancellationToken);
+        var activeMembership = memberships.FirstOrDefault(s => s.Status == ShopStaffStatus.Active);
+        if (activeMembership != null)
+        {
+            if (activeMembership.Shop != null)
+            {
+                return activeMembership.Shop;
+            }
+            var shop = await _shopRepository.GetActiveShopByIdAsync(activeMembership.ShopId, cancellationToken);
+            if (shop != null)
+            {
+                return shop;
+            }
+        }
+
+        throw AppException.Forbidden("You do not own or work at any shop.");
     }
 
     private async Task<Shop> GetShopOrThrowAsync(Guid userId, CancellationToken cancellationToken)
