@@ -26,6 +26,8 @@ export const APP_PATHS = {
   ADMIN_STORES: "/admin/stores",
   ADMIN_SHOP_APPLICATIONS: "/admin/shop-applications",
   STAFF: "/staff",
+  STAFF_FLASH_DEALS: "/staff/shops/:shopId/flash-deals",
+  STAFF_FLASH_DEAL_DETAIL: "/staff/shops/:shopId/flash-deals/:id",
   STORE_OWNER: "/store-owner",
   STORE_OWNER_FLASH_DEALS: "/store-owner/flash-deals",
   STORE_OWNER_FLASH_DEAL_CREATE: "/store-owner/flash-deals/create",

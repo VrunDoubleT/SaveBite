@@ -85,10 +85,11 @@ export const flashDealApi = {
 
   async getShopFlashDealDetail(
     id: string,
+    params?: { shopId?: string },
   ): Promise<import("@/features/flash-deals/types/flashDeal.types").ShopFlashDealDetail> {
     const response = await httpClient.get<
       ApiResponse<import("@/features/flash-deals/types/flashDeal.types").ShopFlashDealDetail>
-    >(API_ENDPOINTS.FLASH_DEALS.SHOP_DETAIL(id));
+    >(API_ENDPOINTS.FLASH_DEALS.SHOP_DETAIL(id), { params });
     return response.data.data;
   },
 

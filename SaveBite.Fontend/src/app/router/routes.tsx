@@ -34,6 +34,8 @@ import { UserManagementPage } from "@/pages/admin/UserManagementPage";
 import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
 import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
 import { StaffShopDetailPage } from "@/pages/staff/StaffShopDetailPage";
+import { StaffFlashDealsPage } from "@/pages/staff/StaffFlashDealsPage";
+import { StaffFlashDealDetailPage } from "@/pages/staff/StaffFlashDealDetailPage";
 
 import { CustomerShopPage } from "@/pages/customer/CustomerShopPage";
 import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage";
@@ -237,13 +239,15 @@ export const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: (
-              <ComingSoonPage
-                title="Staff overview"
-                description="Staff operations will appear here when their APIs are ready."
-                backTo={APP_PATHS.ACCOUNT_WORKSPACE}
-              />
-            ),
+            element: <Navigate to="flash-deals" replace />,
+          },
+          {
+            path: "flash-deals",
+            element: <StaffFlashDealsPage />,
+          },
+          {
+            path: "flash-deals/:id",
+            element: <StaffFlashDealDetailPage />,
           },
           {
             path: "info",

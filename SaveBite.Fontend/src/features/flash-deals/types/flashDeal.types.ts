@@ -209,4 +209,5 @@ export interface ShopFlashDealQueryParams {
   toDate?: string;
   page?: number;
   pageSize?: number;
+  shopId?: string;
 }
