@@ -2,6 +2,9 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.Extensions.Options;
 using SaveBite.Backend.BackgroundJobs.Configuration;
+using SaveBite.Backend.BackgroundJobs.Interfaces;
+using SaveBite.Backend.BackgroundJobs.Jobs;
+using SaveBite.Backend.BackgroundJobs.Scheduling;
 
 namespace SaveBite.Backend.BackgroundJobs.Extensions;
 
@@ -11,6 +14,16 @@ public static class HangfireExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddScoped<ICheckoutPaymentExpirationScheduler, CheckoutPaymentExpirationScheduler>();
+        services.AddScoped<IOrderEventDispatchScheduler, OrderEventDispatchScheduler>();
+        services.AddScoped<IShopOrderConfirmationScheduler, ShopOrderConfirmationScheduler>();
+        services.AddScoped<IShopOrderNoShowScheduler, ShopOrderNoShowScheduler>();
+
+        services.AddScoped<CheckoutPaymentExpirationJob>();
+        services.AddScoped<OrderEventDispatchJob>();
+        services.AddScoped<ShopOrderConfirmationJob>();
+        services.AddScoped<ShopOrderNoShowJob>();
+
         services.AddOptions<HangfireOptions>()
             .Bind(configuration.GetSection(HangfireOptions.SectionName))
             .ValidateDataAnnotations()
@@ -49,7 +62,6 @@ public static class HangfireExtensions
             options.Queues = new[] { "default" };
         });
 
-        // Register scoped job classes here as they are added.
         return services;
     }
 
