@@ -10,6 +10,10 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
     {
         builder.ToTable("payments");
 
+        builder.Property(x => x.GatewayQrCode).HasColumnName("gateway_qr_code").HasColumnType("text");
+        builder.HasIndex(x => x.OrderId).HasDatabaseName("IX_payments_order_id");
+        builder.HasIndex(x => x.OrderId, "ux_payments_remaining_per_order").IsUnique().HasFilter("\"payment_type\" = 'Remaining' AND \"status\" = 'Pending'").HasDatabaseName("ux_payments_remaining_per_order");
+        builder.Property(x => x.CollectedAmount).HasColumnName("collected_amount").HasPrecision(12, 2);
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)
@@ -36,6 +40,11 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .HasColumnName("amount")
             .HasPrecision(12, 2)
             .IsRequired();
+
+        builder.Property(x => x.GatewayCreationAttempted).HasColumnName("gateway_creation_attempted");
+        builder.Property(x => x.GatewayOrderCode).HasColumnName("gateway_order_code");
+        builder.Property(x => x.GatewayCheckoutUrl).HasColumnName("gateway_checkout_url").HasMaxLength(2000);
+        builder.HasIndex(x => x.GatewayOrderCode).IsUnique();
 
         builder.Property(x => x.GatewayTransactionId)
             .HasColumnName("gateway_transaction_id")

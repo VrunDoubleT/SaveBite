@@ -16,6 +16,8 @@ public class TrustLevel
 
     public DateTime UpdatedAt { get; set; }
 
+    public TrustLevelDepositPolicy? DepositPolicy { get; set; }
+
     public TrustLevelRequirement? Requirement { get; set; }
     public ICollection<UserTrustScore> UserTrustScores { get; set; } = new List<UserTrustScore>();
     public ICollection<UserTrustLevelHistory> PreviousLevelHistories { get; set; } = new List<UserTrustLevelHistory>();

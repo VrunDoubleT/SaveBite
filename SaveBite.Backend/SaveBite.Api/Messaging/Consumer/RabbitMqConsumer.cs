@@ -31,6 +31,12 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
     // Example: order.*, deal.*, notification.*.
     protected abstract string RoutingKey { get; }
 
+    // Existing consumers keep their single binding; feature consumers can opt into several exact keys.
+    protected virtual IReadOnlyCollection<string> RoutingKeys => [RoutingKey];
+
+    // Opt-in dead-letter storage keeps rejected feature messages available for inspection and replay.
+    protected virtual string? DeadLetterQueueName => null;
+
     // Business logic executed when a message is received.
     protected abstract Task HandleMessageAsync(
         RabbitMessage<T> message,
@@ -74,20 +80,34 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
             autoDelete: false,
             cancellationToken: cancellationToken);
 
+        Dictionary<string, object?>? queueArguments = null;
+        if (DeadLetterQueueName != null)
+        {
+            await _channel.QueueDeclareAsync(queue: DeadLetterQueueName, durable: true,
+                exclusive: false, autoDelete: false, cancellationToken: cancellationToken);
+            queueArguments = new Dictionary<string, object?>
+            {
+                ["x-dead-letter-exchange"] = "",
+                ["x-dead-letter-routing-key"] = DeadLetterQueueName
+            };
+        }
+
         // Declare Queue.
         await _channel.QueueDeclareAsync(
             queue: QueueName,
             durable: true,
             exclusive: false,
             autoDelete: false,
+            arguments: queueArguments,
             cancellationToken: cancellationToken);
 
         // Bind Queue to Topic Exchange.
-        await _channel.QueueBindAsync(
-            queue: QueueName,
-            exchange: _options.ExchangeName,
-            routingKey: RoutingKey,
-            cancellationToken: cancellationToken);
+        foreach (var routingKey in RoutingKeys)
+            await _channel.QueueBindAsync(
+                queue: QueueName,
+                exchange: _options.ExchangeName,
+                routingKey: routingKey,
+                cancellationToken: cancellationToken);
 
         // Create consumer.
         var consumer = new AsyncEventingBasicConsumer(_channel);
@@ -125,7 +145,7 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
         {
             var message =
                 JsonSerializer.Deserialize<RabbitMessage<T>>(
-                    eventArgs.Body.Span);
+                    eventArgs.Body.Span, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             if (message == null)
             {

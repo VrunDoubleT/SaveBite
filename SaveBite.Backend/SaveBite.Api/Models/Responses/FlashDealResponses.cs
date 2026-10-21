@@ -49,7 +49,8 @@ public class FlashDealVariantResponse
     public decimal DiscountPercent { get; set; }
     public int TotalQuantity { get; set; }
     public int SoldQuantity { get; set; }
-    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity);
+    public int ReservedQuantity { get; set; }
+    public int AvailableQuantity => (int)Math.Clamp((long)TotalQuantity - ReservedQuantity - SoldQuantity, 0, int.MaxValue);
     public FlashDealVariantStatus Status { get; set; }
     public bool IsPurchasable { get; set; }
 }

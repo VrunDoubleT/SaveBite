@@ -23,6 +23,12 @@ public static class RepositoryExtensions
         services.AddScoped<IFlashDealRepository, FlashDealRepository>();
         services.AddScoped<ITrustScoreRepository, TrustScoreRepository>();
         services.AddScoped<ITrustConfigRepository, TrustConfigRepository>();
+
+        services.AddScoped<ICartRepository, CartRepository>();
+        services.AddScoped<ICheckoutRepository, CheckoutRepository>();
+        services.AddScoped<IPaymentHistoryRepository, PaymentHistoryRepository>();
+        services.AddScoped<IOrderEventRepository, OrderEventRepository>();
+        services.AddScoped<IShopOrderRepository, ShopOrderRepository>();
         return services;
     }
 }

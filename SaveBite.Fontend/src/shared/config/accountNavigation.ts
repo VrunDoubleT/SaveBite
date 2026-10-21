@@ -1,6 +1,7 @@
 import {
   Briefcase,
   ClipboardList,
+  CreditCard,
   MessageSquareText,
   ShieldCheck,
   Store,
@@ -42,6 +43,13 @@ export const ACCOUNT_NAV_GROUPS: readonly AccountNavGroup[] = [
         title: "Orders",
         description: "Track and review your orders",
         icon: ClipboardList,
+      },
+      {
+        to: APP_PATHS.ACCOUNT_PAYMENTS,
+        label: "Payments",
+        title: "Payments",
+        description: "Track your payments and their related orders",
+        icon: CreditCard,
       },
       {
         to: APP_PATHS.ACCOUNT_REVIEWS,

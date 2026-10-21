@@ -1,3 +1,5 @@
+import { PaymentsPage } from "@/pages/customer/PaymentsPage";
+import { PaymentDetailPage } from "@/pages/customer/PaymentDetailPage";
 import { Navigate, type RouteObject } from "react-router-dom";
 
 import { APP_PATHS } from "@/app/router/paths";
@@ -20,6 +22,9 @@ import { LoginPage } from "@/pages/auth/LoginPage";
 import { OtpVerificationPage } from "@/pages/auth/OtpVerificationPage";
 import { RegisterPage } from "@/pages/auth/RegisterPage";
 
+import { CartPage } from "@/pages/customer/CartPage";
+import { CheckoutSimulationPage } from "@/pages/customer/CheckoutSimulationPage";
+import { CheckoutPage } from "@/pages/customer/CheckoutPage";
 import { CustomerHomePage } from "@/pages/customer/CustomerHomePage";
 import { AccountLayout } from "@/shared/layouts/AccountLayout";
 import { CustomerStaffInvitationsPage } from "@/pages/customer/StaffInvitationsPage";
@@ -30,6 +35,7 @@ import { ShopApplicationFormPage } from "@/pages/customer/ShopApplicationFormPag
 import ShopApplicationPage from "@/pages/customer/ShopApplicationPage";
 import { TrustScorePage } from "@/pages/customer/TrustScorePage";
 import { ReviewsPage } from "@/pages/customer/ReviewsPage";
+import { OrderDetailPage } from "@/pages/customer/OrderDetailPage";
 import { OrdersPage } from "@/pages/customer/OrdersPage";
 import { ProfilePage } from "@/pages/customer/ProfilePage";
 
@@ -48,6 +54,9 @@ import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
 import { PaymentSettingsPage } from "@/pages/store-owner/PaymentSettingsPage";
 import { ShopProfilePage } from "@/pages/store-owner/ShopProfilePage";
+
+import { ShopOrdersPage } from "@/pages/shop/ShopOrdersPage";
+import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
 
 export const routes: RouteObject[] = [
   {
@@ -105,12 +114,19 @@ export const routes: RouteObject[] = [
               },
               {
                 path: APP_PATHS.CART,
-                element: (
-                  <ComingSoonPage
-                    title="Cart"
-                    description="Your cart page is ready for checkout integration."
-                  />
-                ),
+                element: <CartPage />,
+              },
+              {
+                path: "/checkout/simulation",
+                element: <CheckoutSimulationPage />,
+              },
+              {
+                path: APP_PATHS.ORDER_DETAIL,
+                element: <OrderDetailPage />,
+              },
+              {
+                path: APP_PATHS.CHECKOUT,
+                element: <CheckoutPage />,
               },
               {
                 path: APP_PATHS.ACCOUNT,
@@ -128,6 +144,8 @@ export const routes: RouteObject[] = [
                     path: "orders",
                     element: <OrdersPage />,
                   },
+                  { path: "payments", element: <PaymentsPage /> },
+                  { path: "payments/:paymentId", element: <PaymentDetailPage /> },
                   {
                     path: "reviews",
                     element: <ReviewsPage />,
@@ -254,6 +272,8 @@ export const routes: RouteObject[] = [
               />
             ),
           },
+          { path: "orders", element: <ShopOrdersPage /> },
+          { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
           {
             path: "info",
             element: <StaffShopDetailPage />,
@@ -271,46 +291,48 @@ export const routes: RouteObject[] = [
         element: <StoreOwnerLayout />,
         children: [
           {
-            index: true,
-            element: <Navigate to={APP_PATHS.STORE_OWNER_PRODUCTS} replace />,
-          },
-          {
-            path: "products",
-            lazy: async () => ({
-              Component: (await import("@/features/products/pages/ProductsWorkspace"))
-                .ProductsWorkspace,
-            }),
-            children: [
-              {
-                index: true,
-                lazy: async () => ({
-                  Component: (await import("@/features/products/pages/ProductListPage"))
-                    .ProductListPage,
-                }),
-              },
-              {
-                path: "new",
-                lazy: async () => ({
-                  Component: (await import("@/features/products/pages/CreateProductPage"))
-                    .CreateProductPage,
-                }),
-              },
-              {
-                path: ":productId",
-                lazy: async () => ({
-                  Component: (await import("@/features/products/pages/ProductDetailPage"))
-                    .ProductDetailPage,
-                }),
-              },
-              {
-                path: ":productId/flash-deals",
-                lazy: async () => ({
-                  Component: (await import("@/features/products/pages/ProductHistoryPage"))
-                    .ProductHistoryPage,
-                }),
-              },
-            ],
-          },
+  index: true,
+  element: <Navigate to={APP_PATHS.STORE_OWNER_PRODUCTS} replace />,
+},
+{
+  path: "products",
+  lazy: async () => ({
+    Component: (await import("@/features/products/pages/ProductsWorkspace"))
+      .ProductsWorkspace,
+  }),
+  children: [
+    {
+      index: true,
+      lazy: async () => ({
+        Component: (await import("@/features/products/pages/ProductListPage"))
+          .ProductListPage,
+      }),
+    },
+    {
+      path: "new",
+      lazy: async () => ({
+        Component: (await import("@/features/products/pages/CreateProductPage"))
+          .CreateProductPage,
+      }),
+    },
+    {
+      path: ":productId",
+      lazy: async () => ({
+        Component: (await import("@/features/products/pages/ProductDetailPage"))
+          .ProductDetailPage,
+      }),
+    },
+    {
+      path: ":productId/flash-deals",
+      lazy: async () => ({
+        Component: (await import("@/features/products/pages/ProductHistoryPage"))
+          .ProductHistoryPage,
+      }),
+    },
+  ],
+},
+{ path: "orders", element: <ShopOrdersPage /> },
+{ path: "orders/:orderId", element: <ShopOrderDetailPage /> },
           {
             path: "staff",
             element: <StaffManagementPage />,

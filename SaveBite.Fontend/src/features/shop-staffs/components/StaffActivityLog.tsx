@@ -114,6 +114,11 @@ export function StaffActivityLog({ logs, loading = false }: StaffActivityLogProp
 
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-gray-900">{log.action}</p>
+                  {log.actorName && (
+                    <p className="mt-1 text-xs font-medium text-gray-600">
+                      Performed by {log.actorRole === "StoreOwner" ? "Shop owner" : log.actorName}
+                    </p>
+                  )}
 
                   {/* Hiển thị Order ID trực tiếp từ API */}
                   {log.orderId && <OrderIdBadge orderId={log.orderId} />}

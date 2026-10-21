@@ -20,6 +20,11 @@ public class RefundConfiguration : IEntityTypeConfiguration<Refund>
                 "\"status\" <> 'Rejected'");
         });
 
+        builder.Property(x => x.VerificationCodeHash).HasColumnName("verification_code_hash").HasMaxLength(64);
+        builder.Property(x => x.VerificationExpiresAt).HasColumnName("verification_expires_at");
+        builder.Property(x => x.DestinationConfirmedAt).HasColumnName("destination_confirmed_at");
+        builder.Property(x => x.VerificationAttempts).HasColumnName("verification_attempts");
+        builder.Property(x => x.TransferredAmount).HasColumnName("transferred_amount").HasPrecision(12, 2);
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

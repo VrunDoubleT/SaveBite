@@ -311,8 +311,9 @@ public sealed class FlashDealService : IFlashDealService
             .ToList() ?? new List<DealAttributeGroupResponse>();
 
         var now = DateTime.UtcNow;
-        var isDealOnSale = deal.Status == FlashDealStatus.OnSale;
-        var isDealTimeValid = now >= deal.SaleStartTime.ToUniversalTime() && now <= deal.OrderEndTime.ToUniversalTime();
+        var isDealOnSale = deal.Status == FlashDealStatus.OnSale
+            && deal.Shop?.Status == ShopStatus.Active && deal.Product?.Status == ProductStatus.Active;
+        var isDealTimeValid = now >= deal.SaleStartTime.ToUniversalTime() && now < deal.OrderEndTime.ToUniversalTime() && now < deal.ShopClosingTime.ToUniversalTime();
 
         var variants = deal.Variants.Select(v =>
         {
@@ -331,10 +332,11 @@ public sealed class FlashDealService : IFlashDealService
                 ? string.Join(" - ", attrs.Values)
                 : (v.Variant?.Sku ?? "Default");
 
-            var availableQty = Math.Max(0, v.TotalQuantity - v.SoldQuantity);
+            var availableQty = Math.Max(0L, (long)v.TotalQuantity - v.ReservedQuantity - v.SoldQuantity);
             var isVariantPurchasable = isDealOnSale
                 && isDealTimeValid
                 && v.Status == FlashDealVariantStatus.Active
+                && v.Variant?.IsActive == true
                 && availableQty > 0;
 
             return new FlashDealVariantResponse
@@ -350,6 +352,7 @@ public sealed class FlashDealService : IFlashDealService
                 DiscountPercent = v.DiscountPercent,
                 TotalQuantity = v.TotalQuantity,
                 SoldQuantity = v.SoldQuantity,
+                ReservedQuantity = v.ReservedQuantity,
                 Status = v.Status,
                 IsPurchasable = isVariantPurchasable
             };

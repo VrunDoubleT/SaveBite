@@ -29,7 +29,9 @@ public sealed record StaffActivityLogResponse(
     string Action,
     string Description,
     Guid? OrderId,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? ActorName = null,
+    string? ActorRole = null
 );
 
 public sealed record StaffShopInfoResponse(
