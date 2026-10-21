@@ -43,29 +43,248 @@ public sealed class TrustConfigService : ITrustConfigService
         return levels.Select(level => ToLevelResponse(level, counts)).ToList();
     }
 
-    // UC-130: the benefit text of a level.
+    // UC-130: update benefit description and PayAtShop deposit policy & ranges of a level (BR-155, BR-156, BR-197).
     public async Task<AdminTrustLevelResponse> UpdateLevelBenefitsAsync(
         Guid adminId, Guid levelId, UpdateTrustLevelBenefitsRequest request, CancellationToken cancellationToken = default)
     {
         var level = await GetLevelAsync(levelId, cancellationToken);
-        var description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        var orderedRanges = ValidateAndNormalizeDepositPolicy(request);
 
-        if (description != level.Description)
+        var description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        var freeAmount = request.RequireFullOnlinePayment ? null : request.DepositFreeOrderAmount;
+        var maxAmount = request.RequireFullOnlinePayment ? null : request.MaxDepositOrderAmount;
+
+        if (!IsBenefitsUnchanged(level, description, request.RequireFullOnlinePayment, freeAmount, maxAmount, orderedRanges))
         {
             var now = _timeProvider.GetUtcNow().UtcDateTime;
-
-            WriteAudit(adminId, "UpdateTrustLevelBenefits", "TrustLevel", level.Id,
-                new { level.Description }, new { Description = description }, now);
+            var oldSnapshot = SnapshotLevelBenefits(level);
 
             level.Description = description;
             level.UpdatedAt = now;
 
+            var policy = level.DepositPolicy;
+            if (policy is null)
+            {
+                policy = new TrustLevelDepositPolicy
+                {
+                    Id = Guid.NewGuid(),
+                    TrustLevelId = level.Id,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                level.DepositPolicy = policy;
+                _repository.AddDepositPolicy(policy);
+            }
+            else
+            {
+                policy.UpdatedAt = now;
+            }
+
+            policy.RequireFullOnlinePayment = request.RequireFullOnlinePayment;
+            policy.DepositFreeOrderAmount = freeAmount;
+            policy.MaxDepositOrderAmount = maxAmount;
+
+            SyncDepositRanges(policy, orderedRanges);
+
+            var newSnapshot = SnapshotLevelBenefits(level);
+            WriteAudit(adminId, "UpdateTrustLevelBenefits", "TrustLevel", level.Id, oldSnapshot, newSnapshot, now);
+
             await _repository.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Trust level benefits updated. LevelId: {LevelId}", level.Id);
+            _logger.LogInformation("Trust level benefits and deposit policy updated. LevelId: {LevelId}", level.Id);
         }
 
         return ToLevelResponse(level, await _repository.GetUserCountsByLevelAsync(cancellationToken));
     }
+
+    // Validate BR-155, BR-156, BR-197 and DB check constraints on deposit policy and ranges.
+    private static IReadOnlyList<TrustLevelDepositRangeRequest> ValidateAndNormalizeDepositPolicy(
+        UpdateTrustLevelBenefitsRequest request)
+    {
+        if (request.RequireFullOnlinePayment)
+        {
+            if (request.DepositFreeOrderAmount.HasValue
+                || request.MaxDepositOrderAmount.HasValue
+                || (request.Ranges is { Count: > 0 }))
+            {
+                throw AppException.BadRequest(
+                    "Deposit thresholds and ranges must not be provided when full online payment is required.");
+            }
+
+            return Array.Empty<TrustLevelDepositRangeRequest>();
+        }
+
+        if (!request.DepositFreeOrderAmount.HasValue || !request.MaxDepositOrderAmount.HasValue)
+        {
+            throw AppException.BadRequest(
+                "Deposit-free order amount and maximum deposit order amount are required when Pay at shop is enabled.");
+        }
+
+        var freeAmount = request.DepositFreeOrderAmount.Value;
+        var maxAmount = request.MaxDepositOrderAmount.Value;
+
+        if (freeAmount <= 0 || decimal.Truncate(freeAmount) != freeAmount)
+            throw AppException.BadRequest("Deposit-free order amount must be a positive whole VND amount.");
+
+        if (maxAmount <= freeAmount || decimal.Truncate(maxAmount) != maxAmount)
+            throw AppException.BadRequest("Maximum deposit order amount must be a whole VND amount greater than the deposit-free order amount.");
+
+        if (request.Ranges is null || request.Ranges.Count == 0)
+            throw AppException.BadRequest("At least one deposit range is required when Pay at shop is enabled.");
+
+        // BR-155 & BR-156: each range interval key (FromOrderAmount) within a level must be unique and non-contradictory.
+        if (request.Ranges.Select(r => r.FromOrderAmount).Distinct().Count() != request.Ranges.Count)
+            throw AppException.BadRequest("Each deposit range must start at a unique order amount.");
+
+        var ordered = request.Ranges.OrderBy(r => r.FromOrderAmount).ToList();
+
+        if (ordered[0].FromOrderAmount != freeAmount)
+        {
+            throw AppException.BadRequest(
+                $"The first deposit range must start at the deposit-free order amount ({freeAmount:N0} VND).");
+        }
+
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var current = ordered[i];
+
+            if (current.FromOrderAmount <= 0 || decimal.Truncate(current.FromOrderAmount) != current.FromOrderAmount)
+                throw AppException.BadRequest("Range start amounts must be positive whole VND amounts.");
+
+            if (current.ToOrderAmount <= current.FromOrderAmount || decimal.Truncate(current.ToOrderAmount) != current.ToOrderAmount)
+                throw AppException.BadRequest("Each deposit range must have an upper amount greater than its lower amount.");
+
+            if (current.DepositAmount <= 0
+                || current.DepositAmount > current.FromOrderAmount
+                || decimal.Truncate(current.DepositAmount) != current.DepositAmount)
+            {
+                throw AppException.BadRequest(
+                    "Each fixed deposit amount must be a positive whole VND amount and must not exceed its range's starting order amount.");
+            }
+
+            if (i > 0 && current.FromOrderAmount != ordered[i - 1].ToOrderAmount)
+            {
+                throw AppException.BadRequest(
+                    "Deposit ranges must be contiguous with no gaps or overlaps between order-value intervals.");
+            }
+        }
+
+        if (ordered[^1].ToOrderAmount != maxAmount)
+        {
+            throw AppException.BadRequest(
+                $"The last deposit range must end at the maximum deposit order amount ({maxAmount:N0} VND).");
+        }
+
+        return ordered;
+    }
+
+    private void SyncDepositRanges(
+        TrustLevelDepositPolicy policy,
+        IReadOnlyList<TrustLevelDepositRangeRequest> targetRanges)
+    {
+        if (targetRanges.Count == 0)
+        {
+            if (policy.Ranges.Count > 0)
+            {
+                var allExisting = policy.Ranges.ToList();
+                _repository.RemoveDepositRanges(allExisting);
+                policy.Ranges.Clear();
+            }
+            return;
+        }
+
+        var existingByFrom = policy.Ranges.ToDictionary(r => r.FromOrderAmount);
+        var targetFromSet = targetRanges.Select(r => r.FromOrderAmount).ToHashSet();
+
+        var toRemove = policy.Ranges.Where(r => !targetFromSet.Contains(r.FromOrderAmount)).ToList();
+        if (toRemove.Count > 0)
+        {
+            _repository.RemoveDepositRanges(toRemove);
+            foreach (var removed in toRemove)
+                policy.Ranges.Remove(removed);
+        }
+
+        var toAdd = new List<TrustLevelDepositRange>();
+        foreach (var target in targetRanges)
+        {
+            if (existingByFrom.TryGetValue(target.FromOrderAmount, out var existing))
+            {
+                existing.ToOrderAmount = target.ToOrderAmount;
+                existing.DepositAmount = target.DepositAmount;
+            }
+            else
+            {
+                var created = new TrustLevelDepositRange
+                {
+                    Id = Guid.NewGuid(),
+                    DepositPolicyId = policy.Id,
+                    FromOrderAmount = target.FromOrderAmount,
+                    ToOrderAmount = target.ToOrderAmount,
+                    DepositAmount = target.DepositAmount
+                };
+                policy.Ranges.Add(created);
+                toAdd.Add(created);
+            }
+        }
+
+        if (toAdd.Count > 0)
+            _repository.AddDepositRanges(toAdd);
+    }
+
+    private static bool IsBenefitsUnchanged(
+        TrustLevel level,
+        string? description,
+        bool requireFullOnline,
+        decimal? freeAmount,
+        decimal? maxAmount,
+        IReadOnlyList<TrustLevelDepositRangeRequest> targetRanges)
+    {
+        if (level.Description != description || level.DepositPolicy is null)
+            return false;
+
+        var policy = level.DepositPolicy;
+        if (policy.RequireFullOnlinePayment != requireFullOnline
+            || policy.DepositFreeOrderAmount != freeAmount
+            || policy.MaxDepositOrderAmount != maxAmount
+            || policy.Ranges.Count != targetRanges.Count)
+        {
+            return false;
+        }
+
+        var existingOrdered = policy.Ranges.OrderBy(r => r.FromOrderAmount).ToList();
+        for (var i = 0; i < targetRanges.Count; i++)
+        {
+            if (existingOrdered[i].FromOrderAmount != targetRanges[i].FromOrderAmount
+                || existingOrdered[i].ToOrderAmount != targetRanges[i].ToOrderAmount
+                || existingOrdered[i].DepositAmount != targetRanges[i].DepositAmount)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static object SnapshotLevelBenefits(TrustLevel level) => new
+    {
+        level.Description,
+        DepositPolicy = level.DepositPolicy is null
+            ? null
+            : new
+            {
+                level.DepositPolicy.RequireFullOnlinePayment,
+                level.DepositPolicy.DepositFreeOrderAmount,
+                level.DepositPolicy.MaxDepositOrderAmount,
+                Ranges = level.DepositPolicy.Ranges
+                    .OrderBy(r => r.FromOrderAmount)
+                    .Select(r => new
+                    {
+                        r.FromOrderAmount,
+                        r.ToOrderAmount,
+                        r.DepositAmount
+                    })
+                    .ToList()
+            }
+    };
 
     // UC-132: the thresholds a customer must reach to be on a level.
     public async Task<AdminTrustLevelResponse> UpdateLevelRequirementAsync(
@@ -195,7 +414,6 @@ public sealed class TrustConfigService : ITrustConfigService
             throw AppException.Conflict("This rule version has been replaced. Update the latest version of the rule instead.");
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
-
         // A version that has not started yet is edited in place and keeps its start time.
         var isPending = rule.EffectiveFrom > now;
         var effectiveFrom = isPending ? rule.EffectiveFrom : ResolveEffectiveFrom(request.EffectiveFrom, now);
@@ -266,8 +484,6 @@ public sealed class TrustConfigService : ITrustConfigService
 
     // -----------------------------------------------------------------------
     // Trust Score rules (UC-135 .. UC-138)
-    // The schema has no event column: a positive ScoreDelta is an earning rule,
-    // a negative one is a penalty rule.
     // -----------------------------------------------------------------------
 
     public async Task<IReadOnlyList<TrustScoreRuleResponse>> GetScoreRulesAsync(CancellationToken cancellationToken = default)
@@ -307,8 +523,6 @@ public sealed class TrustConfigService : ITrustConfigService
             throw AppException.BadRequest("An earning rule must stay positive and a penalty rule must stay negative.");
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
-
-        // A version that has not started yet is edited in place and keeps its start time.
         var isPending = rule.EffectiveFrom > now;
         var effectiveFrom = isPending ? rule.EffectiveFrom : ResolveEffectiveFrom(request.EffectiveFrom, now);
 
@@ -324,7 +538,6 @@ public sealed class TrustConfigService : ITrustConfigService
 
         if (isPending)
         {
-            // Scheduled but not applied yet: edited in place.
             target = rule;
             target.ScoreDelta = request.ScoreDelta;
         }
@@ -364,7 +577,6 @@ public sealed class TrustConfigService : ITrustConfigService
         => await _repository.GetLevelForUpdateAsync(levelId, cancellationToken)
            ?? throw AppException.NotFound("Trust level not found.");
 
-    // The new version starts now unless the admin schedules it. Past times are rejected.
     private static DateTime ResolveEffectiveFrom(DateTime? requested, DateTime now)
     {
         if (!requested.HasValue)
@@ -383,6 +595,24 @@ public sealed class TrustConfigService : ITrustConfigService
     private static bool IsCurrent(DateTime effectiveFrom, DateTime? effectiveTo, DateTime now)
         => effectiveFrom <= now && (effectiveTo is null || effectiveTo > now);
 
+    internal static TrustLevelDepositPolicyResponse? ToDepositPolicyResponse(TrustLevelDepositPolicy? policy)
+        => policy is null
+            ? null
+            : new TrustLevelDepositPolicyResponse(
+                policy.Id,
+                policy.RequireFullOnlinePayment,
+                policy.DepositFreeOrderAmount,
+                policy.MaxDepositOrderAmount,
+                policy.Ranges
+                    .OrderBy(range => range.FromOrderAmount)
+                    .Select(range => new TrustLevelDepositRangeResponse(
+                        range.Id,
+                        range.FromOrderAmount,
+                        range.ToOrderAmount,
+                        range.DepositAmount))
+                    .ToList(),
+                policy.UpdatedAt);
+
     private static AdminTrustLevelResponse ToLevelResponse(TrustLevel level, IReadOnlyDictionary<Guid, int> userCounts)
         => new(
             level.Id,
@@ -390,6 +620,7 @@ public sealed class TrustConfigService : ITrustConfigService
             level.Description,
             level.Rank,
             level.IsActive,
+            ToDepositPolicyResponse(level.DepositPolicy),
             level.Requirement is null
                 ? null
                 : new TrustLevelRequirementResponse(

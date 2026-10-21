@@ -123,7 +123,8 @@ public sealed class TrustScoreService : ITrustScoreService
             level.Rank,
             ToRequirement(level.Requirement),
             level.Id == score.TrustLevelId,
-            level.Rank <= score.TrustLevel.Rank)).ToList();
+            level.Rank <= score.TrustLevel.Rank,
+            TrustConfigService.ToDepositPolicyResponse(level.DepositPolicy))).ToList();
     }
 
     // UC-48: View Penalty History.
@@ -173,8 +174,6 @@ public sealed class TrustScoreService : ITrustScoreService
     // Helpers
     // -----------------------------------------------------------------------
 
-    // Customers created before FE-15 (or by the registration flow) may have no Trust Score rows yet.
-    // They are created on first access, starting on the lowest active level (BR-158).
     private async Task<(UserTrustScore Score, UserLevelProgress Progress)> EnsureProvisionedAsync(
         Guid userId, CancellationToken cancellationToken)
     {
@@ -203,7 +202,12 @@ public sealed class TrustScoreService : ITrustScoreService
     }
 
     private static TrustLevelSummaryResponse ToSummary(TrustLevel level)
-        => new(level.Id, level.Name, level.Description, level.Rank);
+        => new(
+            level.Id,
+            level.Name,
+            level.Description,
+            level.Rank,
+            TrustConfigService.ToDepositPolicyResponse(level.DepositPolicy));
 
     private static TrustLevelRequirementResponse? ToRequirement(TrustLevelRequirement? requirement)
         => requirement is null

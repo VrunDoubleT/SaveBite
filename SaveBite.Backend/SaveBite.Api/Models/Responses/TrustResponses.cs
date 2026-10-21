@@ -4,11 +4,26 @@ namespace SaveBite.Backend.Models.Responses;
 // Shared
 // ---------------------------------------------------------------------
 
+public sealed record TrustLevelDepositRangeResponse(
+    Guid Id,
+    decimal FromOrderAmount,
+    decimal ToOrderAmount,
+    decimal DepositAmount);
+
+public sealed record TrustLevelDepositPolicyResponse(
+    Guid Id,
+    bool RequireFullOnlinePayment,
+    decimal? DepositFreeOrderAmount,
+    decimal? MaxDepositOrderAmount,
+    IReadOnlyList<TrustLevelDepositRangeResponse> Ranges,
+    DateTime UpdatedAt);
+
 public sealed record TrustLevelSummaryResponse(
     Guid Id,
     string Name,
     string? Description,
-    int Rank);
+    int Rank,
+    TrustLevelDepositPolicyResponse? DepositPolicy = null);
 
 public sealed record TrustLevelRequirementResponse(
     int MinScore,
@@ -55,7 +70,8 @@ public sealed record TrustLevelInfoResponse(
     int Rank,
     TrustLevelRequirementResponse? Requirement,
     bool IsCurrent,
-    bool IsUnlocked);
+    bool IsUnlocked,
+    TrustLevelDepositPolicyResponse? DepositPolicy = null);
 
 // ---------------------------------------------------------------------
 // Customer: UC-46
@@ -115,6 +131,7 @@ public sealed record AdminTrustLevelResponse(
     string? Description,
     int Rank,
     bool IsActive,
+    TrustLevelDepositPolicyResponse? DepositPolicy,
     TrustLevelRequirementResponse? Requirement,
     int UserCount,
     DateTime UpdatedAt);
