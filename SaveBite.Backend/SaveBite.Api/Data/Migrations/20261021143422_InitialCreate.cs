@@ -6,10 +6,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace SaveBite.Backend.Data.Migrations
 {
-    // Inherit documentation from the base implementation.
+    /// <inheritdoc />
     public partial class InitialCreate : Migration
     {
-        // Inherit documentation from the base implementation.
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -27,6 +27,22 @@ namespace SaveBite.Backend.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_categories", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "order_event_outbox",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    order_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    routing_key = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
+                    payload_json = table.Column<string>(type: "jsonb", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    published_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_order_event_outbox", x => x.id);
                 });
 
             migrationBuilder.CreateTable(
@@ -70,6 +86,29 @@ namespace SaveBite.Backend.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "trust_level_deposit_policies",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    trust_level_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    require_full_online_payment = table.Column<bool>(type: "boolean", nullable: false),
+                    deposit_free_order_amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: true),
+                    max_deposit_order_amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_trust_level_deposit_policies", x => x.id);
+                    table.CheckConstraint("ck_deposit_policy_payment_mode", "(require_full_online_payment AND deposit_free_order_amount IS NULL AND max_deposit_order_amount IS NULL) OR (NOT require_full_online_payment AND deposit_free_order_amount IS NOT NULL AND max_deposit_order_amount IS NOT NULL AND deposit_free_order_amount >= 0 AND max_deposit_order_amount > deposit_free_order_amount)");
+                    table.ForeignKey(
+                        name: "FK_trust_level_deposit_policies_trust_levels_trust_level_id",
+                        column: x => x.trust_level_id,
+                        principalTable: "trust_levels",
+                        principalColumn: "id");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "trust_level_requirements",
                 columns: table => new
                 {
@@ -96,6 +135,7 @@ namespace SaveBite.Backend.Data.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
                     user_id = table.Column<Guid>(type: "uuid", nullable: false),
                     admin_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    target = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false, defaultValue: "Account"),
                     action = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     reason = table.Column<string>(type: "text", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
@@ -413,6 +453,29 @@ namespace SaveBite.Backend.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "trust_level_deposit_ranges",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    deposit_policy_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    from_order_amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
+                    to_order_amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
+                    deposit_amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_trust_level_deposit_ranges", x => x.id);
+                    table.CheckConstraint("ck_deposit_range_amount", "deposit_amount > 0 AND deposit_amount <= from_order_amount");
+                    table.CheckConstraint("ck_deposit_range_bounds", "from_order_amount >= 0 AND to_order_amount > from_order_amount");
+                    table.ForeignKey(
+                        name: "FK_trust_level_deposit_ranges_trust_level_deposit_policies_dep~",
+                        column: x => x.deposit_policy_id,
+                        principalTable: "trust_level_deposit_policies",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "shop_application_documents",
                 columns: table => new
                 {
@@ -515,6 +578,7 @@ namespace SaveBite.Backend.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    order_date = table.Column<DateOnly>(type: "date", nullable: false, computedColumnSql: "(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date", stored: true),
                     order_code = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     customer_id = table.Column<Guid>(type: "uuid", nullable: false),
                     shop_id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -529,6 +593,15 @@ namespace SaveBite.Backend.Data.Migrations
                     hard_deadline_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     is_late_arrival = table.Column<bool>(type: "boolean", nullable: false),
                     no_show = table.Column<bool>(type: "boolean", nullable: false),
+                    checkout_quote_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    checkout_request_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    checkout_policy_snapshot_json = table.Column<string>(type: "jsonb", nullable: true),
+                    required_online_amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
+                    payment_expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    payment_expiration_job_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    confirmation_expiration_job_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    inventory_reservation_active = table.Column<bool>(type: "boolean", nullable: false),
+                    payment_review_required = table.Column<bool>(type: "boolean", nullable: false),
                     cancel_reason = table.Column<string>(type: "text", nullable: true),
                     cancelled_by = table.Column<Guid>(type: "uuid", nullable: true),
                     confirmed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -597,6 +670,8 @@ namespace SaveBite.Backend.Data.Migrations
                     name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     description = table.Column<string>(type: "text", nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    deleted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    version = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -752,6 +827,8 @@ namespace SaveBite.Backend.Data.Migrations
                     to_status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     changed_by = table.Column<Guid>(type: "uuid", nullable: true),
                     note = table.Column<string>(type: "text", nullable: true),
+                    actor_name_snapshot = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: true),
+                    actor_role_snapshot = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -778,6 +855,11 @@ namespace SaveBite.Backend.Data.Migrations
                     payment_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     method = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
+                    collected_amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
+                    gateway_creation_attempted = table.Column<bool>(type: "boolean", nullable: false),
+                    gateway_order_code = table.Column<long>(type: "bigint", nullable: true),
+                    gateway_checkout_url = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    gateway_qr_code = table.Column<string>(type: "text", nullable: true),
                     gateway_transaction_id = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     paid_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -805,6 +887,7 @@ namespace SaveBite.Backend.Data.Migrations
                     initiated_by = table.Column<Guid>(type: "uuid", nullable: false),
                     reason = table.Column<string>(type: "text", nullable: true),
                     requested_amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
+                    transferred_amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
                     receiver_method = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     receiver_bank_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     receiver_account_number = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
@@ -815,6 +898,10 @@ namespace SaveBite.Backend.Data.Migrations
                     reject_reason = table.Column<string>(type: "text", nullable: true),
                     transfer_reference = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: true),
                     transferred_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    verification_code_hash = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
+                    verification_expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    destination_confirmed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    verification_attempts = table.Column<int>(type: "integer", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -850,6 +937,8 @@ namespace SaveBite.Backend.Data.Migrations
                     order_id = table.Column<Guid>(type: "uuid", nullable: true),
                     action = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     note = table.Column<string>(type: "text", nullable: true),
+                    actor_name_snapshot = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: true),
+                    actor_role_snapshot = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -917,6 +1006,37 @@ namespace SaveBite.Backend.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "platform_fee_payments",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    statement_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    shop_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    amount = table.Column<decimal>(type: "numeric(14,2)", precision: 14, scale: 2, nullable: false),
+                    payment_method = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    gateway_transaction_id = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: true),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    paid_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_platform_fee_payments", x => x.id);
+                    table.CheckConstraint("ck_platform_fee_payment_amount", "\"amount\" > 0");
+                    table.ForeignKey(
+                        name: "FK_platform_fee_payments_platform_fee_statements_statement_id",
+                        column: x => x.statement_id,
+                        principalTable: "platform_fee_statements",
+                        principalColumn: "id");
+                    table.ForeignKey(
+                        name: "FK_platform_fee_payments_shops_shop_id",
+                        column: x => x.shop_id,
+                        principalTable: "shops",
+                        principalColumn: "id");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "flash_deals",
                 columns: table => new
                 {
@@ -951,6 +1071,7 @@ namespace SaveBite.Backend.Data.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
                     product_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    sort_order = table.Column<int>(type: "integer", nullable: false),
                     name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false)
                 },
                 constraints: table =>
@@ -1018,6 +1139,8 @@ namespace SaveBite.Backend.Data.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
                     product_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    sort_order = table.Column<int>(type: "integer", nullable: false),
+                    public_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     image_url = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
@@ -1233,6 +1356,8 @@ namespace SaveBite.Backend.Data.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
                     attribute_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    sort_order = table.Column<int>(type: "integer", nullable: false),
+                    public_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     value = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     image_url = table.Column<string>(type: "text", nullable: true)
                 },
@@ -1520,6 +1645,11 @@ namespace SaveBite.Backend.Data.Migrations
                 column: "shop_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_flash_deals_status_created_at",
+                table: "flash_deals",
+                columns: new[] { "status", "created_at" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_no_show_penalties_order_id",
                 table: "no_show_penalties",
                 column: "order_id",
@@ -1563,6 +1693,12 @@ namespace SaveBite.Backend.Data.Migrations
                 columns: new[] { "user_id", "deduplication_key" },
                 unique: true,
                 filter: "\"deduplication_key\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_order_event_outbox_order_id_routing_key",
+                table: "order_event_outbox",
+                columns: new[] { "order_id", "routing_key" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_order_items_flash_deal_variant_id",
@@ -1611,25 +1747,45 @@ namespace SaveBite.Backend.Data.Migrations
                 column: "cancelled_by");
 
             migrationBuilder.CreateIndex(
-                name: "IX_orders_customer_id",
+                name: "IX_orders_checkout_quote_id",
                 table: "orders",
-                column: "customer_id");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_orders_order_code",
-                table: "orders",
-                column: "order_code",
+                column: "checkout_quote_id",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_orders_shop_id",
+                name: "IX_orders_customer_id_checkout_request_id",
                 table: "orders",
-                column: "shop_id");
+                columns: new[] { "customer_id", "checkout_request_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_orders_inventory_reservation_active_payment_expires_at",
+                table: "orders",
+                columns: new[] { "inventory_reservation_active", "payment_expires_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ux_orders_shop_date_code",
+                table: "orders",
+                columns: new[] { "shop_id", "order_date", "order_code" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_payments_gateway_order_code",
+                table: "payments",
+                column: "gateway_order_code",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_payments_order_id",
                 table: "payments",
                 column: "order_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_payments_remaining_per_order",
+                table: "payments",
+                column: "order_id",
+                unique: true,
+                filter: "\"payment_type\" = 'Remaining' AND \"status\" = 'Pending'");
 
             migrationBuilder.CreateIndex(
                 name: "IX_platform_fee_adjustments_order_fee_id",
@@ -1656,6 +1812,22 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "IX_platform_fee_configs_created_by",
                 table: "platform_fee_configs",
                 column: "created_by");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_platform_fee_payments_gateway_transaction_id",
+                table: "platform_fee_payments",
+                column: "gateway_transaction_id",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_platform_fee_payments_shop_id",
+                table: "platform_fee_payments",
+                column: "shop_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_platform_fee_payments_statement_id",
+                table: "platform_fee_payments",
+                column: "statement_id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_platform_fee_statements_shop_id_billing_year_billing_month",
@@ -1760,9 +1932,9 @@ namespace SaveBite.Backend.Data.Migrations
                 column: "category_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Products_shop_id",
+                name: "IX_Products_shop_id_deleted_at_created_at",
                 table: "Products",
-                column: "shop_id");
+                columns: new[] { "shop_id", "deleted_at", "created_at" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_recovery_requirement_rules_created_by_user_id",
@@ -1865,7 +2037,8 @@ namespace SaveBite.Backend.Data.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_shops_owner_user_id",
                 table: "shops",
-                column: "owner_user_id");
+                column: "owner_user_id",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_staff_activity_logs_action_by",
@@ -1896,6 +2069,18 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "IX_staff_invitations_shop_id",
                 table: "staff_invitations",
                 column: "shop_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_trust_level_deposit_policies_trust_level_id",
+                table: "trust_level_deposit_policies",
+                column: "trust_level_id",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_trust_level_deposit_ranges_deposit_policy_id_from_order_amo~",
+                table: "trust_level_deposit_ranges",
+                columns: new[] { "deposit_policy_id", "from_order_amount" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_trust_level_requirements_trust_level_id",
@@ -2007,7 +2192,7 @@ namespace SaveBite.Backend.Data.Migrations
                 unique: true);
         }
 
-        // Inherit documentation from the base implementation.
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
@@ -2026,6 +2211,9 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "notifications");
 
             migrationBuilder.DropTable(
+                name: "order_event_outbox");
+
+            migrationBuilder.DropTable(
                 name: "order_status_history");
 
             migrationBuilder.DropTable(
@@ -2033,6 +2221,9 @@ namespace SaveBite.Backend.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "platform_fee_adjustments");
+
+            migrationBuilder.DropTable(
+                name: "platform_fee_payments");
 
             migrationBuilder.DropTable(
                 name: "product_content_revisions");
@@ -2074,6 +2265,9 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "staff_invitations");
 
             migrationBuilder.DropTable(
+                name: "trust_level_deposit_ranges");
+
+            migrationBuilder.DropTable(
                 name: "trust_level_requirements");
 
             migrationBuilder.DropTable(
@@ -2107,13 +2301,13 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "refunds");
 
             migrationBuilder.DropTable(
+                name: "trust_level_deposit_policies");
+
+            migrationBuilder.DropTable(
                 name: "trust_score_rules");
 
             migrationBuilder.DropTable(
                 name: "no_show_penalties");
-
-            migrationBuilder.DropTable(
-                name: "trust_levels");
 
             migrationBuilder.DropTable(
                 name: "platform_fee_configs");
@@ -2126,6 +2320,9 @@ namespace SaveBite.Backend.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "product_attributes");
+
+            migrationBuilder.DropTable(
+                name: "trust_levels");
 
             migrationBuilder.DropTable(
                 name: "recovery_requirement_rules");
