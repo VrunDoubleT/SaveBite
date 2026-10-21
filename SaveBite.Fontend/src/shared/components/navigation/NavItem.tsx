@@ -2,13 +2,14 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
 interface NavItemProps {
+  badge?: ReactNode;
   end?: boolean;
   icon: ReactNode;
   label: string;
   to: string;
 }
 
-export function NavItem({ end, icon, label, to }: NavItemProps) {
+export function NavItem({ badge, end, icon, label, to }: NavItemProps) {
   return (
     <NavLink
       to={to}
@@ -25,6 +26,7 @@ export function NavItem({ end, icon, label, to }: NavItemProps) {
         {icon}
       </span>
       <span>{label}</span>
+      {badge && <span className="ml-auto inline-flex shrink-0">{badge}</span>}
     </NavLink>
   );
 }

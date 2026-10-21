@@ -68,6 +68,27 @@ async function refreshAccessToken(): Promise<string> {
   return tokens.accessToken;
 }
 
+// SignalR reconnects also need fresh credentials; share the HTTP token-renewal request.
+export async function getRealtimeAccessToken(): Promise<string> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) throw new Error("No active session.");
+  let expiresAt: number;
+  try {
+    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    expiresAt = Number(JSON.parse(atob(payload)).exp) * 1000;
+  } catch {
+    return token;
+  }
+  if (expiresAt > Date.now() + 30000) return token;
+  try {
+    refreshRequest ??= refreshAccessToken().finally(() => { refreshRequest = null; });
+    return await refreshRequest;
+  } catch (error) {
+    notifyUnauthorized();
+    throw error;
+  }
+}
+
 httpClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem(TOKEN_KEY);
 

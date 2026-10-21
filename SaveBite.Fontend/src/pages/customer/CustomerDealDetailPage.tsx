@@ -15,6 +15,12 @@ import type {
   FlashDealVariant,
 } from "@/features/flash-deals/types/flashDeal.types";
 
+import { useCartStore } from "@/features/cart/stores/cartStore";
+import { useAuthStore } from "@/shared/stores/authStore";
+import { getApiErrorMessage } from "@/shared/api";
+import { toast } from "@/shared/stores/toastStore";
+import { APP_PATHS } from "@/app/router/paths";
+
 const fallbackImg =
   "https://images.unsplash.com/photo-1509722747041-616f39b57569?w=800&auto=format&fit=crop&q=80";
 
@@ -47,6 +53,8 @@ export function CustomerDealDetailPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [addedSuccess, setAddedSuccess] = useState<boolean>(false);
+  const addCartItem = useCartStore((state) => state.addItem);
+  const isAdding = useCartStore((state) => state.isMutating);
 
   useEffect(() => {
     if (!id) return;
@@ -259,9 +267,19 @@ export function CustomerDealDetailPage() {
     }
   };
 
-  const handleAddToCart = () => {
-    setAddedSuccess(true);
-    setTimeout(() => setAddedSuccess(false), 3000);
+  const handleAddToCart = async () => {
+    if (!useAuthStore.getState().isAuthenticated) {
+      navigate(APP_PATHS.LOGIN, { state: { message: "Sign in to add items to your cart.", from: { pathname: `/flash-deals/${id}` } } });
+      return;
+    }
+    const variant = selectedVariant || deal?.variants[0];
+    if (!variant) return;
+    setAddedSuccess(false);
+    try {
+      await addCartItem(variant.id, quantity);
+      setAddedSuccess(true);
+      toast.success("Added to your cart.");
+    } catch (error) { toast.error(getApiErrorMessage(error)); }
   };
 
   if (isLoading) {
@@ -316,14 +334,14 @@ export function CustomerDealDetailPage() {
   const saleStart = new Date(deal.saleStartTime);
   const orderEnd = new Date(deal.orderEndTime);
   const isBeforeSale = now < saleStart;
-  const isAfterSale = now > orderEnd;
+  const isAfterSale = now >= orderEnd || now >= new Date(deal.shopClosingTime);
   const isTimeValid = !isBeforeSale && !isAfterSale;
   const isDealOnSale = deal.status === 1; // 1 = OnSale
-  const isVariantActive = activeVariant ? (activeVariant.status === 0 || (activeVariant.status as any) === "Active") : false;
+  const isVariantActive = activeVariant ? (activeVariant.status === 0 || String(activeVariant.status) === "Active") : false;
   const isSoldOut = !activeVariant || activeVariant.availableQuantity <= 0;
 
   const isPurchasable = Boolean(
-    activeVariant?.isPurchasable ?? (isDealOnSale && isTimeValid && isVariantActive && !isSoldOut)
+    activeVariant?.isPurchasable !== false && isDealOnSale && isTimeValid && isVariantActive && !isSoldOut
   );
 
   let unpurchasableReason = "Unavailable";
@@ -723,8 +741,8 @@ export function CustomerDealDetailPage() {
             {/* Add to Cart Button */}
             <button
               type="button"
-              disabled={!isPurchasable}
-              onClick={handleAddToCart}
+              disabled={!isPurchasable || isAdding}
+              onClick={() => void handleAddToCart()}
               className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-center text-sm font-bold shadow-sm transition-all cursor-pointer ${
                 !isPurchasable
                   ? "cursor-not-allowed bg-neutral-200 text-neutral-500 shadow-none"
@@ -733,7 +751,7 @@ export function CustomerDealDetailPage() {
             >
               <ShoppingBag size={17} />
               <span>
-                {!isPurchasable
+                {isAdding ? "Adding…" : !isPurchasable
                   ? unpurchasableReason
                   : `Add to Cart · ${formatVnd(currentPrice * quantity)}`}
               </span>

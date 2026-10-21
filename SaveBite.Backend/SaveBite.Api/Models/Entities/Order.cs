@@ -5,6 +5,7 @@ namespace SaveBite.Backend.Models.Entities;
 public class Order
 {
     public Guid Id { get; set; }
+    public DateOnly OrderDate { get; private set; }
     public string OrderCode { get; set; } = string.Empty;
 
     public Guid CustomerId { get; set; }
@@ -25,6 +26,16 @@ public class Order
 
     public bool IsLateArrival { get; set; }
     public bool NoShow { get; set; }
+
+    public Guid? CheckoutQuoteId { get; set; }
+    public Guid? CheckoutRequestId { get; set; }
+    public string? CheckoutPolicySnapshotJson { get; set; }
+    public decimal RequiredOnlineAmount { get; set; }
+    public DateTime? PaymentExpiresAt { get; set; }
+    public string? PaymentExpirationJobId { get; set; }
+    public string? ConfirmationExpirationJobId { get; set; }
+    public bool InventoryReservationActive { get; set; }
+    public bool PaymentReviewRequired { get; set; }
 
     public string? CancelReason { get; set; }
     public Guid? CancelledBy { get; set; }

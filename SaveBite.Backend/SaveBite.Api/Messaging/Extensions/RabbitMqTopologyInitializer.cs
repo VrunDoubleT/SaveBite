@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using SaveBite.Backend.Messaging.Configuration;
+using SaveBite.Backend.Messaging.Constants;
 
 namespace SaveBite.Backend.Messaging.Extensions;
 
@@ -30,6 +31,12 @@ public class RabbitMqTopologyInitializer : IHostedService
             durable: true,
             autoDelete: false,
             cancellationToken: cancellationToken);
+
+        // Retain NoShow events until downstream consumers are introduced.
+        await channel.QueueDeclareAsync(RabbitMqQueues.OrderNoShowQueueName, durable: true,
+            exclusive: false, autoDelete: false, cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(RabbitMqQueues.OrderNoShowQueueName, _options.ExchangeName,
+            RabbitMqRoutingKeys.OrderNoShow, cancellationToken: cancellationToken);
     }
 
     public Task StopAsync(

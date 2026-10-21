@@ -60,7 +60,7 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
                 {
                     if (stockDict.TryGetValue(v.VariantId.ToString(), out var liveStock))
                     {
-                        v.TotalQuantity = liveStock + v.SoldQuantity;
+                        v.TotalQuantity = liveStock + v.SoldQuantity + v.ReservedQuantity;
                     }
                 }
             }

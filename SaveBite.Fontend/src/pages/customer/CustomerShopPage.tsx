@@ -10,7 +10,6 @@ import {
   MessageCircle,
   Star,
   Store,
-  CheckCircle2,
 } from "lucide-react";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import { shopApi } from "@/features/shops/api/shopApi";
@@ -46,7 +45,6 @@ export function CustomerShopPage() {
   // UI state
   const [activeTab, setActiveTab] = useState<"deals" | "reviews">("deals");
   const [isStoreInfoExpanded, setIsStoreInfoExpanded] = useState(false);
-  const [cartToast, setCartToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // 1. Fetch Shop Profile
@@ -184,10 +182,8 @@ export function CustomerShopPage() {
   });
 
   const handleAddToCart = (deal: FlashDeal) => {
-    setCartToast(`Added "${deal.productName}" to cart!`);
-    setTimeout(() => {
-      setCartToast(null);
-    }, 2800);
+    // Let the customer choose the exact variant before adding it.
+    navigate(`/flash-deals/${deal.id}`);
   };
 
   if (!shopId || (!isProfileLoading && !profile)) {
@@ -248,14 +244,6 @@ export function CustomerShopPage() {
             </nav>
           </div>
         </div>
-
-        {/* Added to cart toast notification */}
-        {cartToast && (
-          <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-neutral-900/95 px-4 py-3 text-xs font-semibold text-white shadow-xl backdrop-blur-md animate-fade-in">
-            <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-            <span>{cartToast}</span>
-          </div>
-        )}
 
         {/* 1. STORE HEADER BANNER CARD */}
         <section className={`overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-xs ${isProfileLoading ? "animate-pulse" : ""}`}>

@@ -9,5 +9,7 @@ public enum OrderStatus
     Completed,
     Cancelled,
     Expired,
-    NoShow
+    NoShow,
+    Rejected,
+    AwaitingPayment
 }

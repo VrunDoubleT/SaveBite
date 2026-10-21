@@ -24,6 +24,28 @@ export const API_ENDPOINTS = {
     DETAIL: (addressId: string) => `/user-addresses/${addressId}`,
     DEFAULT: (addressId: string) => `/user-addresses/${addressId}/default`,
   },
+  CHECKOUT: {
+    CONTEXT: "/checkout/context",
+    QUOTES: "/checkout/quotes",
+    PLACE: "/checkout/orders",
+  },
+  ORDERS: {
+    BASE: "/orders",
+    PAGE: "/orders/page",
+    DETAIL: (id: string) => `/orders/${encodeURIComponent(id)}`,
+    CANCEL: (id: string) => `/orders/${encodeURIComponent(id)}/cancellations`,
+    MY_SHOP: "/orders/my-shop",
+    SHOP: (shopId: string) => `/orders/shops/${encodeURIComponent(shopId)}`,
+  },
+  PAYMENTS: {
+    LINK: (id: string) => `/payments/orders/${encodeURIComponent(id)}/payment-link`,
+  },
+  CART: {
+    PAGE: "/cart/page",
+    SUMMARY: "/cart/summary",
+    ITEMS: "/cart/items",
+    ITEM: (itemId: string) => `/cart/items/${itemId}`,
+  },
   CATEGORIES: {
     BASE: "/categories",
     CATALOG: "/categories/catalog",

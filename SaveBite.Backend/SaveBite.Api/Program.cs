@@ -10,12 +10,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddEnvironmentConfiguration();
 
+var paymentProvider = builder.Configuration["Checkout:PaymentProvider"] ?? "PayOS";
+if (paymentProvider is not ("PayOS" or "Simulated"))
+    throw new InvalidOperationException("Checkout:PaymentProvider must be PayOS or Simulated.");
+if (paymentProvider == "Simulated" && !builder.Environment.IsDevelopment())
+    throw new InvalidOperationException("Simulated payments are allowed only in Development.");
+
 builder.Services.AddFluentValidation();
 
 builder.Services.AddApi(builder.Configuration);
 builder.Services.AddApiBehavior();
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAccessAuthorization();
+builder.Services.AddRealtime();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -69,6 +76,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapRealtime();
 
 app.Run();
 public partial class Program { }

@@ -29,6 +29,7 @@ public class AppDbContext : DbContext
     public DbSet<FlashDealVariant> FlashDealVariants => Set<FlashDealVariant>();
     // Cart & Orders.
     public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
@@ -37,6 +38,8 @@ public class AppDbContext : DbContext
     public DbSet<NoShowPenaltyOrderHistory> NoShowPenaltyOrderHistories => Set<NoShowPenaltyOrderHistory>();
     public DbSet<RecoveryRequirementRule> RecoveryRequirementRules => Set<RecoveryRequirementRule>();
     public DbSet<TrustLevel> TrustLevels => Set<TrustLevel>();
+    public DbSet<TrustLevelDepositPolicy> TrustLevelDepositPolicies => Set<TrustLevelDepositPolicy>();
+    public DbSet<TrustLevelDepositRange> TrustLevelDepositRanges => Set<TrustLevelDepositRange>();
     public DbSet<TrustLevelRequirement> TrustLevelRequirements => Set<TrustLevelRequirement>();
     public DbSet<TrustScoreHistory> TrustScoreHistories => Set<TrustScoreHistory>();
     public DbSet<TrustScoreRule> TrustScoreRules => Set<TrustScoreRule>();

@@ -11,6 +11,8 @@ public class StaffActivityLogConfiguration
     {
         builder.ToTable("staff_activity_logs");
 
+        builder.Property(x => x.ActorNameSnapshot).HasColumnName("actor_name_snapshot").HasMaxLength(150);
+        builder.Property(x => x.ActorRoleSnapshot).HasColumnName("actor_role_snapshot").HasMaxLength(30);
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

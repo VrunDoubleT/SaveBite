@@ -51,7 +51,8 @@ public class RabbitMqPublisher : IRabbitMqPublisher
         await channel.BasicPublishAsync(
             exchange: _options.ExchangeName,
             routingKey: routingKey,
-            mandatory: false,
+            // Order lifecycle events must reach a durable consumer queue before their outbox is marked published.
+            mandatory: routingKey.StartsWith("order.", StringComparison.Ordinal),
             basicProperties: properties,
             body: body,
             cancellationToken: cancellationToken);

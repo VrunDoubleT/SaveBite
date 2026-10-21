@@ -52,6 +52,17 @@ public static class JwtExtensions
             {
                 options.MapInboundClaims = false;
                 options.SaveToken = false;
+                // Browsers send WebSocket tokens in the query string only for the realtime endpoint.
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        if (context.Request.Path.StartsWithSegments(SaveBite.Backend.Hubs.ApplicationHub.Path)
+                            && context.Request.Query.TryGetValue("access_token", out var token))
+                            context.Token = token.ToString();
+                        return Task.CompletedTask;
+                    }
+                };
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,

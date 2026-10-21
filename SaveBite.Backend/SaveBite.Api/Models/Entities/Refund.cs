@@ -15,6 +15,7 @@ public class Refund
     public string? Reason { get; set; }
 
     public decimal RequestedAmount { get; set; }
+    public decimal TransferredAmount { get; set; }
     
     public RefundReceiverMethod? ReceiverMethod { get; set; }
 
@@ -29,6 +30,11 @@ public class Refund
 
     public string? TransferReference { get; set; }
     public DateTime? TransferredAt { get; set; }
+
+    public string? VerificationCodeHash { get; set; }
+    public DateTime? VerificationExpiresAt { get; set; }
+    public DateTime? DestinationConfirmedAt { get; set; }
+    public int VerificationAttempts { get; set; }
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

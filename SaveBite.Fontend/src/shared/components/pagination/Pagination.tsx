@@ -36,8 +36,8 @@ function range(start: number, end: number): number[] {
 }
 
 export function Pagination({
-  currentPage,
-  totalPages,
+  currentPage: requestedPage,
+  totalPages: requestedTotalPages,
   onPageChange,
   totalItems,
   pageSize = 9,
@@ -49,7 +49,10 @@ export function Pagination({
   className = "",
   size = "md",
 }: PaginationProps) {
-  const safeCurrentPage = Math.max(1, Math.min(currentPage, Math.max(1, totalPages)));
+  // Keep incomplete pagination metadata from rendering NaN or invalid navigation targets.
+  const totalPages = Number.isFinite(requestedTotalPages) ? Math.max(1, Math.trunc(requestedTotalPages)) : 1;
+  const currentPage = Number.isFinite(requestedPage) ? Math.trunc(requestedPage) : 1;
+  const safeCurrentPage = Math.max(1, Math.min(currentPage, totalPages));
 
   // Generate pagination items array with smart ellipses
   const paginationRange = useMemo<(number | string)[]>(() => {

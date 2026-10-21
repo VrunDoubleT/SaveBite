@@ -19,6 +19,8 @@ export interface ShopStaff {
 export interface StaffActivityLog {
   id: string;
   actionBy: string;
+  actorName?: string;
+  actorRole?: string;
   action: string;
   description: string;
   orderId?: string | null;
