@@ -6,6 +6,7 @@ using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Implementations;
+using SaveBite.Backend.Services.Interfaces;
 using SaveBite.Backend.Validators;
 using Xunit;
 using Xunit.Abstractions;
@@ -22,14 +23,15 @@ public class ViewNearbyStoresTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<IShopRepository> _shopRepoMock = new();
+    private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
+    private readonly Mock<ICloudinaryService> _cloudinaryServiceMock = new();
     private readonly ShopService _service;
     private readonly NearbyShopsRequestValidator _validator = new();
-    private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
 
     public ViewNearbyStoresTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object);
+        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object);
     }
 
     private List<Shop> CreateSampleShops()

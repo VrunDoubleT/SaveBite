@@ -7,6 +7,7 @@ using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Implementations;
+using SaveBite.Backend.Services.Interfaces;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -22,8 +23,9 @@ public class ViewStoreProfileTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<IShopRepository> _shopRepoMock = new();
-    private readonly ShopService _service;
     private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
+    private readonly Mock<ICloudinaryService> _cloudinaryServiceMock = new();
+    private readonly ShopService _service;
 
     // Fixed Test Identifiers
     private readonly Guid _existingShopId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -32,7 +34,7 @@ public class ViewStoreProfileTests
     public ViewStoreProfileTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object);
+        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object);
     }
 
     private Shop CreateValidShop(TimeOnly? openingTime = null, TimeOnly? closingTime = null)
