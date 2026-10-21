@@ -5,6 +5,7 @@ using SaveBite.Backend.BackgroundJobs.Configuration;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.BackgroundJobs.Jobs;
 using SaveBite.Backend.BackgroundJobs.Scheduling;
+using SaveBite.Backend.BackgroundJobs.Service;
 
 namespace SaveBite.Backend.BackgroundJobs.Extensions;
 
@@ -18,6 +19,8 @@ public static class HangfireExtensions
         services.AddScoped<IOrderEventDispatchScheduler, OrderEventDispatchScheduler>();
         services.AddScoped<IShopOrderConfirmationScheduler, ShopOrderConfirmationScheduler>();
         services.AddScoped<IShopOrderNoShowScheduler, ShopOrderNoShowScheduler>();
+        // Register scoped job classes here as they are added.
+        services.AddScoped<IFlashDealJobService, FlashDealJobService>();
 
         services.AddScoped<CheckoutPaymentExpirationJob>();
         services.AddScoped<OrderEventDispatchJob>();

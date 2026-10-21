@@ -1,5 +1,5 @@
 import { ShopOrderWorkspaceNotifications } from "@/features/shop-orders/components/ShopOrderWorkspaceNotifications";
-import { ClipboardList, Store } from "lucide-react";
+import { ClipboardList, Store, Zap } from "lucide-react";
 import { useParams } from "react-router-dom";
 
 import { APP_PATHS } from "@/app/router/paths";
@@ -10,10 +10,10 @@ export function StaffLayout() {
 
   const navigation = [
     {
-      to: `${APP_PATHS.STAFF}/shops/${shopId}`,
-      label: "Overview",
-      end: true,
-      icon: ClipboardList,
+      to: `${APP_PATHS.STAFF}/shops/${shopId}/flash-deals`,
+      label: "Flash Deals",
+      end: false,
+      icon: Zap,
     },
     {
       to: `${APP_PATHS.STAFF}/shops/${shopId}/orders`,

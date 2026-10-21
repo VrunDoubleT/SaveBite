@@ -1,12 +1,17 @@
+using Hangfire;
+using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.Caching.Interfaces;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Constants;
+using SaveBite.Backend.Messaging.Events;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Interfaces;
-
+using SaveBite.Backend.Models.Common;
 namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class FlashDealService : IFlashDealService
@@ -14,18 +19,29 @@ public sealed class FlashDealService : IFlashDealService
     private readonly IFlashDealRedisService _redisService;
     private readonly IFlashDealRepository _dealRepository;
     private readonly IUserAddressRepository _userAddressRepository;
+    private readonly IShopRepository _shopRepository;
+    private readonly IShopStaffRepository _staffRepository;
     private readonly ILogger<FlashDealService> _logger;
-
+    private readonly IBackgroundJobClient _backgroundJobClient;
+    private readonly IRabbitMqPublisher _publisher;
     public FlashDealService(
         IFlashDealRedisService redisService,
         IFlashDealRepository dealRepository,
         IUserAddressRepository userAddressRepository,
+        IShopRepository shopRepository,
+        IShopStaffRepository staffRepository,
+        IBackgroundJobClient backgroundJobClient,
+        IRabbitMqPublisher publisher,
         ILogger<FlashDealService> logger)
     {
         _redisService = redisService;
         _dealRepository = dealRepository;
         _userAddressRepository = userAddressRepository;
+        _shopRepository = shopRepository;
+        _staffRepository = staffRepository;
         _logger = logger;
+        _backgroundJobClient = backgroundJobClient;
+        _publisher = publisher;
     }
 
     public async Task<FlashDealCursorListResponse> GetNearbyAsync(
@@ -151,18 +167,7 @@ public sealed class FlashDealService : IFlashDealService
 
         if (request.Mode == CursorMode.Older && request.Cursor1.HasValue)
         {
-
-            // Combine Cursor1 and Cursor2 for pagination.
-
-            // Step 1: Retrieve all deals created after Cursor2.
-            // Prepend deals created after the initial page was loaded to the new page.
-
-            // Step 2: Retrieve up to Limit deals created before Cursor1.
-            // Continue pagination toward older deals.
-
-            // Return new deals followed by older deals.
-
-
+            
             // Step 1: Retrieve deals newer than Cursor2 when Cursor2 is provided.
             var newerPrepend = new List<FlashDealResponse>();
             if (request.Cursor2.HasValue)
@@ -198,26 +203,16 @@ public sealed class FlashDealService : IFlashDealService
         }
         else if (request.Mode == CursorMode.Newer && request.Cursor2.HasValue)
         {
-
-            // Polling only checks the count and does not update Cursor2.
-            // The frontend displays a badge showing the number of newly available deals.
-            // Update Cursor2 only when the user loads a new page.
-
             var newerDeals = sortedDeals
                 .Where(d => d.CreatedAt.ToUniversalTime() > request.Cursor2.Value.ToUniversalTime())
                 .ToList();
 
-            resultDeals = new List<FlashDealResponse>(); // Do not return deals while polling.
+            resultDeals = new List<FlashDealResponse>(); 
             hasNewer = newerDeals.Count > 0;
             newDealsCount = newerDeals.Count;
-            // Keep Cursor2 unchanged so the next page load retrieves all new deals.
         }
-        else // CursorMode.Initial.
+        else
         {
-
-            // Load the newest deals up to the requested limit and initialize both cursors.
-            // Set Cursor2 to the newest deal timestamp to detect subsequently created deals.
-            // Set Cursor1 to the oldest deal timestamp on the page to paginate toward older deals.
 
             resultDeals = sortedDeals.Take(request.Limit).ToList();
             hasOlder = sortedDeals.Count > request.Limit;
@@ -405,5 +400,512 @@ public sealed class FlashDealService : IFlashDealService
             CreatedAt = deal.CreatedAt,
             IsPurchasable = isDealPurchasable
         };
+    }
+    
+    // 1. View Flash Deals for Shop (with pagination and filters)
+    public async Task<PagedResult<ShopFlashDealListItemResponse>> GetShopDealsAsync(
+        Guid userId, 
+        ShopFlashDealQueryRequest request, 
+        CancellationToken cancellationToken = default)
+    {
+        var shop = await GetShopForViewOrThrowAsync(userId, request.ShopId, cancellationToken);
+        var pagedDeals = await _dealRepository.GetShopDealsAsync(shop.Id, request, cancellationToken);
+        
+        return new PagedResult<ShopFlashDealListItemResponse>
+        {
+            Items = pagedDeals.Items.Select(MapToShopListItemResponse).ToList(),
+            TotalItems = pagedDeals.TotalItems,
+            Page = pagedDeals.Page,
+            PageSize = pagedDeals.PageSize
+        };
+    }
+    
+    // 2. View Flash Deal Details for Shop
+    public async Task<ShopFlashDealDetailResponse> GetShopDealDetailAsync(
+        Guid userId, 
+        Guid dealId, 
+        Guid? shopId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var shop = await GetShopForViewOrThrowAsync(userId, shopId, cancellationToken);
+        var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
+                   ?? throw AppException.NotFound("Flash deal not found.");
+
+        return MapToShopDetailResponse(deal);
+    }
+    
+    // 3. Create Flash Deal
+    public async Task<ShopFlashDealDetailResponse> CreateDealAsync(
+        Guid userId, 
+        CreateFlashDealRequest request, 
+        CancellationToken cancellationToken = default)
+    {
+        var shop = await GetShopOrThrowAsync(userId, cancellationToken);
+        var now = DateTime.UtcNow;
+        var effectiveStartTime = request.IsImmediate ? now : request.SaleStartTime!.Value;
+
+        // Validate time intervals.
+        if (effectiveStartTime >= request.OrderEndTime)
+        {
+            throw AppException.BadRequest("Sale start time must be before order end time.");
+        }
+        if (request.OrderEndTime > request.ShopClosingTime)
+        {
+            throw AppException.BadRequest("Order end time cannot exceed shop closing time.");
+        }
+
+        var hasOverlap = await _dealRepository.HasOverlappingDealAsync(
+            shop.Id, 
+            request.ProductId, 
+            effectiveStartTime, 
+            request.OrderEndTime, 
+            null, 
+            cancellationToken);
+        if (hasOverlap)
+        {
+            throw AppException.BadRequest("An active or pending flash deal already exists for this product in the selected time range.");
+        }
+
+        var product = await _dealRepository.GetProductForDealCreationAsync(shop.Id, request.ProductId, cancellationToken)
+            ?? throw AppException.NotFound("Product not found or does not belong to your shop.");
+        if (product.Status != ProductStatus.Active)
+        {
+            throw AppException.BadRequest("Cannot create flash deal for an inactive product.");
+        }
+        
+        var isOpenNow = request.IsImmediate || (now >= effectiveStartTime && now <= request.OrderEndTime);
+        var initialStatus = isOpenNow ? FlashDealStatus.OnSale : FlashDealStatus.Pending;
+        
+        var deal = new FlashDeal
+        {
+            Id = Guid.NewGuid(),
+            ShopId = shop.Id,
+            ProductId = product.Id,
+            SaleStartTime = effectiveStartTime,
+            OrderEndTime = request.OrderEndTime,
+            ShopClosingTime = request.ShopClosingTime,
+            Status = initialStatus,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        var existingVariants = product.Variants.ToDictionary(v => v.Id);
+        foreach (var reqVariant in request.Variants)
+        {
+            if (!existingVariants.TryGetValue(reqVariant.VariantId, out var productVariant))
+            {
+                throw AppException.BadRequest($"Variant with ID {reqVariant.VariantId} does not belong to this product.");
+            }
+            if (reqVariant.DealPrice >= productVariant.OriginalPrice)
+            {
+                throw AppException.BadRequest($"Deal price ({reqVariant.DealPrice}) must be less than original price ({productVariant.OriginalPrice}).");
+            }
+            var discountPercent = Math.Round(((productVariant.OriginalPrice - reqVariant.DealPrice) / productVariant.OriginalPrice) * 100, 2);
+            deal.Variants.Add(new FlashDealVariant
+            {
+                Id = Guid.NewGuid(),
+                FlashDealId = deal.Id,
+                VariantId = reqVariant.VariantId,
+                OriginalPrice = productVariant.OriginalPrice,
+                DealPrice = reqVariant.DealPrice,
+                DiscountPercent = discountPercent,
+                TotalQuantity = reqVariant.TotalQuantity,
+                ReservedQuantity = 0,
+                SoldQuantity = 0,
+                Status = FlashDealVariantStatus.Active,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+        await _dealRepository.AddAsync(deal, cancellationToken);
+        // --- SCHEDULING AND EVENT DISPATCHING ---
+        if (isOpenNow)
+        {
+            // 1. Open now: Publish flash sale.opened
+            await _publisher.PublishAsync(
+                RabbitMqRoutingKeys.FlashDealOpened,
+                new FlashDealEvent { FlashDealId = deal.Id },
+                cancellationToken);
+        }
+        else if (!request.IsImmediate && effectiveStartTime > now)
+        {
+            // 2. Future opening: Schedule Hangfire to run at SaleStartTime
+            var delayToStart = effectiveStartTime - now;
+            _backgroundJobClient.Schedule<IFlashDealJobService>(
+                job => job.PublishDealOpenedAsync(deal.Id),
+                delayToStart);
+        }
+        // 3. Always schedule the end time at OrderEndTime
+        var delayToEnd = request.OrderEndTime - now;
+        if (delayToEnd > TimeSpan.Zero)
+        {
+            _backgroundJobClient.Schedule<IFlashDealJobService>(
+                job => job.PublishDealExpiredAsync(deal.Id),
+                delayToEnd);
+        }
+        var createdDeal = await _dealRepository.GetShopDealByIdAsync(shop.Id, deal.Id, cancellationToken);
+        return MapToShopDetailResponse(createdDeal!);
+    }
+    
+    // 4. Update Flash Deal
+    public async Task<ShopFlashDealDetailResponse> UpdateDealAsync(
+        Guid userId, 
+        Guid dealId, 
+        UpdateFlashDealRequest request, 
+        CancellationToken cancellationToken = default)
+    {
+        var shop = await GetShopOrThrowAsync(userId, cancellationToken);
+        var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
+            ?? throw AppException.NotFound("Flash deal not found.");
+        var product = await _dealRepository.GetProductForDealCreationAsync(shop.Id, deal.ProductId, cancellationToken)
+            ?? throw AppException.NotFound("Product not found or does not belong to your shop.");
+
+        if (deal.Status == FlashDealStatus.Cancelled || deal.Status == FlashDealStatus.Closed)
+        {
+            throw AppException.BadRequest("Cannot update a closed or cancelled flash deal.");
+        }
+        // Check overlapping deals.
+        var hasOverlap = await _dealRepository.HasOverlappingDealAsync(
+            shop.Id, 
+            deal.ProductId, 
+            request.SaleStartTime, 
+            request.OrderEndTime, 
+            deal.Id, 
+            cancellationToken);
+        if (hasOverlap)
+        {
+            throw AppException.BadRequest("Another flash deal already overlaps with the updated schedule.");
+        }
+
+        var now = DateTime.UtcNow;
+
+        if (deal.Status == FlashDealStatus.Pending)
+        {
+            if (request.SaleStartTime.Date != request.OrderEndTime.Date)
+            {
+                throw AppException.BadRequest("Flash deals only take place within a single day.");
+            }
+
+            var duration = request.OrderEndTime - request.SaleStartTime;
+            if (duration < TimeSpan.FromMinutes(30) || duration > TimeSpan.FromMinutes(120))
+            {
+                throw AppException.BadRequest("The duration of a flash deal must be between 30 minutes and a maximum of 120 minutes.");
+            }
+
+            var isSellImmediately = request.SaleStartTime <= now.AddMinutes(5);
+            if (!isSellImmediately)
+            {
+                if (request.SaleStartTime < now.AddMinutes(15))
+                {
+                    throw AppException.BadRequest("The scheduled start time must be at least 15 minutes from the present, or you may choose to start immediately.");
+                }
+                if (request.SaleStartTime > now.AddMinutes(90))
+                {
+                    throw AppException.BadRequest("Sales can be scheduled to open no more than 90 minutes in advance.");
+                }
+            }
+
+            deal.SaleStartTime = request.SaleStartTime;
+        }
+        else if (deal.Status == FlashDealStatus.OnSale)
+        {
+            if (request.OrderEndTime - deal.SaleStartTime > TimeSpan.FromMinutes(120))
+            {
+                throw AppException.BadRequest("Order end time cannot exceed 120 minutes from the sale start time.");
+            }
+            if (request.OrderEndTime <= now)
+            {
+                throw AppException.BadRequest("Order end time must be in the future.");
+            }
+        }
+
+        deal.OrderEndTime = request.OrderEndTime;
+        deal.ShopClosingTime = request.ShopClosingTime;
+        deal.UpdatedAt = now;
+
+        var existingDealVariants = deal.Variants.ToDictionary(v => v.VariantId);
+        var productVariants = product.Variants.ToDictionary(v => v.Id);
+
+        foreach (var reqVariant in request.Variants)
+        {
+            if (existingDealVariants.TryGetValue(reqVariant.VariantId, out var dealVariant))
+            {
+                if (reqVariant.TotalQuantity < dealVariant.SoldQuantity + dealVariant.ReservedQuantity)
+                {
+                    throw AppException.BadRequest($"New total quantity cannot be less than already sold/reserved quantity ({dealVariant.SoldQuantity + dealVariant.ReservedQuantity}).");
+                }
+                dealVariant.TotalQuantity = reqVariant.TotalQuantity;
+                dealVariant.DealPrice = reqVariant.DealPrice;
+                dealVariant.DiscountPercent = Math.Round(((dealVariant.OriginalPrice - reqVariant.DealPrice) / dealVariant.OriginalPrice) * 100, 2);
+                dealVariant.Status = reqVariant.Status; 
+                dealVariant.UpdatedAt = now;
+            }
+            else
+            {
+                if (!productVariants.TryGetValue(reqVariant.VariantId, out var productVariant))
+                {
+                    throw AppException.BadRequest($"Variant with ID {reqVariant.VariantId} does not belong to this product.");
+                }
+                if (reqVariant.DealPrice >= productVariant.OriginalPrice)
+                {
+                    throw AppException.BadRequest($"Deal price ({reqVariant.DealPrice}) must be less than original price ({productVariant.OriginalPrice}).");
+                }
+                var discountPercent = Math.Round(((productVariant.OriginalPrice - reqVariant.DealPrice) / productVariant.OriginalPrice) * 100, 2);
+                deal.Variants.Add(new FlashDealVariant
+                {
+                    Id = Guid.NewGuid(),
+                    FlashDealId = deal.Id,
+                    VariantId = reqVariant.VariantId,
+                    OriginalPrice = productVariant.OriginalPrice,
+                    DealPrice = reqVariant.DealPrice,
+                    DiscountPercent = discountPercent,
+                    TotalQuantity = reqVariant.TotalQuantity,
+                    ReservedQuantity = 0,
+                    SoldQuantity = 0,
+                    Status = reqVariant.Status,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+            }
+        }
+        await _dealRepository.UpdateAsync(deal, cancellationToken);
+
+        // New completion timer with Hangfire
+        var delayToEnd = request.OrderEndTime - DateTime.UtcNow;
+        if (delayToEnd > TimeSpan.Zero)
+        {
+            _backgroundJobClient.Schedule<IFlashDealJobService>(
+                job => job.PublishDealExpiredAsync(deal.Id),
+                delayToEnd);
+        }
+        // If the deal is OnSale, update the Redis cache by publishing an event
+        if (deal.Status == FlashDealStatus.OnSale)
+        {
+            await _publisher.PublishAsync(
+                RabbitMqRoutingKeys.FlashDealOpened,
+                new FlashDealEvent { FlashDealId = deal.Id },
+                cancellationToken);
+        }
+        return MapToShopDetailResponse(deal);
+    }
+    // 5. Cancel Flash Deal
+    public async Task CancelDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
+    {
+        var shop = await GetShopOrThrowAsync(userId, cancellationToken);
+        var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
+            ?? throw AppException.NotFound("Flash deal not found.");
+        
+        if (deal.Status == FlashDealStatus.Cancelled || deal.Status == FlashDealStatus.Closed)
+        {
+            throw AppException.BadRequest("This flash deal is already finished or cancelled.");
+        }
+        
+        deal.Status = FlashDealStatus.Cancelled;
+        deal.UpdatedAt = DateTime.UtcNow;
+        await _dealRepository.UpdateAsync(deal, cancellationToken);
+        // Fire an event to have the Consumer remove the deal from Redis
+        await _publisher.PublishAsync(
+            RabbitMqRoutingKeys.FlashDealClosed,
+            new FlashDealEvent { FlashDealId = deal.Id },
+            cancellationToken);
+        
+    }
+    // 6. Hide Flash Deal
+    public async Task HideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
+    {
+        var shop = await GetShopOrThrowAsync(userId, cancellationToken);
+        var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
+            ?? throw AppException.NotFound("Flash deal not found.");
+        if (deal.Status != FlashDealStatus.OnSale && deal.Status != FlashDealStatus.Pending)
+        {
+            throw AppException.BadRequest("Only active or pending deals can be hidden.");
+        }
+        deal.Status = FlashDealStatus.Hidden;
+        deal.UpdatedAt = DateTime.UtcNow;
+        await _dealRepository.UpdateAsync(deal, cancellationToken);
+        // Emit an event for the Consumer to remove the temporary deal from Redis
+        await _publisher.PublishAsync(
+            RabbitMqRoutingKeys.FlashDealHidden,
+            new FlashDealEvent { FlashDealId = deal.Id },
+            cancellationToken);
+    }
+    // 7. Unhide Flash Deal
+    public async Task UnhideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
+    {
+        var shop = await GetShopOrThrowAsync(userId, cancellationToken);
+        var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
+            ?? throw AppException.NotFound("Flash deal not found.");
+        
+        if (deal.Status != FlashDealStatus.Hidden)
+        {
+            throw AppException.BadRequest("Only hidden deals can be restored to visible status.");
+        }
+        var now = DateTime.UtcNow;
+        if (deal.OrderEndTime <= now)
+        {
+            throw AppException.BadRequest("This deal has already expired and cannot be restored.");
+        }
+        deal.Status = now >= deal.SaleStartTime ? FlashDealStatus.OnSale : FlashDealStatus.Pending;
+        deal.UpdatedAt = now;
+        await _dealRepository.UpdateAsync(deal, cancellationToken);
+        // If the sale start time has been reached, publish the event so that the Consumer can reload data into Redis
+        if (deal.Status == FlashDealStatus.OnSale)
+        {
+            await _publisher.PublishAsync(
+                RabbitMqRoutingKeys.FlashDealOpened,
+                new FlashDealEvent { FlashDealId = deal.Id },
+                cancellationToken);
+        }
+    }
+
+    private static ShopFlashDealListItemResponse MapToShopListItemResponse(FlashDeal deal)
+    {
+        var variants = deal.Variants;
+        return new ShopFlashDealListItemResponse
+        {
+            Id = deal.Id,
+            ProductId = deal.ProductId,
+            ProductName = deal.Product?.Name ?? string.Empty,
+            ProductImageUrl = deal.Product?.Images?.FirstOrDefault()?.ImageUrl,
+            CategoryName = deal.Product?.Category?.Name,
+            SaleStartTime = deal.SaleStartTime,
+            OrderEndTime = deal.OrderEndTime,
+            ShopClosingTime = deal.ShopClosingTime,
+            Status = deal.Status,
+            MinDealPrice = variants.Any() ? variants.Min(v => v.DealPrice) : 0,
+            MaxOriginalPrice = variants.Any() ? variants.Max(v => v.OriginalPrice) : 0,
+            MaxDiscountPercent = variants.Any() ? variants.Max(v => v.DiscountPercent) : 0,
+            TotalQuantity = variants.Sum(v => v.TotalQuantity),
+            ReservedQuantity = variants.Sum(v => v.ReservedQuantity),
+            SoldQuantity = variants.Sum(v => v.SoldQuantity),
+            CreatedAt = deal.CreatedAt
+        };
+    }
+
+    private static ShopFlashDealDetailResponse MapToShopDetailResponse(FlashDeal deal)
+    {
+        var images = deal.Product?.Images?
+            .Select(i => i.ImageUrl)
+            .Where(u => !string.IsNullOrEmpty(u))
+            .ToList() ?? new List<string>();
+
+        return new ShopFlashDealDetailResponse
+        {
+            Id = deal.Id,
+            ShopId = deal.ShopId,
+            ProductId = deal.ProductId,
+            ProductName = deal.Product?.Name ?? string.Empty,
+            Description = deal.Product?.Description,
+            CategoryName = deal.Product?.Category?.Name,
+            PrimaryImageUrl = deal.Product?.Images?.FirstOrDefault()?.ImageUrl ?? images.FirstOrDefault(),
+            ProductImageUrls = images,
+            SaleStartTime = deal.SaleStartTime,
+            OrderEndTime = deal.OrderEndTime,
+            ShopClosingTime = deal.ShopClosingTime,
+            Status = deal.Status,
+            CreatedAt = deal.CreatedAt,
+            UpdatedAt = deal.UpdatedAt,
+            Variants = deal.Variants.Select(v => new ShopFlashDealVariantDetailResponse
+            {
+                Id = v.Id,
+                VariantId = v.VariantId,
+                Sku = v.Variant?.Sku,
+                VariantName = v.Variant?.VariantValues?.Any() == true
+                    ? string.Join(" - ", v.Variant.VariantValues.Where(vv => vv.AttributeValue != null).Select(vv => vv.AttributeValue!.Value))
+                    : (v.Variant?.Sku ?? "Default"),
+                ImageUrl = v.Variant?.VariantValues?.FirstOrDefault(vv => !string.IsNullOrEmpty(vv.AttributeValue?.ImageUrl))?.AttributeValue?.ImageUrl,
+                OriginalPrice = v.OriginalPrice,
+                DealPrice = v.DealPrice,
+                DiscountPercent = v.DiscountPercent,
+                TotalQuantity = v.TotalQuantity,
+                ReservedQuantity = v.ReservedQuantity,
+                SoldQuantity = v.SoldQuantity,
+                Status = v.Status
+            }).ToList()
+        };
+    }
+
+    public async Task<List<ShopEligibleProductResponse>> GetShopEligibleProductsAsync(
+        Guid userId, 
+        CancellationToken cancellationToken = default)
+    {
+        var shop = await GetShopOrThrowAsync(userId, cancellationToken);
+        var products = await _dealRepository.GetShopEligibleProductsAsync(shop.Id, cancellationToken);
+
+        return products.Select(p => new ShopEligibleProductResponse
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Description = p.Description,
+            CategoryName = p.Category?.Name,
+            ImageUrl = p.Images?.FirstOrDefault()?.ImageUrl,
+            Variants = p.Variants.Where(v => v.IsActive).Select(v => new ShopEligibleProductVariantResponse
+            {
+                Id = v.Id,
+                Sku = v.Sku,
+                VariantName = v.VariantValues.Any()
+                    ? string.Join(" - ", v.VariantValues.Where(vv => vv.AttributeValue != null).Select(vv => vv.AttributeValue!.Value))
+                    : (v.Sku ?? "Default"),
+                OriginalPrice = v.OriginalPrice,
+                ImageUrl = v.VariantValues.FirstOrDefault(vv => !string.IsNullOrEmpty(vv.AttributeValue?.ImageUrl))?.AttributeValue?.ImageUrl
+            }).ToList()
+        }).ToList();
+    }
+
+    private async Task<Shop> GetShopForViewOrThrowAsync(Guid userId, Guid? requestedShopId, CancellationToken cancellationToken)
+    {
+        if (requestedShopId.HasValue && requestedShopId.Value != Guid.Empty)
+        {
+            var ownedShop = await _shopRepository.GetShopByOwnerUserIdAsync(userId, cancellationToken);
+            if (ownedShop != null && ownedShop.Id == requestedShopId.Value)
+            {
+                return ownedShop;
+            }
+
+            var staff = await _staffRepository.GetStaffByShopAndUserAsync(requestedShopId.Value, userId, cancellationToken);
+            if (staff != null && staff.Status == ShopStaffStatus.Active)
+            {
+                if (staff.Shop != null)
+                {
+                    return staff.Shop;
+                }
+                var shop = await _shopRepository.GetActiveShopByIdAsync(requestedShopId.Value, cancellationToken);
+                if (shop != null)
+                {
+                    return shop;
+                }
+            }
+
+            throw AppException.Forbidden("You do not have access to view this shop's flash deals.");
+        }
+
+        var shopByOwner = await _shopRepository.GetShopByOwnerUserIdAsync(userId, cancellationToken);
+        if (shopByOwner != null)
+        {
+            return shopByOwner;
+        }
+
+        var memberships = await _staffRepository.GetShopsByStaffUserIdAsync(userId, cancellationToken);
+        var activeMembership = memberships.FirstOrDefault(s => s.Status == ShopStaffStatus.Active);
+        if (activeMembership != null)
+        {
+            if (activeMembership.Shop != null)
+            {
+                return activeMembership.Shop;
+            }
+            var shop = await _shopRepository.GetActiveShopByIdAsync(activeMembership.ShopId, cancellationToken);
+            if (shop != null)
+            {
+                return shop;
+            }
+        }
+
+        throw AppException.Forbidden("You do not own or work at any shop.");
+    }
+
+    private async Task<Shop> GetShopOrThrowAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await _shopRepository.GetShopByOwnerUserIdAsync(userId, cancellationToken)
+            ?? throw AppException.Forbidden("You do not own any shop.");
     }
 }

@@ -46,6 +46,8 @@ import { TrustConfigurationPage } from "@/pages/admin/TrustConfigurationPage";
 import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
 import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
 import { StaffShopDetailPage } from "@/pages/staff/StaffShopDetailPage";
+import { StaffFlashDealsPage } from "@/pages/staff/StaffFlashDealsPage";
+import { StaffFlashDealDetailPage } from "@/pages/staff/StaffFlashDealDetailPage";
 
 import { CustomerShopPage } from "@/pages/customer/CustomerShopPage";
 import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage";
@@ -57,6 +59,9 @@ import { ShopProfilePage } from "@/pages/store-owner/ShopProfilePage";
 
 import { ShopOrdersPage } from "@/pages/shop/ShopOrdersPage";
 import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
+import { StoreOwnerFlashDealsPage } from "@/pages/store-owner/StoreOwnerFlashDealsPage";
+import { StoreOwnerFlashDealDetailPage } from "@/pages/store-owner/StoreOwnerFlashDealDetailPage";
+import { StoreOwnerFlashDealFormPage } from "@/pages/store-owner/StoreOwnerFlashDealFormPage";
 
 export const routes: RouteObject[] = [
   {
@@ -264,13 +269,15 @@ export const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: (
-              <ComingSoonPage
-                title="Staff overview"
-                description="Staff operations will appear here when their APIs are ready."
-                backTo={APP_PATHS.ACCOUNT_WORKSPACE}
-              />
-            ),
+            element: <Navigate to="flash-deals" replace />,
+          },
+          {
+            path: "flash-deals",
+            element: <StaffFlashDealsPage />,
+          },
+          {
+            path: "flash-deals/:id",
+            element: <StaffFlashDealDetailPage />,
           },
           { path: "orders", element: <ShopOrdersPage /> },
           { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
@@ -333,6 +340,22 @@ export const routes: RouteObject[] = [
           },
           { path: "orders", element: <ShopOrdersPage /> },
           { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
+          {
+            path: "flash-deals",
+            element: <StoreOwnerFlashDealsPage />,
+          },
+          {
+            path: "flash-deals/create",
+            element: <StoreOwnerFlashDealFormPage />,
+          },
+          {
+            path: "flash-deals/:id",
+            element: <StoreOwnerFlashDealDetailPage />,
+          },
+          {
+            path: "flash-deals/:id/edit",
+            element: <StoreOwnerFlashDealFormPage />,
+          },
           {
             path: "staff",
             element: <StaffManagementPage />,

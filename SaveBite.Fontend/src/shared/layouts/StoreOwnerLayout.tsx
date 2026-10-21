@@ -6,6 +6,7 @@ import {
   Settings2,
   Store,
   Users,
+  Zap,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
@@ -16,6 +17,12 @@ const navigation = [
     label: "Overview",
     end: true,
     icon: Store,
+  },
+  {
+    to: APP_PATHS.STORE_OWNER_FLASH_DEALS,
+    label: "My Flash Deals",
+    end: false,
+    icon: Zap,
   },
   {
     to: `${APP_PATHS.STORE_OWNER}/orders`,
