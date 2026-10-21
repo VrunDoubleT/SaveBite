@@ -156,7 +156,7 @@ export const routes: RouteObject[] = [
                     element: <ReviewsPage />,
                   },
                   {
-                    path: "trust-score",
+                    path: "trust-score/:tab?",
                     element: <TrustScorePage />,
                   },
                   {
@@ -214,7 +214,7 @@ export const routes: RouteObject[] = [
             element: <CategoryManagementPage />,
           },
           {
-            path: APP_PATHS.ADMIN_TRUST,
+            path: `${APP_PATHS.ADMIN_TRUST}/:tab?`,
             element: <TrustConfigurationPage />,
           },
           {

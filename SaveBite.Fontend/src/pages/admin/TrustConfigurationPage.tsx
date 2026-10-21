@@ -1,20 +1,24 @@
-import { useState } from "react";
+import { Navigate, useParams } from "react-router-dom";
 import { AdminLevelsPanel } from "@/features/trust/components/AdminLevelsPanel";
 import { PenaltyRulesPanel } from "@/features/trust/components/PenaltyRulesPanel";
 import { ScoreRulesPanel } from "@/features/trust/components/ScoreRulesPanel";
-import { TrustTabs, type TrustTabItem } from "@/features/trust/components/TrustTabs";
+import { TrustTabs } from "@/features/trust/components/TrustTabs";
+import {
+  ADMIN_TRUST_BASE_PATH,
+  ADMIN_TRUST_TABS,
+  findTab,
+  tabPath,
+} from "@/features/trust/utils/trustTabs";
 
-type ConfigTab = "levels" | "penalties" | "score" | "earning";
-
-const TABS: ReadonlyArray<TrustTabItem<ConfigTab>> = [
-  { id: "levels", label: "Levels" },
-  { id: "penalties", label: "Penalty rules" },
-  { id: "score", label: "Trust Score rules" },
-  { id: "earning", label: "Earning rules" },
-];
-
+// Routes: /admin/trust/:tab (levels | penalty-rules | score-rules | earning-rules)
 export function TrustConfigurationPage() {
-  const [activeTab, setActiveTab] = useState<ConfigTab>("levels");
+  const { tab } = useParams();
+  const activeTab = findTab(ADMIN_TRUST_TABS, tab);
+
+  // /admin/trust and unknown tabs open the first tab (replaces the history entry).
+  if (!activeTab) {
+    return <Navigate to={tabPath(ADMIN_TRUST_BASE_PATH, ADMIN_TRUST_TABS[0].id)} replace />;
+  }
 
   return (
     <div className="space-y-6">
@@ -26,17 +30,17 @@ export function TrustConfigurationPage() {
       </header>
 
       <TrustTabs
-        tabs={TABS}
+        tabs={ADMIN_TRUST_TABS}
         active={activeTab}
-        onChange={setActiveTab}
+        basePath={ADMIN_TRUST_BASE_PATH}
         ariaLabel="Trust Score configuration sections"
       />
 
       <div key={activeTab} role="tabpanel" className="trust-panel">
         {activeTab === "levels" && <AdminLevelsPanel />}
-        {activeTab === "penalties" && <PenaltyRulesPanel />}
-        {activeTab === "score" && <ScoreRulesPanel variant="all" />}
-        {activeTab === "earning" && <ScoreRulesPanel variant="earning" />}
+        {activeTab === "penalty-rules" && <PenaltyRulesPanel />}
+        {activeTab === "score-rules" && <ScoreRulesPanel variant="all" />}
+        {activeTab === "earning-rules" && <ScoreRulesPanel variant="earning" />}
       </div>
     </div>
   );
