@@ -17,6 +17,7 @@ public class NearbyShopResponse
     public bool IsOpen { get; set; }
     public double AverageRating { get; set; }
     public int TotalReviews { get; set; }
+    public int FlashDealCount { get; set; }
 }
 
 public class ShopProfileResponse

@@ -9,6 +9,8 @@ public interface IShopRepository
     Task<Shop?> GetActiveShopByIdAsync(Guid shopId, CancellationToken cancellationToken = default);
     Task<bool> ShopExistsAsync(Guid shopId, CancellationToken cancellationToken = default);
 
+    Task<Dictionary<Guid, int>> GetActiveDealCountsForShopsAsync(List<Guid> shopIds, CancellationToken cancellationToken = default);
+
     Task<Dictionary<Guid, (double AvgRating, int TotalCount)>> GetReviewsStatsForShopsAsync(
         List<Guid> shopIds,
         CancellationToken cancellationToken = default);
