@@ -53,6 +53,25 @@ public sealed class ShopRepository : IShopRepository
             .AnyAsync(s => s.Id == shopId, cancellationToken);
     }
 
+    public async Task<Dictionary<Guid, int>> GetActiveDealCountsForShopsAsync(
+        List<Guid> shopIds,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        return await _context.Set<FlashDeal>()
+            .AsNoTracking()
+            .Where(d => shopIds.Contains(d.ShopId)
+                && (d.Status == FlashDealStatus.OnSale || d.Status == FlashDealStatus.SoldOut)
+                && d.OrderEndTime >= now)
+            .GroupBy(d => d.ShopId)
+            .Select(g => new
+            {
+                ShopId = g.Key,
+                Count = g.Count()
+            })
+            .ToDictionaryAsync(x => x.ShopId, x => x.Count, cancellationToken);
+    }
+
     public async Task<Dictionary<Guid, (double AvgRating, int TotalCount)>> GetReviewsStatsForShopsAsync(
         List<Guid> shopIds, 
         CancellationToken cancellationToken = default)
