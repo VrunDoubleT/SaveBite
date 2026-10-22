@@ -13,6 +13,7 @@ export interface NearbyShop {
   isOpen: boolean;
   averageRating: number;
   totalReviews: number;
+  flashDealCount?: number;
 }
 
 export interface ShopProfile {

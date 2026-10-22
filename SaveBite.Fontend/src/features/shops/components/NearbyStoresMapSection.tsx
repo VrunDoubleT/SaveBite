@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   Store,
@@ -77,6 +77,35 @@ export function NearbyStoresMapSection({
   const [routeError, setRouteError] = useState<string | null>(null);
   const [showStepDetails, setShowStepDetails] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
+
+  // Filter mode: "all" stores vs "deals_only"
+  const [storeFilter, setStoreFilter] = useState<"all" | "deals_only">("all");
+
+  const dealsStoresCount = useMemo(
+    () => shops.filter((s) => (s.flashDealCount ?? 0) > 0).length,
+    [shops],
+  );
+
+  const filteredShops = useMemo(() => {
+    if (storeFilter === "deals_only") {
+      return shops.filter((s) => (s.flashDealCount ?? 0) > 0);
+    }
+    return shops;
+  }, [shops, storeFilter]);
+
+  const handleFilterChange = (filter: "all" | "deals_only") => {
+    setStoreFilter(filter);
+    if (filter === "deals_only" && selectedShop && (selectedShop.flashDealCount ?? 0) === 0) {
+      setSelectedShop(null);
+      setRouteResult(null);
+      setRouteError(null);
+      setShowStepDetails(false);
+      if (routePolylineRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(routePolylineRef.current);
+        routePolylineRef.current = null;
+      }
+    }
+  };
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -341,25 +370,48 @@ export function NearbyStoresMapSection({
       boundsPoints.push([latitude, longitude]);
     }
 
-    if (shops && shops.length > 0) {
-      shops.forEach((shop, index) => {
+    if (filteredShops && filteredShops.length > 0) {
+      filteredShops.forEach((shop) => {
         if (!shop.latitude || !shop.longitude) return;
         boundsPoints.push([shop.latitude, shop.longitude]);
 
         const isCurrentSelected = selectedShop?.id === shop.id;
+        const dealCount = shop.flashDealCount ?? 0;
+        const hasDeals = dealCount > 0;
+
         const imageUrl =
           shop.coverImageUrl ||
           shop.logoUrl ||
           "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=200&auto=format&fit=crop&q=80";
 
-        // HTML for circular marker with store avatar and orange badge
+        // Dynamic styling depending on whether the store has active flash deals:
+        // - With deals: Vibrant emerald/white border + bright orange badge showing exact deal count
+        // - Without deals (0 deals): Always dimmed ("mờ mờ", opacity ~0.45) even when selected/clicked + soft gray border & '0' badge
+        const markerOpacity = hasDeals ? "1" : "0.45";
+        const markerFilter = hasDeals ? "none" : "grayscale(35%)";
+
+        const markerBorder = isCurrentSelected
+          ? (hasDeals ? "3px solid #059669" : "2.5px solid #94a3b8")
+          : (hasDeals ? "2.5px solid #ffffff" : "2px solid #cbd5e1");
+
+        const markerShadow = isCurrentSelected
+          ? (hasDeals ? "0 8px 20px rgba(5, 150, 105, 0.45)" : "0 3px 8px rgba(0, 0, 0, 0.15)")
+          : (hasDeals ? "0 4px 12px rgba(0, 0, 0, 0.22)" : "0 2px 6px rgba(0, 0, 0, 0.1)");
+
+        const badgeBg = hasDeals ? "#f97316" : "#94a3b8";
+        const badgeBorder = "2px solid #ffffff";
+        const badgeText = dealCount > 99 ? "99+" : `${dealCount}`;
+
+        // HTML for circular marker with store avatar and deal badge
         const markerHtml = `
           <div style="
             position: relative;
             width: 44px;
             height: 44px;
             cursor: pointer;
-            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            opacity: ${markerOpacity};
+            filter: ${markerFilter};
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
             transform: ${isCurrentSelected ? "scale(1.18)" : "scale(1)"};
           ">
             <!-- Store Avatar / Logo -->
@@ -368,12 +420,9 @@ export function NearbyStoresMapSection({
               height: 42px;
               border-radius: 9999px;
               overflow: hidden;
-              border: ${isCurrentSelected ? "3px solid #059669" : "2.5px solid #ffffff"};
-              box-shadow: ${
-                isCurrentSelected
-                  ? "0 8px 20px rgba(5, 150, 105, 0.45)"
-                  : "0 4px 12px rgba(0, 0, 0, 0.22)"
-              };
+              position: relative;
+              border: ${markerBorder};
+              box-shadow: ${markerShadow};
               background: #ffffff;
             ">
               <img 
@@ -384,7 +433,7 @@ export function NearbyStoresMapSection({
               />
             </div>
 
-            <!-- Orange badge at top-right -->
+            <!-- Deal count badge at top-right -->
             <span style="
               position: absolute;
               top: -3px;
@@ -393,17 +442,17 @@ export function NearbyStoresMapSection({
               height: 18px;
               padding: 0 4px;
               border-radius: 9999px;
-              background: #f97316;
+              background: ${badgeBg};
               color: #ffffff;
               font-size: 11px;
               font-weight: 800;
               display: flex;
               align-items: center;
               justify-content: center;
-              border: 2px solid #ffffff;
+              border: ${badgeBorder};
               box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            ">
-              ${index + 1}
+            " title="${hasDeals ? `${dealCount} Flash Deals` : "0 Flash Deals (No active deals)"}">
+              ${badgeText}
             </span>
           </div>
         `;
@@ -420,8 +469,12 @@ export function NearbyStoresMapSection({
           title: shop.name,
         }).addTo(map);
 
-        // Tooltip hover showing shop name
-        marker.bindTooltip(shop.name, {
+        // Tooltip hover showing shop name and flash deal count status (in English)
+        const tooltipText = hasDeals
+          ? `${shop.name} (${dealCount} Flash Deal${dealCount > 1 ? "s" : ""})`
+          : `${shop.name} (No flash deals - 0 deals)`;
+
+        marker.bindTooltip(tooltipText, {
           direction: "top",
           offset: [0, -22],
           className: "font-semibold text-xs text-neutral-800 shadow-sm",
@@ -447,7 +500,7 @@ export function NearbyStoresMapSection({
         map.flyTo([latitude, longitude], 14, { animate: true, duration: 0.8 });
       }
     }
-  }, [isMapReady, shops, selectedShop, latitude, longitude]);
+  }, [isMapReady, filteredShops, selectedShop, latitude, longitude]);
 
   // 4. Handle shop selection
   const handleSelectShop = (shop: NearbyShop) => {
@@ -780,20 +833,74 @@ export function NearbyStoresMapSection({
         </div>
       </div>
 
-      {/* 2. Map Section Title */}
-      <div className="mb-2.5 flex items-center justify-between">
+      {/* 2. Map Section Title & Filter Toggle */}
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
           <Store size={18} className="text-emerald-600" />
           <h3 className="text-base sm:text-lg font-extrabold text-neutral-900">
             Nearby Stores 
           </h3>
           <span className="text-xs font-semibold text-neutral-500">
-            ({shops.length} store{shops.length === 1 ? "" : "s"} found)
+            ({filteredShops.length} store{filteredShops.length === 1 ? "" : "s"} found)
           </span>
         </div>
-        <span className="text-xs text-neutral-400 hidden sm:inline">
-          Tap any store on the map to view details & motorcycle directions
-        </span>
+
+        {/* Filter Toggle: All Stores vs Flash Deals Only */}
+        <div className="flex items-center gap-1 rounded-xl bg-neutral-100 p-1 border border-neutral-200/80 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => handleFilterChange("all")}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+              storeFilter === "all"
+                ? "bg-white text-neutral-900 shadow-2xs border border-neutral-200/60"
+                : "text-neutral-500 hover:text-neutral-800"
+            }`}
+          >
+            <Store
+              size={13}
+              className={storeFilter === "all" ? "text-emerald-600" : "text-neutral-400"}
+            />
+            <span>All Stores</span>
+            <span
+              className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
+                storeFilter === "all"
+                  ? "bg-neutral-100 text-neutral-700"
+                  : "text-neutral-400"
+              }`}
+            >
+              {shops.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleFilterChange("deals_only")}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+              storeFilter === "deals_only"
+                ? "bg-white text-orange-600 shadow-2xs border border-orange-200/60"
+                : "text-neutral-500 hover:text-neutral-800"
+            }`}
+          >
+            <Flame
+              size={13}
+              className={
+                storeFilter === "deals_only"
+                  ? "text-orange-500 fill-orange-500"
+                  : "text-neutral-400"
+              }
+            />
+            <span>Flash Deals Only</span>
+            <span
+              className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
+                storeFilter === "deals_only"
+                  ? "bg-orange-100 text-orange-700"
+                  : "text-neutral-400"
+              }`}
+            >
+              {dealsStoresCount}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* 2. VietMap Leaflet Map Container */}
@@ -927,6 +1034,24 @@ export function NearbyStoresMapSection({
                           : "No reviews yet"}
                       </span>
                     </div>
+
+                    {/* Deal Count Badge */}
+                    <div className="mt-1 flex items-center gap-1.5">
+                      {(selectedShop.flashDealCount ?? 0) > 0 ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 border border-orange-200 px-2 py-0.5 text-[11px] font-extrabold text-orange-700">
+                          <Flame size={12} className="text-orange-500 fill-orange-500" />
+                          <span>
+                            {selectedShop.flashDealCount} Flash Deal
+                            {(selectedShop.flashDealCount ?? 0) > 1 ? "s" : ""}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 border border-neutral-200 px-2 py-0.5 text-[11px] font-medium text-neutral-500">
+                          <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                          <span>No flash deals (0 deals)</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1024,7 +1149,11 @@ export function NearbyStoresMapSection({
                     to={`/shops/${selectedShop.id}`}
                     className="inline-flex items-center justify-center gap-1 rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-xs font-bold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 hover:text-emerald-700"
                   >
-                    <span>View Store & Deals</span>
+                    <span>
+                      {(selectedShop.flashDealCount ?? 0) > 0
+                        ? "View Store & Deals"
+                        : "View Store"}
+                    </span>
                     <ExternalLink size={12} />
                   </Link>
                 </div>

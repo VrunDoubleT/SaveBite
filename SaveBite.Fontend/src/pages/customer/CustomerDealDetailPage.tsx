@@ -372,48 +372,26 @@ export function CustomerDealDetailPage() {
   return (
     <div className="min-h-screen bg-neutral-50/40 pb-20 pt-6">
       <main className="mx-auto max-w-6xl">
-        {/* Navigation Bar: Back Button & Breadcrumbs */}
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (window.history.length > 1) {
-                  navigate(-1);
-                } else {
-                  navigate("/");
-                }
-              }}
-              className="group inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-neutral-700 shadow-2xs transition hover:border-emerald-500 hover:bg-emerald-50/60 hover:text-emerald-700 cursor-pointer"
-            >
-              <ArrowLeft
-                size={14}
-                className="text-neutral-500 transition-transform group-hover:-translate-x-0.5 group-hover:text-emerald-600"
-              />
-              <span>Back</span>
-            </button>
-
-            <nav
-              aria-label="Breadcrumb"
-              className="hidden sm:flex items-center gap-1.5 text-xs text-neutral-500"
-            >
-              <Link to="/" className="hover:text-emerald-700 transition">
-                Home
-              </Link>
-              <ChevronRight size={13} className="text-neutral-300 shrink-0" />
-              <Link
-                to={`/shops/${deal.shopId}`}
-                className="hover:text-emerald-700 transition font-medium"
-              >
-                {deal.shopName}
-              </Link>
-              <ChevronRight size={13} className="text-neutral-300 shrink-0" />
-              <span className="truncate max-w-[240px] font-semibold text-neutral-800">
-                {deal.productName}
-              </span>
-            </nav>
-          </div>
-        </div>
+        {/* Breadcrumb Navigation */}
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-5 flex items-center gap-2 text-xs sm:text-sm text-neutral-500"
+        >
+          <Link to="/" className="hover:text-emerald-700 transition font-medium">
+            Home
+          </Link>
+          <ChevronRight size={13} className="text-neutral-300 shrink-0" />
+          <Link
+            to={`/shops/${deal.shopId}`}
+            className="hover:text-emerald-700 transition font-medium"
+          >
+            {deal.shopName}
+          </Link>
+          <ChevronRight size={13} className="text-neutral-300 shrink-0" />
+          <span className="truncate max-w-[260px] sm:max-w-md font-semibold text-neutral-800">
+            {deal.productName}
+          </span>
+        </nav>
 
         {/* Main 2-column layout (Image & Details) */}
         <div className="grid items-start gap-8 lg:grid-cols-2">

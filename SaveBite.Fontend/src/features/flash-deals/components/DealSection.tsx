@@ -37,6 +37,11 @@ export function DealSection({
   locationMode,
 }: DealSectionProps) {
   const observerRef = useRef<HTMLDivElement | null>(null);
+  const isTriggeringRef = useRef(false);
+
+  useEffect(() => {
+    isTriggeringRef.current = false;
+  }, [deals.length, hasOlder]);
 
   // Automatic infinite scroll when scrolling to bottom
   useEffect(() => {
@@ -47,13 +52,14 @@ export function DealSection({
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) {
+        if (entries[0]?.isIntersecting && !isTriggeringRef.current && !isLoadingOlder) {
+          isTriggeringRef.current = true;
           onLoadOlder();
         }
       },
       {
         root: null,
-        rootMargin: "250px",
+        rootMargin: "80px",
         threshold: 0.1,
       }
     );
