@@ -31,6 +31,7 @@ export type TrustScoreRuleKind = "Earning" | "Penalty";
 
 export interface TrustScoreRule {
   id: string;
+  ruleType: "OnlineOrderCompleted" | "PayAtShopOrderCompleted" | "NoShow";
   scoreDelta: number;
   kind: TrustScoreRuleKind;
   effectiveFrom: string;

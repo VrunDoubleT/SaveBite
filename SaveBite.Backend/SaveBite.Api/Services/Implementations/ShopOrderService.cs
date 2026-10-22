@@ -154,6 +154,7 @@ public sealed class ShopOrderService : IShopOrderService
             }
             ChangeStatus(order, target, await _shops.ActorAsync(userId, shopId, ct), action == "reject" ? reason! : action == "complete" && cashReceived ? "Completed after receiving the remaining balance in cash." : "Shop order operation: " + action);
             await _orders.SaveAsync(ct);
+            if (target == OrderStatus.Completed) await _eventPublisher.QueueCompletedAsync(order, ct);
             return true;
         }, ct);
         // Cancel the confirmation timeout only after the shop action has committed.

@@ -61,7 +61,9 @@ public sealed record LevelProgressResponse(
     bool RequirementsMet,
     decimal OverallPercent,
     IReadOnlyList<ProgressMetricResponse> Metrics,
-    int? ScoreDeltaPerCompletedOrder);
+    int? ScoreDeltaPerCompletedOrder,
+    int? OnlineOrderCompletedPoints = null,
+    int? PayAtShopOrderCompletedPoints = null);
 
 public sealed record TrustLevelInfoResponse(
     Guid Id,
@@ -158,4 +160,5 @@ public sealed record TrustScoreRuleResponse(
     DateTime? EffectiveTo,
     bool IsCurrent,
     string? CreatedByName,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string RuleType = "OnlineOrderCompleted");

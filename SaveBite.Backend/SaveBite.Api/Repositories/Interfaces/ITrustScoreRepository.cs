@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Requests;
@@ -28,7 +29,7 @@ public interface ITrustScoreRepository
     Task<int> CountRecoveringPenaltiesAsync(Guid userId, CancellationToken cancellationToken = default);
 
     /// <summary>The score rule currently in effect that awards points (ScoreDelta &gt; 0).</summary>
-    Task<TrustScoreRule?> GetCurrentEarningRuleAsync(DateTime now, CancellationToken cancellationToken = default);
+    Task<TrustScoreRule?> GetCurrentEarningRuleAsync(DateTime now, CancellationToken cancellationToken = default, TrustScoreRuleType ruleType = TrustScoreRuleType.OnlineOrderCompleted);
 
     /// <summary>
     /// Creates the Trust Score, level progress and initial level history rows for a user that has none.

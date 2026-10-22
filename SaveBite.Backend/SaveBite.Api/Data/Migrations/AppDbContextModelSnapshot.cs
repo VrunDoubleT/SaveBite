@@ -2722,6 +2722,21 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("trust_level_requirements", (string)null);
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustOrderProcessing", b =>
+                {
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
+
+                    b.Property<DateTime>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at");
+
+                    b.HasKey("OrderId");
+
+                    b.ToTable("trust_order_processing", (string)null);
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustScoreHistory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2808,6 +2823,12 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Property<DateTime?>("EffectiveTo")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("effective_to");
+
+                    b.Property<string>("RuleType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("rule_type");
 
                     b.Property<int>("ScoreDelta")
                         .HasColumnType("integer")
@@ -3912,6 +3933,15 @@ namespace SaveBite.Backend.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("TrustLevel");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustOrderProcessing", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.Order", null)
+                        .WithOne()
+                        .HasForeignKey("SaveBite.Backend.Models.Entities.TrustOrderProcessing", "OrderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustScoreHistory", b =>

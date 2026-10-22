@@ -38,7 +38,7 @@ public interface ITrustConfigRepository
     Task<TrustScoreRule?> GetScoreRuleForUpdateAsync(Guid ruleId, CancellationToken cancellationToken = default);
 
     Task<bool> HasOverlappingScoreRuleAsync(
-        bool earning, DateTime from, Guid excludeRuleId, CancellationToken cancellationToken = default);
+        SaveBite.Backend.Models.Enums.TrustScoreRuleType ruleType, DateTime from, Guid excludeRuleId, CancellationToken cancellationToken = default);
 
     void AddScoreRule(TrustScoreRule rule);
 

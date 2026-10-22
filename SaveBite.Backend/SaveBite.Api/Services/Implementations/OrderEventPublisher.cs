@@ -33,6 +33,21 @@ public sealed class OrderEventPublisher : IOrderEventPublisher
         await _events.SaveAsync(ct);
         _scheduler.Enqueue(message.Id);
     }
+    // Persist completion alongside the state transition so a broker outage cannot lose earned progress.
+    public async Task QueueCompletedAsync(Order order, CancellationToken ct = default)
+    {
+        var message = new OrderEventOutbox
+        {
+            Id = Guid.NewGuid(), OrderId = order.Id, RoutingKey = RabbitMqRoutingKeys.OrderCompleted,
+            PayloadJson = JsonSerializer.Serialize(new OrderCompletedEvent(order.Id, order.ShopId, order.CustomerId,
+                order.CompletedAt ?? throw new InvalidOperationException("CompletedAt is required."))),
+            CreatedAt = _clock.GetUtcNow().UtcDateTime
+        };
+        _events.Add(message);
+        await _events.SaveAsync(ct);
+        _scheduler.Enqueue(message.Id);
+    }
+
     // NoShow has its own event so inventory, notifications and trust policies can be added independently.
     public async Task QueueNoShowAsync(Order order, CancellationToken ct = default)
     {

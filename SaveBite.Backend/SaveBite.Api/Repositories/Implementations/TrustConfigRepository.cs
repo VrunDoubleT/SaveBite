@@ -98,10 +98,10 @@ public sealed class TrustConfigRepository : ITrustConfigRepository
             .SingleOrDefaultAsync(rule => rule.Id == ruleId, cancellationToken);
 
     public Task<bool> HasOverlappingScoreRuleAsync(
-        bool earning, DateTime from, Guid excludeRuleId, CancellationToken cancellationToken = default)
+        SaveBite.Backend.Models.Enums.TrustScoreRuleType ruleType, DateTime from, Guid excludeRuleId, CancellationToken cancellationToken = default)
         => _dbContext.TrustScoreRules.AsNoTracking()
             .AnyAsync(rule => rule.Id != excludeRuleId
-                              && (rule.ScoreDelta > 0) == earning
+                              && rule.RuleType == ruleType
                               && (rule.EffectiveTo == null || rule.EffectiveTo > from),
                 cancellationToken);
 

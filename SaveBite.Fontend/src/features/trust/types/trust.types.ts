@@ -70,6 +70,8 @@ export interface LevelProgress {
   overallPercent: number;
   metrics: ProgressMetric[];
   scoreDeltaPerCompletedOrder?: number | null;
+  onlineOrderCompletedPoints?: number | null;
+  payAtShopOrderCompletedPoints?: number | null;
 }
 
 export interface TrustLevelInfo {

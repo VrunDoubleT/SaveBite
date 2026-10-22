@@ -17,6 +17,7 @@ public class TrustScoreRuleConfiguration
                 "\"effective_to\" > \"effective_from\"");
         });
 
+        builder.Property(x => x.RuleType).HasColumnName("rule_type").HasConversion<string>().HasMaxLength(40).IsRequired();
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

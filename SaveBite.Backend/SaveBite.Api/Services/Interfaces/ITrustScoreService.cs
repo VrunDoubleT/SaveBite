@@ -6,6 +6,9 @@ namespace SaveBite.Backend.Services.Interfaces;
 
 public interface ITrustScoreService
 {
+    // Initialize the lowest active level without resetting an existing customer.
+    Task InitializeAsync(Guid userId, CancellationToken cancellationToken = default);
+
     // UC-44
     Task<TrustScoreOverviewResponse> GetOverviewAsync(Guid userId, CancellationToken cancellationToken = default);
 

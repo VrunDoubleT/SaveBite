@@ -106,9 +106,9 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
                 penalty => penalty.UserId == userId && penalty.Status == NoShowPenaltyStatus.Recovering,
                 cancellationToken);
 
-    public Task<TrustScoreRule?> GetCurrentEarningRuleAsync(DateTime now, CancellationToken cancellationToken = default)
+    public Task<TrustScoreRule?> GetCurrentEarningRuleAsync(DateTime now, CancellationToken cancellationToken = default, TrustScoreRuleType ruleType = TrustScoreRuleType.OnlineOrderCompleted)
         => _dbContext.TrustScoreRules.AsNoTracking()
-            .Where(rule => rule.ScoreDelta > 0
+            .Where(rule => rule.RuleType == ruleType && rule.ScoreDelta > 0
                            && rule.EffectiveFrom <= now
                            && (rule.EffectiveTo == null || rule.EffectiveTo > now))
             .OrderByDescending(rule => rule.EffectiveFrom)

@@ -529,8 +529,8 @@ public sealed class TrustConfigService : ITrustConfigService
         if (request.ScoreDelta == rule.ScoreDelta)
             throw AppException.BadRequest("The score change is the same as the current rule.");
 
-        // BR-161: one rule per direction at any time.
-        if (await _repository.HasOverlappingScoreRuleAsync(rule.ScoreDelta > 0, effectiveFrom, rule.Id, cancellationToken))
+        // Allow one rule per earning type at any time; online and PayAtShop schedules are independent.
+        if (await _repository.HasOverlappingScoreRuleAsync(rule.RuleType, effectiveFrom, rule.Id, cancellationToken))
             throw AppException.Conflict("Another Trust Score rule of the same type is already in effect for this period.");
 
         var oldDelta = rule.ScoreDelta;
@@ -551,6 +551,7 @@ public sealed class TrustConfigService : ITrustConfigService
             target = new TrustScoreRule
             {
                 Id = Guid.NewGuid(),
+                RuleType = rule.RuleType,
                 ScoreDelta = request.ScoreDelta,
                 EffectiveFrom = effectiveFrom,
                 CreatedBy = adminId,
@@ -654,7 +655,8 @@ public sealed class TrustConfigService : ITrustConfigService
             rule.EffectiveTo,
             IsCurrent(rule.EffectiveFrom, rule.EffectiveTo, now),
             rule.CreatedByUser?.FullName,
-            rule.CreatedAt);
+            rule.CreatedAt,
+            rule.RuleType.ToString());
 
     private void WriteAudit(
         Guid adminId, string action, string targetType, Guid targetId, object? oldValues, object newValues, DateTime now)
