@@ -83,3 +83,131 @@ export interface DealFilterState {
   price: string[];
   category: string[];
 }
+
+export const FlashDealStatusEnum = {
+  Pending: 0,
+  OnSale: 1,
+  Hidden: 2,
+  SoldOut: 3,
+  Closed: 4,
+  Cancelled: 5,
+} as const;
+
+export type FlashDealStatusEnum = (typeof FlashDealStatusEnum)[keyof typeof FlashDealStatusEnum];
+
+export const FlashDealVariantStatusEnum = {
+  Active: 0,
+  Hide: 1,
+} as const;
+
+export type FlashDealVariantStatusEnum = (typeof FlashDealVariantStatusEnum)[keyof typeof FlashDealVariantStatusEnum];
+
+export interface ShopFlashDealListItem {
+  id: string;
+  productId: string;
+  productName: string;
+  productImageUrl?: string;
+  categoryName?: string;
+  saleStartTime: string;
+  orderEndTime: string;
+  shopClosingTime: string;
+  status: FlashDealStatusEnum | number;
+  minDealPrice: number;
+  maxOriginalPrice: number;
+  maxDiscountPercent: number;
+  totalQuantity: number;
+  reservedQuantity: number;
+  soldQuantity: number;
+  availableQuantity: number;
+  createdAt: string;
+}
+
+export interface ShopFlashDealVariantDetail {
+  id: string;
+  variantId: string;
+  sku?: string;
+  variantName?: string;
+  imageUrl?: string;
+  attributes?: Record<string, string>;
+  originalPrice: number;
+  dealPrice: number;
+  discountPercent: number;
+  totalQuantity: number;
+  reservedQuantity: number;
+  soldQuantity: number;
+  availableQuantity: number;
+  status: number;
+}
+
+export interface ShopFlashDealDetail {
+  id: string;
+  shopId: string;
+  productId: string;
+  productName: string;
+  description?: string;
+  categoryName?: string;
+  primaryImageUrl?: string;
+  productImageUrls: string[];
+  saleStartTime: string;
+  orderEndTime: string;
+  shopClosingTime: string;
+  status: FlashDealStatusEnum | number;
+  createdAt: string;
+  updatedAt: string;
+  variants: ShopFlashDealVariantDetail[];
+}
+
+export interface ShopEligibleProductVariant {
+  id: string;
+  sku?: string;
+  variantName: string;
+  originalPrice: number;
+  imageUrl?: string;
+}
+
+export interface ShopEligibleProduct {
+  id: string;
+  name: string;
+  description?: string;
+  categoryName?: string;
+  imageUrl?: string;
+  variants: ShopEligibleProductVariant[];
+}
+
+export interface CreateFlashDealVariantPayload {
+  variantId: string;
+  dealPrice: number;
+  totalQuantity: number;
+}
+
+export interface CreateFlashDealPayload {
+  productId: string;
+  isImmediate?: boolean;
+  saleStartTime?: string;
+  orderEndTime: string;
+  shopClosingTime: string;
+  variants: CreateFlashDealVariantPayload[];
+}
+
+export interface UpdateFlashDealVariantPayload {
+  variantId: string;
+  dealPrice: number;
+  totalQuantity: number;
+  status?: FlashDealVariantStatusEnum | number;
+}
+
+export interface UpdateFlashDealPayload {
+  saleStartTime: string;
+  orderEndTime: string;
+  shopClosingTime: string;
+  variants: UpdateFlashDealVariantPayload[];
+}
+
+export interface ShopFlashDealQueryParams {
+  status?: number;
+  fromDate?: string;
+  toDate?: string;
+  page?: number;
+  pageSize?: number;
+  shopId?: string;
+}

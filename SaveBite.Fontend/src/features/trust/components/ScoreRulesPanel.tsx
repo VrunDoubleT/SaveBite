@@ -100,7 +100,7 @@ export function ScoreRulesPanel({ variant }: ScoreRulesPanelProps) {
               return (
                 <tr key={rule.id} className={status === "replaced" ? "text-text-muted" : ""}>
                   <td className="px-5 py-3 font-medium">
-                    {rule.kind === "Earning" ? "Earning" : "Penalty"}
+                    {rule.ruleType === "OnlineOrderCompleted" ? "Online order completed" : rule.ruleType === "PayAtShopOrderCompleted" ? "Pay-at-shop order completed" : "NoShow penalty"}
                   </td>
                   <td
                     className={`px-5 py-3 text-right font-semibold tabular-nums ${

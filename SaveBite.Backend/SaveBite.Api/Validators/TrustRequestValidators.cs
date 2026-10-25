@@ -8,6 +8,7 @@ internal static class TrustValidationRules
 {
     public const int MaxCount = 1_000_000;
     public const int MaxScoreDelta = 1_000;
+    public const int MaxDepositRanges = 20;
 }
 
 public sealed class GetTrustScoreHistoryRequestValidator : AbstractValidator<GetTrustScoreHistoryRequest>
@@ -30,11 +31,88 @@ public sealed class GetPenaltiesRequestValidator : AbstractValidator<GetPenaltie
     }
 }
 
+public sealed class TrustLevelDepositRangeRequestValidator : AbstractValidator<TrustLevelDepositRangeRequest>
+{
+    public TrustLevelDepositRangeRequestValidator()
+    {
+        RuleFor(x => x.FromOrderAmount)
+            .GreaterThan(0)
+            .WithMessage("Range start amount must be greater than 0.")
+            .PrecisionScale(12, 2, false)
+            .Must(IsWholeVnd)
+            .WithMessage("Range start amount must be a whole VND amount.");
+
+        RuleFor(x => x.ToOrderAmount)
+            .GreaterThan(x => x.FromOrderAmount)
+            .WithMessage("Range end amount must be greater than range start amount.")
+            .PrecisionScale(12, 2, false)
+            .Must(IsWholeVnd)
+            .WithMessage("Range end amount must be a whole VND amount.");
+
+        RuleFor(x => x.DepositAmount)
+            .GreaterThan(0)
+            .WithMessage("Deposit amount must be greater than 0.")
+            .LessThanOrEqualTo(x => x.FromOrderAmount)
+            .WithMessage("Deposit amount cannot exceed the range start amount.")
+            .PrecisionScale(12, 2, false)
+            .Must(IsWholeVnd)
+            .WithMessage("Deposit amount must be a whole VND amount.");
+    }
+
+    private static bool IsWholeVnd(decimal value) => decimal.Truncate(value) == value;
+}
+
 public sealed class UpdateTrustLevelBenefitsRequestValidator : AbstractValidator<UpdateTrustLevelBenefitsRequest>
 {
     public UpdateTrustLevelBenefitsRequestValidator()
     {
         RuleFor(x => x.Description).MaximumLength(2000);
+
+        When(x => x.RequireFullOnlinePayment, () =>
+        {
+            RuleFor(x => x.DepositFreeOrderAmount)
+                .Null()
+                .WithMessage("Deposit-free order amount must be empty when full online payment is required.");
+
+            RuleFor(x => x.MaxDepositOrderAmount)
+                .Null()
+                .WithMessage("Maximum deposit order amount must be empty when full online payment is required.");
+
+            RuleFor(x => x.Ranges)
+                .Must(ranges => ranges == null || ranges.Count == 0)
+                .WithMessage("Deposit ranges are not allowed when full online payment is required.");
+        });
+
+        When(x => !x.RequireFullOnlinePayment, () =>
+        {
+            RuleFor(x => x.DepositFreeOrderAmount)
+                .Cascade(CascadeMode.Stop)
+                .NotNull()
+                .WithMessage("Deposit-free order amount is required when Pay at shop is enabled.")
+                .Must(v => v!.Value > 0)
+                .WithMessage("Deposit-free order amount must be greater than 0.")
+                .Must(v => decimal.Truncate(v!.Value) == v.Value)
+                .WithMessage("Deposit-free order amount must be a whole VND amount.")
+                .PrecisionScale(12, 2, false);
+
+            RuleFor(x => x.MaxDepositOrderAmount)
+                .Cascade(CascadeMode.Stop)
+                .NotNull()
+                .WithMessage("Maximum deposit order amount is required when Pay at shop is enabled.")
+                .Must((req, max) => !req.DepositFreeOrderAmount.HasValue || max!.Value > req.DepositFreeOrderAmount.Value)
+                .WithMessage("Maximum deposit order amount must be greater than the deposit-free order amount.")
+                .Must(v => decimal.Truncate(v!.Value) == v.Value)
+                .WithMessage("Maximum deposit order amount must be a whole VND amount.")
+                .PrecisionScale(12, 2, false);
+
+            RuleFor(x => x.Ranges)
+                .Cascade(CascadeMode.Stop)
+                .NotNull()
+                .Must(ranges => ranges.Count is >= 1 and <= TrustValidationRules.MaxDepositRanges)
+                .WithMessage($"Provide between 1 and {TrustValidationRules.MaxDepositRanges} deposit ranges.");
+
+            RuleForEach(x => x.Ranges).SetValidator(new TrustLevelDepositRangeRequestValidator());
+        });
     }
 }
 

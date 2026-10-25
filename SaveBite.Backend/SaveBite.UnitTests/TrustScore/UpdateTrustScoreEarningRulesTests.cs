@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Implementations;
@@ -48,6 +49,7 @@ public class UpdateTrustScoreEarningRulesTests
         return new TrustScoreRule
         {
             Id = _ruleId,
+            RuleType = TrustScoreRuleType.OnlineOrderCompleted,
             ScoreDelta = scoreDelta,
             EffectiveFrom = isPending ? now.AddDays(5) : now.AddDays(-10),
             EffectiveTo = isReplaced ? now.AddDays(-1) : null,
@@ -75,7 +77,7 @@ public class UpdateTrustScoreEarningRulesTests
             .ReturnsAsync(rule);
 
         _repositoryMock
-            .Setup(r => r.HasOverlappingScoreRuleAsync(true, It.IsAny<DateTime>(), _ruleId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.HasOverlappingScoreRuleAsync(It.IsAny<TrustScoreRuleType>(), It.IsAny<DateTime>(), _ruleId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         _repositoryMock
@@ -178,7 +180,7 @@ public class UpdateTrustScoreEarningRulesTests
             .ReturnsAsync(rule);
 
         _repositoryMock
-            .Setup(r => r.HasOverlappingScoreRuleAsync(true, It.IsAny<DateTime>(), _ruleId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.HasOverlappingScoreRuleAsync(It.IsAny<TrustScoreRuleType>(), It.IsAny<DateTime>(), _ruleId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         // Act
@@ -293,7 +295,7 @@ public class UpdateTrustScoreEarningRulesTests
             .ReturnsAsync(rule);
 
         _repositoryMock
-            .Setup(r => r.HasOverlappingScoreRuleAsync(true, It.IsAny<DateTime>(), _ruleId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.HasOverlappingScoreRuleAsync(It.IsAny<TrustScoreRuleType>(), It.IsAny<DateTime>(), _ruleId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         _repositoryMock

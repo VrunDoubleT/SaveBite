@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
+using Hangfire;
 using Microsoft.Extensions.Logging;
 using Moq;
 using SaveBite.Backend.Caching.Interfaces;
@@ -12,9 +13,8 @@ using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Implementations;
 using Xunit;
 using Xunit.Abstractions;
-
+using SaveBite.Backend.Messaging.Interfaces;
 namespace SaveBite.Tests.FlashDealDiscovery;
-
 /// <summary>
 /// Unit Tests for Feature: View Flash Deal Details
 /// Service: FlashDealService.GetByIdAsync
@@ -27,14 +27,16 @@ public class ViewFlashDealDetailsTests
     private readonly Mock<IFlashDealRedisService> _redisMock = new();
     private readonly Mock<IFlashDealRepository> _dealRepoMock = new();
     private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
+    private readonly Mock<IShopRepository> _shopRepoMock = new();
+    private readonly Mock<IShopStaffRepository> _staffRepo = new();
+    private readonly Mock<IBackgroundJobClient> _backgroundJobClientMock = new();
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
     private readonly Mock<ILogger<FlashDealService>> _loggerMock = new();
     private readonly FlashDealService _service;
-
     // Fixed Test Identifiers
     private readonly Guid _existingDealId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private readonly Guid _nonExistentDealId = Guid.Parse("99999999-9999-9999-9999-999999999999");
     private readonly Guid _shopId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-
     public ViewFlashDealDetailsTests(ITestOutputHelper output)
     {
         _output = output;
@@ -42,6 +44,10 @@ public class ViewFlashDealDetailsTests
             _redisMock.Object,
             _dealRepoMock.Object,
             _userAddressRepoMock.Object,
+            _shopRepoMock.Object,
+            _staffRepo.Object,
+            _backgroundJobClientMock.Object,
+            _publisherMock.Object,
             _loggerMock.Object
         );
     }

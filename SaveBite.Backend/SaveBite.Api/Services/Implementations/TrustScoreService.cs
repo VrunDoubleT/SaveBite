@@ -11,8 +11,8 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class TrustScoreService : ITrustScoreService
 {
-    // Starting score of a customer that has no Trust Score yet (matches the seeded data and SRS UC-44).
-    private const int InitialScore = 100;
+    // New customers start with zero trust points.
+    private const int InitialScore = 0;
 
     public const string StandingGood = "GoodStanding";
     public const string StandingRestricted = "Restricted";
@@ -32,10 +32,24 @@ public sealed class TrustScoreService : ITrustScoreService
         _logger = logger;
     }
 
+    // Initialize trust only through the verified-account consumer; duplicate deliveries preserve existing data.
+    public async Task InitializeAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        if (await _repository.GetUserTrustScoreAsync(userId, cancellationToken) is not null)
+            return;
+
+        var levels = await _repository.GetActiveLevelsAsync(cancellationToken);
+        var lowestLevel = levels.FirstOrDefault()
+            ?? throw AppException.ServiceUnavailable("Trust levels are not configured yet.");
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        if (await _repository.TryProvisionAsync(userId, lowestLevel.Id, InitialScore, now, cancellationToken))
+            _logger.LogInformation("Trust Score provisioned for user {UserId}.", userId);
+    }
+
     // UC-44: View Trust Score and Level.
     public async Task<TrustScoreOverviewResponse> GetOverviewAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var (score, progress) = await EnsureProvisionedAsync(userId, cancellationToken);
+        var (score, progress) = await GetTrustStateAsync(userId, cancellationToken);
         var levels = await _repository.GetActiveLevelsAsync(cancellationToken);
         var activePenalties = await _repository.CountRecoveringPenaltiesAsync(userId, cancellationToken);
 
@@ -59,9 +73,11 @@ public sealed class TrustScoreService : ITrustScoreService
     // UC-45: Track Level Progress.
     public async Task<LevelProgressResponse> GetLevelProgressAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var (score, progress) = await EnsureProvisionedAsync(userId, cancellationToken);
+        var (score, progress) = await GetTrustStateAsync(userId, cancellationToken);
         var levels = await _repository.GetActiveLevelsAsync(cancellationToken);
         var earningRule = await _repository.GetCurrentEarningRuleAsync(_timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
+
+        var shopRule = await _repository.GetCurrentEarningRuleAsync(_timeProvider.GetUtcNow().UtcDateTime, cancellationToken, TrustScoreRuleType.PayAtShopOrderCompleted);
 
         var currentLevel = ToSummary(score.TrustLevel);
         var nextLevel = levels.FirstOrDefault(level => level.Rank > score.TrustLevel.Rank);
@@ -69,7 +85,7 @@ public sealed class TrustScoreService : ITrustScoreService
         if (nextLevel is null)
         {
             return new LevelProgressResponse(
-                currentLevel, null, true, false, 100m, Array.Empty<ProgressMetricResponse>(), earningRule?.ScoreDelta);
+                currentLevel, null, true, false, 100m, Array.Empty<ProgressMetricResponse>(), null, earningRule?.ScoreDelta, shopRule?.ScoreDelta);
         }
 
         var requirement = nextLevel.Requirement;
@@ -87,7 +103,7 @@ public sealed class TrustScoreService : ITrustScoreService
             metrics.All(metric => metric.Remaining == 0),
             AveragePercent(metrics),
             metrics,
-            earningRule?.ScoreDelta);
+            null, earningRule?.ScoreDelta, shopRule?.ScoreDelta);
     }
 
     // UC-46: View Trust Score History.
@@ -113,7 +129,7 @@ public sealed class TrustScoreService : ITrustScoreService
     // UC-47: View Level Info & Benefits.
     public async Task<IReadOnlyList<TrustLevelInfoResponse>> GetLevelsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var (score, _) = await EnsureProvisionedAsync(userId, cancellationToken);
+        var (score, _) = await GetTrustStateAsync(userId, cancellationToken);
         var levels = await _repository.GetActiveLevelsAsync(cancellationToken);
 
         return levels.Select(level => new TrustLevelInfoResponse(
@@ -123,7 +139,8 @@ public sealed class TrustScoreService : ITrustScoreService
             level.Rank,
             ToRequirement(level.Requirement),
             level.Id == score.TrustLevelId,
-            level.Rank <= score.TrustLevel.Rank)).ToList();
+            level.Rank <= score.TrustLevel.Rank,
+            TrustConfigService.ToDepositPolicyResponse(level.DepositPolicy))).ToList();
     }
 
     // UC-48: View Penalty History.
@@ -173,37 +190,24 @@ public sealed class TrustScoreService : ITrustScoreService
     // Helpers
     // -----------------------------------------------------------------------
 
-    // Customers created before FE-15 (or by the registration flow) may have no Trust Score rows yet.
-    // They are created on first access, starting on the lowest active level (BR-158).
-    private async Task<(UserTrustScore Score, UserLevelProgress Progress)> EnsureProvisionedAsync(
+    // Read existing trust data without creating scores, progress or level history.
+    private async Task<(UserTrustScore Score, UserLevelProgress Progress)> GetTrustStateAsync(
         Guid userId, CancellationToken cancellationToken)
     {
-        var score = await _repository.GetUserTrustScoreAsync(userId, cancellationToken);
-
-        if (score is null)
-        {
-            var levels = await _repository.GetActiveLevelsAsync(cancellationToken);
-            var lowestLevel = levels.FirstOrDefault();
-            if (lowestLevel is null)
-                throw AppException.ServiceUnavailable("Trust levels are not configured yet.");
-
-            var now = _timeProvider.GetUtcNow().UtcDateTime;
-            var created = await _repository.TryProvisionAsync(userId, lowestLevel.Id, InitialScore, now, cancellationToken);
-            if (created)
-                _logger.LogInformation("Trust Score provisioned for user {UserId}.", userId);
-
-            score = await _repository.GetUserTrustScoreAsync(userId, cancellationToken)
-                    ?? throw AppException.InternalError();
-        }
-
+        var score = await _repository.GetUserTrustScoreAsync(userId, cancellationToken)
+            ?? throw AppException.ServiceUnavailable("Trust data is not initialized yet. Please try again shortly.");
         var progress = await _repository.GetLevelProgressAsync(userId, cancellationToken)
-                       ?? new UserLevelProgress { UserId = userId };
-
+            ?? throw AppException.ServiceUnavailable("Trust progress is not initialized yet. Please try again shortly.");
         return (score, progress);
     }
 
     private static TrustLevelSummaryResponse ToSummary(TrustLevel level)
-        => new(level.Id, level.Name, level.Description, level.Rank);
+        => new(
+            level.Id,
+            level.Name,
+            level.Description,
+            level.Rank,
+            TrustConfigService.ToDepositPolicyResponse(level.DepositPolicy));
 
     private static TrustLevelRequirementResponse? ToRequirement(TrustLevelRequirement? requirement)
         => requirement is null

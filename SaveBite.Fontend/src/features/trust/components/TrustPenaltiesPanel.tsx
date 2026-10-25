@@ -1,15 +1,17 @@
 import { useCallback, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { Pagination } from "@/shared/components/pagination";
 import { trustApi } from "../api/trustApi";
 import { useApiResource } from "../hooks/useApiResource";
+import { TRUST_PAGE_SIZE, useListParams } from "../hooks/useListParams";
 import type { PenaltyStatus } from "../types/trust.types";
 import { formatCurrency, formatDateTime } from "../utils/format";
+import { ListFilter } from "./ListFilter";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
 import { PenaltyRecoveryModal } from "./PenaltyRecoveryModal";
 
-const PAGE_SIZE = 10;
-
-type StatusFilter = PenaltyStatus | "all";
+const STATUS_FILTERS = ["Recovering", "Recovered"] as const;
+const STATUS_OPTIONS = STATUS_FILTERS.map((value) => ({ value, label: value }));
 
 function PenaltyStatusBadge({ status }: { status: PenaltyStatus }) {
   const recovered = status === "Recovered";
@@ -28,45 +30,46 @@ function PenaltyStatusBadge({ status }: { status: PenaltyStatus }) {
 
 // UC-48 (history) and UC-49 (recovery progress of one penalty).
 export function TrustPenaltiesPanel() {
-  const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<StatusFilter>("all");
+  const {
+    page,
+    filter: status,
+    setPage,
+    setFilter,
+    pageSearch,
+  } = useListParams("status", STATUS_FILTERS);
   const [selectedPenaltyId, setSelectedPenaltyId] = useState<string | null>(null);
 
   const fetchPenalties = useCallback(
     () =>
       trustApi.getPenalties({
         page,
-        pageSize: PAGE_SIZE,
-        status: status === "all" ? undefined : status,
+        pageSize: TRUST_PAGE_SIZE,
+        status: status ?? undefined,
       }),
     [page, status],
   );
   const { data, error, isLoading, reload } = useApiResource(
-    `trust:penalties:${page}:${status}`,
+    `trust:penalties:${page}:${status ?? "all"}`,
     fetchPenalties,
   );
 
-  const handleFilterChange = (value: StatusFilter) => {
-    setStatus(value);
-    setPage(1);
-  };
+  // A page number beyond the last page (typed in the URL, or left over after the data shrank)
+  // is corrected to the last page instead of showing an empty list.
+  if (data && data.page === page && page > Math.max(data.totalPages, 1)) {
+    return <Navigate replace to={{ search: pageSearch(Math.max(data.totalPages, 1)) }} />;
+  }
 
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-base font-bold text-text-primary">Penalty history</h3>
-        <label className="flex items-center gap-2 text-sm text-text-secondary">
-          Status
-          <select
-            value={status}
-            onChange={(event) => handleFilterChange(event.target.value as StatusFilter)}
-            className="rounded-md border border-border-default bg-white px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-          >
-            <option value="all">All penalties</option>
-            <option value="Recovering">Recovering</option>
-            <option value="Recovered">Recovered</option>
-          </select>
-        </label>
+        <ListFilter
+          label="Status"
+          allLabel="All penalties"
+          value={status}
+          options={STATUS_OPTIONS}
+          onChange={setFilter}
+        />
       </div>
 
       {error && !data ? (
@@ -144,7 +147,7 @@ export function TrustPenaltiesPanel() {
             totalPages={data.totalPages}
             onPageChange={setPage}
             totalItems={data.total}
-            pageSize={PAGE_SIZE}
+            pageSize={TRUST_PAGE_SIZE}
             itemLabel="penalties"
             hideOnSinglePage
           />

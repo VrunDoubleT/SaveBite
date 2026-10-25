@@ -86,7 +86,7 @@ public sealed class ShopApplicationLogoValidator : AbstractValidator<ShopApplica
 
     public ShopApplicationLogoValidator()
     {
-        // Báo lỗi theo property "Logo" để frontend map đúng vào field.
+        // Report error under the "Logo" property so that frontend maps it correctly to the field.
         RuleFor(x => x.Logo)
             .Cascade(CascadeMode.Stop)
             .NotNull()

@@ -169,6 +169,10 @@ public sealed class AuthService : IAuthService
             await _redis.RemoveAsync(pendingKey);
         }
 
+        // Publish only after the verified account has been saved successfully.
+        await _publisher.PublishAsync(RabbitMqRoutingKeys.UserVerified,
+            new UserVerifiedEvent(user.Id, now), cancellationToken);
+
         _logger.LogInformation(
             "Registration completed. UserId: {UserId}",
             user.Id);

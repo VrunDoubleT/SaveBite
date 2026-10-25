@@ -1,59 +1,62 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
+import { Navigate } from "react-router-dom";
 import { Pagination } from "@/shared/components/pagination";
 import { trustApi } from "../api/trustApi";
 import { useApiResource } from "../hooks/useApiResource";
+import { TRUST_PAGE_SIZE, useListParams } from "../hooks/useListParams";
 import type { TrustScoreEventType } from "../types/trust.types";
 import { formatDateTime, formatSignedPoints } from "../utils/format";
+import { ListFilter } from "./ListFilter";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
-
-const PAGE_SIZE = 10;
 
 const EVENT_LABELS: Record<TrustScoreEventType, string> = {
   OrderCompleted: "Order completed",
   NoShow: "No-show",
 };
 
-type EventFilter = TrustScoreEventType | "all";
+const EVENT_FILTERS = ["OrderCompleted", "NoShow"] as const;
+const EVENT_OPTIONS = EVENT_FILTERS.map((value) => ({ value, label: EVENT_LABELS[value] }));
 
 export function TrustHistoryPanel() {
-  const [page, setPage] = useState(1);
-  const [eventType, setEventType] = useState<EventFilter>("all");
+  const {
+    page,
+    filter: eventType,
+    setPage,
+    setFilter,
+    pageSearch,
+  } = useListParams("event", EVENT_FILTERS);
 
   const fetchHistory = useCallback(
     () =>
       trustApi.getHistory({
         page,
-        pageSize: PAGE_SIZE,
-        eventType: eventType === "all" ? undefined : eventType,
+        pageSize: TRUST_PAGE_SIZE,
+        eventType: eventType ?? undefined,
       }),
     [page, eventType],
   );
   const { data, error, isLoading, reload } = useApiResource(
-    `trust:history:${page}:${eventType}`,
+    `trust:history:${page}:${eventType ?? "all"}`,
     fetchHistory,
   );
 
-  const handleFilterChange = (value: EventFilter) => {
-    setEventType(value);
-    setPage(1);
-  };
+  // A page number beyond the last page (typed in the URL, or left over after the data shrank)
+  // is corrected to the last page instead of showing an empty list.
+  if (data && data.page === page && page > Math.max(data.totalPages, 1)) {
+    return <Navigate replace to={{ search: pageSearch(Math.max(data.totalPages, 1)) }} />;
+  }
 
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-base font-bold text-text-primary">Score history</h3>
-        <label className="flex items-center gap-2 text-sm text-text-secondary">
-          Event
-          <select
-            value={eventType}
-            onChange={(event) => handleFilterChange(event.target.value as EventFilter)}
-            className="rounded-md border border-border-default bg-white px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-          >
-            <option value="all">All events</option>
-            <option value="OrderCompleted">Order completed</option>
-            <option value="NoShow">No-show</option>
-          </select>
-        </label>
+        <ListFilter
+          label="Event"
+          allLabel="All events"
+          value={eventType}
+          options={EVENT_OPTIONS}
+          onChange={setFilter}
+        />
       </div>
 
       {error && !data ? (
@@ -116,7 +119,7 @@ export function TrustHistoryPanel() {
             totalPages={data.totalPages}
             onPageChange={setPage}
             totalItems={data.total}
-            pageSize={PAGE_SIZE}
+            pageSize={TRUST_PAGE_SIZE}
             itemLabel="changes"
             hideOnSinglePage
           />

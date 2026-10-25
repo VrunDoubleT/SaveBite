@@ -51,6 +51,35 @@ export function TrustLevelsPanel() {
             ) : (
               <p className="mt-1 text-sm italic text-text-muted">No benefits listed.</p>
             )}
+
+            {level.depositPolicy && (
+              <div className="mt-3 rounded-lg border border-border-default bg-neutral-50/80 p-3 text-xs text-text-secondary">
+                <p className="font-semibold text-text-primary">Pay at shop policy</p>
+                {level.depositPolicy.requireFullOnlinePayment ? (
+                  <p className="mt-1">100% online payment required for all orders.</p>
+                ) : (
+                  <ul className="mt-1 space-y-1">
+                    <li>
+                      Orders up to {formatCurrency(level.depositPolicy.depositFreeOrderAmount ?? 0)}:{" "}
+                      <strong className="text-primary-700">No deposit required</strong>
+                    </li>
+                    {level.depositPolicy.ranges.map((range) => (
+                      <li key={range.id}>
+                        {formatCurrency(range.fromOrderAmount)} &ndash;{" "}
+                        {formatCurrency(range.toOrderAmount)}:{" "}
+                        <strong className="text-text-primary">
+                          {formatCurrency(range.depositAmount)} fixed deposit
+                        </strong>
+                      </li>
+                    ))}
+                    <li>
+                      Above {formatCurrency(level.depositPolicy.maxDepositOrderAmount ?? 0)}: 100%
+                      online payment
+                    </li>
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="mt-4">

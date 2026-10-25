@@ -1,8 +1,10 @@
 using System.Text.Json;
 using FluentAssertions;
+using Hangfire;
 using Microsoft.Extensions.Logging;
 using Moq;
 using SaveBite.Backend.Caching.Interfaces;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
@@ -25,9 +27,13 @@ public class ViewFlashDealsByLocationTests
     private readonly ITestOutputHelper _output;
     private readonly Mock<IFlashDealRedisService> _redisMock = new();
     private readonly Mock<IFlashDealRepository> _dealRepoMock = new();
+    private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
+    private readonly Mock<IShopRepository> _shopRepoMock = new();
+    private readonly Mock<IShopStaffRepository> _staffRepoMock = new();
+    private readonly Mock<IBackgroundJobClient> _backgroundJobClientMock = new();
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
     private readonly Mock<ILogger<FlashDealService>> _loggerMock = new();
     private readonly FlashDealService _service;
-    private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
     private readonly FlashDealCursorRequestValidator _validator = new();
 
     public ViewFlashDealsByLocationTests(ITestOutputHelper output)
@@ -37,6 +43,10 @@ public class ViewFlashDealsByLocationTests
             _redisMock.Object,
             _dealRepoMock.Object,
             _userAddressRepoMock.Object,
+            _shopRepoMock.Object,
+            _staffRepoMock.Object,
+            _backgroundJobClientMock.Object,
+            _publisherMock.Object,
             _loggerMock.Object
         );
     }

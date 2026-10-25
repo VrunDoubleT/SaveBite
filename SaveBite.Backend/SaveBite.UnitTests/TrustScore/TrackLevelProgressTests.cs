@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Implementations;
 using Xunit;
@@ -119,9 +120,8 @@ public class TrackLevelProgressTests
             .Setup(r => r.GetActiveLevelsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TrustLevel> { level1, level2 });
         _repositoryMock
-            .Setup(r => r.GetCurrentEarningRuleAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(earningRule);
-
+            .Setup(r => r.GetCurrentEarningRuleAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>(), It.IsAny<TrustScoreRuleType>()))
+            .ReturnsAsync((TrustScoreRule?)null);
         // Act
         var result = await _service.GetLevelProgressAsync(_userId);
 
@@ -172,9 +172,8 @@ public class TrackLevelProgressTests
             .Setup(r => r.GetActiveLevelsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TrustLevel> { level1, level2 });
         _repositoryMock
-            .Setup(r => r.GetCurrentEarningRuleAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCurrentEarningRuleAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>(), It.IsAny<TrustScoreRuleType>()))
             .ReturnsAsync((TrustScoreRule?)null);
-
         // Act
         var result = await _service.GetLevelProgressAsync(_userId);
 
@@ -221,9 +220,8 @@ public class TrackLevelProgressTests
             .Setup(r => r.GetActiveLevelsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TrustLevel> { level1, level2 });
         _repositoryMock
-            .Setup(r => r.GetCurrentEarningRuleAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCurrentEarningRuleAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>(), It.IsAny<TrustScoreRuleType>()))
             .ReturnsAsync((TrustScoreRule?)null);
-
         // Act
         var result = await _service.GetLevelProgressAsync(_userId);
 
@@ -270,9 +268,8 @@ public class TrackLevelProgressTests
             .Setup(r => r.GetLevelProgressAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((UserLevelProgress?)null);
         _repositoryMock
-            .Setup(r => r.GetCurrentEarningRuleAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetCurrentEarningRuleAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>(), It.IsAny<TrustScoreRuleType>()))
             .ReturnsAsync((TrustScoreRule?)null);
-
         // Act
         var result = await _service.GetLevelProgressAsync(_userId);
 

@@ -1,21 +1,25 @@
-import { useState } from "react";
+import { Navigate, useParams } from "react-router-dom";
 import { TrustHistoryPanel } from "@/features/trust/components/TrustHistoryPanel";
 import { TrustLevelsPanel } from "@/features/trust/components/TrustLevelsPanel";
 import { TrustOverviewPanel } from "@/features/trust/components/TrustOverviewPanel";
 import { TrustPenaltiesPanel } from "@/features/trust/components/TrustPenaltiesPanel";
-import { TrustTabs, type TrustTabItem } from "@/features/trust/components/TrustTabs";
+import { TrustTabs } from "@/features/trust/components/TrustTabs";
+import {
+  CUSTOMER_TRUST_BASE_PATH,
+  CUSTOMER_TRUST_TABS,
+  findTab,
+  tabPath,
+} from "@/features/trust/utils/trustTabs";
 
-type TrustTab = "overview" | "levels" | "history" | "penalties";
-
-const TABS: ReadonlyArray<TrustTabItem<TrustTab>> = [
-  { id: "overview", label: "Overview" },
-  { id: "levels", label: "Levels & benefits" },
-  { id: "history", label: "Score history" },
-  { id: "penalties", label: "Penalties" },
-];
-
+// Routes: /account/trust-score/:tab (overview | levels | history | penalties)
 export function TrustScorePage() {
-  const [activeTab, setActiveTab] = useState<TrustTab>("overview");
+  const { tab } = useParams();
+  const activeTab = findTab(CUSTOMER_TRUST_TABS, tab);
+
+  // /account/trust-score and unknown tabs open the first tab (replaces the history entry).
+  if (!activeTab) {
+    return <Navigate to={tabPath(CUSTOMER_TRUST_BASE_PATH, CUSTOMER_TRUST_TABS[0].id)} replace />;
+  }
 
   return (
     <div className="space-y-6">
@@ -27,9 +31,9 @@ export function TrustScorePage() {
       </header>
 
       <TrustTabs
-        tabs={TABS}
+        tabs={CUSTOMER_TRUST_TABS}
         active={activeTab}
-        onChange={setActiveTab}
+        basePath={CUSTOMER_TRUST_BASE_PATH}
         ariaLabel="Trust Score sections"
       />
 

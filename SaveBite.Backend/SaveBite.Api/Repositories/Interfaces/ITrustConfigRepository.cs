@@ -10,11 +10,17 @@ public interface ITrustConfigRepository
 
     Task<IReadOnlyDictionary<Guid, int>> GetUserCountsByLevelAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Tracked level (with requirement) for update.</summary>
+    /// <summary>Tracked level (with requirement and deposit policy) for update.</summary>
     Task<TrustLevel?> GetLevelForUpdateAsync(Guid levelId, CancellationToken cancellationToken = default);
 
     /// <summary>Tracked active levels (with requirement) ordered by rank, used to validate thresholds.</summary>
     Task<IReadOnlyList<TrustLevel>> GetActiveLevelsForValidationAsync(CancellationToken cancellationToken = default);
+
+    void AddDepositPolicy(TrustLevelDepositPolicy policy);
+
+    void AddDepositRanges(IEnumerable<TrustLevelDepositRange> ranges);
+
+    void RemoveDepositRanges(IEnumerable<TrustLevelDepositRange> ranges);
 
     // Penalty rules
     Task<IReadOnlyList<RecoveryRequirementRule>> GetPenaltyRulesAsync(CancellationToken cancellationToken = default);
@@ -32,7 +38,7 @@ public interface ITrustConfigRepository
     Task<TrustScoreRule?> GetScoreRuleForUpdateAsync(Guid ruleId, CancellationToken cancellationToken = default);
 
     Task<bool> HasOverlappingScoreRuleAsync(
-        bool earning, DateTime from, Guid excludeRuleId, CancellationToken cancellationToken = default);
+        SaveBite.Backend.Models.Enums.TrustScoreRuleType ruleType, DateTime from, Guid excludeRuleId, CancellationToken cancellationToken = default);
 
     void AddScoreRule(TrustScoreRule rule);
 

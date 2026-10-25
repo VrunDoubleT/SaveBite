@@ -1,8 +1,12 @@
+using SaveBite.Backend.Models.Enums;
+
 namespace SaveBite.Backend.Models.Entities;
 
 public class TrustScoreRule
 {
     public Guid Id { get; set; }
+
+    public TrustScoreRuleType RuleType { get; set; }
 
     public int ScoreDelta { get; set; }
 

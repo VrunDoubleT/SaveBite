@@ -6,6 +6,7 @@ import {
   ChevronUp,
   ChevronRight,
   Clock,
+  Flame,
   MapPin,
   MessageCircle,
   Star,
@@ -209,41 +210,19 @@ export function CustomerShopPage() {
   return (
     <div className="min-h-screen bg-neutral-50/50 pb-20 pt-5">
       <div className="mx-auto max-w-7xl ">
-        {/* Navigation Bar: Back Button & Breadcrumbs */}
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (window.history.length > 1) {
-                  navigate(-1);
-                } else {
-                  navigate("/");
-                }
-              }}
-              className="group inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-neutral-700 shadow-2xs transition hover:border-emerald-500 hover:bg-emerald-50/60 hover:text-emerald-700 cursor-pointer"
-            >
-              <ArrowLeft
-                size={14}
-                className="text-neutral-500 transition-transform group-hover:-translate-x-0.5 group-hover:text-emerald-600"
-              />
-              <span>Back</span>
-            </button>
-
-            <nav
-              aria-label="Breadcrumb"
-              className="hidden sm:flex items-center gap-1.5 text-xs text-neutral-500"
-            >
-              <Link to="/" className="hover:text-emerald-700 transition">
-                Home
-              </Link>
-              <ChevronRight size={13} className="text-neutral-300 shrink-0" />
-              <span className="truncate max-w-[240px] font-semibold text-neutral-800">
-                {shopName || "Store Details"}
-              </span>
-            </nav>
-          </div>
-        </div>
+        {/* Breadcrumb Navigation */}
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-5 flex items-center gap-2 text-xs sm:text-sm text-neutral-500"
+        >
+          <Link to="/" className="hover:text-emerald-700 transition font-medium">
+            Home
+          </Link>
+          <ChevronRight size={13} className="text-neutral-300 shrink-0" />
+          <span className="truncate max-w-[280px] sm:max-w-md font-semibold text-neutral-800">
+            {shopName || "Store Details"}
+          </span>
+        </nav>
 
         {/* 1. STORE HEADER BANNER CARD */}
         <section className={`overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-xs ${isProfileLoading ? "animate-pulse" : ""}`}>
@@ -272,7 +251,7 @@ export function CustomerShopPage() {
               {/* Left Column: Avatar + Store Info */}
               <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-start">
                 {/* Store Avatar / Logo */}
-                <div className="-mt-12 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-md sm:-mt-14 sm:h-24 sm:w-24">
+                <div className="relative -mt-12 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-md sm:-mt-14 sm:h-24 sm:w-24">
                   {shopLogo ? (
                     <img
                       src={shopLogo}
@@ -295,7 +274,7 @@ export function CustomerShopPage() {
                     {shopName}
                   </h1>
 
-                  {/* Category Tags */}
+                  {/* Category Tags & Flash Deal Status */}
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {shopCategories.map((cat) => (
                       <span
@@ -305,6 +284,18 @@ export function CustomerShopPage() {
                         {cat}
                       </span>
                     ))}
+
+                    {deals.length > 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 border border-orange-200/80 px-2.5 py-0.5 text-xs font-bold text-orange-700">
+                        <Flame size={12} className="text-orange-500 fill-orange-500" />
+                        <span>{deals.length} Flash Deal{deals.length > 1 ? "s" : ""} on sale</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 border border-neutral-200 px-2.5 py-0.5 text-xs font-medium text-neutral-500">
+                        <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                        <span>No flash deals (0 deals)</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Metadata: Address • Hours • Response rate */}
@@ -453,21 +444,21 @@ export function CustomerShopPage() {
 
               {/* Empty State */}
               {!isDealsLoading && deals.length === 0 && (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center shadow-xs">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                    <Store size={32} />
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-neutral-200/90 bg-white px-6 py-16 text-center shadow-xs">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-400 shadow-inner">
+                    <Store size={30} />
                   </div>
-                  <h3 className="mt-4 text-base font-bold text-neutral-800">
-                    No Flash Deals Available
+                  <h3 className="mt-4 text-base font-extrabold text-neutral-800">
+                    No Flash Deals Available Today
                   </h3>
-                  <p className="mt-1 text-xs text-neutral-500 max-w-sm">
-                    The store has not published any flash deals today. Please check back later!
+                  <p className="mt-1 text-xs text-neutral-500 max-w-md leading-relaxed">
+                    This store has not published any flash deals today. You can check back later or explore nearby stores with hot deals!
                   </p>
                   <Link
                     to="/"
-                    className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-700"
+                    className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700"
                   >
-                    Explore Other Stores
+                    <span>Explore Stores with Flash Deals</span>
                   </Link>
                 </div>
               )}

@@ -1,4 +1,4 @@
-import type { TrustLevelRequirement } from "./trust.types";
+import type { TrustLevelDepositPolicy, TrustLevelRequirement } from "./trust.types";
 
 export interface AdminTrustLevel {
   id: string;
@@ -6,6 +6,7 @@ export interface AdminTrustLevel {
   description?: string | null;
   rank: number;
   isActive: boolean;
+  depositPolicy?: TrustLevelDepositPolicy | null;
   requirement?: TrustLevelRequirement | null;
   userCount: number;
   updatedAt: string;
@@ -30,6 +31,7 @@ export type TrustScoreRuleKind = "Earning" | "Penalty";
 
 export interface TrustScoreRule {
   id: string;
+  ruleType: "OnlineOrderCompleted" | "PayAtShopOrderCompleted" | "NoShow";
   scoreDelta: number;
   kind: TrustScoreRuleKind;
   effectiveFrom: string;
@@ -39,8 +41,18 @@ export interface TrustScoreRule {
   createdAt: string;
 }
 
+export interface TrustLevelDepositRangeInput {
+  fromOrderAmount: number;
+  toOrderAmount: number;
+  depositAmount: number;
+}
+
 export interface UpdateLevelBenefitsPayload {
   description: string | null;
+  requireFullOnlinePayment: boolean;
+  depositFreeOrderAmount: number | null;
+  maxDepositOrderAmount: number | null;
+  ranges: TrustLevelDepositRangeInput[];
 }
 
 export interface UpdateLevelRequirementPayload {

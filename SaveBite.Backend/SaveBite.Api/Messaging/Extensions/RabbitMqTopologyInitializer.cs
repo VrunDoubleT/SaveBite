@@ -32,6 +32,26 @@ public class RabbitMqTopologyInitializer : IHostedService
             autoDelete: false,
             cancellationToken: cancellationToken);
 
+        // Retain verified-account events even while the trust consumer is offline.
+        await channel.QueueDeclareAsync(RabbitMqQueues.UserTrustQueueName, durable: true,
+            exclusive: false, autoDelete: false, arguments: new Dictionary<string, object?>
+            {
+                ["x-dead-letter-exchange"] = "",
+                ["x-dead-letter-routing-key"] = RabbitMqQueues.UserTrustDeadLetterQueueName
+            }, cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(RabbitMqQueues.UserTrustQueueName, _options.ExchangeName,
+            RabbitMqRoutingKeys.UserVerified, cancellationToken: cancellationToken);
+
+        // Bind trust events before outbox publishing, including when its consumer has not started yet.
+        await channel.QueueDeclareAsync(RabbitMqQueues.OrderTrustQueueName, durable: true,
+            exclusive: false, autoDelete: false, arguments: new Dictionary<string, object?>
+            {
+                ["x-dead-letter-exchange"] = "",
+                ["x-dead-letter-routing-key"] = RabbitMqQueues.OrderTrustDeadLetterQueueName
+            }, cancellationToken: cancellationToken);
+        foreach (var key in new[] { RabbitMqRoutingKeys.OrderCompleted, RabbitMqRoutingKeys.OrderNoShow })
+            await channel.QueueBindAsync(RabbitMqQueues.OrderTrustQueueName, _options.ExchangeName, key, cancellationToken: cancellationToken);
+
         // Retain NoShow events until downstream consumers are introduced.
         await channel.QueueDeclareAsync(RabbitMqQueues.OrderNoShowQueueName, durable: true,
             exclusive: false, autoDelete: false, cancellationToken: cancellationToken);

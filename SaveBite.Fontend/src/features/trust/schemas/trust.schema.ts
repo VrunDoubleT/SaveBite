@@ -7,9 +7,133 @@ const MAX_POINTS = 1_000;
 const wholeNumber = (label: string) =>
   z.number({ error: `${label} is required` }).int(`${label} must be a whole number`);
 
-export const levelBenefitsSchema = z.object({
-  description: z.string().max(2000, "Keep the benefits under 2000 characters"),
+const depositRangeItemSchema = z.object({
+  fromOrderAmount: wholeNumber("From amount")
+    .min(1, "Must be greater than 0")
+    .max(MAX_VALUE, "Too large"),
+  toOrderAmount: wholeNumber("Up to amount")
+    .min(1, "Must be greater than 0")
+    .max(MAX_VALUE, "Too large"),
+  depositAmount: wholeNumber("Deposit amount")
+    .min(1, "Must be greater than 0")
+    .max(MAX_VALUE, "Too large"),
 });
+
+export const levelBenefitsSchema = z
+  .object({
+    description: z.string().max(2000, "Keep the benefits under 2000 characters"),
+    requireFullOnlinePayment: z.boolean(),
+    depositFreeOrderAmount: z.number().nullable().optional(),
+    maxDepositOrderAmount: z.number().nullable().optional(),
+    ranges: z.array(depositRangeItemSchema),
+  })
+  .superRefine((data, ctx) => {
+    if (data.requireFullOnlinePayment) {
+      return;
+    }
+
+    const freeAmount = data.depositFreeOrderAmount;
+    const maxAmount = data.maxDepositOrderAmount;
+
+    if (freeAmount === null || freeAmount === undefined || Number.isNaN(freeAmount)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["depositFreeOrderAmount"],
+        message: "Deposit-free order amount is required",
+      });
+    } else if (!Number.isInteger(freeAmount) || freeAmount <= 0 || freeAmount > MAX_VALUE) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["depositFreeOrderAmount"],
+        message: "Must be a positive whole VND amount",
+      });
+    }
+
+    if (maxAmount === null || maxAmount === undefined || Number.isNaN(maxAmount)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["maxDepositOrderAmount"],
+        message: "Maximum deposit order amount is required",
+      });
+    } else if (!Number.isInteger(maxAmount) || maxAmount <= 0 || maxAmount > MAX_VALUE) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["maxDepositOrderAmount"],
+        message: "Must be a positive whole VND amount",
+      });
+    } else if (
+      typeof freeAmount === "number" &&
+      !Number.isNaN(freeAmount) &&
+      maxAmount <= freeAmount
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["maxDepositOrderAmount"],
+        message: "Must be greater than the deposit-free order amount",
+      });
+    }
+
+    if (data.ranges.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["ranges"],
+        message: "Add at least one deposit range when Pay at shop is enabled",
+      });
+      return;
+    }
+
+    for (let i = 0; i < data.ranges.length; i++) {
+      const range = data.ranges[i];
+
+      if (range.toOrderAmount <= range.fromOrderAmount) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["ranges", i, "toOrderAmount"],
+          message: "Must be greater than the range start amount",
+        });
+      }
+
+      if (range.depositAmount > range.fromOrderAmount) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["ranges", i, "depositAmount"],
+          message: "Cannot exceed the range start amount",
+        });
+      }
+
+      if (i === 0 && typeof freeAmount === "number" && !Number.isNaN(freeAmount)) {
+        if (range.fromOrderAmount !== freeAmount) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["ranges", i, "fromOrderAmount"],
+            message: `First range must start at ${freeAmount.toLocaleString("vi-VN")} VND`,
+          });
+        }
+      }
+
+      if (i > 0 && range.fromOrderAmount !== data.ranges[i - 1].toOrderAmount) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["ranges", i, "fromOrderAmount"],
+          message: `Must equal previous range end (${data.ranges[i - 1].toOrderAmount.toLocaleString("vi-VN")} VND)`,
+        });
+      }
+    }
+
+    const lastIdx = data.ranges.length - 1;
+    if (
+      typeof maxAmount === "number" &&
+      !Number.isNaN(maxAmount) &&
+      data.ranges[lastIdx].toOrderAmount !== maxAmount
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["ranges", lastIdx, "toOrderAmount"],
+        message: `Last range must end at ${maxAmount.toLocaleString("vi-VN")} VND`,
+      });
+    }
+  });
+
 export type LevelBenefitsFormData = z.infer<typeof levelBenefitsSchema>;
 
 export const levelRequirementSchema = z.object({
@@ -22,6 +146,7 @@ export const levelRequirementSchema = z.object({
     .min(0, "Cannot be negative")
     .max(MAX_VALUE, "Too large"),
 });
+
 export type LevelRequirementFormData = z.infer<typeof levelRequirementSchema>;
 
 export const penaltyRuleSchema = z.object({
@@ -43,6 +168,7 @@ export const penaltyRuleSchema = z.object({
   /** datetime-local value; empty means "start now". */
   effectiveFrom: z.string(),
 });
+
 export type PenaltyRuleFormData = z.infer<typeof penaltyRuleSchema>;
 
 /** An earning rule must stay positive and a penalty rule negative (the API enforces the same). */
@@ -59,6 +185,7 @@ export function buildScoreRuleSchema(kind: "Earning" | "Penalty") {
     effectiveFrom: z.string(),
   });
 }
+
 export type ScoreRuleFormData = { scoreDelta: number; effectiveFrom: string };
 
 /** Converts a datetime-local value into an ISO string, or undefined when empty. */

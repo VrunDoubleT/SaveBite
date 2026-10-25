@@ -2,11 +2,28 @@
 // Shapes returned by the Trust Score API (customer side).
 // ---------------------------------------------------------------------
 
+export interface TrustLevelDepositRange {
+  id: string;
+  fromOrderAmount: number;
+  toOrderAmount: number;
+  depositAmount: number;
+}
+
+export interface TrustLevelDepositPolicy {
+  id: string;
+  requireFullOnlinePayment: boolean;
+  depositFreeOrderAmount?: number | null;
+  maxDepositOrderAmount?: number | null;
+  ranges: TrustLevelDepositRange[];
+  updatedAt: string;
+}
+
 export interface TrustLevelSummary {
   id: string;
   name: string;
   description?: string | null;
   rank: number;
+  depositPolicy?: TrustLevelDepositPolicy | null;
 }
 
 export interface TrustLevelRequirement {
@@ -31,7 +48,11 @@ export interface TrustScoreOverview {
 }
 
 export type ProgressMetricKey =
-  "score" | "completedOrders" | "orderValue" | "onlineOrders" | "onlineOrderValue";
+  | "score"
+  | "completedOrders"
+  | "orderValue"
+  | "onlineOrders"
+  | "onlineOrderValue";
 
 export interface ProgressMetric {
   key: ProgressMetricKey;
@@ -49,6 +70,8 @@ export interface LevelProgress {
   overallPercent: number;
   metrics: ProgressMetric[];
   scoreDeltaPerCompletedOrder?: number | null;
+  onlineOrderCompletedPoints?: number | null;
+  payAtShopOrderCompletedPoints?: number | null;
 }
 
 export interface TrustLevelInfo {
@@ -59,6 +82,7 @@ export interface TrustLevelInfo {
   requirement?: TrustLevelRequirement | null;
   isCurrent: boolean;
   isUnlocked: boolean;
+  depositPolicy?: TrustLevelDepositPolicy | null;
 }
 
 export type TrustScoreEventType = "OrderCompleted" | "NoShow";

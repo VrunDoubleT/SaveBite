@@ -166,15 +166,10 @@ export function TrustOverviewPanel() {
               </p>
             )}
 
-            {progress.data.scoreDeltaPerCompletedOrder != null && (
-              <p className="text-sm text-text-secondary">
-                Each completed order adds{" "}
-                <span className="font-semibold text-text-primary">
-                  {formatSignedPoints(progress.data.scoreDeltaPerCompletedOrder)} points
-                </span>
-                .
-              </p>
-            )}
+            <p className="text-sm text-text-secondary">
+              Completed online orders: <strong>{progress.data.onlineOrderCompletedPoints == null ? "No active rule" : `${formatSignedPoints(progress.data.onlineOrderCompletedPoints)} points`}</strong>.
+              {" "}Completed pay-at-shop orders: <strong>{progress.data.payAtShopOrderCompletedPoints == null ? "No active rule" : `${formatSignedPoints(progress.data.payAtShopOrderCompletedPoints)} points`}</strong>.
+            </p>
           </div>
         )}
       </section>

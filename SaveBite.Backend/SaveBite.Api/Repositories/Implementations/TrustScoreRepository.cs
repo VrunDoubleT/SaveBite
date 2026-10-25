@@ -19,6 +19,9 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
         => _dbContext.UserTrustScores.AsNoTracking()
             .Include(score => score.TrustLevel)
                 .ThenInclude(level => level.Requirement)
+            .Include(score => score.TrustLevel)
+                .ThenInclude(level => level.DepositPolicy)
+                    .ThenInclude(policy => policy!.Ranges)
             .SingleOrDefaultAsync(score => score.UserId == userId, cancellationToken);
 
     public Task<UserLevelProgress?> GetLevelProgressAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -28,6 +31,8 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
     public async Task<IReadOnlyList<TrustLevel>> GetActiveLevelsAsync(CancellationToken cancellationToken = default)
         => await _dbContext.TrustLevels.AsNoTracking()
             .Include(level => level.Requirement)
+            .Include(level => level.DepositPolicy)
+                .ThenInclude(policy => policy!.Ranges)
             .Where(level => level.IsActive)
             .OrderBy(level => level.Rank)
             .ToListAsync(cancellationToken);
@@ -35,6 +40,8 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
     public Task<TrustLevel?> GetLevelWithRequirementAsync(Guid levelId, CancellationToken cancellationToken = default)
         => _dbContext.TrustLevels.AsNoTracking()
             .Include(level => level.Requirement)
+            .Include(level => level.DepositPolicy)
+                .ThenInclude(policy => policy!.Ranges)
             .SingleOrDefaultAsync(level => level.Id == levelId, cancellationToken);
 
     // Score history of the user, newest first.
@@ -99,9 +106,9 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
                 penalty => penalty.UserId == userId && penalty.Status == NoShowPenaltyStatus.Recovering,
                 cancellationToken);
 
-    public Task<TrustScoreRule?> GetCurrentEarningRuleAsync(DateTime now, CancellationToken cancellationToken = default)
+    public Task<TrustScoreRule?> GetCurrentEarningRuleAsync(DateTime now, CancellationToken cancellationToken = default, TrustScoreRuleType ruleType = TrustScoreRuleType.OnlineOrderCompleted)
         => _dbContext.TrustScoreRules.AsNoTracking()
-            .Where(rule => rule.ScoreDelta > 0
+            .Where(rule => rule.RuleType == ruleType && rule.ScoreDelta > 0
                            && rule.EffectiveFrom <= now
                            && (rule.EffectiveTo == null || rule.EffectiveTo > now))
             .OrderByDescending(rule => rule.EffectiveFrom)

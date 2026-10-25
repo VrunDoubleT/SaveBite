@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import { categoryApi } from "@/features/categories/api/categoryApi";
 import { useAuthStore } from "@/shared/stores/authStore";
@@ -88,6 +88,22 @@ export function useNearbyFlashDeals() {
 
   const [categories, setCategories] = useState<string[]>(() => cachedCategories);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+
+  // Reference guards to avoid unstable callbacks and infinite render loops
+  const dealsRef = useRef(deals);
+  useEffect(() => {
+    dealsRef.current = deals;
+  }, [deals]);
+
+  const isLoadingOlderRef = useRef(false);
+  const cursor1Ref = useRef(cursor1);
+  const cursor2Ref = useRef(cursor2);
+  useEffect(() => {
+    cursor1Ref.current = cursor1;
+  }, [cursor1]);
+  useEffect(() => {
+    cursor2Ref.current = cursor2;
+  }, [cursor2]);
 
   // Sync to module-level cache
   useEffect(() => {
@@ -371,7 +387,7 @@ export function useNearbyFlashDeals() {
   const fetchInitialDeals = useCallback(async () => {
     if (!coords) return;
     // Only show Skeleton when there are no deals currently loaded
-    if (deals.length === 0) {
+    if (dealsRef.current.length === 0) {
       setIsLoading(true);
     }
     setError(null);
@@ -407,7 +423,7 @@ export function useNearbyFlashDeals() {
     } finally {
       setIsLoading(false);
     }
-  }, [coords, radiusInKm, filters, selectedShop, deals.length, debouncedKeyword, locationMode]);
+  }, [coords, radiusInKm, filters, selectedShop, debouncedKeyword, locationMode]);
 
   // 3. DUAL-CURSOR: Pagination downward - combine both cursors in a single API call
   //
@@ -424,16 +440,20 @@ export function useNearbyFlashDeals() {
   //   - Update cursor2 to latest timestamp received
   //   - Reset new deals notification badge
   const loadOlderDeals = useCallback(async () => {
-    if (!coords || !cursor1 || isLoadingOlder) return;
+    const currentCursor1 = cursor1Ref.current;
+    if (!coords || !currentCursor1 || isLoadingOlderRef.current) return;
+    isLoadingOlderRef.current = true;
     setIsLoadingOlder(true);
     try {
       const isSavedAddress = locationMode === "saved_address";
-      const res = await flashDealApi.getNearbyDeals({
+      // Delay 1.5s to show skeleton loading UI smoothly (1s - 2s)
+      const delayPromise = new Promise((resolve) => setTimeout(resolve, 1500));
+      const apiPromise = flashDealApi.getNearbyDeals({
         latitude: isSavedAddress ? undefined : coords.latitude,
         longitude: isSavedAddress ? undefined : coords.longitude,
         radiusInKm,
-        cursor1,          // Cursor 1: oldest boundary -> fetch older deals
-        cursor2: cursor2 ?? undefined, // Cursor 2: newest boundary -> detect newer deals
+        cursor1: currentCursor1,          // Cursor 1: oldest boundary -> fetch older deals
+        cursor2: cursor2Ref.current ?? undefined, // Cursor 2: newest boundary -> detect newer deals
         mode: "Older",
         limit: 9,
         category: filters.category.length > 0 ? filters.category.join(",") : undefined,
@@ -442,6 +462,8 @@ export function useNearbyFlashDeals() {
         shopName: selectedShop ?? undefined,
         keyword: debouncedKeyword ? debouncedKeyword : undefined,
       });
+
+      const [, res] = await Promise.all([delayPromise, apiPromise]);
 
       if (res.deals.length > 0) {
         setDeals((prev) => {
@@ -462,11 +484,13 @@ export function useNearbyFlashDeals() {
         // Update cursor1 if older deals were returned
         if (res.cursor1) {
           setCursor1(res.cursor1);
+          cursor1Ref.current = res.cursor1;
         }
 
         // Update cursor2 if backend detected new deals and merged them in
         if (res.prependedCount > 0 && res.cursor2) {
           setCursor2(res.cursor2);
+          cursor2Ref.current = res.cursor2;
           // Reset badge since new deals are now displayed in the list
           setNewDealsCount(0);
           setPendingNewDeals([]);
@@ -478,9 +502,10 @@ export function useNearbyFlashDeals() {
       const msg = err instanceof Error ? err.message : "Failed to load older deals.";
       setError(msg);
     } finally {
+      isLoadingOlderRef.current = false;
       setIsLoadingOlder(false);
     }
-  }, [coords, radiusInKm, cursor1, cursor2, isLoadingOlder, filters, selectedShop, debouncedKeyword, locationMode]);
+  }, [coords, radiusInKm, filters, selectedShop, debouncedKeyword, locationMode]);
 
   // 4. Cursor 2 - POLLING ONLY: Periodically check if new deals exist.
   //

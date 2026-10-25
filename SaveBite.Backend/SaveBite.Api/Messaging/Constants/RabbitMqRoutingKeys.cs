@@ -2,6 +2,8 @@ namespace SaveBite.Backend.Messaging.Constants;
 
 public static class RabbitMqRoutingKeys
 {
+    public const string UserVerified = "user.verified";
+    public const string OrderCompleted = "order.completed";
     public const string OrderPending = "order.pending";
     public const string OrderNoShow = "order.noshow";
   

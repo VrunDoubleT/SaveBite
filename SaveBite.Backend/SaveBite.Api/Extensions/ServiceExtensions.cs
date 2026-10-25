@@ -23,6 +23,7 @@ public static class ServiceExtensions
         services.AddScoped<IShopService, ShopService>();
         services.AddScoped<IFlashDealService, FlashDealService>();
         services.AddScoped<ITrustScoreService, TrustScoreService>();
+        services.AddScoped<ITrustOrderService, TrustOrderService>();
         services.AddScoped<ITrustConfigService, TrustConfigService>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();

@@ -28,10 +28,29 @@ public sealed class GetPenaltiesRequest
 // Admin-side requests (UC-130, UC-132, UC-134, UC-136, UC-138)
 // ---------------------------------------------------------------------
 
+public sealed class TrustLevelDepositRangeRequest
+{
+    public decimal FromOrderAmount { get; set; }
+    public decimal ToOrderAmount { get; set; }
+    public decimal DepositAmount { get; set; }
+}
+
 public sealed class UpdateTrustLevelBenefitsRequest
 {
     /// <summary>Benefit text shown to customers for this level.</summary>
     public string? Description { get; set; }
+
+    /// <summary>When true, every order on this level requires 100% online payment (PayAtShop disabled).</summary>
+    public bool RequireFullOnlinePayment { get; set; }
+
+    /// <summary>Orders &lt;= this amount require 0 VND deposit; null when RequireFullOnlinePayment is true.</summary>
+    public decimal? DepositFreeOrderAmount { get; set; }
+
+    /// <summary>Orders &gt; this amount require 100% online payment; null when RequireFullOnlinePayment is true.</summary>
+    public decimal? MaxDepositOrderAmount { get; set; }
+
+    /// <summary>Contiguous order-value intervals covering (DepositFreeOrderAmount, MaxDepositOrderAmount].</summary>
+    public List<TrustLevelDepositRangeRequest> Ranges { get; set; } = new();
 }
 
 public sealed class UpdateTrustLevelRequirementRequest

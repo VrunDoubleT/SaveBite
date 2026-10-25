@@ -96,12 +96,14 @@ public sealed class ShopService : IShopService
 
         var pagedShopIds = pagedShops.Select(x => x.Shop.Id).ToList();
         var reviewsStats = await _shopRepository.GetReviewsStatsForShopsAsync(pagedShopIds, cancellationToken);
+        var dealCounts = await _shopRepository.GetActiveDealCountsForShopsAsync(pagedShopIds, cancellationToken);
 
         var results = new List<NearbyShopResponse>();
         foreach (var item in pagedShops)
         {
             var shop = item.Shop;
             reviewsStats.TryGetValue(shop.Id, out var stat);
+            dealCounts.TryGetValue(shop.Id, out var dealCount);
 
             results.Add(new NearbyShopResponse
             {
@@ -118,7 +120,8 @@ public sealed class ShopService : IShopService
                 ClosingTime = shop.ClosingTime,
                 IsOpen = item.IsOpen,
                 AverageRating = stat.TotalCount > 0 ? Math.Round(stat.AvgRating, 1) : 5.0,
-                TotalReviews = stat.TotalCount
+                TotalReviews = stat.TotalCount,
+                FlashDealCount = dealCount
             });
         }
 

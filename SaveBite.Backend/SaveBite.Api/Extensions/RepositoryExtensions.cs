@@ -1,5 +1,6 @@
 using SaveBite.Backend.Repositories.Implementations;
 using SaveBite.Backend.Repositories.Interfaces;
+using FlashDealRepository = SaveBite.Backend.Repositories.Implementations.FlashDealRepository;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -22,6 +23,7 @@ public static class RepositoryExtensions
         services.AddScoped<IShopRepository, ShopRepository>();
         services.AddScoped<IFlashDealRepository, FlashDealRepository>();
         services.AddScoped<ITrustScoreRepository, TrustScoreRepository>();
+        services.AddScoped<ITrustOrderRepository, TrustOrderRepository>();
         services.AddScoped<ITrustConfigRepository, TrustConfigRepository>();
 
         services.AddScoped<ICartRepository, CartRepository>();

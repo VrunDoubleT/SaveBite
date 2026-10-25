@@ -21,6 +21,11 @@ public sealed class OrderEventDispatchJob
     {
         switch (message.RoutingKey)
         {
+            case RabbitMqRoutingKeys.OrderCompleted:
+                await _publisher.PublishAsync(message.RoutingKey,
+                    JsonSerializer.Deserialize<OrderCompletedEvent>(message.PayloadJson)
+                        ?? throw new InvalidOperationException("Invalid completed order event."), ct);
+                break;
             case RabbitMqRoutingKeys.OrderPending:
                 await _publisher.PublishAsync(message.RoutingKey,
                     JsonSerializer.Deserialize<OrderPendingEvent>(message.PayloadJson)
