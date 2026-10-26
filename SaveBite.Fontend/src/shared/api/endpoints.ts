@@ -135,4 +135,9 @@ export const API_ENDPOINTS = {
     EARNING_RULES: "/admin/trust/earning-rules",
     EARNING_RULE: (ruleId: string) => `/admin/trust/earning-rules/${ruleId}`,
   },
+  FEEDBACKS: {
+    BASE: "/feedbacks",
+    HISTORY: "/feedbacks/history",
+    DETAIL: (id: string) => `/feedbacks/${id}`,
+  },
 } as const;

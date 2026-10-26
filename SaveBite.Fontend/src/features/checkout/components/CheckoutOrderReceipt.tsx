@@ -7,7 +7,8 @@ import { OrderStatusPanel } from "./OrderStatusPanel";
 import { CancelOrderAction } from "./CancelOrderAction";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, CreditCard, Store, Package, MapPin, ShoppingBag } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, Store, Package, MapPin, ShoppingBag, Star } from "lucide-react";
+import { RateOrderModal } from "@/features/feedbacks/components/RateOrderModal";
 import { APP_PATHS } from "@/app/router/paths";
 import { orderApi } from "@/features/orders/api/orderApi";
 import { paymentApi } from "@/features/payments/api/paymentApi";
@@ -22,6 +23,7 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<CheckoutOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ratingItemId, setRatingItemId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now);
   const alive = useRef(true);
   const revision = useRef(0);
@@ -106,6 +108,13 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
   }
   return (
     <div className="w-full min-w-0 py-5 md:py-6">
+      <RateOrderModal
+        isOpen={ratingItemId !== null}
+        onClose={() => setRatingItemId(null)}
+        order={order}
+        focusOrderItemId={ratingItemId || undefined}
+        onSubmitted={() => void update(() => orderApi.order(orderId))}
+      />
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <Link
           to={APP_PATHS.ACCOUNT_ORDERS}
@@ -216,6 +225,32 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                             Qty{" "}
                             <span className="font-semibold text-neutral-800">{item.quantity}</span>{" "}
                             × {money(item.unitPrice)}
+                          </p>
+                          {order.status === "Completed" && (
+                            <div className="mt-2">
+                              {item.canReview && item.orderItemId ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setRatingItemId(item.orderItemId ?? "")}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                                >
+                                  <Star size={13} className="fill-amber-400 text-amber-500" />
+                                  Rate this item
+                                </button>
+                              ) : item.rating ? (
+                                <Link
+                                  to={APP_PATHS.ACCOUNT_REVIEWS}
+                                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                                >
+                                  <CheckCircle2 size={13} />
+                                  Reviewed
+                                  <Star size={12} className="fill-amber-400 text-amber-400" />
+                                  {item.rating}/5 · View review
+                                </Link>
+                              ) : null}
+                            </div>
+                          )}
+                          <p className="hidden">
                           </p>
                         </div>
                         <p className="col-start-2 text-sm font-bold tabular-nums text-neutral-900 sm:col-start-auto sm:text-right">

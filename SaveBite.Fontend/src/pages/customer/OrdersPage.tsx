@@ -4,7 +4,8 @@ import { readCustomerOrderPages } from "@/features/orders/utils/readCustomerOrde
 import { OrderPickupCode } from "@/features/checkout/components/OrderPickupCode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, MapPin, Package, ShoppingBag, Store } from "lucide-react";
+import { ArrowRight, CheckCircle2, MapPin, Package, ShoppingBag, Star, Store } from "lucide-react";
+import { RateOrderModal } from "@/features/feedbacks/components/RateOrderModal";
 import { APP_PATHS } from "@/app/router/paths";
 import { orderApi } from "@/features/orders/api/orderApi";
 import { OrderStatusPanel } from "@/features/checkout/components/OrderStatusPanel";
@@ -70,6 +71,7 @@ function CustomerOrders({
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [ratingOrder, setRatingOrder] = useState<CheckoutOrder | null>(null);
   const [now, setNow] = useState(Date.now);
   const alive = useRef(true);
   const operation = useRef(false);
@@ -90,7 +92,10 @@ function CustomerOrders({
         while (dirty && !controller.signal.aborted) {
           dirty = false;
           const current = ++generation.current;
-          const result = await readCustomerOrderPages((cursor) => orderApi.orderPage(status, cursor, controller.signal), loadedItems.current);
+          const result = await readCustomerOrderPages(
+            (cursor) => orderApi.orderPage(status, cursor, controller.signal),
+            loadedItems.current,
+          );
           if (controller.signal.aborted || current !== generation.current) return;
           loadedItems.current = result.page.items.length;
           setOrders(result.page.items);
@@ -110,7 +115,9 @@ function CustomerOrders({
         }
       }
     }
-    const off = subscribeCustomerOrderEvents(realtime, () => { void refresh(); });
+    const off = subscribeCustomerOrderEvents(realtime, () => {
+      void refresh();
+    });
     void refresh();
     const clock = window.setInterval(() => setNow(Date.now()), 1000);
     return () => {
@@ -131,8 +138,11 @@ function CustomerOrders({
     abort.current = controller;
     try {
       const result = await orderApi.orderPage(status, nextCursor, controller.signal);
-      if (!alive.current || controller.signal.aborted || currentGeneration !== generation.current) return;
-      const merged = [...new Map([...orders, ...result.page.items].map((order) => [order.id, order])).values()];
+      if (!alive.current || controller.signal.aborted || currentGeneration !== generation.current)
+        return;
+      const merged = [
+        ...new Map([...orders, ...result.page.items].map((order) => [order.id, order])).values(),
+      ];
       loadedItems.current = merged.length;
       setOrders(merged);
       setCounts(result.statusCounts);
@@ -229,6 +239,12 @@ function CustomerOrders({
           </Link>
         </div>
       )}
+      <RateOrderModal
+        isOpen={Boolean(ratingOrder)}
+        onClose={() => setRatingOrder(null)}
+        order={ratingOrder}
+        onSubmitted={onRefresh}
+      />
       {orders.map((order) => (
         <article
           key={order.id}
@@ -243,6 +259,16 @@ function CustomerOrders({
               <div className="flex shrink-0 flex-col items-end gap-2">
                 {order.createdAt && (
                   <time dateTime={order.createdAt}>{checkoutTime(order.createdAt)}</time>
+                )}
+                {order.status === "Completed" && order.items.some((i) => i.canReview) && (
+                  <button
+                    type="button"
+                    onClick={() => setRatingOrder(order)}
+                    className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                  >
+                    <Star size={14} className="fill-amber-400 text-amber-500" />
+                    Rate products
+                  </button>
                 )}
                 <Link
                   to={APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id))}
@@ -309,6 +335,17 @@ function CustomerOrders({
                     <p className="mt-1 text-xs text-neutral-500">
                       Qty {item.quantity} × {money(item.unitPrice)}
                     </p>
+                    {item.rating && (
+                      <Link
+                        to={APP_PATHS.ACCOUNT_REVIEWS}
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                      >
+                        <CheckCircle2 size={12} />
+                        Reviewed
+                        <Star size={11} className="fill-amber-400 text-amber-400" />
+                        {item.rating}/5
+                      </Link>
+                    )}
                   </div>
                   <p className="shrink-0 text-sm font-bold text-neutral-900">
                     {money(item.subtotal)}
@@ -340,11 +377,27 @@ function CustomerOrders({
               </div>
               <OrderAmounts order={order} />
             </section>
+            {order.status === "Completed" && order.items.some((i) => i.canReview) && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  <Star size={14} className="shrink-0 fill-amber-400 text-amber-500" />
+                  You haven&apos;t rated all items in this completed order yet.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setRatingOrder(order)}
+                  className="font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700"
+                >
+                  Rate now
+                </button>
+              </div>
+            )}
             <OrderPickupDeadlines order={order} now={now} compact />
           </div>
         </article>
       ))}
       <div
+        id="orders-sentinel"
         ref={sentinel}
         aria-live="polite"
         className="min-h-10 py-3 text-center text-sm text-neutral-500"

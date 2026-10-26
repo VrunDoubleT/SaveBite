@@ -94,6 +94,10 @@ export interface CheckoutOrder {
     unitPrice: number;
     quantity: number;
     subtotal: number;
+    orderItemId?: string;
+    feedbackId?: string | null;
+    rating?: number | null;
+    canReview?: boolean;
   }[];
   paymentMessage?: string;
 }
