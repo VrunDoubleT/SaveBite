@@ -28,7 +28,7 @@ public static class ServiceExtensions
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();
-
+        services.AddScoped<IFeedbackService, FeedbackService>();
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IPaymentHistoryService, PaymentHistoryService>();

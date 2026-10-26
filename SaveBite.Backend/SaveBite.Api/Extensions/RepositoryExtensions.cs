@@ -25,7 +25,7 @@ public static class RepositoryExtensions
         services.AddScoped<ITrustScoreRepository, TrustScoreRepository>();
         services.AddScoped<ITrustOrderRepository, TrustOrderRepository>();
         services.AddScoped<ITrustConfigRepository, TrustConfigRepository>();
-
+        services.AddScoped<IFeedbackRepository, FeedbackRepository>();
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<ICheckoutRepository, CheckoutRepository>();
         services.AddScoped<IPaymentHistoryRepository, PaymentHistoryRepository>();

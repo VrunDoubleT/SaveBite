@@ -47,6 +47,7 @@ public sealed class CheckoutRepository : ICheckoutRepository
 
     private IQueryable<Order> Orders => _dbContext.Orders.Include(x => x.Items).ThenInclude(x => x.FlashDealVariant)
         .ThenInclude(x => x.FlashDeal).ThenInclude(x => x.Product).ThenInclude(x => x.Images).Include(x => x.Payments)
+        .Include(x => x.Items).ThenInclude(x => x.Feedback)
         .Include(x => x.Shop).ThenInclude(x => x.PaymentConfig).AsSplitQuery();
     // Find a previous checkout by request or quote ID to prevent duplicate orders.
     public async Task<Order?> FindRequestAsync(Guid userId, Guid requestId, Guid quoteId, CancellationToken ct)
