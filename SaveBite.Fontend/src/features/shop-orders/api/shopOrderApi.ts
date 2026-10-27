@@ -72,7 +72,7 @@ export const shopOrderApi = {
   },
   async destination(
     orderId: string,
-    body: { bankName: string; accountNumber: string; accountHolder: string },
+    body: { bankBin: string; bankName: string; accountNumber: string; accountHolder: string },
   ) {
     return (
       await httpClient.post<ApiResponse<OrderRefund>>(

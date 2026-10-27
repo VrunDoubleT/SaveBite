@@ -1,3 +1,7 @@
+import { CustomerRefundDetailPage } from "@/pages/customer/RefundDetailPage";
+import { ShopRefundDetailPage } from "@/pages/store-owner/RefundDetailPage";
+import { ShopRefundsPage } from "@/pages/store-owner/RefundsPage";
+import { RefundsPage } from "@/pages/customer/RefundsPage";
 import { PaymentsPage } from "@/pages/customer/PaymentsPage";
 import { PaymentDetailPage } from "@/pages/customer/PaymentDetailPage";
 import { Navigate, type RouteObject } from "react-router-dom";
@@ -150,6 +154,8 @@ export const routes: RouteObject[] = [
                     element: <OrdersPage />,
                   },
                   { path: "payments", element: <PaymentsPage /> },
+                  { path: "refunds", element: <RefundsPage /> },
+                  { path: "refunds/:refundId", element: <CustomerRefundDetailPage /> },
                   { path: "payments/:paymentId", element: <PaymentDetailPage /> },
                   {
                     path: "reviews",
@@ -340,6 +346,8 @@ export const routes: RouteObject[] = [
           },
           { path: "orders", element: <ShopOrdersPage /> },
           { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
+          { path: "refunds", element: <ShopRefundsPage /> },
+          { path: "refunds/:refundId", element: <ShopRefundDetailPage /> },
           {
             path: "flash-deals",
             element: <StoreOwnerFlashDealsPage />,

@@ -67,6 +67,7 @@ export interface CheckoutOrder {
   shopLogoUrl?: string;
   shopAddress?: string;
   createdAt?: string;
+  completedAt?: string;
   paymentMethod: CheckoutMethod;
   status: string;
   paymentStatus: string;

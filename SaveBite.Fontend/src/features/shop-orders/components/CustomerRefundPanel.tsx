@@ -1,3 +1,4 @@
+import { RefundBankSelect } from "@/features/refunds/components/RefundBankSelect";
 import { useEffect, useState } from "react";
 import { shopOrderApi } from "../api/shopOrderApi";
 import type { OrderRefund } from "../types/shopOrder.types";
@@ -8,6 +9,7 @@ export function CustomerRefundPanel({ orderId }: { orderId: string }) {
   const [refund, setRefund] = useState<OrderRefund | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [bankBin, setBankBin] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountHolder, setAccountHolder] = useState("");
@@ -30,7 +32,7 @@ export function CustomerRefundPanel({ orderId }: { orderId: string }) {
       setRefund(
         await (verify
           ? shopOrderApi.verify(orderId, code)
-          : shopOrderApi.destination(orderId, { bankName, accountNumber, accountHolder })),
+          : shopOrderApi.destination(orderId, { bankBin, bankName, accountNumber, accountHolder })),
       );
     } catch (e) {
       setError(getApiErrorMessage(e));
@@ -40,7 +42,7 @@ export function CustomerRefundPanel({ orderId }: { orderId: string }) {
   }
   if (!refund)
     return error ? <p className="text-xs text-red-700">Refund information: {error}</p> : null;
-  const editable = ["AwaitingCustomerDetails", "PendingVerification"].includes(refund.status);
+  const editable = refund.status === "AwaitingCustomerDetails";
   return (
     <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
       <h2 className="text-sm font-bold">Refund · {money(refund.amount)}</h2>
@@ -63,16 +65,7 @@ export function CustomerRefundPanel({ orderId }: { orderId: string }) {
               void submit(false);
             }}
           >
-            <label className="text-xs font-medium">
-              Bank name
-              <input
-                required
-                maxLength={100}
-                value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-amber-200 bg-white p-2 text-sm"
-              />
-            </label>
+            <RefundBankSelect value={bankBin} disabled={busy} onChange={(bin, name) => { setBankBin(bin); setBankName(name); }} />
             <label className="text-xs font-medium">
               Account number
               <input
@@ -96,13 +89,13 @@ export function CustomerRefundPanel({ orderId }: { orderId: string }) {
               />
             </label>
             <button
-              disabled={busy}
+              disabled={busy || !bankBin}
               className="justify-self-start rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 sm:col-span-3"
             >
               Send confirmation code
             </button>
           </form>
-          {refund.status === "PendingVerification" && (
+          {refund.confirmationExpiresAt && !refund.destinationConfirmedAt && (
             <form
               className="mt-4 space-y-2 border-t border-amber-200 pt-3"
               onSubmit={(e) => {

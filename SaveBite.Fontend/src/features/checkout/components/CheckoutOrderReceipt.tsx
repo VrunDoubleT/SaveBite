@@ -1,6 +1,6 @@
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
-import { CustomerRefundPanel } from "@/features/shop-orders/components/CustomerRefundPanel";
+import { CustomerOrderRefunds } from "@/features/refunds/components/CustomerOrderRefunds";
 import { OrderPickupDeadlines } from "./OrderPickupDeadlines";
 import { OrderPickupCode } from "./OrderPickupCode";
 import { OrderStatusPanel } from "./OrderStatusPanel";
@@ -162,9 +162,6 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
               {order.paymentMessage}
             </p>
           )}
-          {["Rejected", "Expired"].includes(order.status) && (
-            <CustomerRefundPanel key={`${order.id}:${order.status}`} orderId={order.id} />
-          )}
           <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
             <div className="min-w-0 space-y-4">
               <section
@@ -242,12 +239,7 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                   GMT+7 · Pickup deadlines do not extend during payment.
                 </p>
               </section>
-              <CancelOrderAction
-                order={order}
-                now={now}
-                busy={busy}
-                onCancel={() => update(() => orderApi.cancel(orderId))}
-              />
+
             </div>
             <aside
               aria-label="Payment summary"
@@ -323,6 +315,17 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                 </div>
               )}
             </aside>
+          </div>
+          <div className="space-y-4">
+            {["Completed", "Rejected", "Expired"].includes(order.status) && (
+              <CustomerOrderRefunds key={`${order.id}:${order.status}`} order={order} />
+            )}
+            <CancelOrderAction
+              order={order}
+              now={now}
+              busy={busy}
+              onCancel={() => update(() => orderApi.cancel(orderId))}
+            />
           </div>
         </div>
       )}
