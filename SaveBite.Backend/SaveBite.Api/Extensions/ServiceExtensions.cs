@@ -35,6 +35,10 @@ public static class ServiceExtensions
         services.AddScoped<IOrderEventPublisher, OrderEventPublisher>();
         services.AddScoped<IShopOrderEventService, ShopOrderEventService>();
 
+        services.AddScoped<IAuditLogService, AuditLogService>();
+        services.AddScoped<IStoreAnalyticsService, StoreAnalyticsService>();
+        services.AddScoped<IPlatformAnalyticsService, PlatformAnalyticsService>();
+
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<ICheckoutService, CheckoutService>();
         services.AddScoped<IShopOrderService, ShopOrderService>();
