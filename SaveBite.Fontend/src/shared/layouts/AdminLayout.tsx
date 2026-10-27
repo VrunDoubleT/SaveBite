@@ -7,6 +7,7 @@ import {
   Store,
   Users,
   Tags,
+  Receipt,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
@@ -52,6 +53,11 @@ const navigation = [
     to: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
     label: "Store Applications",
     icon: ClipboardCheck,
+  },
+  {
+    to: APP_PATHS.ADMIN_PLATFORM_FEE,
+    label: "Platform Fees",
+    icon: Receipt,
   },
 ] as const;
 

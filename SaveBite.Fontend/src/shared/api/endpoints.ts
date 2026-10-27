@@ -135,4 +135,21 @@ export const API_ENDPOINTS = {
     EARNING_RULES: "/admin/trust/earning-rules",
     EARNING_RULE: (ruleId: string) => `/admin/trust/earning-rules/${ruleId}`,
   },
+  PLATFORM_FEES: {
+    ADMIN_CONFIG: "/admin/platform-fee-config",
+    ADMIN_CONFIGS: "/admin/platform-fee-configs",
+    ADMIN_CANCEL_SCHEDULED_CONFIG: (configId: string) =>
+      `/admin/platform-fee-configs/scheduled/${configId}`,
+    ADMIN_STATEMENTS: "/admin/platform-fee-statements",
+    ADMIN_PROCESS_OVERDUE: "/admin/platform-fee-statements/process-overdue",
+    ADMIN_GENERATE_MONTHLY: "/admin/platform-fee-statements/generate-monthly",
+    ADMIN_RECONCILIATION: (statementId: string) =>
+      `/admin/platform-fee-statements/${statementId}/reconciliation`,
+    SHOP_STATEMENTS: (shopId: string) => `/shops/${shopId}/platform-fees`,
+    SHOP_STATEMENT_DETAIL: (shopId: string, statementId: string) =>
+      `/shops/${shopId}/platform-fees/${statementId}`,
+    SHOP_PAYMENT_LINK: (shopId: string, statementId: string) =>
+      `/shops/${shopId}/platform-fees/${statementId}/payment-link`,
+    WEBHOOK: "/platform-fees/payos/webhook",
+  },
 } as const;

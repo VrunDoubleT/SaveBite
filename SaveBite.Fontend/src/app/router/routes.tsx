@@ -62,6 +62,9 @@ import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
 import { StoreOwnerFlashDealsPage } from "@/pages/store-owner/StoreOwnerFlashDealsPage";
 import { StoreOwnerFlashDealDetailPage } from "@/pages/store-owner/StoreOwnerFlashDealDetailPage";
 import { StoreOwnerFlashDealFormPage } from "@/pages/store-owner/StoreOwnerFlashDealFormPage";
+import { PlatformFeeManagementPage } from "@/pages/admin/PlatformFeeManagementPage";
+import { PlatformFeesPage } from "@/pages/store-owner/PlatformFeesPage";
+import { PlatformFeeDetailPage } from "@/pages/store-owner/PlatformFeeDetailPage";
 
 export const routes: RouteObject[] = [
   {
@@ -251,6 +254,10 @@ export const routes: RouteObject[] = [
             path: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
             element: <AdminShopApplicationsPage />,
           },
+          {
+            path: APP_PATHS.ADMIN_PLATFORM_FEE,
+            element: <PlatformFeeManagementPage />,
+          },
         ],
       },
     ],
@@ -364,13 +371,21 @@ export const routes: RouteObject[] = [
             path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
             element: <StoreOwnerStaffInvitationsPage />,
           },
-                    {
+          {
             path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
             element: <StaffDetailPage />,
           },
           {
             path: APP_PATHS.STORE_OWNER_PAYMENT_SETTINGS,
             element: <PaymentSettingsPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_PLATFORM_FEES,
+            element: <PlatformFeesPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_PLATFORM_FEE_DETAIL,
+            element: <PlatformFeeDetailPage />,
           },
           {
             path: APP_PATHS.STORE_OWNER_PROFILE,
