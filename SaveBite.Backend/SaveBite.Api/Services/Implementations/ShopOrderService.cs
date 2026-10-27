@@ -540,6 +540,20 @@ public sealed class ShopOrderService : IShopOrderService
                             Reason = $"Fee reduction via refund {transferredNow:N0} VND.",
                             CreatedAt = Now
                         };
+                        // If statement is already issued for this fee and is still unpaid (Issued),
+                        // directly credit the adjustment to that statement so the shop is relieved immediately!
+                        if (orderFee.Statement != null && orderFee.Statement.Status == PlatformFeeStatementStatus.Issued)
+                        {
+                            adjustment.StatementId = orderFee.Statement.Id;
+                            orderFee.Statement.TotalFeeAmount = Math.Max(0, orderFee.Statement.TotalFeeAmount + adjAmount);
+                            orderFee.Statement.UpdatedAt = Now;
+                            if (orderFee.Statement.TotalFeeAmount == 0)
+                            {
+                                orderFee.Statement.Status = PlatformFeeStatementStatus.Paid;
+                                orderFee.Statement.PaidAt = Now;
+                                orderFee.Statement.DueAt = null;
+                            }
+                        }
                         _shops.AddFeeAdjustment(adjustment);
                     }
                 }

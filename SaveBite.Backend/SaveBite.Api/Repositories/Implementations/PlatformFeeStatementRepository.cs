@@ -128,6 +128,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
     public async Task<Order?> GetOrderByIdAsync(Guid orderId, CancellationToken ct = default)
     {
         return await _context.Orders
+            .Include(o => o.Refunds)
             .FirstOrDefaultAsync(o => o.Id == orderId, ct);
     }
 
@@ -154,6 +155,8 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
         var startOfMonth = new DateTime(billingYear, billingMonth, 1, 0, 0, 0, DateTimeKind.Utc);
         var endOfMonth = startOfMonth.AddMonths(1);
         return await _context.Set<OrderPlatformFee>()
+            .Include(f => f.Order)
+            .ThenInclude(o => o.Refunds)
             .Where(f => f.StatementId == null && f.CalculatedAt >= startOfMonth && f.CalculatedAt < endOfMonth)
             .ToListAsync(ct);
     }

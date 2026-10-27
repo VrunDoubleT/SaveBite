@@ -444,7 +444,20 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         // Check idempotency: If fee is already accrued for this order, do not duplicate
         if (await _repository.HasOrderPlatformFeeAsync(orderId, ct))
         {
-            _logger.LogError("No active platform fee configuration found for completed order {OrderId}. Accrual failed.", orderId);
+            _logger.LogInformation("Order fee already accrued for completed order {OrderId}. Skipping duplicate accrual.", orderId);
+            return;
+        }
+
+        // Business Rule: If order was refunded by shop, refunded amount is not counted into platform fee
+        var refundedAmount = order.Refunds
+            .Where(r => r.Status == RefundStatus.Transferred || r.Status == RefundStatus.Completed)
+            .Sum(r => r.TransferredAmount > 0 ? r.TransferredAmount : r.RequestedAmount);
+
+        var netGrossAmount = order.TotalAmount - refundedAmount;
+        if (netGrossAmount <= 0)
+        {
+            _logger.LogInformation("Order {OrderId} was fully refunded by shop ({RefundedAmount} VND). Skipping platform fee accrual.", orderId, refundedAmount);
+            return;
             throw AppException.InternalError("Platform fee configuration is not configured in the system.");
         }
 
@@ -458,7 +471,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         }
 
         var feeRate = config.FeeRate;
-        var grossAmount = order.TotalAmount;
+        var grossAmount = netGrossAmount;
         var feeAmount = Math.Round(grossAmount * feeRate, 2);
 
         var orderFee = new OrderPlatformFee
@@ -631,7 +644,28 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             {
                 var shopFees = unbilledFees.Where(f => f.ShopId == shopId).ToList();
                 var shopAdjustments = unbilledAdjustments.Where(a => a.ShopId == shopId).ToList();
-                var periodGrossFees = shopFees.Sum(f => f.FeeAmount);
+                // Business Rule: If order was refunded by shop, refunded orders must not be counted into platform fee
+                var periodGrossFees = 0m;
+                foreach (var fee in shopFees)
+                {
+                    var feeAmount = fee.FeeAmount;
+                    if (fee.Order != null)
+                    {
+                        var refundedAmount = fee.Order.Refunds
+                            .Where(r => r.Status == RefundStatus.Transferred || r.Status == RefundStatus.Completed)
+                            .Sum(r => r.TransferredAmount > 0 ? r.TransferredAmount : r.RequestedAmount);
+
+                        if (refundedAmount >= fee.Order.TotalAmount && refundedAmount > 0)
+                        {
+                            var hasAdjustment = shopAdjustments.Any(a => a.OrderFeeId == fee.Id);
+                            if (!hasAdjustment)
+                            {
+                                feeAmount = 0m;
+                            }
+                        }
+                    }
+                    periodGrossFees += feeAmount;
+                }
                 var periodAdjustments = shopAdjustments.Sum(a => a.Amount); // negative for refunds
 
                 var existingStatement = await _repository.GetShopStatementForPeriodAsync(shopId, billingYear, billingMonth, ct);

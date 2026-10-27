@@ -27,6 +27,7 @@ public static class HangfireExtensions
         services.AddScoped<ShopOrderConfirmationJob>();
         services.AddScoped<ShopOrderNoShowJob>();
         services.AddScoped<PlatformFeeOverdueJob>();
+        services.AddScoped<PlatformFeeMonthlyStatementJob>();
 
         services.AddOptions<HangfireOptions>()
             .Bind(configuration.GetSection(HangfireOptions.SectionName))
@@ -80,10 +81,17 @@ public static class HangfireExtensions
         using (var scope = app.Services.CreateScope())
                {
                    var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+                   // Monthly calculation: Runs on the 1st of every month at midnight (12:00 AM / 00:00) to calculate statements for previous month (BR-093, BR-192)
+                   recurringJobs.AddOrUpdate<PlatformFeeMonthlyStatementJob>(
+                       "platform-fee-monthly-statement-generation",
+                       job => job.ExecuteAsync(CancellationToken.None),
+                       Cron.Monthly(1, 0)); // 00:00 on day-of-month 1
+
+                   // Overdue check: Runs daily at midnight (12:00 AM / 00:00) to mark overdue statements and suspend shops (BR-095, BR-193)
                    recurringJobs.AddOrUpdate<PlatformFeeOverdueJob>(
                        "platform-fee-overdue-check",
                        job => job.ExecuteAsync(CancellationToken.None),
-                       Cron.Daily);
+                       Cron.Daily(0)); // 00:00 every day
                }
 
 

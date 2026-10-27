@@ -111,7 +111,9 @@ public sealed class ShopOrderRepository : IShopOrderRepository
     public void AddActivity(StaffActivityLog activity) => _db.Set<StaffActivityLog>().Add(activity);
     // Find accrued platform fee for an order.
     public async Task<OrderPlatformFee?> GetOrderPlatformFeeAsync(Guid orderId, CancellationToken ct)
-        => await _db.Set<OrderPlatformFee>().FirstOrDefaultAsync(x => x.OrderId == orderId, ct);
+        => await _db.Set<OrderPlatformFee>()
+            .Include(x => x.Statement)
+            .FirstOrDefaultAsync(x => x.OrderId == orderId, ct);
     // Track a platform fee adjustment for a refund.
     public void AddFeeAdjustment(PlatformFeeAdjustment adjustment) => _db.Set<PlatformFeeAdjustment>().Add(adjustment);
 }
