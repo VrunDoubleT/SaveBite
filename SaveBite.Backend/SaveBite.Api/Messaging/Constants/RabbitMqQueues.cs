@@ -12,5 +12,7 @@ public static class RabbitMqQueues
     public const string OrderPendingQueueName = "order_pending_queue";
     public const string OrderPendingDeadLetterQueueName = "order_pending_dead_letter_queue";
     public const string EmailQueueName = "email_queue";
-    public const string FlashDealQueueName = "flashdeal_queue"; 
+    public const string FlashDealQueueName = "flashdeal_queue";
+    public const string OrderPlatformFeeQueueName = "order_platform_fee_queue";
+    public const string OrderPlatformFeeDeadLetterQueueName = "order_platform_fee_dead_letter_queue";
 }

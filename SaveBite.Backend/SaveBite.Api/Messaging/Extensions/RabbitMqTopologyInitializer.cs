@@ -57,7 +57,18 @@ public class RabbitMqTopologyInitializer : IHostedService
             exclusive: false, autoDelete: false, cancellationToken: cancellationToken);
         await channel.QueueBindAsync(RabbitMqQueues.OrderNoShowQueueName, _options.ExchangeName,
             RabbitMqRoutingKeys.OrderNoShow, cancellationToken: cancellationToken);
+        // Bind platform-fee accrual on completed orders.
+        await channel.QueueDeclareAsync(RabbitMqQueues.OrderPlatformFeeQueueName, durable: true,
+            exclusive: false, autoDelete: false, arguments: new Dictionary<string, object?>
+            {
+                ["x-dead-letter-exchange"] = "",
+                ["x-dead-letter-routing-key"] = RabbitMqQueues.OrderPlatformFeeDeadLetterQueueName
+            }, cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(RabbitMqQueues.OrderPlatformFeeQueueName, _options.ExchangeName,
+            RabbitMqRoutingKeys.OrderCompleted, cancellationToken: cancellationToken);
     }
+    
+    
 
     public Task StopAsync(
         CancellationToken cancellationToken)
