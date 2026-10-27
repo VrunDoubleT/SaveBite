@@ -1,5 +1,6 @@
 import {
   ClipboardCheck,
+  FileSearch,
   LayoutDashboard,
   Package,
   ShieldCheck,
@@ -13,9 +14,8 @@ import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
 
 const navigation = [
   {
-    to: APP_PATHS.ADMIN,
+    to: APP_PATHS.ADMIN_ANALYTICS,
     label: "Overview",
-    end: true,
     icon: LayoutDashboard,
   },
   {
@@ -52,6 +52,11 @@ const navigation = [
     to: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
     label: "Store Applications",
     icon: ClipboardCheck,
+  },
+  {
+    to: APP_PATHS.ADMIN_AUDIT_LOGS,
+    label: "Audit Logs",
+    icon: FileSearch,
   },
 ] as const;
 

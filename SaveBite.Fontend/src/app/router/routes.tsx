@@ -39,12 +39,22 @@ import { OrderDetailPage } from "@/pages/customer/OrderDetailPage";
 import { OrdersPage } from "@/pages/customer/OrdersPage";
 import { ProfilePage } from "@/pages/customer/ProfilePage";
 
+import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
+import { AdminAuditLogsPage } from "@/pages/admin/AdminAuditLogsPage";
 import { CategoryManagementPage } from "@/pages/admin/CategoryManagementPage";
 import { UserManagementPage } from "@/pages/admin/UserManagementPage";
 import { TrustConfigurationPage } from "@/pages/admin/TrustConfigurationPage";
+import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
 
+import { StoreOwnerDashboardPage } from "@/pages/store-owner/StoreOwnerDashboardPage";
 import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
 import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
+import { PaymentSettingsPage } from "@/pages/store-owner/PaymentSettingsPage";
+import { ShopProfilePage } from "@/pages/store-owner/ShopProfilePage";
+import { StoreOwnerFlashDealsPage } from "@/pages/store-owner/StoreOwnerFlashDealsPage";
+import { StoreOwnerFlashDealDetailPage } from "@/pages/store-owner/StoreOwnerFlashDealDetailPage";
+import { StoreOwnerFlashDealFormPage } from "@/pages/store-owner/StoreOwnerFlashDealFormPage";
+
 import { StaffShopDetailPage } from "@/pages/staff/StaffShopDetailPage";
 import { StaffFlashDealsPage } from "@/pages/staff/StaffFlashDealsPage";
 import { StaffFlashDealDetailPage } from "@/pages/staff/StaffFlashDealDetailPage";
@@ -53,15 +63,9 @@ import { CustomerShopPage } from "@/pages/customer/CustomerShopPage";
 import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage";
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
-import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
-import { PaymentSettingsPage } from "@/pages/store-owner/PaymentSettingsPage";
-import { ShopProfilePage } from "@/pages/store-owner/ShopProfilePage";
 
 import { ShopOrdersPage } from "@/pages/shop/ShopOrdersPage";
 import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
-import { StoreOwnerFlashDealsPage } from "@/pages/store-owner/StoreOwnerFlashDealsPage";
-import { StoreOwnerFlashDealDetailPage } from "@/pages/store-owner/StoreOwnerFlashDealDetailPage";
-import { StoreOwnerFlashDealFormPage } from "@/pages/store-owner/StoreOwnerFlashDealFormPage";
 
 export const routes: RouteObject[] = [
   {
@@ -197,13 +201,11 @@ export const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: (
-              <ComingSoonPage
-                title="Admin overview"
-                description="The admin dashboard is ready for API integration."
-                backTo={APP_PATHS.ADMIN}
-              />
-            ),
+            element: <Navigate to={`${APP_PATHS.ADMIN_ANALYTICS}/overview`} replace />,
+          },
+          {
+            path: `${APP_PATHS.ADMIN_ANALYTICS}/:tab?`,
+            element: <AdminDashboardPage />,
           },
           {
             path: APP_PATHS.ADMIN_USERS,
@@ -250,6 +252,10 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
             element: <AdminShopApplicationsPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_AUDIT_LOGS,
+            element: <AdminAuditLogsPage />,
           },
         ],
       },
@@ -299,7 +305,7 @@ export const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: <Navigate to={APP_PATHS.STORE_OWNER_PRODUCTS} replace />,
+            element: <StoreOwnerDashboardPage />,
           },
           {
             path: "products",
@@ -364,7 +370,7 @@ export const routes: RouteObject[] = [
             path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
             element: <StoreOwnerStaffInvitationsPage />,
           },
-                    {
+          {
             path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
             element: <StaffDetailPage />,
           },
