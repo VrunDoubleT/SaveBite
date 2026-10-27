@@ -9,6 +9,8 @@ public static class ServiceExtensions
         this IServiceCollection services)
     {
         services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<IRefundService, RefundService>();
+        services.AddScoped<IRefundImageService, RefundImageService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();

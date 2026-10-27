@@ -36,6 +36,15 @@ public class Refund
     public DateTime? DestinationConfirmedAt { get; set; }
     public int VerificationAttempts { get; set; }
 
+    public string? ReceiverBankBin { get; set; }
+    public DateTime? VerificationIssuedAt { get; set; }
+    public DateTime? PendingVerificationAt { get; set; }
+    public DateTime? CustomerDetailsDeadlineAt { get; set; }
+    public string? DeadlineJobId { get; set; }
+    public DateTime? ReviewDeadlineAt { get; set; }
+    public DateTime? AccumulatedValueReclaimedAt { get; set; }
+    public ICollection<RefundStatusHistory> History { get; set; } = new List<RefundStatusHistory>();
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

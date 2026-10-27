@@ -39,10 +39,13 @@ public sealed class TrustOrderService : ITrustOrderService
                 _repository.Add(progress);
             }
             NoShowPenalty? penalty = null;
+            var creditedValue = 0m;
             if (completed)
             {
                 progress.CompletedOrdersCount = checked(progress.CompletedOrdersCount + 1);
-                progress.AccumulatedOrderValue += order.TotalAmount;
+                // A transfer can precede delayed completion delivery; refunded orders never earn accumulated value.
+                creditedValue = order.Refunds.Any(x => x.Status is RefundStatus.Transferred or RefundStatus.Completed) ? 0 : order.TotalAmount;
+                progress.AccumulatedOrderValue += creditedValue;
                 progress.UpdatedAt = now;
                 var type = order.PaymentMethod == PaymentMethod.OnlinePayment
                     ? TrustScoreRuleType.OnlineOrderCompleted : TrustScoreRuleType.PayAtShopOrderCompleted;
@@ -99,7 +102,7 @@ public sealed class TrustOrderService : ITrustOrderService
                 }
             }
             score.UpdatedAt = now;
-            _repository.Add(new TrustOrderProcessing { OrderId = order.Id, ProcessedAt = now });
+            _repository.Add(new TrustOrderProcessing { OrderId = order.Id, ProcessedAt = now, CreditedOrderValue = creditedValue });
         }, ct);
 
     // Both independent recovery requirements must be met; a zero requirement is already satisfied.

@@ -17,7 +17,7 @@ public class RefundConfiguration : IEntityTypeConfiguration<Refund>
             table.HasCheckConstraint(
                 "ck_refunds_shop_cancellation_not_rejected",
                 "\"refund_type\" <> 'ShopCancellation' OR " +
-                "\"status\" <> 'Rejected'");
+                "(\"status\" <> 'Rejected' OR \"reject_reason\" IN ('Customer confirmation deadline expired.', 'Shop processing deadline expired.'))");
         });
 
         builder.Property(x => x.VerificationCodeHash).HasColumnName("verification_code_hash").HasMaxLength(64);
@@ -25,6 +25,15 @@ public class RefundConfiguration : IEntityTypeConfiguration<Refund>
         builder.Property(x => x.DestinationConfirmedAt).HasColumnName("destination_confirmed_at");
         builder.Property(x => x.VerificationAttempts).HasColumnName("verification_attempts");
         builder.Property(x => x.TransferredAmount).HasColumnName("transferred_amount").HasPrecision(12, 2);
+        builder.Property(x => x.ReceiverBankBin).HasColumnName("receiver_bank_bin").HasMaxLength(6);
+        builder.Property(x => x.VerificationIssuedAt).HasColumnName("verification_issued_at");
+        builder.Property(x => x.PendingVerificationAt).HasColumnName("pending_verification_at");
+        builder.Property(x => x.CustomerDetailsDeadlineAt).HasColumnName("customer_details_deadline_at");
+        builder.Property(x => x.DeadlineJobId).HasColumnName("deadline_job_id").HasMaxLength(100);
+        builder.Property(x => x.ReviewDeadlineAt).HasColumnName("review_deadline_at");
+        builder.Property(x => x.AccumulatedValueReclaimedAt).HasColumnName("accumulated_value_reclaimed_at");
+        builder.HasIndex(x => x.OrderId, "ux_refunds_active_order_scope").IsUnique().HasDatabaseName("ux_refunds_active_order_scope")
+            .HasFilter("\"status\" IN ('AwaitingCustomerDetails', 'PendingVerification', 'AwaitingTransfer', 'Overdue')");
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

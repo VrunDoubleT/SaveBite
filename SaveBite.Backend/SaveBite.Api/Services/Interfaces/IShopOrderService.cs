@@ -13,8 +13,4 @@ public interface IShopOrderService
     Task<ShopOrderResponse> RemainingPaymentAsync(Guid userId, Guid shopId, Guid orderId, CancellationToken ct = default);
     Task ExpireConfirmationAsync(Guid orderId, CancellationToken ct = default);
     Task MarkNoShowAsync(Guid orderId, CancellationToken ct = default);
-    Task<OrderRefundResponse?> CustomerRefundAsync(Guid userId, Guid orderId, CancellationToken ct = default);
-    Task<OrderRefundResponse> DestinationAsync(Guid userId, Guid orderId, RefundDestinationRequest request, CancellationToken ct = default);
-    Task<OrderRefundResponse> VerifyDestinationAsync(Guid userId, Guid orderId, string code, CancellationToken ct = default);
-    Task<OrderRefundResponse> TransferAsync(Guid userId, Guid shopId, Guid orderId, string reference, CancellationToken ct = default);
 }

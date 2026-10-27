@@ -1,8 +1,6 @@
 using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.Caching.Interfaces;
 using SaveBite.Backend.Constants;
-using System.Security.Cryptography;
-using System.Text;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Models.Common;
@@ -19,6 +17,7 @@ namespace SaveBite.Backend.Services.Implementations;
 // Manage shop fulfillment, payment collection, deadlines, refunds and operator audit history.
 public sealed class ShopOrderService : IShopOrderService
 {
+    private readonly IRefundDeadlineScheduler _refundDeadlines;
     private readonly IShopOrderRepository _shops;
     private readonly ICheckoutRepository _orders;
     private readonly ICheckoutPaymentService _payments;
@@ -44,8 +43,10 @@ public sealed class ShopOrderService : IShopOrderService
         IShopOrderConfirmationScheduler confirmationScheduler,
         IShopOrderEventService orderEvents,
         IShopOrderNoShowScheduler noShowScheduler,
-        IOrderEventPublisher eventPublisher)
+        IOrderEventPublisher eventPublisher,
+        IRefundDeadlineScheduler refundDeadlines)
     {
+        _refundDeadlines = refundDeadlines;
         _shops = shops;
         _orders = orders;
         _payments = payments;
@@ -94,20 +95,21 @@ public sealed class ShopOrderService : IShopOrderService
             StatusCounts = result.Counts
         };
     }
-    // Reconcile payment state and return detail only to an authorized shop operator.
+    // Read recorded order detail only for an authorized shop operator; never reconcile from a view.
     public async Task<ShopOrderResponse> GetAsync(Guid userId, Guid shopId, Guid orderId, CancellationToken ct = default)
     {
         var owner = await _shops.RequireAccessAsync(userId, shopId, ct);
         var submitted = await _shops.GetAsync(shopId, orderId, ct);
         if (submitted == null || !ShopOrderVisibility.IsVisible(submitted))
             throw AppException.NotFound("Order not found in this shop.");
-        await _payments.ReconcileOrderAsync(orderId, false, ct);
-        return Map(await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound(), owner);
+        return Map(submitted, owner);
     }
     // Validate and commit a shop state transition with payment checks, audit history and job updates.
     public async Task<ShopOrderResponse> ActionAsync(Guid userId, Guid shopId, Guid orderId, string action, string? reason = null, CancellationToken ct = default, bool cashReceived = false)
     {
         await GetAsync(userId, shopId, orderId, ct);
+        // Reconcile only after shop access and order visibility have been checked for this command.
+        await _payments.ReconcileOrderAsync(orderId, false, ct);
         string? confirmationJobId = null;
         await _orders.WithOrderLockAsync(orderId, async () =>
         {
@@ -214,6 +216,8 @@ public sealed class ShopOrderService : IShopOrderService
     public async Task<ShopOrderResponse> RemainingPaymentAsync(Guid userId, Guid shopId, Guid orderId, CancellationToken ct = default)
     {
         await GetAsync(userId, shopId, orderId, ct);
+        // Reconcile only after shop access and order visibility have been checked for this command.
+        await _payments.ReconcileOrderAsync(orderId, false, ct);
         await _orders.WithOrderLockAsync(orderId, async () =>
         {
             await _shops.RequireAccessAsync(userId, shopId, ct);
@@ -315,29 +319,51 @@ public sealed class ShopOrderService : IShopOrderService
         await CloseLinksAsync(order, ct);
         await _orders.ReleaseCancelledInventoryAsync(order, ct);
         order.RemainingAmount = 0;
-        EnsureRefund(order, actor, reason);
+        var refund = EnsureRefund(order, actor, reason);
+        if (refund != null)
+        {
+            var adjustment = RefundFeePolicy.Waive(order, refund, await _shops.FeeAsync(order.Id, ct), Now);
+            if (adjustment != null) _shops.AddFeeAdjustment(adjustment);
+        }
     }
 
     // Record an outstanding full-refund request for collected funds without executing a transfer.
-    private void EnsureRefund(Order order, Guid actor, string reason)
+    private Refund? EnsureRefund(Order order, Guid actor, string reason)
     {
         var amount = order.Payments.Sum(CheckoutOrderMapper.Collected);
-        if (amount <= 0) return;
+        if (amount <= 0) return null;
         var existing = order.Refunds.SingleOrDefault(x => x.RefundType == RefundType.ShopCancellation);
         if (existing != null)
         {
             if (amount > existing.RequestedAmount)
             {
                 existing.RequestedAmount = amount; existing.UpdatedAt = Now; order.PaymentReviewRequired = true;
-                if (existing.Status == RefundStatus.Transferred) existing.Status = RefundStatus.AwaitingTransfer;
+                if (existing.Status == RefundStatus.Transferred)
+                {
+                    existing.Status = RefundStatus.AwaitingTransfer;
+                    existing.ReviewDeadlineAt = Now.AddHours(24);
+                    existing.DeadlineJobId = _refundDeadlines.Schedule(existing.Id, existing.ReviewDeadlineAt.Value);
+                    var history = new RefundStatusHistory { Id = Guid.NewGuid(), RefundId = existing.Id,
+                        FromStatus = RefundStatus.Transferred, ToStatus = existing.Status, ActorRole = "System", ActorName = "System",
+                        Decision = "AdditionalRefundDue", Note = reason, CreatedAt = Now };
+                    existing.History.Add(history);
+                    _shops.AddRefundHistory(history);
+                }
             }
-            return;
+            return existing;
         }
         var refund = new Refund { Id = Guid.NewGuid(), OrderId = order.Id, RefundType = RefundType.ShopCancellation,
             Status = RefundStatus.AwaitingCustomerDetails, RequestedAmount = amount, InitiatedBy = actor,
             Reason = reason, CreatedAt = Now, UpdatedAt = Now };
+        refund.CustomerDetailsDeadlineAt = refund.CreatedAt.AddHours(24);
+        refund.DeadlineJobId = _refundDeadlines.Schedule(refund.Id, refund.CustomerDetailsDeadlineAt.Value);
+        refund.History.Add(new RefundStatusHistory { Id = Guid.NewGuid(), RefundId = refund.Id,
+            ToStatus = refund.Status, ActorRole = "System", ActorName = "System", Decision = "SystemRefundRequired",
+            Note = reason, CreatedAt = Now });
+        order.IsPlatformFeeExempt = true;
         order.Refunds.Add(refund);
         _shops.AddRefund(refund);
+        return refund;
     }
     // Close unpaid provider links and preserve any verified money collected during closure.
     private async Task CloseLinksAsync(Order order, CancellationToken ct)
@@ -446,81 +472,4 @@ public sealed class ShopOrderService : IShopOrderService
         History = order.StatusHistories.OrderBy(x => x.CreatedAt).Select(x => MapHistory(order, x)).ToList(),
         Refund = order.Refunds.Where(x => x.RefundType == RefundType.ShopCancellation).Select(MapRefund).FirstOrDefault()
     };
-    // Read the customer's own refund after reconciling any overdue order processing.
-    public async Task<OrderRefundResponse?> CustomerRefundAsync(Guid userId, Guid orderId, CancellationToken ct = default)
-    {
-        var order = await _orders.GetOrderAsync(orderId, userId, ct) ?? throw AppException.NotFound();
-        return (await _shops.GetAsync(order.ShopId, orderId, ct))!.Refunds.Where(x => x.RefundType == RefundType.ShopCancellation).Select(MapRefund).FirstOrDefault();
-    }
-    // Load a refund-bearing order with active Customer access and ownership checks.
-    private async Task<(Order Order, Refund Refund)> CustomerRefundOrderAsync(Guid userId, Guid orderId, CancellationToken ct)
-    {
-        var order = await _orders.GetOrderAsync(orderId, userId, ct) ?? throw AppException.NotFound();
-        order = await _shops.GetAsync(order.ShopId, orderId, ct) ?? throw AppException.NotFound();
-        var refund = order.Refunds.SingleOrDefault(x => x.RefundType == RefundType.ShopCancellation) ?? throw AppException.NotFound("No refund is due for this order.");
-        return (order, refund);
-    }
-    // Hash an order-specific refund verification code instead of storing its plain value.
-    private static string CodeHash(Guid id, string code) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{id:N}:{code}")));
-    // Save the customer's refund bank destination and send an email verification code valid for fifteen minutes.
-    public async Task<OrderRefundResponse> DestinationAsync(Guid userId, Guid orderId, RefundDestinationRequest request, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(request.BankName) || request.BankName.Length > 100 || string.IsNullOrWhiteSpace(request.AccountNumber)
-            || request.AccountNumber.Length > 50 || !request.AccountNumber.All(char.IsDigit) || string.IsNullOrWhiteSpace(request.AccountHolder) || request.AccountHolder.Length > 150)
-            throw AppException.BadRequest("Enter a valid bank name, account number and account holder.");
-        return await _orders.WithOrderLockAsync(orderId, async () =>
-        {
-            var (order, refund) = await CustomerRefundOrderAsync(userId, orderId, ct);
-            if (refund.Status is not (RefundStatus.AwaitingCustomerDetails or RefundStatus.PendingVerification)) throw AppException.Conflict("The refund destination can no longer be changed.");
-            if (refund.VerificationExpiresAt > Now.AddMinutes(14)) throw AppException.Conflict("Please wait one minute before requesting another confirmation code.");
-            var code = RandomNumberGenerator.GetInt32(0, 1000000).ToString("D6");
-            refund.ReceiverMethod = RefundReceiverMethod.BankAccount;
-            refund.ReceiverBankName = request.BankName.Trim(); refund.ReceiverAccountNumber = request.AccountNumber.Trim(); refund.ReceiverAccountHolder = request.AccountHolder.Trim();
-            refund.VerificationCodeHash = CodeHash(refund.Id, code); refund.VerificationExpiresAt = Now.AddMinutes(15);
-            refund.VerificationAttempts = 0; refund.DestinationConfirmedAt = null; refund.Status = RefundStatus.PendingVerification; refund.UpdatedAt = Now;
-            await _email.SendAsync(order.Customer.Email, "Confirm your SaveBite refund destination",
-                $"Your refund confirmation code is {code}. It expires in 15 minutes. Bank: {refund.ReceiverBankName}. Account ending: {refund.ReceiverAccountNumber[^Math.Min(4, refund.ReceiverAccountNumber.Length)..]}", false, ct);
-            await _orders.SaveAsync(ct);
-            return MapRefund(refund);
-        }, ct);
-    }
-    // Verify the unexpired destination confirmation code and keep repeated confirmation idempotent.
-    public async Task<OrderRefundResponse> VerifyDestinationAsync(Guid userId, Guid orderId, string code, CancellationToken ct = default)
-    {
-        var result = await _orders.WithOrderLockAsync(orderId, async () =>
-        {
-            var (_, f) = await CustomerRefundOrderAsync(userId, orderId, ct);
-            var matches = code != null && code.Length == 6 && f.VerificationCodeHash == CodeHash(f.Id, code);
-            if (f.DestinationConfirmedAt != null && matches) return (Refund: MapRefund(f), Valid: true);
-            if (f.Status != RefundStatus.PendingVerification || f.VerificationExpiresAt <= Now || f.VerificationAttempts >= 5)
-                return (Refund: MapRefund(f), Valid: false);
-            f.VerificationAttempts++;
-            if (matches) { f.DestinationConfirmedAt = Now; f.Status = RefundStatus.AwaitingTransfer; f.UpdatedAt = Now; }
-            await _orders.SaveAsync(ct);
-            return (Refund: MapRefund(f), Valid: matches);
-        }, ct);
-        if (!result.Valid) throw AppException.BadRequest("The confirmation code is invalid, expired, or has reached its attempt limit.");
-        return result.Refund;
-    }
-    // Let the shop owner record a manual refund transfer after the destination has been verified.
-    public async Task<OrderRefundResponse> TransferAsync(Guid userId, Guid shopId, Guid orderId, string reference, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(reference) || reference.Length > 150) throw AppException.BadRequest("A bank transfer reference is required.");
-        return await _orders.WithOrderLockAsync(orderId, async () =>
-        {
-            if (!await _shops.RequireAccessAsync(userId, shopId, ct)) throw AppException.Forbidden("Only the shop owner may record a refund transfer.");
-            var order = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
-            var f = order.Refunds.SingleOrDefault(x => x.RefundType == RefundType.ShopCancellation) ?? throw AppException.NotFound();
-            if (f.Status == RefundStatus.Transferred && f.TransferReference == reference.Trim()) return MapRefund(f);
-            if (f.Status != RefundStatus.AwaitingTransfer || f.DestinationConfirmedAt == null) throw AppException.Conflict("The customer must confirm the refund destination by email before transfer.");
-            if (f.TransferredAmount > 0 && f.TransferReference == reference.Trim())
-                throw AppException.Conflict("Use the new bank transfer reference for the additional refund balance.");
-            var transferredNow = f.RequestedAmount - f.TransferredAmount;
-            f.TransferredAmount = f.RequestedAmount;
-            f.Status = RefundStatus.Transferred; f.TransferReference = reference.Trim(); f.TransferredAt = Now; f.ReviewedBy = userId; f.ReviewedAt = Now; f.UpdatedAt = Now;
-            AddActivity(order, await _shops.ActorAsync(userId, shopId, ct), $"Recorded refund bank transfer of {transferredNow} VND: " + reference.Trim());
-            await _orders.SaveAsync(ct);
-            return MapRefund(f);
-        }, ct);
-    }
 }

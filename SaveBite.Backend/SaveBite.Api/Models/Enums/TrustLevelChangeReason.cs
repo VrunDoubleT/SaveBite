@@ -5,5 +5,6 @@ public enum TrustLevelChangeReason
     InitialAssignment = 1,
     RequirementsMet = 2,
     NoShowPenalty = 3,
-    AdminAdjustment = 4
+    AdminAdjustment = 4,
+    RefundTransferred = 5
 }

@@ -43,6 +43,12 @@ public sealed class PaymentsController : ControllerBase
     public async Task<ActionResult<ApiResponse<CheckoutOrderResponse>>> Payment(Guid orderId, CancellationToken ct)
         => Ok(ApiResponse<CheckoutOrderResponse>.Ok(await _payments.StartAsync(UserId(), orderId, ct)));
 
+    // Explicitly query the provider and apply verified payment changes for the customer's own order.
+    [HttpPost("orders/{orderId:guid}/reconcile")]
+    [CustomerAccess]
+    public async Task<ActionResult<ApiResponse<CheckoutOrderResponse>>> Reconcile(Guid orderId, CancellationToken ct)
+        => Ok(ApiResponse<CheckoutOrderResponse>.Ok(await _payments.ReconcileAsync(UserId(), orderId, ct)));
+
     // Verify the PayOS webhook signature and query the provider before applying payment and inventory changes.
     [HttpPost("payos/webhook")]
     [HttpPost("~/api/checkout/payos/webhook")]

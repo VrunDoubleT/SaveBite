@@ -8,5 +8,6 @@ public enum RefundStatus
     Rejected,
     Transferred,
     Completed,
-    Withdrawn
+    Withdrawn,
+    Overdue
 }
