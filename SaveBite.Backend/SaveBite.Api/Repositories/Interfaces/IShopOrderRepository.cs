@@ -17,4 +17,6 @@ public interface IShopOrderRepository
     void AddPayment(Payment payment);
     void AddRefund(Refund refund);
     void AddActivity(StaffActivityLog activity);
+    Task<OrderPlatformFee?> GetOrderPlatformFeeAsync(Guid orderId, CancellationToken ct);
+    void AddFeeAdjustment(PlatformFeeAdjustment adjustment);
 }

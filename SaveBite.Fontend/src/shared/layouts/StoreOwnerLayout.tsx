@@ -7,6 +7,7 @@ import {
   Store,
   Users,
   Zap,
+  Receipt,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
@@ -29,11 +30,7 @@ const navigation = [
     label: "Orders",
     end: false,
     icon: ClipboardList,
-    badge: (
-      <ShopOrderWorkspaceNotifications
-        ordersPath={`${APP_PATHS.STORE_OWNER}/orders`}
-      />
-    ),
+    badge: <ShopOrderWorkspaceNotifications ordersPath={`${APP_PATHS.STORE_OWNER}/orders`} />,
   },
   {
     to: APP_PATHS.STORE_OWNER_STAFF,
@@ -52,6 +49,12 @@ const navigation = [
     label: "Payment Settings",
     end: false,
     icon: CreditCard,
+  },
+  {
+    to: APP_PATHS.STORE_OWNER_PLATFORM_FEES,
+    label: "Platform Fees",
+    end: false,
+    icon: Receipt,
   },
   {
     to: APP_PATHS.STORE_OWNER_PROFILE,

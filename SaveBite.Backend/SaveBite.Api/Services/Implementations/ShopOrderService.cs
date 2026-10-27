@@ -519,6 +519,32 @@ public sealed class ShopOrderService : IShopOrderService
             f.TransferredAmount = f.RequestedAmount;
             f.Status = RefundStatus.Transferred; f.TransferReference = reference.Trim(); f.TransferredAt = Now; f.ReviewedBy = userId; f.ReviewedAt = Now; f.UpdatedAt = Now;
             AddActivity(order, await _shops.ActorAsync(userId, shopId, ct), $"Recorded refund bank transfer of {transferredNow} VND: " + reference.Trim());
+          
+            // BR-205: When Store Owner executes refund transfer, record a negative platform-fee adjustment
+            if (transferredNow > 0)
+            {
+                var orderFee = await _shops.GetOrderPlatformFeeAsync(order.Id, ct);
+                if (orderFee != null)
+                {
+                    var adjAmount = -Math.Round(transferredNow * orderFee.FeeRate, 2);
+                    if (adjAmount < 0)
+                    {
+                        var adjustment = new PlatformFeeAdjustment
+                        {
+                            Id = Guid.NewGuid(),
+                            ShopId = order.ShopId,
+                            OrderFeeId = orderFee.Id,
+                            RefundId = f.Id,
+                            StatementId = null,
+                            Amount = adjAmount,
+                            Reason = $"Fee reduction via refund {transferredNow:N0} VND.",
+                            CreatedAt = Now
+                        };
+                        _shops.AddFeeAdjustment(adjustment);
+                    }
+                }
+            }
+
             await _orders.SaveAsync(ct);
             return MapRefund(f);
         }, ct);

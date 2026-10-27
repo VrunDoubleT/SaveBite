@@ -26,6 +26,7 @@ public static class HangfireExtensions
         services.AddScoped<OrderEventDispatchJob>();
         services.AddScoped<ShopOrderConfirmationJob>();
         services.AddScoped<ShopOrderNoShowJob>();
+        services.AddScoped<PlatformFeeOverdueJob>();
 
         services.AddOptions<HangfireOptions>()
             .Bind(configuration.GetSection(HangfireOptions.SectionName))
@@ -76,6 +77,15 @@ public static class HangfireExtensions
             // Hangfire's default dashboard authorization only permits local requests.
             app.UseHangfireDashboard("/hangfire");
         }
+        using (var scope = app.Services.CreateScope())
+               {
+                   var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+                   recurringJobs.AddOrUpdate<PlatformFeeOverdueJob>(
+                       "platform-fee-overdue-check",
+                       job => job.ExecuteAsync(CancellationToken.None),
+                       Cron.Daily);
+               }
+
 
         return app;
     }

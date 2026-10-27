@@ -126,16 +126,22 @@ public sealed class PayOsCheckoutGateway : ICheckoutPaymentGateway
 
     // Verify a PayOS webhook signature with the shop's checksum key before processing it.
     public bool VerifyWebhook(JsonElement body, ShopPaymentConfig config)
+    //more
+        => VerifyWebhookData(body, config.PayosChecksumKey);
+    // Verify a PayOS webhook payload with a checksum key.
+    public static bool VerifyWebhookData(JsonElement body, string checksumKey)
+    // end
         => body.ValueKind == JsonValueKind.Object && body.TryGetProperty("data", out var data)
             && body.TryGetProperty("signature", out var signature) && signature.ValueKind == JsonValueKind.String
-            && Verify(data, signature.GetString(), config.PayosChecksumKey);
-
+          //  && Verify(data, signature.GetString(), config.PayosChecksumKey);
+          && Verify(data, signature.GetString(), checksumKey);
     // Calculate the HMAC SHA256 signature for canonical payment data.
     public static string Sign(string value, string key)
         => Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(key), Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
     // Compare the expected and received signatures without leaking comparison timing.
-    private static bool Verify(JsonElement data, string? signature, string key)
+    public static bool Verify(JsonElement data, string? signature, string key)//more
+   // private static bool Verify(JsonElement data, string? signature, string key)
     {
         if (data.ValueKind != JsonValueKind.Object || string.IsNullOrEmpty(signature)) return false;
         var canonical = string.Join("&", data.EnumerateObject().OrderBy(x => x.Name, StringComparer.Ordinal)
