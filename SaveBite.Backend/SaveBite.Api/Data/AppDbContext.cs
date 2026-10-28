@@ -68,6 +68,7 @@ public class AppDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     // Feedbacks.
     public DbSet<ProductFeedback> ProductFeedbacks => Set<ProductFeedback>();
+    public DbSet<ProductFeedbackImage> ProductFeedbackImages => Set<ProductFeedbackImage>();
     public DbSet<ProductFeedbackReply> ProductFeedbackReplies => Set<ProductFeedbackReply>();
     // Content Moderation.
     public DbSet<ProductContentRevision> ProductContentRevisions => Set<ProductContentRevision>();

@@ -4,6 +4,7 @@ import {
   Package,
   ShieldCheck,
   ShoppingBag,
+  Star,
   Store,
   Users,
   Tags,
@@ -52,6 +53,11 @@ const navigation = [
     to: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
     label: "Store Applications",
     icon: ClipboardCheck,
+  },
+  {
+    to: APP_PATHS.ADMIN_REVIEWS,
+    label: "Feedbacks",
+    icon: Star,
   },
 ] as const;
 

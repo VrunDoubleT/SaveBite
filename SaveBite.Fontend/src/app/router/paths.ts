@@ -27,8 +27,9 @@ export const APP_PATHS = {
   ADMIN_PRODUCTS: "/admin/products",
   ADMIN_ORDERS: "/admin/orders",
   ADMIN_STORES: "/admin/stores",
-  ADMIN_SHOP_APPLICATIONS: "/admin/shop-applications",
   ADMIN_TRUST: "/admin/trust",
+  ADMIN_SHOP_APPLICATIONS: "/admin/shop-applications",
+  ADMIN_REVIEWS: "/admin/reviews",
   STAFF: "/staff",
   STAFF_FLASH_DEALS: "/staff/shops/:shopId/flash-deals",
   STAFF_FLASH_DEAL_DETAIL: "/staff/shops/:shopId/flash-deals/:id",
@@ -43,6 +44,7 @@ export const APP_PATHS = {
   STORE_OWNER_PRODUCTS: "/store-owner/products",
   STORE_OWNER_PAYMENT_SETTINGS: "/store-owner/payment-settings",
   STORE_OWNER_PROFILE: "/store-owner/profile",
+  STORE_OWNER_REVIEWS: "/store-owner/reviews",
   NOT_FOUND: "*",
 } as const;
 

@@ -57,6 +57,7 @@ public class StoreReviewResponse
     public string? ProductImageUrl { get; set; }
     public DateTime CreatedAt { get; set; }
     public StoreReviewReplyResponse? Reply { get; set; }
+    public List<string> Images { get; set; } = new();
 }
 
 public class StoreReviewReplyResponse

@@ -9,8 +9,14 @@ import { ReviewCard } from "./ReviewCard";
 interface ReviewsPanelProps {
   reviews: FeedbackItem[];
   onDelete: (id: string) => Promise<void>;
-  onUpdate: (id: string, rating: number, comment?: string) => Promise<void>;
+  onUpdate: (
+    id: string,
+    rating: number,
+    comment?: string,
+    images?: string[],
+  ) => Promise<void>;
   isLoading?: boolean;
+  highlightedId?: string | null;
 }
 
 export function ReviewsPanel({
@@ -18,6 +24,7 @@ export function ReviewsPanel({
   onDelete,
   onUpdate,
   isLoading = false,
+  highlightedId,
 }: ReviewsPanelProps) {
   const [reviewToDelete, setReviewToDelete] = useState<FeedbackItem | null>(
     null,
@@ -61,6 +68,7 @@ export function ReviewsPanel({
               review={review}
               onUpdate={onUpdate}
               onRequestDelete={setReviewToDelete}
+              isHighlighted={review.id === highlightedId}
             />
           ))}
         </div>

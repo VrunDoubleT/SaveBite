@@ -29,4 +29,5 @@ public class ProductFeedback
     public User User { get; set; } = null!;
     public ProductFeedbackReply? Reply { get; set; }
     public ICollection<ProductFeedbackModerationLog> ModerationLogs { get; set; } = new List<ProductFeedbackModerationLog>();
+    public ICollection<ProductFeedbackImage> Images { get; set; } = new List<ProductFeedbackImage>();
 }

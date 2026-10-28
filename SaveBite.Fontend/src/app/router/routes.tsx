@@ -56,6 +56,8 @@ import { NotFoundPage } from "@/pages/commons/NotFoundPage";
 import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
 import { PaymentSettingsPage } from "@/pages/store-owner/PaymentSettingsPage";
 import { ShopProfilePage } from "@/pages/store-owner/ShopProfilePage";
+import { StoreOwnerReviewsPage } from "@/pages/store-owner/StoreOwnerReviewsPage";
+import { AdminReviewsPage } from "@/pages/admin/AdminReviewsPage";
 
 import { ShopOrdersPage } from "@/pages/shop/ShopOrdersPage";
 import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
@@ -251,6 +253,10 @@ export const routes: RouteObject[] = [
             path: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
             element: <AdminShopApplicationsPage />,
           },
+          {
+            path: APP_PATHS.ADMIN_REVIEWS,
+            element: <AdminReviewsPage />,
+          },
         ],
       },
     ],
@@ -375,6 +381,10 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.STORE_OWNER_PROFILE,
             element: <ShopProfilePage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_REVIEWS,
+            element: <StoreOwnerReviewsPage />,
           },
         ],
       },

@@ -4,6 +4,7 @@ import {
   CreditCard,
   Package,
   Settings2,
+  Star,
   Store,
   Users,
   Zap,
@@ -52,6 +53,12 @@ const navigation = [
     label: "Payment Settings",
     end: false,
     icon: CreditCard,
+  },
+  {
+    to: APP_PATHS.STORE_OWNER_REVIEWS,
+    label: "Reviews",
+    end: false,
+    icon: Star,
   },
   {
     to: APP_PATHS.STORE_OWNER_PROFILE,

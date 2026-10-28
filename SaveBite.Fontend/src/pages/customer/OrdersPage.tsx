@@ -260,16 +260,6 @@ function CustomerOrders({
                 {order.createdAt && (
                   <time dateTime={order.createdAt}>{checkoutTime(order.createdAt)}</time>
                 )}
-                {order.status === "Completed" && order.items.some((i) => i.canReview) && (
-                  <button
-                    type="button"
-                    onClick={() => setRatingOrder(order)}
-                    className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-                  >
-                    <Star size={14} className="fill-amber-400 text-amber-500" />
-                    Rate products
-                  </button>
-                )}
                 <Link
                   to={APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id))}
                   className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
@@ -337,7 +327,11 @@ function CustomerOrders({
                     </p>
                     {item.rating && (
                       <Link
-                        to={APP_PATHS.ACCOUNT_REVIEWS}
+                        to={
+                          item.feedbackId
+                            ? `${APP_PATHS.ACCOUNT_REVIEWS}?feedbackId=${item.feedbackId}`
+                            : APP_PATHS.ACCOUNT_REVIEWS
+                        }
                         className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
                       >
                         <CheckCircle2 size={12} />

@@ -137,6 +137,7 @@ public sealed class ShopRepository : IShopRepository
 
         var items = await query
             .Include(f => f.User)
+            .Include(f => f.Images)
             .Include(f => f.Product).ThenInclude(p => p.Images)
             .Include(f => f.Reply).ThenInclude(r => r!.RepliedByUser)
             .OrderByDescending(f => f.CreatedAt)

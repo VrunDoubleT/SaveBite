@@ -138,6 +138,10 @@ export const API_ENDPOINTS = {
   FEEDBACKS: {
     BASE: "/feedbacks",
     HISTORY: "/feedbacks/history",
+    SHOP: "/feedbacks/shop",
+    ADMIN: "/feedbacks/admin",
     DETAIL: (id: string) => `/feedbacks/${id}`,
+    IMAGES: "/feedbacks/images",
+    REPLY: (id: string) => `/feedbacks/${id}/reply`,
   },
 } as const;

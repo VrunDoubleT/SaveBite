@@ -239,7 +239,11 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                                 </button>
                               ) : item.rating ? (
                                 <Link
-                                  to={APP_PATHS.ACCOUNT_REVIEWS}
+                                  to={
+                                    item.feedbackId
+                                      ? `${APP_PATHS.ACCOUNT_REVIEWS}?feedbackId=${item.feedbackId}`
+                                      : APP_PATHS.ACCOUNT_REVIEWS
+                                  }
                                   className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
                                 >
                                   <CheckCircle2 size={13} />

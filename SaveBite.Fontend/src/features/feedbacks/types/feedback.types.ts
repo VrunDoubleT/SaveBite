@@ -2,6 +2,8 @@ export interface FeedbackReply {
   id: string;
   content: string;
   createdAt: string;
+  updatedAt?: string;
+  repliedByName?: string;
 }
 
 export interface FeedbackItem {
@@ -12,6 +14,7 @@ export interface FeedbackItem {
   variantName?: string;
   rating: number;
   comment?: string;
+  images?: string[];
   status: string | number;
   createdAt: string;
   updatedAt: string;
@@ -21,17 +24,38 @@ export interface FeedbackItem {
   shopName?: string;
   shopLogoUrl?: string | null;
   imageUrl?: string | null;
+  shopId?: string;
+  customerName?: string;
+  customerAvatarUrl?: string | null;
 }
 
 export interface CreateFeedbackInput {
   orderItemId: string;
   rating: number;
   comment?: string;
+  images?: string[];
 }
 
 export interface UpdateFeedbackInput {
   rating: number;
   comment?: string;
+  images?: string[];
+}
+
+export interface CreateFeedbackReplyInput {
+  content: string;
+}
+
+export interface UpdateFeedbackReplyInput {
+  content: string;
+}
+
+export interface ShopFeedbacksQueryParams {
+  page?: number;
+  pageSize?: number;
+  rating?: number;
+  hasReply?: boolean;
+  shopId?: string;
 }
 
 export interface FeedbackHistoryResponse {
