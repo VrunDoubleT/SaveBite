@@ -30,4 +30,9 @@ public static class RealtimeEvents
         public const string PaymentSucceeded = "payment-succeeded";
         public const string NoShow = "no-show";
     }
+    
+    //notification
+    public const string NotificationReceived = "notification.received";
+    public const string NotificationRead = "notification.read";
+    public const string NotificationDeleted = "notification.deleted";
 }

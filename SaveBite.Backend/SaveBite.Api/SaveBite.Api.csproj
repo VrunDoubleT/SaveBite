@@ -48,7 +48,6 @@
       <Folder Include="Constants\" />
       <Folder Include="Data\Migrations\" />
       <Folder Include="Middlewares\" />
-      <Folder Include="Models\DTOs\" />
     </ItemGroup>
 
 </Project>

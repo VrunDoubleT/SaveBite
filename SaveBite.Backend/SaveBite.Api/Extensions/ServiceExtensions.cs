@@ -34,7 +34,7 @@ public static class ServiceExtensions
         services.AddScoped<IPaymentHistoryService, PaymentHistoryService>();
         services.AddScoped<IOrderEventPublisher, OrderEventPublisher>();
         services.AddScoped<IShopOrderEventService, ShopOrderEventService>();
-
+        services.AddScoped<INotificationService, NotificationService>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<ICheckoutService, CheckoutService>();
         services.AddScoped<IShopOrderService, ShopOrderService>();

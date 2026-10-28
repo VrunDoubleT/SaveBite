@@ -5,6 +5,7 @@ using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Consumer;
 using SaveBite.Backend.Messaging.Events;
 using SaveBite.Backend.Messaging.Models;
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Interfaces;
@@ -40,11 +41,12 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         var dealRepository = scope.ServiceProvider.GetRequiredService<IFlashDealRepository>();
         var redisService = scope.ServiceProvider.GetRequiredService<IFlashDealRedisService>();
         var dealService = scope.ServiceProvider.GetRequiredService<IFlashDealService>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
         switch (routingKey)
         {
             case RabbitMqRoutingKeys.FlashDealOpened:
-                await HandleDealOpenedAsync(dealEvent.FlashDealId, dealRepository, redisService, dealService, cancellationToken);
+                await HandleDealOpenedAsync(dealEvent.FlashDealId, dealRepository, redisService, dealService, notificationService, cancellationToken);
                 break;
 
             case RabbitMqRoutingKeys.FlashDealClosed:
@@ -63,6 +65,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         IFlashDealRepository dealRepository,
         IFlashDealRedisService redisService,
         IFlashDealService dealService,
+        INotificationService notificationService,
         CancellationToken cancellationToken)
     {
         var deal = await dealRepository.GetActiveDealByIdAsync(flashDealId, cancellationToken);
@@ -80,6 +83,23 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         if (deal.Shop != null)
         {
             await redisService.SaveDealAsync(customerResponse, deal.Shop.Latitude, deal.Shop.Longitude);
+
+            try
+            {
+                await notificationService.SendAsync(
+                    NotificationTarget.Customers(),
+                    new CreateNotificationCommand(
+                        NotificationType.FlashDealAvailable,
+                        $"New Flash Deal from {deal.Shop.Name}!",
+                        $"'{customerResponse.ProductName}' is now on sale. Order now before it runs out!",
+                        ActionUrl: $"/flash-deals/{deal.Id}",
+                        DeduplicationKey: $"flash-deal-opened:{deal.Id}"),
+                    cancellationToken);
+            }
+            catch
+            {
+                // Do not fail deal opening if notification dispatch encounters an issue.
+            }
         }
     }
 
