@@ -140,4 +140,9 @@ export const API_ENDPOINTS = {
     HISTORY: "/feedbacks/history",
     DETAIL: (id: string) => `/feedbacks/${id}`,
   },
+  NOTIFICATIONS: {
+    BASE: "/notifications",
+    MARK_READ: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}/read`,
+    DELETE: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}`,
+  },
 } as const;
