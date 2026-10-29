@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using SaveBite.Backend.Caching.Interfaces;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Messaging.Configuration;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Consumer;
@@ -41,7 +42,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         var dealRepository = scope.ServiceProvider.GetRequiredService<IFlashDealRepository>();
         var redisService = scope.ServiceProvider.GetRequiredService<IFlashDealRedisService>();
         var dealService = scope.ServiceProvider.GetRequiredService<IFlashDealService>();
-        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationQueue>();
 
         switch (routingKey)
         {
@@ -65,7 +66,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         IFlashDealRepository dealRepository,
         IFlashDealRedisService redisService,
         IFlashDealService dealService,
-        INotificationService notificationService,
+        INotificationQueue notificationService,
         CancellationToken cancellationToken)
     {
         var deal = await dealRepository.GetActiveDealByIdAsync(flashDealId, cancellationToken);
@@ -86,13 +87,13 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
 
             try
             {
-                await notificationService.SendAsync(
+                await notificationService.EnqueueAsync(
                     NotificationTarget.Customers(),
                     new CreateNotificationCommand(
                         NotificationType.FlashDealAvailable,
                         $"New Flash Deal from {deal.Shop.Name}!",
                         $"'{customerResponse.ProductName}' is now on sale. Order now before it runs out!",
-                        ActionUrl: $"/flash-deals/{deal.Id}",
+                        ActionUrl: NotificationActionUrls.FlashDeal(deal.Id),
                         DeduplicationKey: $"flash-deal-opened:{deal.Id}"),
                     cancellationToken);
             }

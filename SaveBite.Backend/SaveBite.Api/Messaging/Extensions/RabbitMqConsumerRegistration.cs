@@ -1,3 +1,4 @@
+using SaveBite.Backend.Messaging.Consumer.Notifications;
 using SaveBite.Backend.Messaging.Consumer.Orders;
 using SaveBite.Backend.Messaging.Consumer.Users;
 // RabbitMqConsumerRegistration.cs.
@@ -15,6 +16,7 @@ public static class RabbitMqConsumerRegistration
     {
         // Example registration: services.AddRabbitMqConsumer<TestProductConsumer>();
         services.AddRabbitMqConsumer<EmailConsumer>();
+        services.AddRabbitMqConsumer<NotificationConsumer>();
         services.AddRabbitMqConsumer<CartFlashDealConsumer>();
         services.AddRabbitMqConsumer<OrderPendingConsumer>();
         services.AddRabbitMqConsumer<OrderTrustConsumer>();

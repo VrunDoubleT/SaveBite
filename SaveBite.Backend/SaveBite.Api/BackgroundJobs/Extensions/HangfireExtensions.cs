@@ -77,6 +77,8 @@ public static class HangfireExtensions
             app.UseHangfireDashboard("/hangfire");
         }
 
+        // Stop the legacy notification recovery schedule; notifications now publish directly to RabbitMQ.
+        app.Services.GetRequiredService<IRecurringJobManager>().RemoveIfExists("notification-outbox-recovery");
         return app;
     }
 }

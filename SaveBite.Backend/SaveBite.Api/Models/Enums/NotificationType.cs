@@ -27,5 +27,7 @@ public enum NotificationType
     TrustScoreChanged = 18,
     NoShowPenaltyCreated = 19,
     
-    ProductNeedsRevision = 20
+    ProductNeedsRevision = 20,
+
+    OrderNoShow = 21
 }

@@ -102,9 +102,10 @@ public sealed class NotificationService : INotificationService
             CreatedAt = now
         }).ToList();
 
-        var createdNotifications = await _repository.CreateManyAsync(notifications, ct);
+        var persistedNotifications = await _repository.CreateManyAsync(notifications, ct);
 
-        foreach (var item in createdNotifications)
+        // A retry reuses persisted IDs; clients upsert by ID rather than incrementing duplicate entries.
+        foreach (var item in persistedNotifications)
         {
             var unreadCount = await _repository.GetUnreadCountAsync(item.UserId, ct);
             var payload = new NotificationRealtimePayload(MapToResponse(item), unreadCount);

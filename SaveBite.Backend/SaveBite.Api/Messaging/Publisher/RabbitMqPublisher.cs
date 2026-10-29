@@ -53,7 +53,8 @@ public class RabbitMqPublisher : IRabbitMqPublisher
             routingKey: routingKey,
             // Order lifecycle events must reach a durable consumer queue before their outbox is marked published.
             mandatory: routingKey.StartsWith("order.", StringComparison.Ordinal)
-                || routingKey == Constants.RabbitMqRoutingKeys.UserVerified,
+                || routingKey == Constants.RabbitMqRoutingKeys.UserVerified
+                || routingKey == Constants.RabbitMqRoutingKeys.NotificationRequested,
             basicProperties: properties,
             body: body,
             cancellationToken: cancellationToken);

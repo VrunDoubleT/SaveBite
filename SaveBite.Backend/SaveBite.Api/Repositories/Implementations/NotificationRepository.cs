@@ -115,43 +115,47 @@ public sealed class NotificationRepository : INotificationRepository
         }
     }
 
-    // Persist notifications in bulk while preventing duplicates by DeduplicationKey.
+    // Return existing rows as well as new rows so broker retries can recover a failed realtime send.
     public async Task<IReadOnlyList<Notification>> CreateManyAsync(
         IReadOnlyList<Notification> notifications, CancellationToken ct = default)
     {
         if (notifications.Count == 0) return Array.Empty<Notification>();
-
-        var dedupKey = notifications[0].DeduplicationKey;
-        IReadOnlyList<Notification> toInsert = notifications;
-
-        if (!string.IsNullOrWhiteSpace(dedupKey))
+        var results = new List<Notification>();
+        foreach (var group in notifications.GroupBy(x => x.DeduplicationKey))
         {
-            var userIds = notifications.Select(n => n.UserId).ToList();
-            var existingUserIds = await _db.Notifications.AsNoTracking()
-                .Where(n => userIds.Contains(n.UserId) && n.DeduplicationKey == dedupKey)
-                .Select(n => n.UserId)
-                .ToListAsync(ct);
-
-            var existingSet = existingUserIds.ToHashSet();
-            toInsert = notifications.Where(n => !existingSet.Contains(n.UserId)).ToList();
-        }
-
-        if (toInsert.Count == 0) return Array.Empty<Notification>();
-
-        _db.Notifications.AddRange(toInsert);
-        try
-        {
-            await _db.SaveChangesAsync(ct);
-            return toInsert;
-        }
-        catch (DbUpdateException) when (!string.IsNullOrWhiteSpace(dedupKey))
-        {
-            foreach (var entry in toInsert)
+            if (string.IsNullOrWhiteSpace(group.Key))
             {
-                _db.Entry(entry).State = EntityState.Detached;
+                var fresh = group.ToList();
+                _db.Notifications.AddRange(fresh);
+                await _db.SaveChangesAsync(ct);
+                results.AddRange(fresh);
+                continue;
             }
-            return Array.Empty<Notification>();
+            // Batch fan-out inserts; all values remain SQL parameters, including user-supplied text.
+            foreach (var batch in group.Chunk(500))
+            {
+                var parameters = new List<object>();
+                var rows = new List<string>();
+                foreach (var notification in batch)
+                {
+                    var offset = parameters.Count;
+                    parameters.AddRange(new object[] { notification.Id, notification.UserId, notification.Type.ToString(),
+                        notification.Title, notification.Body, notification.ActionUrl!, notification.DeduplicationKey!, notification.CreatedAt });
+                    rows.Add("(" + string.Join(", ", Enumerable.Range(offset, 8).Select(index => "{" + index + "}")) + ")");
+                }
+                var sql = "INSERT INTO notifications (id, user_id, type, title, body, action_url, deduplication_key, created_at) VALUES "
+                    + string.Join(", ", rows)
+                    + " ON CONFLICT (user_id, deduplication_key) WHERE deduplication_key IS NOT NULL DO NOTHING";
+                // Resolve only uniqueness conflicts; real database failures propagate to consumer retry.
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    System.Runtime.CompilerServices.FormattableStringFactory.Create(sql, parameters.ToArray()), ct);
+            }
+            var userIds = group.Select(x => x.UserId).Distinct().ToArray();
+            // Never resurrect a notification the recipient has already dismissed.
+            results.AddRange(await _db.Notifications.AsNoTracking().Where(x => userIds.Contains(x.UserId)
+                && x.DeduplicationKey == group.Key && x.DismissedAt == null).ToListAsync(ct));
         }
+        return results;
     }
 
     // Retrieve paginated notifications for the user (excluding soft-deleted notifications where DismissedAt != null).
