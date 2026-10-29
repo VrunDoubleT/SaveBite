@@ -3,7 +3,13 @@ import { UserRound, Phone } from "lucide-react";
 import type { Refund } from "../types/refund.types";
 
 // Show the customer's current profile and level, with explicit fallbacks for missing account data.
-export function RefundCustomerInfo({ refund }: { refund: Refund }) {
+export function RefundCustomerInfo({
+  refund,
+  linkPhone = true,
+}: {
+  refund: Refund;
+  linkPhone?: boolean;
+}) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   return (
     <div className="flex min-w-0 items-start gap-3">
@@ -36,7 +42,7 @@ export function RefundCustomerInfo({ refund }: { refund: Refund }) {
         </div>
         <p className="flex items-center gap-1.5 text-xs text-neutral-500">
           <Phone size={12} className="shrink-0" />
-          {refund.customerPhone ? (
+          {refund.customerPhone && linkPhone ? (
             <a
               href={`tel:${refund.customerPhone}`}
               className="hover:text-primary-700 hover:underline"
@@ -44,7 +50,7 @@ export function RefundCustomerInfo({ refund }: { refund: Refund }) {
               {refund.customerPhone}
             </a>
           ) : (
-            "Phone not provided"
+            refund.customerPhone || "Phone not provided"
           )}
         </p>
       </div>

@@ -54,14 +54,6 @@ export const shopOrderApi = {
   async simulateRemaining(shopId: string, orderId: string, paymentId: string, outcome: "paid" | "cancelled" | "expired") {
     await httpClient.post(`/payments/simulation/shops/${encodeURIComponent(shopId)}/${encodeURIComponent(orderId)}/remaining`, { paymentId, outcome });
   },
-  async transfer(shopId: string, orderId: string, transferReference: string) {
-    return (
-      await httpClient.post<ApiResponse<OrderRefund>>(
-        `${base(shopId)}/${encodeURIComponent(orderId)}/refund/transfer`,
-        { transferReference },
-      )
-    ).data.data;
-  },
   async refund(orderId: string, signal?: AbortSignal) {
     return (
       await httpClient.get<ApiResponse<OrderRefund | null>>(

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { shopOrderApi } from "@/features/shop-orders/api/shopOrderApi";
 import { refundApi } from "@/features/refunds/api/refundApi";
 import { ShopRefundCard } from "@/features/refunds/components/ShopRefundCard";
 import type { Refund } from "@/features/refunds/types/refund.types";
@@ -13,28 +12,14 @@ export function ShopRefundDetailPage() {
   return <ShopRefundDetail key={refundId} refundId={refundId} />;
 }
 function ShopRefundDetail({ refundId }: { refundId: string }) {
-  const [shopId, setShopId] = useState("");
   const [refund, setRefund] = useState<Refund | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const realtime = useRealtimeSubscriptions();
   useEffect(() => {
     const abort = new AbortController();
-    void shopOrderApi
-      .ownerShop(abort.signal)
-      .then((id) => {
-        if (!abort.signal.aborted) setShopId(id);
-      })
-      .catch((e) => {
-        if (!abort.signal.aborted) setError(getApiErrorMessage(e));
-      });
-    return () => abort.abort();
-  }, []);
-  useEffect(() => {
-    if (!shopId) return;
-    const abort = new AbortController();
     void refundApi
-      .shopDetail(shopId, refundId, abort.signal)
+      .shopDetail(refundId, abort.signal)
       .then((data) => {
         if (!abort.signal.aborted) {
           setRefund(data);
@@ -45,11 +30,11 @@ function ShopRefundDetail({ refundId }: { refundId: string }) {
         if (!abort.signal.aborted) setError(getApiErrorMessage(e));
       });
     return () => abort.abort();
-  }, [shopId, refundId, revision]);
+  }, [refundId, revision]);
   useEffect(() => {
     const off = realtime.on(REALTIME_EVENTS.SHOP_ORDERS_CHANGED, (event) => {
       const change = event.data as { shopId?: string; orderId?: string } | null;
-      if (change?.shopId === shopId && change?.orderId === refund?.orderId)
+      if (change?.shopId === refund?.shopId && change?.orderId === refund?.orderId)
         setRevision((value) => value + 1);
     });
     const connected = realtime.onConnected((again) => {
@@ -59,7 +44,7 @@ function ShopRefundDetail({ refundId }: { refundId: string }) {
       off();
       connected();
     };
-  }, [realtime, shopId, refund?.orderId]);
+  }, [realtime, refund?.shopId, refund?.orderId]);
   return (
     <div className="w-full min-w-0 space-y-4">
       <Link
@@ -100,7 +85,6 @@ function ShopRefundDetail({ refundId }: { refundId: string }) {
         <ShopRefundCard
           key={`${refund.id}:${refund.status}:${refund.amount}`}
           refund={refund}
-          shopId={shopId}
           onChanged={setRefund}
         />
       )}

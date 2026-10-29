@@ -1,3 +1,4 @@
+import { RefundItems } from "./RefundItems";
 import { RefundCustomerInfo } from "./RefundCustomerInfo";
 import { useEffect, useRef, useState } from "react";
 import { Check, X, QrCode, ShieldCheck, Clock3 } from "lucide-react";
@@ -18,23 +19,20 @@ const historyLabels: Record<string, string> = {
   Requested: "Refund requested",
   DestinationProvided: "Destination provided",
   DestinationConfirmed: "Destination confirmed by email",
-  Approved: "Full refund approved",
+  Approved: "Requested refund approved",
   Rejected: "Refund declined",
   Transferred: "Transfer recorded",
   Withdrawn: "Request withdrawn",
   DeadlineExpired: "Processing deadline passed",
-  DeadlineExtended: "Deadline extended by administrator",
   LegacySnapshot: "Imported refund record",
   VietQrGenerated: "Transfer QR generated",
 };
 
 export function ShopRefundCard({
   refund,
-  shopId,
   onChanged,
 }: {
   refund: Refund;
-  shopId: string;
   onChanged: (refund: Refund) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -68,12 +66,10 @@ export function ShopRefundCard({
   const timedOut =
     refund.status === "Rejected" &&
     refund.history.some((item) => item.decision === "DeadlineExpired");
-  const active = ["PendingVerification", "AwaitingTransfer", "Overdue"].includes(refund.status);
+  const active = ["PendingVerification", "AwaitingTransfer"].includes(refund.status);
   const overdue =
     active &&
-    (refund.status === "Overdue" ||
-      refund.isOverdue ||
-      (!!refund.reviewDeadlineAt && Date.parse(refund.reviewDeadlineAt) <= now));
+    (refund.isOverdue || (!!refund.reviewDeadlineAt && Date.parse(refund.reviewDeadlineAt) <= now));
   const review =
     refund.type === "CustomerRequest" && refund.status === "PendingVerification" && !overdue;
   const transferable =
@@ -94,7 +90,7 @@ export function ShopRefundCard({
       : transferable
         ? "Transfer the full balance to the confirmed recipient, then record the bank reference and proof."
         : transferred
-          ? "The full refund transfer has been recorded. No further action is required."
+          ? "The requested refund transfer has been recorded. No further action is required."
           : refund.status === "Rejected"
             ? timedOut
               ? "This refund was closed automatically because a deadline passed. No further action is required."
@@ -114,7 +110,7 @@ export function ShopRefundCard({
     setBusy(true);
     setError("");
     try {
-      setQr(await refundApi.qr(shopId, refund.id));
+      setQr(await refundApi.qr(refund.id));
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
@@ -127,10 +123,10 @@ export function ShopRefundCard({
       <button
         className={`${button} inline-flex items-center gap-1.5`}
         disabled={busy}
-        onClick={() => void action(() => refundApi.review(shopId, refund.id, true))}
+        onClick={() => void action(() => refundApi.review(refund.id, true))}
       >
         <Check size={15} />
-        Approve full refund
+        Approve requested refund
       </button>
       <button
         type="button"
@@ -210,7 +206,7 @@ export function ShopRefundCard({
             </dd>
           </div>
           <div>
-            <dt className="text-xs text-neutral-500">Full refund amount</dt>
+            <dt className="text-xs text-neutral-500">Requested refund amount</dt>
             <dd className="mt-1 text-lg font-bold">{money(refund.amount)}</dd>
           </div>
           <div>
@@ -222,6 +218,7 @@ export function ShopRefundCard({
         </dl>
         <div className="mt-4 border-t border-neutral-100 pt-4">
           <RefundProgress refund={refund} />
+          <RefundItems refund={refund} />
         </div>
       </section>
       {error && (
@@ -240,7 +237,10 @@ export function ShopRefundCard({
         <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-neutral-700">
           {refund.reason || "No additional reason recorded."}
         </p>
-        <RefundEvidenceGallery urls={refund.evidenceUrls} label="Customer evidence" />
+        <RefundEvidenceGallery
+          urls={refund.items?.some((item) => item.evidenceUrls?.length) ? [] : refund.evidenceUrls}
+          label="Customer evidence"
+        />
       </section>
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -286,7 +286,7 @@ export function ShopRefundCard({
               className="mt-4 space-y-3 border-t border-neutral-100 pt-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                void action(() => refundApi.review(shopId, refund.id, false, reason.trim()));
+                void action(() => refundApi.review(refund.id, false, reason.trim()));
               }}
             >
               <label className="block text-xs font-medium">
@@ -356,14 +356,8 @@ export function ShopRefundCard({
               onSubmit={(event) => {
                 event.preventDefault();
                 void action(async () => {
-                  const images = await uploadRefundFiles(
-                    refund.orderId,
-                    proof,
-                    "transfer-proof",
-                    shopId,
-                  );
+                  const images = await uploadRefundFiles(refund.orderId, proof, "transfer-proof");
                   return refundApi.transfer(
-                    shopId,
                     refund.id,
                     reference.trim(),
                     transferTime ? new Date(transferTime).toISOString() : undefined,

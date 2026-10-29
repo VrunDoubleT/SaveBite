@@ -11,9 +11,23 @@ export interface Refund {
   customerLevelName?: string;
   customerLevelRank?: number;
   requiresShopAction?: boolean;
-  shopAction?: "WaitingCustomer" | "Closed" | "DeadlinePassed" | "ReviewRequired" | "TransferRequired";
+  shopAction?:
+    "WaitingCustomer" | "Closed" | "DeadlinePassed" | "ReviewRequired" | "TransferRequired";
   type: "CustomerRequest" | "ShopCancellation";
   status: string;
+  orderRefundedAmount: number;
+  orderNetAmount: number;
+  items: {
+    orderItemId: string;
+    productName: string;
+    variantName?: string;
+    quantity: number;
+    purchasedQuantity: number;
+    reason: string;
+    evidenceUrls: string[];
+    unitPrice: number;
+    amount: number;
+  }[];
   amount: number;
   transferredAmount: number;
   reason?: string;
@@ -35,7 +49,16 @@ export interface Refund {
   createdAt: string;
   evidenceUrls: string[];
   transferProofUrls: string[];
-  history: { id: string; toStatus: string; actorRole: string; actorName: string; decision: string; note?: string; createdAt: string; proofUrl?: string }[];
+  history: {
+    id: string;
+    toStatus: string;
+    actorRole: string;
+    actorName: string;
+    decision: string;
+    note?: string;
+    createdAt: string;
+    proofUrl?: string;
+  }[];
 }
 export interface RefundBank {
   receiverMethod?: "BankAccount" | "QrImage";
@@ -46,6 +69,25 @@ export interface RefundBank {
   accountHolder: string;
 }
 
-export interface RefundPage { items: Refund[]; page: number; pageSize: number; totalItems: number; totalPages: number; }
-export interface RefundImage { url: string; bankBin?: string; accountNumber?: string; accountHolder?: string; }
-export interface RefundQr { refundId: string; amount: number; bankBin: string; accountNumber: string; accountHolder: string; transferContent: string; imageUrl: string; }
+export interface RefundPage {
+  items: Refund[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+export interface RefundImage {
+  url: string;
+  bankBin?: string;
+  accountNumber?: string;
+  accountHolder?: string;
+}
+export interface RefundQr {
+  refundId: string;
+  amount: number;
+  bankBin: string;
+  accountNumber: string;
+  accountHolder: string;
+  transferContent: string;
+  imageUrl: string;
+}

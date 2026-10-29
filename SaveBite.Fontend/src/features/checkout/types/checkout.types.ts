@@ -87,6 +87,7 @@ export interface CheckoutOrder {
   checkoutUrl?: string;
   policy?: CheckoutPolicy;
   items: {
+    orderItemId: string;
     flashDealVariantId: string;
     flashDealId?: string;
     imageUrl?: string;

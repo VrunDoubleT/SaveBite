@@ -1,3 +1,4 @@
+import { RefundItems } from "./RefundItems";
 import { RefundEvidenceGallery as EvidenceGallery } from "./RefundEvidenceGallery";
 import { useState } from "react";
 import { CheckCircle2, CircleAlert, Clock3, X, XCircle } from "lucide-react";
@@ -13,12 +14,11 @@ const decisions: Record<string, string> = {
   Requested: "Refund requested",
   DestinationProvided: "Bank details submitted",
   DestinationConfirmed: "Destination confirmed by email",
-  Approved: "Shop approved the full refund",
+  Approved: "Shop approved the requested refund",
   Rejected: "Shop declined the request",
   Transferred: "Shop recorded the transfer",
   Withdrawn: "Request withdrawn",
   DeadlineExpired: "Processing deadline passed",
-  DeadlineExtended: "Administrator extended the deadline",
   VietQrGenerated: "Shop generated transfer QR",
   LegacySnapshot: "Imported refund record",
 };
@@ -37,7 +37,7 @@ export function CustomerRefundDetailContent({
   const [withdraw, setWithdraw] = useState(false);
   const rejected = refund.status === "Rejected";
   const paid = ["Transferred", "Completed"].includes(refund.status);
-  const overdue = refund.isOverdue || refund.status === "Overdue";
+  const overdue = refund.isOverdue;
   const approved =
     refund.type === "CustomerRequest" &&
     (!!refund.history.find((item) => item.decision === "Approved") ||
@@ -71,7 +71,7 @@ export function CustomerRefundDetailContent({
         : paid
           ? "The shop has recorded your refund transfer"
           : approved
-            ? "The shop approved your full refund"
+            ? "The shop approved your requested refund"
             : required
               ? "The shop is required to refund this order"
               : refund.status === "PendingVerification"
@@ -125,6 +125,7 @@ export function CustomerRefundDetailContent({
   const stopped = rejected || overdue || withdrawn;
   return (
     <div className="space-y-4">
+      <RefundItems refund={refund} />
       <section
         aria-label="Refund outcome"
         className={`rounded-xl border p-4 text-left sm:p-5 ${tone}`}
@@ -233,7 +234,12 @@ export function CustomerRefundDetailContent({
           <p className="mt-2 text-xs text-neutral-500">
             {time(refund.createdAt)} · {required ? "Shop cancellation refund" : "Customer request"}
           </p>
-          <EvidenceGallery urls={refund.evidenceUrls} label="Request evidence" />
+          <EvidenceGallery
+            urls={
+              refund.items?.some((item) => item.evidenceUrls?.length) ? [] : refund.evidenceUrls
+            }
+            label="Request evidence"
+          />
         </section>
 
         <section className={card}>
@@ -315,46 +321,47 @@ export function CustomerRefundDetailContent({
             <p className="text-sm text-neutral-500">No history recorded yet.</p>
           )}
         </section>
-        {["AwaitingCustomerDetails", "PendingVerification"].includes(refund.status) && (
-          <section className={card}>
-            <h2 className="text-sm font-semibold">Withdraw request</h2>
-            <p className="mt-2 text-xs leading-relaxed text-neutral-500">
-              Withdrawing stops the shop from reviewing or transferring this refund.
-            </p>
-            {withdraw ? (
-              <div className="mt-3 space-y-3 rounded-lg bg-red-50 p-3">
-                <p className="text-xs text-red-800">Withdraw this refund request?</p>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void mutate(() => refundApi.withdraw(refund.id))}
-                    className="text-xs font-semibold text-red-700 disabled:opacity-50"
-                  >
-                    Yes, withdraw
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setWithdraw(false)}
-                    className="text-xs text-neutral-600"
-                  >
-                    Keep request
-                  </button>
+        {refund.type === "CustomerRequest" &&
+          ["AwaitingCustomerDetails", "PendingVerification"].includes(refund.status) && (
+            <section className={card}>
+              <h2 className="text-sm font-semibold">Withdraw request</h2>
+              <p className="mt-2 text-xs leading-relaxed text-neutral-500">
+                Withdrawing stops the shop from reviewing or transferring this refund.
+              </p>
+              {withdraw ? (
+                <div className="mt-3 space-y-3 rounded-lg bg-red-50 p-3">
+                  <p className="text-xs text-red-800">Withdraw this refund request?</p>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void mutate(() => refundApi.withdraw(refund.id))}
+                      className="text-xs font-semibold text-red-700 disabled:opacity-50"
+                    >
+                      Yes, withdraw
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setWithdraw(false)}
+                      className="text-xs text-neutral-600"
+                    >
+                      Keep request
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setWithdraw(true)}
-                className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
-              >
-                Withdraw request
-              </button>
-            )}
-          </section>
-        )}
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setWithdraw(true)}
+                  className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                >
+                  Withdraw request
+                </button>
+              )}
+            </section>
+          )}
       </div>
       <p className="break-all border-t border-neutral-200 pt-4 text-xs text-neutral-400">
         Refund ID: {refund.id}
