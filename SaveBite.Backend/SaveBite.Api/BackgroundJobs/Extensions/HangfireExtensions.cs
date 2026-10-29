@@ -15,6 +15,9 @@ public static class HangfireExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddScoped<IRefundDeadlineScheduler, RefundDeadlineScheduler>();
+        services.AddScoped<RefundDeadlineJob>();
+        services.AddScoped<RefundDeadlineRecoveryJob>();
         services.AddScoped<ICheckoutPaymentExpirationScheduler, CheckoutPaymentExpirationScheduler>();
         services.AddScoped<IOrderEventDispatchScheduler, OrderEventDispatchScheduler>();
         services.AddScoped<IShopOrderConfirmationScheduler, ShopOrderConfirmationScheduler>();
@@ -71,6 +74,7 @@ public static class HangfireExtensions
 
     public static WebApplication UseBackgroundJobs(this WebApplication app)
     {
+        app.Services.GetRequiredService<IBackgroundJobClient>().Enqueue<RefundDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None));
         var options = app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value;
         if (app.Environment.IsDevelopment() && options.DashboardEnabled)
         {

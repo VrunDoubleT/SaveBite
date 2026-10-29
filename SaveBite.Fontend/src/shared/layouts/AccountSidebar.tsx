@@ -1,3 +1,5 @@
+import { RefundsBadge } from "@/features/refunds/components/RefundsBadge";
+import { APP_PATHS } from "@/app/router/paths";
 import { Fragment } from "react";
 import { NavLink } from "react-router-dom";
 import { ACCOUNT_NAV_GROUPS } from "@/shared/config/accountNavigation";
@@ -39,6 +41,7 @@ export function AccountSidebar() {
                           aria-hidden="true"
                         />
                         {label}
+                        {to === APP_PATHS.ACCOUNT_REFUNDS && <RefundsBadge />}
                       </>
                     )}
                   </NavLink>

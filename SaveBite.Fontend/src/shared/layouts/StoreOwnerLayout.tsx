@@ -1,6 +1,8 @@
+import { ShopRefundsBadge } from "@/features/refunds/components/ShopRefundsBadge";
 import { ShopOrderWorkspaceNotifications } from "@/features/shop-orders/components/ShopOrderWorkspaceNotifications";
 import {
   ClipboardList,
+  RotateCcw,
   CreditCard,
   Package,
   Settings2,
@@ -31,6 +33,13 @@ const navigation = [
     end: false,
     icon: ClipboardList,
     badge: <ShopOrderWorkspaceNotifications ordersPath={`${APP_PATHS.STORE_OWNER}/orders`} />,
+  },
+  {
+    to: `${APP_PATHS.STORE_OWNER}/refunds`,
+    label: "Refund payments",
+    end: false,
+    icon: RotateCcw,
+    badge: <ShopRefundsBadge />,
   },
   {
     to: APP_PATHS.STORE_OWNER_STAFF,

@@ -1,3 +1,7 @@
+import { CustomerRefundDetailPage } from "@/pages/customer/RefundDetailPage";
+import { ShopRefundDetailPage } from "@/pages/store-owner/RefundDetailPage";
+import { ShopRefundsPage } from "@/pages/store-owner/RefundsPage";
+import { RefundsPage } from "@/pages/customer/RefundsPage";
 import { PaymentsPage } from "@/pages/customer/PaymentsPage";
 import { PaymentDetailPage } from "@/pages/customer/PaymentDetailPage";
 import { Navigate, type RouteObject } from "react-router-dom";
@@ -153,6 +157,8 @@ export const routes: RouteObject[] = [
                     element: <OrdersPage />,
                   },
                   { path: "payments", element: <PaymentsPage /> },
+                  { path: "refunds", element: <RefundsPage /> },
+                  { path: "refunds/:refundId", element: <CustomerRefundDetailPage /> },
                   { path: "payments/:paymentId", element: <PaymentDetailPage /> },
                   {
                     path: "reviews",
@@ -305,48 +311,50 @@ export const routes: RouteObject[] = [
         element: <StoreOwnerLayout />,
         children: [
           {
-  index: true,
-  element: <Navigate to={APP_PATHS.STORE_OWNER_PRODUCTS} replace />,
-},
-{
-  path: "products",
-  lazy: async () => ({
-    Component: (await import("@/features/products/pages/ProductsWorkspace"))
-      .ProductsWorkspace,
-  }),
-  children: [
-    {
-      index: true,
-      lazy: async () => ({
-        Component: (await import("@/features/products/pages/ProductListPage"))
-          .ProductListPage,
-      }),
-    },
-    {
-      path: "new",
-      lazy: async () => ({
-        Component: (await import("@/features/products/pages/CreateProductPage"))
-          .CreateProductPage,
-      }),
-    },
-    {
-      path: ":productId",
-      lazy: async () => ({
-        Component: (await import("@/features/products/pages/ProductDetailPage"))
-          .ProductDetailPage,
-      }),
-    },
-    {
-      path: ":productId/flash-deals",
-      lazy: async () => ({
-        Component: (await import("@/features/products/pages/ProductHistoryPage"))
-          .ProductHistoryPage,
-      }),
-    },
-  ],
-},
-{ path: "orders", element: <ShopOrdersPage /> },
-{ path: "orders/:orderId", element: <ShopOrderDetailPage /> },
+            index: true,
+            element: <Navigate to={APP_PATHS.STORE_OWNER_PRODUCTS} replace />,
+          },
+          {
+            path: "products",
+            lazy: async () => ({
+              Component: (await import("@/features/products/pages/ProductsWorkspace"))
+                .ProductsWorkspace,
+            }),
+            children: [
+              {
+                index: true,
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/ProductListPage"))
+                    .ProductListPage,
+                }),
+              },
+              {
+                path: "new",
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/CreateProductPage"))
+                    .CreateProductPage,
+                }),
+              },
+              {
+                path: ":productId",
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/ProductDetailPage"))
+                    .ProductDetailPage,
+                }),
+              },
+              {
+                path: ":productId/flash-deals",
+                lazy: async () => ({
+                  Component: (await import("@/features/products/pages/ProductHistoryPage"))
+                    .ProductHistoryPage,
+                }),
+              },
+            ],
+          },
+          { path: "orders", element: <ShopOrdersPage /> },
+          { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
+          { path: "refunds", element: <ShopRefundsPage /> },
+          { path: "refunds/:refundId", element: <ShopRefundDetailPage /> },
           {
             path: "flash-deals",
             element: <StoreOwnerFlashDealsPage />,

@@ -37,6 +37,7 @@ public static class RepositoryExtensions
         services.AddScoped<IPlatformFeeConfigService, PlatformFeeConfigService>();
         services.AddScoped<IPlatformFeeStatementRepository, PlatformFeeStatementRepository>();
         services.AddScoped<IPlatformFeeConfigRepository, PlatformFeeConfigRepository>();
+        services.AddScoped<IRefundRepository, RefundRepository>();
         return services;
     }
 }

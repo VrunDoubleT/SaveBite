@@ -19,6 +19,7 @@ public static class RealtimeEvents
     // Keep order notification reasons stable across publishers and recipient filtering.
     public static class OrderReasons
     {
+        public const string RefundChanged = "refund-changed";
         public const string Pending = "pending";
         public const string Confirm = "confirm";
         public const string Reject = "reject";

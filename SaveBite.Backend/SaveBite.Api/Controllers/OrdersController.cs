@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SaveBite.Backend.Authorization;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Requests;
@@ -18,10 +19,17 @@ public sealed class OrdersController : ControllerBase
     private readonly IOrderService _orders;
     private readonly IShopOrderService _shopOrders;
 
-    public OrdersController(IOrderService orders, IShopOrderService shopOrders)
+    private readonly IRefundService _refunds;
+    private readonly TimeProvider _clock;
+    private readonly IShopOrderEventService _events;
+    private readonly ILogger<OrdersController> _logger;
+
+    public OrdersController(IOrderService orders, IShopOrderService shopOrders, IRefundService refunds,
+        TimeProvider clock, IShopOrderEventService events, ILogger<OrdersController> logger)
     {
         _orders = orders;
         _shopOrders = shopOrders;
+        _refunds = refunds; _clock = clock; _events = events; _logger = logger;
     }
 
     // Return the authenticated customer's 50 most recent orders.
@@ -36,7 +44,7 @@ public sealed class OrdersController : ControllerBase
     public async Task<ActionResult<ApiResponse<OrderHistoryPageResponse>>> CustomerPage([FromQuery] string? status, [FromQuery] string? cursor, [FromQuery] int pageSize = 10, CancellationToken ct = default)
         => Ok(ApiResponse<OrderHistoryPageResponse>.Ok(await _orders.PageAsync(UserId(), status, cursor, pageSize, ct)));
 
-    // Load only the customer's own order and reconcile initial or remaining payments with the provider.
+    // Read only the customer's own recorded order without reconciling payments or updating state.
     [HttpGet("{orderId:guid}")]
     [CustomerAccess]
     public async Task<ActionResult<ApiResponse<CheckoutOrderResponse>>> CustomerOrder(Guid orderId, CancellationToken ct)
@@ -65,7 +73,7 @@ public sealed class OrdersController : ControllerBase
     [StoreOwnerOrStaffActiveAccess]
     public async Task<ActionResult<ApiResponse<ShopOrderPageResponse>>> ShopPage(Guid shopId, string? status, string? search, int page = 1, int pageSize = 10, CancellationToken ct = default, DateOnly? orderDate = null)
         => Ok(ApiResponse<ShopOrderPageResponse>.Ok(await _shopOrders.PageAsync(UserId(), shopId, status, search, page, pageSize, ct, orderDate)));
-    // Reconcile the order and return recorded items, payments, deadlines, refund details, and history actor identities.
+    // Read recorded items, payments, deadlines, refund details and history actor identities without state changes.
     [HttpGet("shops/{shopId:guid}/{orderId:guid}")]
     [StoreOwnerOrStaffActiveAccess]
     public async Task<ActionResult<ApiResponse<ShopOrderResponse>>> ShopOrder(Guid shopId, Guid orderId, CancellationToken ct)
@@ -100,11 +108,71 @@ public sealed class OrdersController : ControllerBase
     [StoreOwnerOrStaffActiveAccess]
     public async Task<ActionResult<ApiResponse<ShopOrderResponse>>> Remaining(Guid shopId, Guid orderId, CancellationToken ct)
         => Ok(ApiResponse<ShopOrderResponse>.Ok(await _shopOrders.RemainingPaymentAsync(UserId(), shopId, orderId, ct)));
-    // Allow only the owner to record a manual refund transfer to the customer's email-verified bank destination.
-    [HttpPost("shops/{shopId:guid}/{orderId:guid}/refund/transfer")]
-    [StoreOwnerOrStaffActiveAccess]
-    public async Task<ActionResult<ApiResponse<OrderRefundResponse>>> Transfer(Guid shopId, Guid orderId, RecordRefundTransferRequest request, CancellationToken ct)
-        => Ok(ApiResponse<OrderRefundResponse>.Ok(await _shopOrders.TransferAsync(UserId(), shopId, orderId, request.TransferReference, ct)));
+
+    // Upload a customer evidence image or parse/upload a bank QR image for one owned order.
+    [HttpPost("{orderId:guid}/refunds/images"), HttpPost("~/api/refunds/orders/{orderId:guid}/images"), CustomerAccess, RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<ActionResult<ApiResponse<RefundImageResponse>>> UploadCustomerImage(Guid orderId,
+        [FromForm] RefundImageUploadRequest request, [FromServices] IRefundImageService images, CancellationToken ct)
+        => Ok(ApiResponse<RefundImageResponse>.Ok(await images.UploadAsync(UserId(), orderId, null, request.File, request.Purpose, ct)));
+
+    // Upload transfer proof only for the active owner of the order's shop.
+    [HttpPost("shops/{shopId:guid}/{orderId:guid}/refunds/images"), HttpPost("~/api/refunds/shops/{shopId:guid}/orders/{orderId:guid}/images"), StoreOwnerOrStaffActiveAccess, RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<ActionResult<ApiResponse<RefundImageResponse>>> UploadOwnerProof(Guid shopId, Guid orderId,
+        [FromForm] RefundImageUploadRequest request, [FromServices] IRefundImageService images, CancellationToken ct)
+        => Ok(ApiResponse<RefundImageResponse>.Ok(await images.UploadAsync(UserId(), orderId, shopId, request.File, "transfer-proof", ct)));
+
+    // Read the owned order's refund records for its detail panel, including closed requests.
+    [HttpGet("{orderId:guid}/refunds"), HttpGet("~/api/refunds/orders/{orderId:guid}"), CustomerAccess]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<RefundResponse>>>> OrderHistory(Guid orderId, CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<RefundResponse>>.Ok(await _refunds.ForOrderAsync(UserId(), orderId, ct)));
+
+    // Request the full eligible paid amount of a Completed order within six hours.
+    [HttpPost("{orderId:guid}/refunds/requests"), HttpPost("~/api/refunds/orders/{orderId:guid}/requests"), CustomerAccess]
+    public async Task<ActionResult<ApiResponse<RefundResponse>>> CreateRequest(Guid orderId, CreateRefundRequest request, CancellationToken ct)
+        => await RefundCommittedAsync(_refunds.RequestAsync(UserId(), orderId, request, ct), ct);
+
+    // Read visible refund records for one owner-authorized shop order without processing them.
+    [HttpGet("shops/{shopId:guid}/{orderId:guid}/refunds"), HttpGet("~/api/refunds/shops/{shopId:guid}/orders/{orderId:guid}"), StoreOwnerOrStaffActiveAccess]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<RefundResponse>>>> ShopOrderRefunds(Guid shopId, Guid orderId, CancellationToken ct)
+        => Ok(ApiResponse<IReadOnlyList<RefundResponse>>.Ok(await _refunds.ShopForOrderAsync(UserId(), shopId, orderId, ct)));
+
+    // Preserve the existing order-detail read route for system-required refunds without side effects.
+    [HttpGet("{orderId:guid}/refund"), CustomerAccess]
+    public async Task<ActionResult<ApiResponse<RefundResponse?>>> SystemRefund(Guid orderId, CancellationToken ct)
+    {
+        var id = await _refunds.SystemRefundIdAsync(UserId(), orderId, ct);
+        return Ok(ApiResponse<RefundResponse?>.Ok(id.HasValue ? await _refunds.GetAsync(UserId(), id.Value, null, ct) : null));
+    }
+
+    // Keep the legacy system-refund destination route; bank BIN is required for VietQR.
+    [HttpPost("{orderId:guid}/refund/destination"), CustomerAccess]
+    public async Task<ActionResult<ApiResponse<RefundResponse>>> SystemDestination(Guid orderId, RefundBankRequest request, CancellationToken ct)
+        => await RefundCommittedAsync(_refunds.DestinationAsync(UserId(), await RequiredSystemRefundIdAsync(orderId, ct), request, ct), ct);
+
+    // Keep the legacy system-refund confirmation route without duplicating business logic.
+    [HttpPost("{orderId:guid}/refund/verify"), CustomerAccess]
+    public async Task<ActionResult<ApiResponse<RefundResponse>>> SystemConfirm(Guid orderId, VerifyRefundDestinationRequest request, CancellationToken ct)
+        => await RefundCommittedAsync(_refunds.VerifyAsync(UserId(), await RequiredSystemRefundIdAsync(orderId, ct), request.Code, ct), ct);
+
+    // Preserve the existing owner's manual transfer route while delegating to the same audited refund command.
+    [HttpPost("shops/{shopId:guid}/{orderId:guid}/refund/transfer"), StoreOwnerOrStaffActiveAccess]
+    public async Task<ActionResult<ApiResponse<RefundResponse>>> SystemTransfer(Guid shopId, Guid orderId, RecordRefundTransferRequest request, CancellationToken ct)
+    {
+        var id = await _refunds.SystemRefundIdAsync(UserId(), orderId, ct, shopId) ?? throw AppException.NotFound();
+        return await RefundCommittedAsync(_refunds.TransferAsync(UserId(), shopId, id,
+            new RefundTransferRequest { TransferReference = request.TransferReference, ProofUrl = request.ProofUrl, TransferredAt = _clock.GetUtcNow().UtcDateTime }, ct), ct);
+    }
+    // Notify refund subscribers only after the order-scoped refund command has committed.
+    private async Task<ActionResult<ApiResponse<RefundResponse>>> RefundCommittedAsync(Task<RefundResponse> command, CancellationToken ct)
+    {
+        var result = await command;
+        try { await _events.NotifyAsync(result.ShopId, result.OrderId, RealtimeEvents.OrderReasons.RefundChanged, ct); }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        { _logger.LogWarning(ex, "Could not notify refund changes for order {OrderId}.", result.OrderId); }
+        return Ok(ApiResponse<RefundResponse>.Ok(result));
+    }
+    private async Task<Guid> RequiredSystemRefundIdAsync(Guid orderId, CancellationToken ct)
+        => await _refunds.SystemRefundIdAsync(UserId(), orderId, ct) ?? throw AppException.NotFound("No refund is due for this order.");
     // Read the current actor from authenticated claims rather than client input.
     private Guid UserId()
     {

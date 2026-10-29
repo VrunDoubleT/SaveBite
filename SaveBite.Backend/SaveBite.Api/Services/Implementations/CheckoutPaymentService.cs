@@ -49,8 +49,8 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     // Reconcile a trusted internal order operation without a customer ownership filter.
     public Task<CheckoutOrderResponse> ReconcileOrderAsync(Guid orderId, bool createRemainingLink = false, CancellationToken ct = default)
         => ProcessAsync(orderId, null, createRemainingLink, false, ct);
-    // Read the customer-owned order and reconcile its current payment state.
-    public Task<CheckoutOrderResponse> GetAsync(Guid userId, Guid orderId, CancellationToken ct = default)
+    // Explicitly reconcile a customer-owned payment; call only from commands, never view endpoints.
+    public Task<CheckoutOrderResponse> ReconcileAsync(Guid userId, Guid orderId, CancellationToken ct = default)
         => ProcessAsync(orderId, userId, false, false, ct);
     // Commit payment-link creation intent before creating or reusing the initial payment link.
     public async Task<CheckoutOrderResponse> StartAsync(Guid userId, Guid orderId, CancellationToken ct = default)
@@ -74,7 +74,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     public Task<CheckoutOrderResponse> CancelAsync(Guid userId, Guid orderId, CancellationToken ct = default)
         => ProcessAsync(orderId, userId, false, true, ct);
 
-    // Handle payment reads, link creation, cancellation and expiry in a single reconciliation workflow.
+    // Apply explicit reconciliation, link creation, cancellation and expiry commands.
     private async Task<CheckoutOrderResponse> ProcessAsync(Guid orderId, Guid? userId, bool createLink, bool cancel, CancellationToken ct, bool cancelExpirationJob = true)
     {
         string? expirationJobId = null;

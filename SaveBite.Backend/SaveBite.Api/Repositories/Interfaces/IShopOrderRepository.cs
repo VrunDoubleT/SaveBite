@@ -16,7 +16,9 @@ public interface IShopOrderRepository
     Task<IReadOnlyList<Guid>> RealtimeRecipientsAsync(Guid shopId, CancellationToken ct);
     void AddPayment(Payment payment);
     void AddRefund(Refund refund);
+    void AddRefundHistory(RefundStatusHistory history);
+    Task<OrderPlatformFee?> FeeAsync(Guid orderId, CancellationToken ct);
+    void AddFeeAdjustment(PlatformFeeAdjustment adjustment);
     void AddActivity(StaffActivityLog activity);
     Task<OrderPlatformFee?> GetOrderPlatformFeeAsync(Guid orderId, CancellationToken ct);
-    void AddFeeAdjustment(PlatformFeeAdjustment adjustment);
 }

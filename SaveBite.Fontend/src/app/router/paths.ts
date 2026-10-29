@@ -15,6 +15,8 @@ export const APP_PATHS = {
   ACCOUNT: "/account",
   ACCOUNT_PROFILE: "/account/profile",
   ACCOUNT_ORDERS: "/account/orders",
+  REFUND_DETAIL: "/account/refunds/:refundId",
+  ACCOUNT_REFUNDS: "/account/refunds",
   ACCOUNT_PAYMENTS: "/account/payments",
   ACCOUNT_REVIEWS: "/account/reviews",
   ACCOUNT_TRUST_SCORES: "/account/trust-score",

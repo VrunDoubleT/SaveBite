@@ -107,6 +107,7 @@ public sealed record CheckoutOrderResponse
     public string? ShopLogoUrl { get; init; }
     public string? ShopAddress { get; init; }
     public DateTime? CreatedAt { get; init; }
+    public DateTime? CompletedAt { get; init; }
     public decimal PaidAmount { get; init; }
     public decimal OutstandingAmount { get; init; }
 

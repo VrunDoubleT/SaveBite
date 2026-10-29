@@ -75,6 +75,7 @@ public static class CheckoutOrderMapper
             ShopAddress = string.Join(", ", new[] { order.Shop.AddressLine, order.Shop.Ward, order.Shop.District, order.Shop.City }
                 .Where(value => !string.IsNullOrWhiteSpace(value))),
             CreatedAt = order.CreatedAt,
+            CompletedAt = order.CompletedAt,
             PaidAmount = paidAmount,
             OutstandingAmount = outstandingAmount
         };

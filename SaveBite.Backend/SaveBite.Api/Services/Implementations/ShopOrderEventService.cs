@@ -65,7 +65,7 @@ public sealed class ShopOrderEventService : IShopOrderEventService
             or RealtimeEvents.OrderReasons.Confirm or RealtimeEvents.OrderReasons.Reject
             or RealtimeEvents.OrderReasons.Preparing or RealtimeEvents.OrderReasons.ReadyForPickup
             or RealtimeEvents.OrderReasons.Complete or RealtimeEvents.OrderReasons.ConfirmationExpired
-            or RealtimeEvents.OrderReasons.NoShow)
+            or RealtimeEvents.OrderReasons.NoShow or RealtimeEvents.OrderReasons.RefundChanged)
         {
             try
             {

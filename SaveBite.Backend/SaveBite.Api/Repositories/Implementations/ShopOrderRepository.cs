@@ -106,12 +106,14 @@ public sealed class ShopOrderRepository : IShopOrderRepository
     // Track a new payment receipt for the current order transaction.
     public void AddPayment(Payment payment) => _db.Payments.Add(payment);
     // Track a refund request without initiating a money transfer.
+    public Task<OrderPlatformFee?> FeeAsync(Guid orderId, CancellationToken ct)
+        => _db.Set<OrderPlatformFee>().Include(x => x.Adjustments).SingleOrDefaultAsync(x => x.OrderId == orderId, ct);
+    public void AddFeeAdjustment(PlatformFeeAdjustment adjustment) => _db.Set<PlatformFeeAdjustment>().Add(adjustment);
+    public void AddRefundHistory(RefundStatusHistory history) => _db.Set<RefundStatusHistory>().Add(history);
     public void AddRefund(Refund refund) => _db.Set<Refund>().Add(refund);
     // Track a staff action with the operator identity captured at execution time.
     public void AddActivity(StaffActivityLog activity) => _db.Set<StaffActivityLog>().Add(activity);
     // Find accrued platform fee for an order.
     public async Task<OrderPlatformFee?> GetOrderPlatformFeeAsync(Guid orderId, CancellationToken ct)
         => await _db.Set<OrderPlatformFee>().FirstOrDefaultAsync(x => x.OrderId == orderId, ct);
-    // Track a platform fee adjustment for a refund.
-    public void AddFeeAdjustment(PlatformFeeAdjustment adjustment) => _db.Set<PlatformFeeAdjustment>().Add(adjustment);
 }

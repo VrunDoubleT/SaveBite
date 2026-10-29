@@ -35,9 +35,10 @@ export const shopApi = {
     };
   },
 
-  async getShopProfile(id: string): Promise<ShopProfile> {
+  async getShopProfile(id: string, signal?: AbortSignal): Promise<ShopProfile> {
     const response = await httpClient.get<ApiResponse<ShopProfile>>(
       API_ENDPOINTS.SHOPS.PROFILE(id),
+      { signal },
     );
     return response.data.data;
   },
