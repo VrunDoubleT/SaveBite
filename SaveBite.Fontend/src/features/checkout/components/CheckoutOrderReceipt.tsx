@@ -1,4 +1,4 @@
-import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
+﻿import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
 import { CustomerRefundPanel } from "@/features/shop-orders/components/CustomerRefundPanel";
 import { OrderPickupDeadlines } from "./OrderPickupDeadlines";
@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, CreditCard, Store, Package, MapPin, ShoppingBag, Star } from "lucide-react";
 import { RateOrderModal } from "@/features/feedbacks/components/RateOrderModal";
+import { EditReviewModal } from "@/features/feedbacks/components/EditReviewModal";
 import { APP_PATHS } from "@/app/router/paths";
 import { orderApi } from "@/features/orders/api/orderApi";
 import { paymentApi } from "@/features/payments/api/paymentApi";
@@ -24,6 +25,12 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [ratingItemId, setRatingItemId] = useState<string | null>(null);
+  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<{
+    feedbackId: string;
+    productName?: string;
+    variantName?: string;
+    imageUrl?: string | null;
+  } | null>(null);
   const [now, setNow] = useState(Date.now);
   const alive = useRef(true);
   const revision = useRef(0);
@@ -114,6 +121,15 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
         order={order}
         focusOrderItemId={ratingItemId || undefined}
         onSubmitted={() => void update(() => orderApi.order(orderId))}
+      />
+      <EditReviewModal
+        isOpen={Boolean(editingFeedbackTarget)}
+        onClose={() => setEditingFeedbackTarget(null)}
+        feedbackId={editingFeedbackTarget?.feedbackId ?? null}
+        initialProductName={editingFeedbackTarget?.productName}
+        initialVariantName={editingFeedbackTarget?.variantName}
+        initialImageUrl={editingFeedbackTarget?.imageUrl}
+        onUpdated={() => void update(() => orderApi.order(orderId))}
       />
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <Link
@@ -238,19 +254,25 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                                   Rate this item
                                 </button>
                               ) : item.rating ? (
-                                <Link
-                                  to={
-                                    item.feedbackId
-                                      ? `${APP_PATHS.ACCOUNT_REVIEWS}?feedbackId=${item.feedbackId}`
-                                      : APP_PATHS.ACCOUNT_REVIEWS
-                                  }
-                                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (item.feedbackId) {
+                                      setEditingFeedbackTarget({
+                                        feedbackId: item.feedbackId,
+                                        productName: item.productName,
+                                        variantName: item.variantName,
+                                        imageUrl: item.imageUrl,
+                                      });
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer text-left"
                                 >
                                   <CheckCircle2 size={13} />
                                   Reviewed
                                   <Star size={12} className="fill-amber-400 text-amber-400" />
-                                  {item.rating}/5 · View review
-                                </Link>
+                                  {item.rating}/5 · Edit review
+                                </button>
                               ) : null}
                             </div>
                           )}

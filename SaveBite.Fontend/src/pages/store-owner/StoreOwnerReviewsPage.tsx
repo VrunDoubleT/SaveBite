@@ -14,6 +14,7 @@ export function StoreOwnerReviewsPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [activeRating, setActiveRating] = useState<number | null>(null);
   const [activeReplyFilter, setActiveReplyFilter] = useState<boolean | null>(null);
+  const [isToday, setIsToday] = useState(false);
 
   const fetchFeedbacks = useCallback(async () => {
     setIsLoading(true);
@@ -23,6 +24,7 @@ export function StoreOwnerReviewsPage() {
         pageSize,
         rating: activeRating ?? undefined,
         hasReply: activeReplyFilter ?? undefined,
+        isToday: isToday || undefined,
       });
 
       setFeedbacks(response.items);
@@ -33,7 +35,7 @@ export function StoreOwnerReviewsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, activeRating, activeReplyFilter]);
+  }, [page, pageSize, activeRating, activeReplyFilter, isToday]);
 
   useEffect(() => {
     void fetchFeedbacks();
@@ -46,6 +48,14 @@ export function StoreOwnerReviewsPage() {
 
   const handleReplyFilterChange = (hasReply: boolean | null) => {
     setActiveReplyFilter(hasReply);
+    if (hasReply === null) {
+      setIsToday(false);
+    }
+    setPage(1);
+  };
+
+  const handleTodayToggle = () => {
+    setIsToday((prev) => !prev);
     setPage(1);
   };
 
@@ -91,6 +101,8 @@ export function StoreOwnerReviewsPage() {
         onRatingChange={handleRatingChange}
         activeReplyFilter={activeReplyFilter}
         onReplyFilterChange={handleReplyFilterChange}
+        isToday={isToday}
+        onTodayToggle={handleTodayToggle}
         onPageChange={handlePageChange}
         onReply={handleReply}
         onEditReply={handleEditReply}

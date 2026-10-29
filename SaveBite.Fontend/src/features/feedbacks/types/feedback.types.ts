@@ -56,6 +56,7 @@ export interface ShopFeedbacksQueryParams {
   rating?: number;
   hasReply?: boolean;
   shopId?: string;
+  isToday?: boolean;
 }
 
 export interface FeedbackHistoryResponse {

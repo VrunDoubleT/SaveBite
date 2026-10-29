@@ -36,6 +36,14 @@ export const feedbackApi = {
     return response.data.data;
   },
 
+  // View Single Feedback
+  async getFeedback(feedbackId: string): Promise<FeedbackItem> {
+    const response = await httpClient.get<ApiResponse<FeedbackItem>>(
+      API_ENDPOINTS.FEEDBACKS.DETAIL(feedbackId),
+    );
+    return response.data.data;
+  },
+
   // UC-42: Edit Feedback
   async editFeedback(
     feedbackId: string,

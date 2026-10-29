@@ -27,6 +27,8 @@ interface ShopFeedbackManagementPanelProps {
   onRatingChange: (rating: number | null) => void;
   activeReplyFilter: boolean | null;
   onReplyFilterChange: (hasReply: boolean | null) => void;
+  isToday?: boolean;
+  onTodayToggle?: () => void;
   onPageChange: (newPage: number) => void;
   onReply: (feedbackId: string, content: string) => Promise<void>;
   onEditReply: (feedbackId: string, content: string) => Promise<void>;
@@ -47,6 +49,8 @@ export function ShopFeedbackManagementPanel({
   onRatingChange,
   activeReplyFilter,
   onReplyFilterChange,
+  isToday = false,
+  onTodayToggle,
   onPageChange,
   onReply,
   onEditReply,
@@ -147,7 +151,7 @@ export function ShopFeedbackManagementPanel({
             type="button"
             onClick={() => onReplyFilterChange(null)}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
-              activeReplyFilter === null
+              activeReplyFilter === null && !isToday
                 ? "bg-emerald-600 text-white"
                 : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
@@ -176,6 +180,19 @@ export function ShopFeedbackManagementPanel({
           >
             Replied
           </button>
+          {onTodayToggle && (
+            <button
+              type="button"
+              onClick={onTodayToggle}
+              className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+                isToday
+                  ? "bg-emerald-600 text-white"
+                  : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
+              }`}
+            >
+              Today
+            </button>
+          )}
 
           <span className="h-5 w-px bg-neutral-200 mx-1 hidden sm:block" />
 

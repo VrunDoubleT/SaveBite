@@ -43,25 +43,39 @@ export function ReviewsPanel({
   };
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs sm:p-6">
-      <div className="border-b border-neutral-100 pb-4">
-        <h2 className="text-lg font-bold text-neutral-900">My reviews</h2>
-        <p className="mt-0.5 text-sm text-neutral-500">
-          Reviews you&apos;ve written for completed orders.
-        </p>
+    <div className="space-y-4">
+      {/* Header Card */}
+      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-neutral-900">My reviews</h2>
+            <p className="mt-1 text-xs text-neutral-500 sm:text-sm">
+              Reviews you&apos;ve written for completed orders.
+            </p>
+          </div>
+          {reviews.length > 0 && (
+            <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+              <MessageSquareText className="size-4 text-emerald-600" />
+              <span>
+                {reviews.length} {reviews.length === 1 ? "review" : "reviews"} on this page
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Reviews Cards List */}
       {isLoading ? (
-        <div className="space-y-4 pt-4">
+        <div className="space-y-4">
           {[1, 2, 3].map((item) => (
             <div
               key={item}
-              className="h-36 animate-pulse rounded-xl border border-neutral-100 bg-neutral-50 p-4"
+              className="h-44 animate-pulse rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs"
             />
           ))}
         </div>
       ) : reviews.length > 0 ? (
-        <div className="divide-y divide-neutral-100 pt-2">
+        <div className="space-y-4">
           {reviews.map((review) => (
             <ReviewCard
               key={review.id}
@@ -73,7 +87,7 @@ export function ReviewsPanel({
           ))}
         </div>
       ) : (
-        <div className="py-12 text-center">
+        <div className="rounded-2xl border border-neutral-200 bg-white py-12 px-6 text-center shadow-xs">
           <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
             <MessageSquareText className="size-6" />
           </span>
@@ -86,7 +100,7 @@ export function ReviewsPanel({
           </p>
           <Link
             to={`${APP_PATHS.ACCOUNT_ORDERS}?status=Completed`}
-            className="mt-5 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+            className="mt-5 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 shadow-xs"
           >
             Go to completed orders
             <ArrowRight size={16} />
@@ -98,25 +112,23 @@ export function ReviewsPanel({
       <SharedModal
         isOpen={Boolean(reviewToDelete)}
         onClose={() => !isDeleting && setReviewToDelete(null)}
-        title="Delete this review?"
+        title="Delete review"
         maxWidthClass="max-w-md"
       >
-        <div className="space-y-4">
-          <p className="text-sm leading-relaxed text-neutral-600">
+        <div className="space-y-3">
+          <p className="text-sm text-neutral-600">
             Are you sure you want to delete your review for{" "}
-            <strong className="font-semibold text-neutral-900">
+            <span className="font-semibold text-neutral-900">
               {reviewToDelete?.productName}
-            </strong>
-            ? It will no longer be visible to the shop or other customers, and
-            this item cannot be reviewed again.
+            </span>
+            ? This action cannot be undone.
           </p>
-
-          <div className="flex justify-end gap-2.5 pt-2">
+          <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
               disabled={isDeleting}
               onClick={() => setReviewToDelete(null)}
-              className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              className="rounded-lg border border-neutral-200 px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
             >
               Cancel
             </button>

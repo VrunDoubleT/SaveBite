@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import {
+  Calendar,
   Camera,
+  CheckCircle2,
   Loader2,
   MessageSquareQuote,
   Package,
@@ -17,6 +19,14 @@ import { feedbackApi } from "../api/feedbackApi";
 import { StarRatingInput } from "./StarRatingInput";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api";
+
+const RATING_LABELS: Record<number, string> = {
+  5: "Excellent",
+  4: "Good",
+  3: "Okay",
+  2: "Poor",
+  1: "Terrible",
+};
 
 interface ReviewCardProps {
   review: FeedbackItem;
@@ -106,12 +116,18 @@ export function ReviewCard({
   };
 
   return (
-    <article id={`feedback-${review.id}`} className={`py-5 first:pt-2 last:pb-0 transition-all duration-500 rounded-2xl ${isHighlighted ? "ring-2 ring-emerald-500 bg-emerald-50/50 p-4 shadow-sm" : ""}`}>
-
+    <article
+      id={`feedback-${review.id}`}
+      className={`rounded-2xl border bg-white p-5 sm:p-6 shadow-xs transition-all duration-300 hover:border-neutral-300 hover:shadow-sm ${
+        isHighlighted
+          ? "border-emerald-500 ring-4 ring-emerald-500/20 bg-emerald-50/15 shadow-md"
+          : "border-neutral-200"
+      }`}
+    >
       {/* Shop & Order info header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-50 text-emerald-700">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-3.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-emerald-50 text-emerald-700">
             <Store className="size-4" />
             {review.shopLogoUrl && (
               <img
@@ -126,7 +142,7 @@ export function ReviewCard({
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <strong className="truncate text-sm font-semibold text-neutral-900">
+              <strong className="truncate text-sm font-bold text-neutral-900">
                 {review.shopName || "Store"}
               </strong>
               {review.orderCode && review.orderId ? (
@@ -135,34 +151,39 @@ export function ReviewCard({
                     ":orderId",
                     encodeURIComponent(review.orderId),
                   )}
-                  className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600 hover:bg-emerald-50 hover:text-emerald-700"
+                  className="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-semibold text-neutral-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
+                  title="View order receipt"
                 >
                   #{review.orderCode}
                 </Link>
               ) : review.orderCode ? (
-                <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600">
+                <span className="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-semibold text-neutral-700">
                   #{review.orderCode}
                 </span>
               ) : null}
             </div>
-            <p className="text-xs text-neutral-500">
+            <p className="flex items-center gap-1 text-xs font-medium text-emerald-700 mt-0.5">
+              <CheckCircle2 size={13} className="shrink-0" />
               Verified completed order
             </p>
           </div>
         </div>
 
-        <span className="shrink-0 text-xs text-neutral-500">
-          {new Date(review.createdAt).toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })}
-        </span>
+        <div className="flex items-center gap-1.5 rounded-lg border border-neutral-100 bg-neutral-50 px-2.5 py-1 text-xs font-medium text-neutral-500">
+          <Calendar size={13} className="shrink-0 text-neutral-400" />
+          <time dateTime={review.createdAt}>
+            {new Date(review.createdAt).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          </time>
+        </div>
       </div>
 
       {/* Product row */}
-      <div className="mt-3 flex items-center gap-3 rounded-xl bg-neutral-50 p-3">
-        <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-neutral-400 shadow-2xs">
+      <div className="mt-3.5 flex items-center gap-3.5 rounded-xl border border-neutral-100 bg-neutral-50/80 p-3">
+        <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-white text-neutral-400 shadow-2xs">
           <Package className="size-5" />
           {review.imageUrl && (
             <img
@@ -175,12 +196,12 @@ export function ReviewCard({
             />
           )}
         </span>
-        <div className="min-w-0">
-          <strong className="block truncate text-sm font-semibold text-neutral-900">
+        <div className="min-w-0 flex-1">
+          <strong className="block truncate text-sm font-bold text-neutral-900">
             {review.productName || "Purchased item"}
           </strong>
           {review.variantName && (
-            <span className="mt-0.5 block text-xs text-neutral-500">
+            <span className="mt-1 inline-block rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-600">
               {review.variantName}
             </span>
           )}
@@ -189,22 +210,30 @@ export function ReviewCard({
 
       {/* VIEW MODE */}
       {!isEditing && (
-        <div className="mt-3">
-          <div className="flex items-center gap-1">
-            {Array.from({ length: 5 }, (_, index) => (
-              <Star
-                key={index}
-                className="size-4 text-amber-400"
-                fill={index < review.rating ? "currentColor" : "none"}
-              />
-            ))}
-            <span className="ml-1.5 text-xs font-semibold text-neutral-700">
+        <div className="mt-3.5">
+          {/* Star rating & status text */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-0.5">
+              {Array.from({ length: 5 }, (_, index) => (
+                <Star
+                  key={index}
+                  className="size-4.5 text-amber-400"
+                  fill={index < review.rating ? "currentColor" : "none"}
+                />
+              ))}
+            </div>
+            <span className="text-xs font-bold text-neutral-900">
               {review.rating}/5
+            </span>
+            <span className="text-xs font-medium text-neutral-300">·</span>
+            <span className="text-xs font-semibold text-emerald-700">
+              {RATING_LABELS[review.rating] || "Rated"}
             </span>
           </div>
 
+          {/* Comment text */}
           {review.comment ? (
-            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-neutral-700">
+            <p className="mt-2.5 text-sm leading-relaxed text-neutral-800 font-normal whitespace-pre-line">
               {review.comment}
             </p>
           ) : (
@@ -215,13 +244,14 @@ export function ReviewCard({
 
           {/* Customer review photos */}
           {review.images && review.images.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2.5">
               {review.images.map((img, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => setPreviewImage(img)}
-                  className="group relative size-16 overflow-hidden rounded-xl border border-neutral-200 shadow-2xs transition hover:opacity-90"
+                  className="group relative size-16 overflow-hidden rounded-xl border border-neutral-200 shadow-2xs transition hover:scale-105 hover:border-emerald-500 cursor-pointer"
+                  title="View full image"
                 >
                   <img
                     src={img}
@@ -233,12 +263,18 @@ export function ReviewCard({
             </div>
           )}
 
+          {/* Store response */}
           {review.reply && (
-            <div className="mt-3 rounded-lg border-l-4 border-emerald-500 bg-emerald-50/70 px-4 py-3">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
-                <MessageSquareQuote className="size-3.5" />
+            <div className="mt-3.5 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+                <MessageSquareQuote className="size-4 text-emerald-700 shrink-0" />
                 <span>Response from shop</span>
-                <span className="text-[11px] font-normal text-neutral-500">
+                {review.reply.repliedByName && (
+                  <span className="font-normal text-emerald-800">
+                    ({review.reply.repliedByName})
+                  </span>
+                )}
+                <span className="text-[11px] font-normal text-emerald-700/80">
                   ·{" "}
                   {new Date(review.reply.createdAt).toLocaleDateString("en-GB", {
                     day: "2-digit",
@@ -247,26 +283,27 @@ export function ReviewCard({
                   })}
                 </span>
               </div>
-              <p className="mt-1 text-xs leading-relaxed text-neutral-700">
+              <p className="mt-1.5 text-xs leading-relaxed text-emerald-950 font-medium whitespace-pre-wrap">
                 {review.reply.content}
               </p>
             </div>
           )}
 
-          <div className="mt-3 flex items-center gap-2">
+          {/* Bottom actions */}
+          <div className="mt-4 flex items-center justify-end gap-2 border-t border-neutral-100 pt-3">
             <button
               type="button"
               onClick={startEdit}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 hover:border-neutral-300"
             >
-              <Pencil className="size-3.5" />
+              <Pencil className="size-3.5 text-neutral-500" />
               Edit review
             </button>
 
             <button
               type="button"
               onClick={() => onRequestDelete(review)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-red-100 bg-red-50/70 px-3.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100/80"
             >
               <Trash2 className="size-3.5" />
               Delete
@@ -277,10 +314,10 @@ export function ReviewCard({
 
       {/* INLINE EDIT MODE */}
       {isEditing && (
-        <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50/70 p-4">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="mt-3.5 rounded-xl border border-emerald-200 bg-neutral-50/80 p-4 sm:p-5">
+          <div className="mb-3.5 flex items-center justify-between border-b border-neutral-200/60 pb-3">
             <div>
-              <h3 className="text-sm font-semibold text-neutral-900">
+              <h3 className="text-sm font-bold text-neutral-900">
                 Edit your review
               </h3>
               <p className="text-xs text-neutral-500">
@@ -291,26 +328,27 @@ export function ReviewCard({
               type="button"
               onClick={cancelEdit}
               aria-label="Cancel editing"
-              className="rounded-full p-1 text-neutral-500 hover:bg-neutral-200"
+              className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 transition"
             >
               <X className="size-4" />
             </button>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-neutral-700">
+            <label className="mb-1.5 block text-xs font-bold text-neutral-700 uppercase tracking-wider">
               Rating
             </label>
             <StarRatingInput
               value={rating}
               onChange={setRating}
               disabled={isSaving}
+              size="lg"
             />
           </div>
 
-          <div className="mt-3">
+          <div className="mt-3.5">
             <div className="mb-1 flex items-center justify-between">
-              <label className="text-xs font-medium text-neutral-700">
+              <label className="text-xs font-semibold text-neutral-700">
                 Review comment
               </label>
               <span className="text-[11px] text-neutral-400">
@@ -324,14 +362,14 @@ export function ReviewCard({
               maxLength={2000}
               disabled={isSaving}
               placeholder="Share your updated experience..."
-              className="w-full resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+              className="w-full resize-none rounded-xl border border-neutral-200 bg-white p-3 text-xs sm:text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
             />
           </div>
 
           {/* Edit photos */}
-          <div className="mt-3">
-            <div className="mb-1.5 flex items-center justify-between">
-              <label className="block text-xs font-medium text-neutral-700">
+          <div className="mt-3.5">
+            <div className="mb-2 flex items-center justify-between">
+              <label className="block text-xs font-semibold text-neutral-700">
                 Photos <span className="font-normal text-neutral-400">(max 5)</span>
               </label>
               <span className="text-[11px] text-neutral-400">
@@ -343,7 +381,7 @@ export function ReviewCard({
               {images.map((imgUrl, imgIdx) => (
                 <div
                   key={imgIdx}
-                  className="relative size-16 overflow-hidden rounded-xl border border-neutral-200"
+                  className="group relative size-16 overflow-hidden rounded-xl border border-neutral-200"
                 >
                   <img
                     src={imgUrl}
@@ -367,14 +405,14 @@ export function ReviewCard({
                   type="button"
                   disabled={isSaving || isUploading}
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex size-16 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-neutral-300 bg-white text-neutral-500 transition hover:border-emerald-500 hover:text-emerald-700 disabled:opacity-50"
+                  className="flex size-16 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-neutral-300 bg-white text-neutral-500 transition hover:border-emerald-500 hover:text-emerald-700 disabled:opacity-50 cursor-pointer"
                 >
                   {isUploading ? (
                     <Loader2 className="size-5 animate-spin text-emerald-600" />
                   ) : (
                     <>
                       <Camera className="size-5" />
-                      <span className="text-[10px] font-medium">Add</span>
+                      <span className="text-[10px] font-medium">Add photo</span>
                     </>
                   )}
                 </button>
@@ -387,26 +425,27 @@ export function ReviewCard({
               accept="image/*"
               multiple
               className="hidden"
-              onChange={(e) => handleImageUpload(e.target.files)}
+              onChange={(e) => void handleImageUpload(e.target.files)}
             />
           </div>
 
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              disabled={isSaving || isUploading}
-              onClick={saveEdit}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {isSaving ? "Saving..." : "Save changes"}
-            </button>
+          <div className="mt-4 flex justify-end gap-2 border-t border-neutral-200/60 pt-3">
             <button
               type="button"
               disabled={isSaving || isUploading}
               onClick={cancelEdit}
-              className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
+              className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
             >
               Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isSaving || isUploading}
+              onClick={saveEdit}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {isSaving && <Loader2 className="size-3.5 animate-spin" />}
+              Save changes
             </button>
           </div>
         </div>
@@ -429,7 +468,7 @@ export function ReviewCard({
             <button
               type="button"
               onClick={() => setPreviewImage(null)}
-              className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white transition hover:bg-black"
+              className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white transition hover:bg-black cursor-pointer"
             >
               Close ✕
             </button>

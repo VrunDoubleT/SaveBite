@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { feedbackApi } from "@/features/feedbacks/api/feedbackApi";
 import type { FeedbackItem } from "@/features/feedbacks/types/feedback.types";
@@ -19,6 +19,7 @@ export function ReviewsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [highlightedId, setHighlightedId] = useState<string | null>(feedbackIdParam);
   const initialDeepLinkHandled = useRef(false);
+  const lastFetchedPage = useRef<number | null>(null);
 
   const fetchReviews = useCallback(
     async (targetPage = 1, targetFeedbackId?: string) => {
@@ -29,6 +30,7 @@ export function ReviewsPage() {
           pageSize,
           targetFeedbackId,
         );
+        lastFetchedPage.current = data.page;
         setReviews(data.items);
         setPage(data.page);
         setTotalPages(data.totalPages);
@@ -45,13 +47,16 @@ export function ReviewsPage() {
   );
 
   useEffect(() => {
-    // If arriving with a feedbackId, let backend locate the exact page
+    // If arriving with a feedbackId, let backend locate the exact page once
     if (feedbackIdParam && !initialDeepLinkHandled.current) {
       initialDeepLinkHandled.current = true;
       void fetchReviews(1, feedbackIdParam);
-    } else {
-      void fetchReviews(page);
+      return;
     }
+
+    if (lastFetchedPage.current === page) return;
+    lastFetchedPage.current = page;
+    void fetchReviews(page);
   }, [fetchReviews, page, feedbackIdParam]);
 
   // Scroll and pulse highlight when target review appears on screen
