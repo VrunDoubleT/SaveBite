@@ -42,9 +42,9 @@ public class UpdateLevelBenefitsTests
         );
     }
 
-    private TrustLevel CreateSampleLevel(string? description = "Old benefit text: 5% discount on flash deals.")
+    private TrustLevel CreateSampleLevel(string? description = "Old benefit text: 5% discount on flash deals.", bool requireFullOnline = true)
     {
-        return new TrustLevel
+        var level = new TrustLevel
         {
             Id = _levelId,
             Name = "Silver Member",
@@ -61,6 +61,19 @@ public class UpdateLevelBenefitsTests
                 MinTotalOrderValue = 200000m
             }
         };
+
+        level.DepositPolicy = new TrustLevelDepositPolicy
+        {
+            Id = Guid.NewGuid(),
+            TrustLevelId = _levelId,
+            RequireFullOnlinePayment = requireFullOnline,
+            DepositFreeOrderAmount = null,
+            MaxDepositOrderAmount = null,
+            CreatedAt = DateTime.UtcNow.AddDays(-5),
+            UpdatedAt = DateTime.UtcNow.AddDays(-5)
+        };
+
+        return level;
     }
 
     // =========================================================================
@@ -74,7 +87,8 @@ public class UpdateLevelBenefitsTests
         var level = CreateSampleLevel();
         var request = new UpdateTrustLevelBenefitsRequest
         {
-            Description = "Updated benefit text: 10% discount on rescue packs, 3 concurrent orders."
+            Description = "Updated benefit text: 10% discount on rescue packs, 3 concurrent orders.",
+            RequireFullOnlinePayment = true
         };
 
         _repositoryMock
@@ -119,7 +133,8 @@ public class UpdateLevelBenefitsTests
         var level = CreateSampleLevel("Existing benefit text");
         var request = new UpdateTrustLevelBenefitsRequest
         {
-            Description = "   " // Whitespace should be trimmed to null
+            Description = "   ", // Whitespace should be trimmed to null
+            RequireFullOnlinePayment = true
         };
 
         _repositoryMock
@@ -163,7 +178,8 @@ public class UpdateLevelBenefitsTests
         var level = CreateSampleLevel(currentDescription);
         var request = new UpdateTrustLevelBenefitsRequest
         {
-            Description = currentDescription
+            Description = currentDescription,
+            RequireFullOnlinePayment = true
         };
 
         _repositoryMock

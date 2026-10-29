@@ -62,7 +62,7 @@ public class ViewOrderDetailsForShopTests
         result.CustomerName.Should().Be("Test Customer");
         result.Order.Items[0].UnitPrice.Should().Be(25000m);
         result.Payments.Should().ContainSingle();
-        _context.Payments.Verify(r => r.ReconcileOrderAsync(order.Id, false, It.IsAny<CancellationToken>()), Times.Once);
+        _context.Payments.Verify(r => r.ReconcileOrderAsync(order.Id, false, It.IsAny<CancellationToken>()), Times.Never);
         _output.WriteLine("TCID01 PASSED: ViewOrderDetailsForShop_ActiveOwnerOrStaff_SeesRecordedData (Normal).");
     }
 

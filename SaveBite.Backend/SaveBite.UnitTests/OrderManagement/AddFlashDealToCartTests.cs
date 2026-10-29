@@ -21,7 +21,7 @@ using SaveBite.Api.Tests.UnitTests.Support;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace SaveBite.Api.Tests.UnitTests;
+namespace SaveBite.Api.Tests.FlashDealManagement;
 
 [Trait("Category", "Unit")]
 public class AddFlashDealToCartTests

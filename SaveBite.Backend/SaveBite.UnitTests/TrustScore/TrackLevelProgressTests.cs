@@ -121,7 +121,7 @@ public class TrackLevelProgressTests
             .ReturnsAsync(new List<TrustLevel> { level1, level2 });
         _repositoryMock
             .Setup(r => r.GetCurrentEarningRuleAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>(), It.IsAny<TrustScoreRuleType>()))
-            .ReturnsAsync((TrustScoreRule?)null);
+            .ReturnsAsync(new TrustScoreRule { ScoreDelta = 2, RuleType = TrustScoreRuleType.OnlineOrderCompleted });
         // Act
         var result = await _service.GetLevelProgressAsync(_userId);
 
@@ -135,7 +135,7 @@ public class TrackLevelProgressTests
         result.RequirementsMet.Should().BeFalse();
         result.OverallPercent.Should().Be(55.0m);
         result.Metrics.Should().HaveCount(3);
-        result.ScoreDeltaPerCompletedOrder.Should().Be(2);
+        result.OnlineOrderCompletedPoints.Should().Be(2);
     }
 
     // =========================================================================
@@ -262,15 +262,16 @@ public class TrackLevelProgressTests
             .Setup(r => r.GetActiveLevelsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TrustLevel> { level1, level2 });
         _repositoryMock
-            .Setup(r => r.TryProvisionAsync(_userId, level1.Id, 100, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.TryProvisionAsync(_userId, level1.Id, 0, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _repositoryMock
             .Setup(r => r.GetLevelProgressAsync(_userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((UserLevelProgress?)null);
+            .ReturnsAsync(new UserLevelProgress { UserId = _userId });
         _repositoryMock
             .Setup(r => r.GetCurrentEarningRuleAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>(), It.IsAny<TrustScoreRuleType>()))
             .ReturnsAsync((TrustScoreRule?)null);
         // Act
+        await _service.InitializeAsync(_userId);
         var result = await _service.GetLevelProgressAsync(_userId);
 
         // Assert & Log
@@ -280,7 +281,7 @@ public class TrackLevelProgressTests
         result.NextLevel.Should().NotBeNull();
 
         _repositoryMock.Verify(
-            r => r.TryProvisionAsync(_userId, level1.Id, 100, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            r => r.TryProvisionAsync(_userId, level1.Id, 0, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -299,7 +300,7 @@ public class TrackLevelProgressTests
             .ReturnsAsync(new List<TrustLevel>());
 
         // Act
-        Func<Task> act = async () => await _service.GetLevelProgressAsync(_userId);
+        Func<Task> act = async () => await _service.InitializeAsync(_userId);
 
         // Assert
         var exception = await act.Should().ThrowAsync<AppException>();

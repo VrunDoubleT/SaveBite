@@ -71,7 +71,8 @@ internal sealed class ShopOrderTestContext
         Confirmation.Setup(x => x.Delete(It.IsAny<string>())).Returns(true);
         NoShow.Setup(x => x.Schedule(It.IsAny<Guid>(), It.IsAny<DateTime>())).Returns("no-show-job");
         Service = new ShopOrderService(Shops.Object, Orders.Object, Payments.Object, Gateway.Object, Stock.Object, Email.Object,
-            Clock, new Mock<ILogger<ShopOrderService>>().Object, Confirmation.Object, Realtime.Object, NoShow.Object, Events.Object);
+            Clock, new Mock<ILogger<ShopOrderService>>().Object, Confirmation.Object, Realtime.Object, NoShow.Object, Events.Object,
+            new Mock<IRefundDeadlineScheduler>().Object);
     }
     public Payment Initial => Order.Payments.First(x => x.PaymentType != PaymentType.Remaining);
     public void AsStaff()

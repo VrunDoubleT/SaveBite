@@ -302,16 +302,17 @@ public class ViewTrustScoreAndLevelTests
             .Setup(r => r.GetActiveLevelsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TrustLevel> { level1, level2 });
         _repositoryMock
-            .Setup(r => r.TryProvisionAsync(_userId, level1.Id, 100, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.TryProvisionAsync(_userId, level1.Id, 0, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _repositoryMock
             .Setup(r => r.GetLevelProgressAsync(_userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((UserLevelProgress?)null);
+            .ReturnsAsync(new UserLevelProgress { UserId = _userId });
         _repositoryMock
             .Setup(r => r.CountRecoveringPenaltiesAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
 
         // Act
+        await _service.InitializeAsync(_userId);
         var result = await _service.GetOverviewAsync(_userId);
 
         // Assert & Log
@@ -322,7 +323,7 @@ public class ViewTrustScoreAndLevelTests
         result.Standing.Should().Be(TrustScoreService.StandingGood);
 
         _repositoryMock.Verify(
-            r => r.TryProvisionAsync(_userId, level1.Id, 100, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            r => r.TryProvisionAsync(_userId, level1.Id, 0, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -342,7 +343,7 @@ public class ViewTrustScoreAndLevelTests
             .ReturnsAsync(new List<TrustLevel>());
 
         // Act
-        Func<Task> act = async () => await _service.GetOverviewAsync(_userId);
+        Func<Task> act = async () => await _service.InitializeAsync(_userId);
 
         // Assert
         var exception = await act.Should().ThrowAsync<AppException>();

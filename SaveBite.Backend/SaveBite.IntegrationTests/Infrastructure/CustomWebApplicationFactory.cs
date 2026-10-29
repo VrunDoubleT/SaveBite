@@ -23,9 +23,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public Mock<ICloudinaryService> CloudinaryServiceMock { get; } = new();
     public Mock<IRabbitMqPublisher> RabbitMqPublisherMock { get; } = new();
     public Mock<IFlashDealRedisService> FlashDealRedisServiceMock { get; } = new();
+    public Mock<ICheckoutPaymentGateway> CheckoutPaymentGatewayMock { get; } = new();
 
     public CustomWebApplicationFactory()
     {
+        Environment.SetEnvironmentVariable("Checkout__PaymentProvider", "PayOS");
         CloudinaryServiceMock
             .Setup(c => c.UploadImageAsync(It.IsAny<IFormFile>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CloudinaryUploadResult("https://res.cloudinary.com/demo/image/upload/sample.jpg", "sample_public_id"));
@@ -49,17 +51,43 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         FlashDealRedisServiceMock
             .Setup(x => x.GetDealAsync(It.IsAny<Guid>()))
             .ReturnsAsync((SaveBite.Backend.Models.Responses.FlashDealResponse?)null);
+
+        CheckoutPaymentGatewayMock
+            .Setup(x => x.IsConfigured(It.IsAny<SaveBite.Backend.Models.Entities.ShopPaymentConfig?>()))
+            .Returns(true);
+
+        CheckoutPaymentGatewayMock
+            .Setup(x => x.CreateAsync(It.IsAny<SaveBite.Backend.Models.Entities.Order>(), It.IsAny<SaveBite.Backend.Models.Entities.Payment>(), It.IsAny<SaveBite.Backend.Models.Entities.ShopPaymentConfig>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SaveBite.Backend.Models.Entities.Order o, SaveBite.Backend.Models.Entities.Payment p, SaveBite.Backend.Models.Entities.ShopPaymentConfig c, CancellationToken ct) =>
+                new GatewayPayment("PENDING", p.GatewayOrderCode ?? 123456789, p.Amount, 0, "link_test_123", "https://pay.payos.vn/web/test123456", "00020101021238540010A00000072701260006970422..."));
+
+        CheckoutPaymentGatewayMock
+            .Setup(x => x.GetAsync(It.IsAny<SaveBite.Backend.Models.Entities.Payment>(), It.IsAny<SaveBite.Backend.Models.Entities.ShopPaymentConfig>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SaveBite.Backend.Models.Entities.Payment p, SaveBite.Backend.Models.Entities.ShopPaymentConfig c, CancellationToken ct) =>
+                new GatewayPayment(p.Status == SaveBite.Backend.Models.Enums.PaymentStatus.Succeeded ? "PAID" : "PENDING",
+                    p.GatewayOrderCode ?? 123456789, p.Amount, p.Status == SaveBite.Backend.Models.Enums.PaymentStatus.Succeeded ? p.Amount : 0,
+                    "link_test_123", "https://pay.payos.vn/web/test123456", "00020101021238540010A00000072701260006970422..."));
+
+        CheckoutPaymentGatewayMock
+            .Setup(x => x.CancelAsync(It.IsAny<SaveBite.Backend.Models.Entities.Payment>(), It.IsAny<SaveBite.Backend.Models.Entities.ShopPaymentConfig>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SaveBite.Backend.Models.Entities.Payment p, SaveBite.Backend.Models.Entities.ShopPaymentConfig c, CancellationToken ct) =>
+                new GatewayPayment("CANCELLED", p.GatewayOrderCode ?? 123456789, p.Amount, 0, "link_test_123", null));
+
+        CheckoutPaymentGatewayMock
+            .Setup(x => x.VerifyWebhook(It.IsAny<System.Text.Json.JsonElement>(), It.IsAny<SaveBite.Backend.Models.Entities.ShopPaymentConfig>()))
+            .Returns(true);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment("Development");
 
         builder.ConfigureAppConfiguration((_, configBuilder) =>
         {
             var testConfigs = new Dictionary<string, string?>
             {
-                ["ConnectionStrings:Postgres"] = DatabaseFixture.TestConnectionString
+                ["ConnectionStrings:Postgres"] = DatabaseFixture.TestConnectionString,
+                ["Checkout:PaymentProvider"] = "PayOS"
             };
             configBuilder.AddInMemoryCollection(testConfigs);
         });
@@ -80,9 +108,15 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll(typeof(ICloudinaryService));
             services.AddSingleton(CloudinaryServiceMock.Object);
 
+            services.RemoveAll(typeof(ICheckoutPaymentGateway));
+            services.AddSingleton(CheckoutPaymentGatewayMock.Object);
+
             // 3. Mock Redis so tests don't require a running Redis instance
+            var redisMock = new Mock<IConnectionMultiplexer>();
+            var redisDbMock = new Mock<IDatabase>();
+            redisMock.Setup(m => m.GetDatabase(It.IsAny<int>(), It.IsAny<object>())).Returns(redisDbMock.Object);
             services.RemoveAll(typeof(IConnectionMultiplexer));
-            services.AddSingleton(Mock.Of<IConnectionMultiplexer>());
+            services.AddSingleton(redisMock.Object);
 
             services.RemoveAll(typeof(IRedisCacheService));
             services.AddSingleton(Mock.Of<IRedisCacheService>());

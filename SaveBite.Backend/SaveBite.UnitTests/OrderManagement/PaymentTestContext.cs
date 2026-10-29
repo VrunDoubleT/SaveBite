@@ -34,6 +34,7 @@ internal sealed class PaymentTestContext
     public Mock<IOrderEventPublisher> Events { get; } = new();
     public Mock<IShopOrderEventService> Realtime { get; } = new();
     public CheckoutPaymentService Service { get; }
+    public OrderService OrderService { get; }
     public string ProviderStatus { get; set; } = "PENDING";
     public decimal ProviderPaid { get; set; }
     public PaymentTestContext()
@@ -56,6 +57,7 @@ internal sealed class PaymentTestContext
         Scheduler.Setup(x => x.Delete(It.IsAny<string>())).Returns(true);
         Service = new CheckoutPaymentService(Repo.Object, Gateway.Object, Stock.Object, Clock, Scheduler.Object,
             new Mock<ILogger<CheckoutPaymentService>>().Object, Events.Object, Realtime.Object);
+        OrderService = new OrderService(Repo.Object, Service, Clock);
     }
     public Payment Initial => Order.Payments.First(x => x.PaymentType != PaymentType.Remaining);
     public GatewayPayment Result(Payment p) => new(ProviderStatus, p.GatewayOrderCode ?? 0, p.Amount, ProviderPaid,

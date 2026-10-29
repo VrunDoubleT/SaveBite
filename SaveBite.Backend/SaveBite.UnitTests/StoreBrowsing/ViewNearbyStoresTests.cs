@@ -31,6 +31,8 @@ public class ViewNearbyStoresTests
     public ViewNearbyStoresTests(ITestOutputHelper output)
     {
         _output = output;
+        _shopRepoMock.Setup(r => r.GetActiveDealCountsForShopsAsync(It.IsAny<List<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, int>());
         _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object);
     }
 

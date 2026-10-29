@@ -28,7 +28,7 @@ public class ViewOrderDetailsTests
 {
     private readonly ITestOutputHelper _output;
     private readonly PaymentTestContext _context;
-    private readonly CheckoutPaymentService _service;
+    private readonly OrderService _service;
     private readonly Mock<ICheckoutRepository> _orderRepoMock;
     private readonly Mock<ICheckoutPaymentGateway> _gatewayMock;
 
@@ -36,7 +36,7 @@ public class ViewOrderDetailsTests
     {
         _output = output;
         _context = new PaymentTestContext();
-        _service = _context.Service;
+        _service = _context.OrderService;
         _orderRepoMock = _context.Repo;
         _gatewayMock = _context.Gateway;
     }

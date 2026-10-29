@@ -57,7 +57,7 @@ public abstract class BaseIntegrationTest : IClassFixture<CustomWebApplicationFa
         {
             Id = Guid.NewGuid(),
             Email = email,
-            Phone = "0901111111",
+            Phone = $"09{Random.Shared.Next(10000000, 99999999)}",
             FullName = fullName,
             PasswordHash = "dummy-hash",
             Role = UserRole.Admin,
@@ -86,7 +86,7 @@ public abstract class BaseIntegrationTest : IClassFixture<CustomWebApplicationFa
         {
             Id = Guid.NewGuid(),
             Email = email,
-            Phone = "0902222222",
+            Phone = $"09{Random.Shared.Next(10000000, 99999999)}",
             FullName = fullName,
             PasswordHash = "dummy-hash",
             Role = UserRole.StoreOwner,
@@ -148,7 +148,7 @@ public abstract class BaseIntegrationTest : IClassFixture<CustomWebApplicationFa
         {
             Id = Guid.NewGuid(),
             Email = email,
-            Phone = "0903333333",
+            Phone = $"09{Random.Shared.Next(10000000, 99999999)}",
             FullName = fullName,
             PasswordHash = "dummy-hash",
             Role = UserRole.User,

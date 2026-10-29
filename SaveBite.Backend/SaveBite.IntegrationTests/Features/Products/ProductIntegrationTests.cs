@@ -322,4 +322,55 @@ public class ProductIntegrationTests : BaseIntegrationTest
         deletedInDb!.DeletedAt.Should().NotBeNull();
         deletedInDb.Status.Should().Be(ProductStatus.Hidden);
     }
+
+    [Fact]
+    public async Task UpdateVariant_WhenValid_UpdatesVariantPriceAndReturns_200()
+    {
+        // Arrange
+        var (_, shop, category) = await SetupStoreOwnerWithShopAndCategoryAsync();
+
+        var product = new Product
+        {
+            Id = Guid.NewGuid(),
+            ShopId = shop.Id,
+            CategoryId = category.Id,
+            Name = "Product With Variant",
+            Status = ProductStatus.Active,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        var variant = new ProductVariant
+        {
+            Id = Guid.NewGuid(),
+            ProductId = product.Id,
+            Sku = "SKU-UPDATE-01",
+            OriginalPrice = 60000m,
+            DealPrice = 40000m,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        product.Variants.Add(variant);
+        DbContext.Products.Add(product);
+        await DbContext.SaveChangesAsync();
+
+        var request = new UpdateProductVariantRequest
+        {
+            OriginalPrice = 70000m,
+            DealPrice = 35000m,
+            IsActive = true
+        };
+
+        // Act
+        var response = await Client.PutAsJsonAsync($"/api/products/{product.Id}/variants/{variant.Id}", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Verify Database
+        DbContext.ChangeTracker.Clear();
+        var variantInDb = await DbContext.ProductVariants.AsNoTracking().FirstOrDefaultAsync(v => v.Id == variant.Id);
+        variantInDb.Should().NotBeNull();
+        variantInDb!.OriginalPrice.Should().Be(70000m);
+        variantInDb.DealPrice.Should().Be(35000m);
+    }
 }
