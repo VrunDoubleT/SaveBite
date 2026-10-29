@@ -34,5 +34,6 @@ public static class FeedbackRequests
         public int? Rating { get; set; }
         public bool? HasReply { get; set; }
         public Guid? ShopId { get; set; }
+        public bool? IsToday { get; set; }
     }
 }

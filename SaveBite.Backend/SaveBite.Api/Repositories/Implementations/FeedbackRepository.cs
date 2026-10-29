@@ -209,6 +209,15 @@ public sealed class FeedbackRepository : IFeedbackRepository
                 : query.Where(f => f.Reply == null);
         }
 
+        if (request.IsToday == true)
+        {
+            var tz = GetVietnamTimeZone();
+            var nowInTz = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+            var startOfDayUtc = TimeZoneInfo.ConvertTimeToUtc(nowInTz.Date, tz);
+            var endOfDayUtc = startOfDayUtc.AddDays(1);
+            query = query.Where(f => f.CreatedAt >= startOfDayUtc && f.CreatedAt < endOfDayUtc);
+        }
+
         var totalItems = await query.CountAsync(ct);
 
         var page = Math.Max(1, request.Page);
@@ -252,6 +261,15 @@ public sealed class FeedbackRepository : IFeedbackRepository
                 : query.Where(f => f.Reply == null);
         }
 
+        if (request.IsToday == true)
+        {
+            var tz = GetVietnamTimeZone();
+            var nowInTz = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+            var startOfDayUtc = TimeZoneInfo.ConvertTimeToUtc(nowInTz.Date, tz);
+            var endOfDayUtc = startOfDayUtc.AddDays(1);
+            query = query.Where(f => f.CreatedAt >= startOfDayUtc && f.CreatedAt < endOfDayUtc);
+        }
+
         var totalItems = await query.CountAsync(ct);
 
         var page = Math.Max(1, request.Page);
@@ -270,5 +288,24 @@ public sealed class FeedbackRepository : IFeedbackRepository
             .ToListAsync(ct);
 
         return PagedResult<ProductFeedback>.Create(items, page, pageSize, totalItems);
+    }
+
+    private static TimeZoneInfo GetVietnamTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                return TimeZoneInfo.CreateCustomTimeZone("Asia/Ho_Chi_Minh", TimeSpan.FromHours(7), "ICT", "ICT");
+            }
+        }
     }
 }

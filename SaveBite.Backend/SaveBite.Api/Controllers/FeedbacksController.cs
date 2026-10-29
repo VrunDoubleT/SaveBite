@@ -62,6 +62,17 @@ public sealed class FeedbacksController : ControllerBase
         return Ok(ApiResponse<PagedResult<FeedbackResponses.FeedbackItemResponse>>.Ok(result, "Retrieved feedback history successfully."));
     }
 
+    // View single feedback detail
+    [HttpGet("{feedbackId:guid}")]
+    [Authorize]
+    public async Task<ActionResult<ApiResponse<FeedbackResponses.FeedbackItemResponse>>> GetFeedback(
+        Guid feedbackId,
+        CancellationToken ct)
+    {
+        var result = await _feedbackService.GetFeedbackByIdAsync(feedbackId, ct);
+        return Ok(ApiResponse<FeedbackResponses.FeedbackItemResponse>.Ok(result, "Retrieved feedback successfully."));
+    }
+
     // Edit feedback (Customer)
     [HttpPut("{feedbackId:guid}")]
     [CustomerAccess]

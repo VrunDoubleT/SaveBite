@@ -89,6 +89,16 @@ public sealed class FeedbackService : IFeedbackService
         return PagedResult<FeedbackResponses.FeedbackItemResponse>.Create(responseItems, pagedFeedbacks.Page, pagedFeedbacks.PageSize, pagedFeedbacks.TotalItems);
     }
 
+    // Get Single Feedback Detail
+    public async Task<FeedbackResponses.FeedbackItemResponse> GetFeedbackByIdAsync(Guid feedbackId, CancellationToken ct = default)
+    {
+        var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct);
+        if (feedback is null || feedback.Status != FeedbackStatus.Visible)
+            throw AppException.NotFound("Feedback not found.");
+
+        return MapToResponse(feedback);
+    }
+
     // Edit Feedback
     public async Task<FeedbackResponses.FeedbackItemResponse> EditFeedbackAsync(Guid userId, Guid feedbackId, FeedbackRequests.UpdateFeedbackRequest request, CancellationToken ct = default)
     {
