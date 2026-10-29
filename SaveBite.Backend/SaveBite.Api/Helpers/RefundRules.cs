@@ -15,10 +15,10 @@ public static class RefundRules
         ? refund.CustomerDetailsDeadlineAt : refund.ReviewDeadlineAt;
     public static void ValidateCustomerDetailsDeadline(Refund refund, DateTime now)
     {
-        if (refund.RefundType == RefundType.ShopCancellation && (refund.CustomerDetailsDeadlineAt ?? refund.CreatedAt.AddHours(24)) <= now)
+        if ((refund.CustomerDetailsDeadlineAt ?? refund.CreatedAt.AddHours(24)) <= now)
             throw AppException.Conflict("The 24-hour confirmation deadline has passed. This refund is no longer available.");
     }
-    public static bool Active(RefundStatus status) => status is RefundStatus.AwaitingCustomerDetails or RefundStatus.PendingVerification or RefundStatus.AwaitingTransfer or RefundStatus.Overdue;
+    public static bool Active(RefundStatus status) => status is RefundStatus.AwaitingCustomerDetails or RefundStatus.PendingVerification or RefundStatus.AwaitingTransfer;
     public static decimal EligibleAmount(Order order) => Math.Max(0, order.Payments.Sum(CheckoutOrderMapper.Collected)
         - order.Refunds.Sum(x => x.TransferredAmount));
     public static void ValidateRequest(Order order, DateTime now)
@@ -38,12 +38,17 @@ public static class RefundRules
     }
     public static void RequireDestinationFields(Refund refund, bool requireBankBin = false)
     {
-        ValidateBank(new RefundBankRequest { BankBin = refund.ReceiverBankBin ?? (requireBankBin ? "" : "000000"), BankName = refund.ReceiverBankName!,
-            AccountNumber = refund.ReceiverAccountNumber!, AccountHolder = refund.ReceiverAccountHolder! });
+        ValidateBank(new RefundBankRequest
+        {
+            BankBin = refund.ReceiverBankBin ?? (requireBankBin ? "" : "000000"),
+            BankName = refund.ReceiverBankName!,
+            AccountNumber = refund.ReceiverAccountNumber!,
+            AccountHolder = refund.ReceiverAccountHolder!
+        });
     }
     public static void ValidateDeadline(Refund refund, DateTime now)
     {
-        if (refund.Status == RefundStatus.Overdue || !refund.ReviewDeadlineAt.HasValue || refund.ReviewDeadlineAt <= now)
+        if (!refund.ReviewDeadlineAt.HasValue || refund.ReviewDeadlineAt <= now)
             throw AppException.Conflict("The 24-hour shop processing deadline has passed. This refund can no longer be processed.");
     }
     public static void RequireTransferable(Refund refund, DateTime now)
@@ -56,11 +61,16 @@ public static class RefundRules
         RequireDestinationFields(refund);
         if (refund.RequestedAmount - refund.TransferredAmount <= 0) throw AppException.Conflict("No refund balance remains.");
     }
-    public static void ValidateTransfer(Refund refund, DateTime transferredAt, DateTime now)
+    // Normalize small client clock skew while enforcing the actual server-side processing deadline.
+    public static DateTime ValidateTransfer(Refund refund, DateTime transferredAt, DateTime now)
     {
         RequireTransferable(refund, now);
-        if (transferredAt.Kind != DateTimeKind.Utc || transferredAt > now || transferredAt < (refund.DestinationConfirmedAt ?? refund.CreatedAt)
-            || (refund.ReviewedAt.HasValue && transferredAt < refund.ReviewedAt))
-            throw AppException.BadRequest("Supply the actual UTC transfer time after confirmation and approval, not a future time.");
+        if (transferredAt.Kind != DateTimeKind.Utc || transferredAt - now > TimeSpan.FromSeconds(30))
+            throw AppException.BadRequest("Supply a UTC transfer time no more than 30 seconds ahead of the server.");
+        var normalized = transferredAt > now ? now : transferredAt;
+        if (normalized < (refund.DestinationConfirmedAt ?? refund.CreatedAt)
+            || (refund.ReviewedAt.HasValue && normalized < refund.ReviewedAt))
+            throw AppException.BadRequest("Supply the actual transfer time after confirmation and approval.");
+        return normalized;
     }
 }

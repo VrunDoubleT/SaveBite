@@ -69,6 +69,7 @@ public sealed record CheckoutQuoteResponse
 // Expose the item quantities and prices recorded when the order was placed.
 public sealed record CheckoutOrderItemResponse
 {
+    public Guid OrderItemId { get; init; }
     public Guid FlashDealVariantId { get; init; }
     public string ProductName { get; init; } = string.Empty;
     public string? VariantName { get; init; }

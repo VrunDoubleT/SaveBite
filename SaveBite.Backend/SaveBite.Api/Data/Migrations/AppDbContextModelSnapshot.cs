@@ -655,6 +655,13 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ready_at");
 
+                    b.Property<decimal>("RefundedAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("refunded_amount");
+
                     b.Property<decimal>("RemainingAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
@@ -878,6 +885,28 @@ namespace SaveBite.Backend.Data.Migrations
 
                             t.HasCheckConstraint("ck_order_platform_fee_rate", "\"fee_rate\" BETWEEN 0 AND 1");
                         });
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.OrderRefundRequest", b =>
+                {
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("RefundId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("refund_id");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("RefundId")
+                        .IsUnique();
+
+                    b.ToTable("order_refund_requests", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.OrderStatusHistory", b =>
@@ -1991,7 +2020,7 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasIndex(new[] { "OrderId" }, "ux_refunds_active_order_scope")
                         .IsUnique()
                         .HasDatabaseName("ux_refunds_active_order_scope")
-                        .HasFilter("\"status\" IN ('AwaitingCustomerDetails', 'PendingVerification', 'AwaitingTransfer', 'Overdue')");
+                        .HasFilter("\"status\" IN ('AwaitingCustomerDetails', 'PendingVerification', 'AwaitingTransfer')");
 
                     b.ToTable("refunds", null, t =>
                         {
@@ -2028,6 +2057,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("refund_id");
 
+                    b.Property<Guid?>("RefundItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("refund_item_id");
+
                     b.Property<Guid>("UploadedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("uploaded_by");
@@ -2036,9 +2069,78 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.HasIndex("RefundId");
 
+                    b.HasIndex("RefundItemId");
+
                     b.HasIndex("UploadedBy");
 
                     b.ToTable("refund_evidence_images", (string)null);
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.RefundItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("image_url");
+
+                    b.Property<Guid>("OrderItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_item_id");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("product_name");
+
+                    b.Property<int>("PurchasedQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("purchased_quantity");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("RefundId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("refund_id");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("unit_price");
+
+                    b.Property<string>("VariantName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("variant_name");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderItemId");
+
+                    b.HasIndex("RefundId", "OrderItemId")
+                        .IsUnique();
+
+                    b.ToTable("refund_items", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_refund_items_values", "quantity > 0 AND quantity <= purchased_quantity AND unit_price >= 0 AND amount >= 0");
+                        });
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.RefundStatusHistory", b =>
@@ -3506,6 +3608,25 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("Statement");
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.OrderRefundRequest", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.Refund", "Refund")
+                        .WithMany()
+                        .HasForeignKey("RefundId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Refund");
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.OrderStatusHistory", b =>
                 {
                     b.HasOne("SaveBite.Backend.Models.Entities.User", "ChangedByUser")
@@ -3853,6 +3974,11 @@ namespace SaveBite.Backend.Data.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("SaveBite.Backend.Models.Entities.RefundItem", "RefundItem")
+                        .WithMany()
+                        .HasForeignKey("RefundItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SaveBite.Backend.Models.Entities.User", "UploadedByUser")
                         .WithMany("UploadedRefundEvidenceImages")
                         .HasForeignKey("UploadedBy")
@@ -3861,7 +3987,28 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.Navigation("Refund");
 
+                    b.Navigation("RefundItem");
+
                     b.Navigation("UploadedByUser");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.RefundItem", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.OrderItem", "OrderItem")
+                        .WithMany()
+                        .HasForeignKey("OrderItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.Refund", "Refund")
+                        .WithMany("Items")
+                        .HasForeignKey("RefundId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("OrderItem");
+
+                    b.Navigation("Refund");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.RefundStatusHistory", b =>
@@ -4326,6 +4473,8 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("EvidenceImages");
 
                     b.Navigation("History");
+
+                    b.Navigation("Items");
 
                     b.Navigation("PlatformFeeAdjustment");
                 });

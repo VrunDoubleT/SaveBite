@@ -11,6 +11,8 @@ public class RefundEvidenceImageConfiguration
         EntityTypeBuilder<RefundEvidenceImage> builder)
     {
         builder.ToTable("refund_evidence_images");
+        builder.Property(x => x.RefundItemId).HasColumnName("refund_item_id");
+        builder.HasOne(x => x.RefundItem).WithMany().HasForeignKey(x => x.RefundItemId).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasKey(x => x.Id);
 

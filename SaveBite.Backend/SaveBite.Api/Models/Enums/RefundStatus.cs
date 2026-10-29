@@ -1,4 +1,4 @@
-namespace SaveBite.Backend.Models.Entities;
+namespace SaveBite.Backend.Models.Enums;
 
 public enum RefundStatus
 {
@@ -9,5 +9,6 @@ public enum RefundStatus
     Transferred,
     Completed,
     Withdrawn,
+    // Retain only for reading historical audit rows; new deadline expirations become Rejected.
     Overdue
 }

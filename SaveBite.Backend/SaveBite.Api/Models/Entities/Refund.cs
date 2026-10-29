@@ -10,6 +10,7 @@ public class Refund
     public RefundType RefundType { get; set; }
     public RefundStatus Status { get; set; }
 
+    public ICollection<RefundItem> Items { get; set; } = new List<RefundItem>();
     public Guid InitiatedBy { get; set; }
 
     public string? Reason { get; set; }

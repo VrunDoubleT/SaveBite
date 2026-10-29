@@ -12,12 +12,15 @@ public class RefundRepository : IRefundRepository
     public RefundRepository(AppDbContext db) { _db = db; }
 
     private IQueryable<Refund> Refunds => _db.Refunds.Include(x => x.Order).ThenInclude(x => x.Shop)
-        .Include(x => x.Order).ThenInclude(x => x.Customer).ThenInclude(x => x.TrustScore).ThenInclude(x => x!.TrustLevel).Include(x => x.History).Include(x => x.EvidenceImages).AsSplitQuery();
+        .Include(x => x.Order).ThenInclude(x => x.Customer).ThenInclude(x => x.TrustScore).ThenInclude(x => x!.TrustLevel).Include(x => x.Items).Include(x => x.History).Include(x => x.EvidenceImages).AsSplitQuery();
+
+    public Task<bool> HasCustomerRequestAsync(Guid orderId, CancellationToken ct)
+        => _db.Set<OrderRefundRequest>().AsNoTracking().AnyAsync(x => x.OrderId == orderId, ct);
 
     // Count active shop obligations, including those waiting for the customer, but exclude closed requests.
     public Task<int> ShopPendingCountAsync(Guid shopId, CancellationToken ct)
         => _db.Refunds.AsNoTracking().CountAsync(x => x.Order.ShopId == shopId
-            && (x.Status == RefundStatus.AwaitingCustomerDetails || x.Status == RefundStatus.PendingVerification || x.Status == RefundStatus.AwaitingTransfer || x.Status == RefundStatus.Overdue)
+            && (x.Status == RefundStatus.AwaitingCustomerDetails || x.Status == RefundStatus.PendingVerification || x.Status == RefundStatus.AwaitingTransfer)
             && (x.RefundType == RefundType.ShopCancellation || (x.Order.Status == OrderStatus.Completed
                 && x.DestinationConfirmedAt != null && x.Status != RefundStatus.AwaitingCustomerDetails)), ct);
 
@@ -33,7 +36,7 @@ public class RefundRepository : IRefundRepository
     public Task<List<Refund>> ForOrderAsync(Guid orderId, CancellationToken ct)
         => Refunds.AsNoTracking().Where(x => x.OrderId == orderId).OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).ToListAsync(ct);
     public Task<Order?> OrderAsync(Guid id, CancellationToken ct)
-        => _db.Orders.Include(x => x.Customer).ThenInclude(x => x.TrustScore).ThenInclude(x => x!.TrustLevel).Include(x => x.Shop).Include(x => x.Payments)
+        => _db.Orders.Include(x => x.Items).ThenInclude(x => x.FlashDealVariant).ThenInclude(x => x.FlashDeal).ThenInclude(x => x.Product).ThenInclude(x => x.Images).Include(x => x.Customer).ThenInclude(x => x.TrustScore).ThenInclude(x => x!.TrustLevel).Include(x => x.Shop).Include(x => x.Payments)
             .Include(x => x.Refunds).ThenInclude(x => x.History).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
 
     // Scope before filtering or counting, including the shop's visibility gate for customer requests.

@@ -1,11 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 namespace SaveBite.Backend.Models.Requests;
 
-// Amount and scope are determined by the server; clients cannot request partial refunds.
+// Clients choose purchased items and quantities; the server determines all refund prices and totals.
 public class CreateRefundRequest
 {
+    [Required, MinLength(1), MaxLength(100)] public List<RefundItemRequest> Items { get; set; } = [];
+}
+public class RefundItemRequest
+{
     [Required, StringLength(1000, MinimumLength = 1)] public string Reason { get; set; } = string.Empty;
-    [Required, MinLength(1), MaxLength(10)] public List<string> EvidenceUrls { get; set; } = [];
+    public Guid OrderItemId { get; set; }
+    [Range(1, int.MaxValue)] public int Quantity { get; set; }
+    [Required, MinLength(1)] public List<string> EvidenceUrls { get; set; } = [];
 }
 public class RefundBankRequest
 {
@@ -22,12 +28,6 @@ public class RefundTransferRequest
     public DateTime? TransferredAt { get; set; }
     [Required] public string? ProofUrl { get; set; }
 }
-public class RefundDeadlineRequest
-{
-    public DateTime DeadlineAt { get; set; }
-    [Required, StringLength(1000)] public string Reason { get; set; } = string.Empty;
-}
-
 public class RefundImageUploadRequest
 {
     [Required] public IFormFile File { get; set; } = null!;

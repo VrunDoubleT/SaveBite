@@ -42,27 +42,27 @@ public class RefundService : IRefundService
     }
 
     // Count unresolved mandatory refunds and confirmed requests still awaiting owner review or transfer.
-    public async Task<int> ShopPendingCountAsync(Guid ownerId, Guid shopId, CancellationToken ct)
+    public async Task<int> ShopPendingCountAsync(Guid ownerId, CancellationToken ct)
     {
-        await RequireOwnerAsync(ownerId, shopId, ct);
+        var shopId = await _shops.OwnerShopAsync(ownerId, ct);
         return await _refunds.ShopPendingCountAsync(shopId, ct);
     }
 
     // Scope list access before retrieving any records; no status changes occur on a GET.
-    public async Task<PagedResult<RefundResponse>> PageAsync(Guid userId, Guid? shopId, string? status, string? type, int page, int size, CancellationToken ct)
+    public async Task<PagedResult<RefundResponse>> PageAsync(Guid userId, bool forShop, string? status, string? type, int page, int size, CancellationToken ct)
     {
         if (size is < 1 or > 50 || page < 1 || (long)(page - 1) * size > int.MaxValue)
             throw AppException.BadRequest("Invalid pagination.");
-        if (shopId.HasValue) await RequireOwnerAsync(userId, shopId.Value, ct);
-        else await RequireCustomerAsync(userId, ct);
+        Guid? shopId = forShop ? await _shops.OwnerShopAsync(userId, ct) : null;
+        if (!forShop) await RequireCustomerAsync(userId, ct);
         var result = await _refunds.PageAsync(userId, shopId, Parse<RefundStatus>(status), Parse<RefundType>(type), page, size, ct);
         return PagedResult<RefundResponse>.Create(result.Items.Select(Map).ToList(), page, size, result.Total);
     }
 
     // Keep shop refund operations available inside order details without exposing unconfirmed customer requests.
-    public async Task<IReadOnlyList<RefundResponse>> ShopForOrderAsync(Guid ownerId, Guid shopId, Guid orderId, CancellationToken ct)
+    public async Task<IReadOnlyList<RefundResponse>> ShopForOrderAsync(Guid ownerId, Guid orderId, CancellationToken ct)
     {
-        await RequireOwnerAsync(ownerId, shopId, ct);
+        var shopId = await _shops.OwnerShopAsync(ownerId, ct);
         _ = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
         return (await _refunds.ForOrderAsync(orderId, ct)).Where(f => f.RefundType == RefundType.ShopCancellation
             || (f.Order.Status == OrderStatus.Completed && f.DestinationConfirmedAt != null)).Select(Map).ToList();
@@ -76,31 +76,54 @@ public class RefundService : IRefundService
     }
 
     // Return only recorded refund information and immutable audit history.
-    public async Task<RefundResponse> GetAsync(Guid userId, Guid refundId, Guid? shopId, CancellationToken ct)
+    public async Task<RefundResponse> GetAsync(Guid userId, Guid refundId, bool forShop, CancellationToken ct)
     {
         var f = await LoadAsync(refundId, false, ct);
-        await AuthorizeAsync(userId, shopId, f, ct);
+        await AuthorizeAsync(userId, forShop, f, ct);
         return Map(f);
     }
 
-    // Create one full-order refund request within six hours of completion; never accept a client amount.
+    // Create one item-based refund request within six hours of completion; never accept a client amount.
     public Task<RefundResponse> RequestAsync(Guid userId, Guid orderId, CreateRefundRequest request, CancellationToken ct)
         => _orders.WithOrderLockAsync(orderId, async () =>
         {
             _ = await _orders.GetOrderAsync(orderId, userId, ct) ?? throw AppException.NotFound("Order not found.");
             var order = await _refunds.OrderAsync(orderId, ct) ?? throw AppException.NotFound();
             RefundRules.ValidateRequest(order, Now);
-            ValidateText(request.Reason, 1000, "A refund reason is required.");
-            if (request.EvidenceUrls == null || request.EvidenceUrls.Count is < 1 or > 10) throw AppException.BadRequest("Supply between one and ten evidence images.");
-            foreach (var url in request.EvidenceUrls) ValidateUrl(url);
+            if (order.Refunds.Any(x => x.RefundType == RefundType.CustomerRequest) || await _refunds.HasCustomerRequestAsync(orderId, ct)) throw AppException.Conflict("Only one refund request may be submitted per order, including withdrawn, rejected or expired requests.");
             if (order.Refunds.Any(x => RefundRules.Active(x.Status))) throw AppException.Conflict("An active refund already exists for this order.");
-            var amount = RefundRules.EligibleAmount(order);
+            var selected = BuildRequestedItems(order, request.Items);
+            var amount = selected.Sum(x => x.Amount);
+            if (amount > RefundRules.EligibleAmount(order)) throw AppException.Conflict("The selected amount exceeds the refundable paid balance.");
             if (amount <= 0) throw AppException.Conflict("This order has no refundable paid balance.");
-            var f = new Refund { Id = Guid.NewGuid(), OrderId = order.Id, Order = order, RefundType = RefundType.CustomerRequest,
-                InitiatedBy = userId, Reason = request.Reason.Trim(), RequestedAmount = amount,
-                Status = RefundStatus.AwaitingCustomerDetails, CreatedAt = Now, UpdatedAt = Now };
+            var f = new Refund
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                Order = order,
+                RefundType = RefundType.CustomerRequest,
+                InitiatedBy = userId,
+                Reason = "Customer requested a refund for selected items. See each item for its reason.",
+                RequestedAmount = amount,
+                Status = RefundStatus.AwaitingCustomerDetails,
+                CreatedAt = Now,
+                UpdatedAt = Now
+            };
+            f.CustomerDetailsDeadlineAt = f.CreatedAt.AddHours(24);
+            f.DeadlineJobId = _deadlines.Schedule(f.Id, f.CustomerDetailsDeadlineAt.Value);
+            foreach (var item in selected)
+            {
+                item.RefundId = f.Id;
+                f.Items.Add(item);
+            }
             _refunds.Add(f);
-            foreach (var url in request.EvidenceUrls.Distinct()) AddEvidence(f, userId, url, RefundEvidenceType.RequestEvidence);
+            _refunds.Add(new OrderRefundRequest { OrderId = order.Id, RefundId = f.Id, CreatedAt = f.CreatedAt });
+            var selectedByOrderItem = selected.ToDictionary(x => x.OrderItemId);
+            foreach (var selection in request.Items)
+            {
+                var refundItem = selectedByOrderItem[selection.OrderItemId];
+                foreach (var url in selection.EvidenceUrls) AddEvidence(f, userId, url, RefundEvidenceType.RequestEvidence, refundItem.Id);
+            }
             Audit(f, null, userId, "Customer", order.Customer.FullName, "Requested", f.Reason);
             await _orders.SaveAsync(ct);
             return Map(f);
@@ -112,7 +135,7 @@ public class RefundService : IRefundService
         RefundRules.ValidateBank(request);
         return CommandAsync(refundId, async f =>
         {
-            await AuthorizeAsync(userId, null, f, ct);
+            await AuthorizeAsync(userId, false, f, ct);
             if (f.Status != RefundStatus.AwaitingCustomerDetails || f.DestinationConfirmedAt != null)
                 throw AppException.Conflict("The destination can no longer be changed.");
             RefundRules.ValidateCustomerDetailsDeadline(f, Now);
@@ -138,7 +161,7 @@ public class RefundService : IRefundService
         var valid = false;
         var result = await CommandAsync(refundId, async f =>
         {
-            await AuthorizeAsync(userId, null, f, ct);
+            await AuthorizeAsync(userId, false, f, ct);
             if (f.Status == RefundStatus.Rejected) throw AppException.Conflict("This refund has been closed.");
             if (f.Status == RefundStatus.AwaitingCustomerDetails) RefundRules.ValidateCustomerDetailsDeadline(f, Now);
             var matches = MatchesCode(f, code);
@@ -163,11 +186,13 @@ public class RefundService : IRefundService
         return result;
     }
 
-    // Withdrawal prevents subsequent review and transfer of this refund.
+    // Only voluntary customer requests may be withdrawn; mandatory refunds remain payable until resolved.
     public Task<RefundResponse> WithdrawAsync(Guid userId, Guid refundId, CancellationToken ct)
         => CommandAsync(refundId, async f =>
         {
-            await AuthorizeAsync(userId, null, f, ct);
+            await AuthorizeAsync(userId, false, f, ct);
+            if (f.RefundType != RefundType.CustomerRequest)
+                throw AppException.Conflict("Mandatory shop-cancellation refunds cannot be withdrawn.");
             if (f.Status == RefundStatus.Withdrawn) return;
             if (f.Status == RefundStatus.AwaitingCustomerDetails) RefundRules.ValidateCustomerDetailsDeadline(f, Now);
             if (f.Status == RefundStatus.PendingVerification) RefundRules.ValidateDeadline(f, Now);
@@ -178,10 +203,10 @@ public class RefundService : IRefundService
         }, ct);
 
     // Only customer requests require a decision; mandatory shop-cancellation refunds cannot be rejected.
-    public Task<RefundResponse> ReviewAsync(Guid userId, Guid shopId, Guid refundId, bool approve, string? reason, CancellationToken ct)
+    public Task<RefundResponse> ReviewAsync(Guid userId, Guid refundId, bool approve, string? reason, CancellationToken ct)
         => CommandAsync(refundId, async f =>
         {
-            await AuthorizeAsync(userId, shopId, f, ct);
+            await AuthorizeAsync(userId, true, f, ct);
             if (f.RefundType != RefundType.CustomerRequest || f.Order.Status != OrderStatus.Completed)
                 throw AppException.Conflict("Only post-completion customer requests can be reviewed.");
             if (approve && f.Status == RefundStatus.AwaitingTransfer) return;
@@ -190,29 +215,29 @@ public class RefundService : IRefundService
                 throw AppException.Conflict("Review requires PendingVerification and a confirmed bank destination.");
             RefundRules.ValidateDeadline(f, Now);
             if (!approve) ValidateText(reason, 1000, "A rejection reason is required.");
-            if (approve && RefundRules.EligibleAmount(f.Order) != f.RequestedAmount)
-                throw AppException.Conflict("The full refundable amount changed; refresh the refund request.");
+            if (approve && RefundRules.EligibleAmount(f.Order) < f.RequestedAmount)
+                throw AppException.Conflict("The refundable paid balance is below the requested amount; refresh the refund request.");
             var before = f.Status;
             f.Status = approve ? RefundStatus.AwaitingTransfer : RefundStatus.Rejected;
             f.ReviewedBy = userId; f.ReviewedAt = Now; f.RejectReason = approve ? null : reason!.Trim();
             Audit(f, before, userId, "StoreOwner", (await _refunds.UserAsync(userId, ct)).FullName,
-                approve ? "Approved" : "Rejected", approve ? $"Full eligible amount of {f.RequestedAmount} VND approved." : f.RejectReason);
-            if (approve) await WaiveFeeAsync(f, ct);
+                approve ? "Approved" : "Rejected", approve ? $"Selected refund amount of {f.RequestedAmount} VND approved." : f.RejectReason);
         }, ct);
 
-    // Record full manual transfer and reclaim the credited order value exactly once in the same transaction.
-    public Task<RefundResponse> TransferAsync(Guid userId, Guid shopId, Guid refundId, RefundTransferRequest request, CancellationToken ct)
+    // Record the approved manual transfer and reclaim only the refunded order value exactly once in the same transaction.
+    public Task<RefundResponse> TransferAsync(Guid userId, Guid refundId, RefundTransferRequest request, CancellationToken ct)
     {
         ValidateText(request.TransferReference, 150, "A transfer reference is required.");
         ValidateUrl(request.ProofUrl);
         return CommandAsync(refundId, async f =>
         {
-            await AuthorizeAsync(userId, shopId, f, ct);
+            await AuthorizeAsync(userId, true, f, ct);
             if (f.Status == RefundStatus.Transferred && f.TransferReference == request.TransferReference.Trim()) return;
-            var transferredAt = request.TransferredAt ?? Now;
-            RefundRules.ValidateTransfer(f, transferredAt, Now);
+            var now = Now;
+            var transferredAt = RefundRules.ValidateTransfer(f, request.TransferredAt ?? now, now);
             var before = f.Status;
             var transferAmount = f.RequestedAmount - f.TransferredAmount;
+            f.Order.RefundedAmount += transferAmount;
             f.Status = RefundStatus.Transferred; f.TransferredAmount = f.RequestedAmount;
             f.TransferReference = request.TransferReference.Trim(); f.TransferredAt = transferredAt;
             if (request.ProofUrl != null) AddEvidence(f, userId, request.ProofUrl, RefundEvidenceType.TransferProof);
@@ -224,43 +249,32 @@ public class RefundService : IRefundService
     }
 
     // Generate instructions from persisted approved amount and confirmed destination, never client overrides.
-    public async Task<RefundQrResponse> GenerateQrAsync(Guid userId, Guid shopId, Guid refundId, CancellationToken ct)
+    public async Task<RefundQrResponse> GenerateQrAsync(Guid userId, Guid refundId, CancellationToken ct)
     {
         var f = await LoadAsync(refundId, false, ct);
-        await AuthorizeAsync(userId, shopId, f, ct);
+        await AuthorizeAsync(userId, true, f, ct);
         RefundRules.RequireTransferable(f, Now);
         RefundRules.RequireDestinationFields(f, requireBankBin: true);
         var content = "SB RF " + f.Id.ToString("N")[..16].ToUpperInvariant();
-        return new RefundQrResponse { RefundId = f.Id, Amount = f.RequestedAmount - f.TransferredAmount,
-            BankBin = f.ReceiverBankBin!, AccountNumber = f.ReceiverAccountNumber!, AccountHolder = f.ReceiverAccountHolder!,
+        return new RefundQrResponse
+        {
+            RefundId = f.Id,
+            Amount = f.RequestedAmount - f.TransferredAmount,
+            BankBin = f.ReceiverBankBin!,
+            AccountNumber = f.ReceiverAccountNumber!,
+            AccountHolder = f.ReceiverAccountHolder!,
             TransferContent = content,
-            ImageUrl = $"https://img.vietqr.io/image/{f.ReceiverBankBin}-{f.ReceiverAccountNumber}-compact2.png?amount={(f.RequestedAmount - f.TransferredAmount).ToString("0.##", CultureInfo.InvariantCulture)}&addInfo={Uri.EscapeDataString(content)}&accountName={Uri.EscapeDataString(f.ReceiverAccountHolder!)}" };
+            ImageUrl = $"https://img.vietqr.io/image/{f.ReceiverBankBin}-{f.ReceiverAccountNumber}-compact2.png?amount={(f.RequestedAmount - f.TransferredAmount).ToString("0.##", CultureInfo.InvariantCulture)}&addInfo={Uri.EscapeDataString(content)}&accountName={Uri.EscapeDataString(f.ReceiverAccountHolder!)}"
+        };
     }
 
-    // An admin may unlock an overdue request by setting a new audited deadline; the owner still makes the decision.
-    public Task<RefundResponse> ExtendDeadlineAsync(Guid adminId, Guid refundId, RefundDeadlineRequest request, CancellationToken ct)
-        => CommandAsync(refundId, async f =>
-        {
-            var admin = await _refunds.UserAsync(adminId, ct);
-            if (admin.Role != UserRole.Admin || admin.Status != UserStatus.Active) throw AppException.Forbidden();
-            ValidateText(request.Reason, 1000, "An administrative reason is required.");
-            if (request.DeadlineAt.Kind != DateTimeKind.Utc || request.DeadlineAt <= Now)
-                throw AppException.BadRequest("The new deadline must be a future UTC timestamp.");
-            if (f.RefundType != RefundType.CustomerRequest || f.Status != RefundStatus.Overdue
-                || !f.ReviewDeadlineAt.HasValue || f.ReviewDeadlineAt > Now) throw AppException.Conflict("Only an overdue active customer request can be extended.");
-            var before = f.Status;
-            var previous = f.ReviewDeadlineAt; f.ReviewDeadlineAt = request.DeadlineAt;
-            if (f.Status == RefundStatus.Overdue) f.Status = f.ReviewedAt.HasValue ? RefundStatus.AwaitingTransfer : RefundStatus.PendingVerification;
-            Audit(f, before, adminId, "Admin", admin.FullName, "DeadlineExtended", $"{previous:O} -> {request.DeadlineAt:O}. {request.Reason.Trim()}");
-        }, ct);
-
     // Compatibility lookup is restricted to the customer's system-required refund and remains read-only.
-    public async Task<Guid?> SystemRefundIdAsync(Guid customerId, Guid orderId, CancellationToken ct, Guid? shopId = null)
+    public async Task<Guid?> SystemRefundIdAsync(Guid customerId, Guid orderId, CancellationToken ct, bool forShop = false)
     {
-        if (shopId.HasValue)
+        if (forShop)
         {
-            await RequireOwnerAsync(customerId, shopId.Value, ct);
-            _ = await _shops.GetAsync(shopId.Value, orderId, ct) ?? throw AppException.NotFound();
+            var shopId = await _shops.OwnerShopAsync(customerId, ct);
+            _ = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
         }
         else _ = await _orders.GetOrderAsync(orderId, customerId, ct) ?? throw AppException.NotFound();
         return await _refunds.SystemRefundIdAsync(orderId, ct);
@@ -282,7 +296,7 @@ public class RefundService : IRefundService
                 && (RefundRules.SameDeadline(f.ReviewDeadlineAt, deadline) || RefundRules.SameDeadline(f.CustomerDetailsDeadlineAt, deadline)))
             { notify = true; return Task.CompletedTask; }
             if (!RefundRules.SameDeadline(RefundRules.Deadline(f), deadline)) return Task.CompletedTask;
-            var customerExpired = f.Status == RefundStatus.AwaitingCustomerDetails && f.RefundType == RefundType.ShopCancellation;
+            var customerExpired = f.Status == RefundStatus.AwaitingCustomerDetails;
             if (!customerExpired && f.Status is not (RefundStatus.PendingVerification or RefundStatus.AwaitingTransfer or RefundStatus.Overdue)) return Task.CompletedTask;
             var before = f.Status; f.Status = RefundStatus.Rejected;
             f.RejectReason = customerExpired ? RefundRules.CustomerConfirmationExpired : RefundRules.ShopProcessingExpired;
@@ -304,7 +318,7 @@ public class RefundService : IRefundService
             var oldDeadline = RefundRules.Deadline(f);
             await action(f);
             // Persist schedules for both customer confirmation and shop processing in the order transaction.
-            if (f.RefundType == RefundType.ShopCancellation && f.Status == RefundStatus.AwaitingCustomerDetails)
+            if (f.Status == RefundStatus.AwaitingCustomerDetails)
                 f.CustomerDetailsDeadlineAt ??= f.CreatedAt.AddHours(24);
             if (f.DestinationConfirmedAt.HasValue && f.Status is (RefundStatus.PendingVerification or RefundStatus.AwaitingTransfer))
                 f.ReviewDeadlineAt ??= f.DestinationConfirmedAt.Value.AddHours(24);
@@ -331,12 +345,12 @@ public class RefundService : IRefundService
         if (tracked) f.Order = await _refunds.OrderAsync(f.OrderId, ct) ?? throw AppException.NotFound();
         return f;
     }
-    private async Task AuthorizeAsync(Guid userId, Guid? shopId, Refund f, CancellationToken ct)
+    private async Task AuthorizeAsync(Guid userId, bool forShop, Refund f, CancellationToken ct)
     {
-        if (shopId.HasValue)
+        if (forShop)
         {
-            await RequireOwnerAsync(userId, shopId.Value, ct);
-            if (f.Order.ShopId != shopId.Value || (f.RefundType == RefundType.CustomerRequest
+            var shopId = await _shops.OwnerShopAsync(userId, ct);
+            if (f.Order.ShopId != shopId || (f.RefundType == RefundType.CustomerRequest
                 && (f.Order.Status != OrderStatus.Completed || f.DestinationConfirmedAt == null))) throw AppException.NotFound("Refund not found in this shop.");
         }
         else
@@ -351,10 +365,47 @@ public class RefundService : IRefundService
         if (user.Status != UserStatus.Active || user.CustomerStatus != CustomerStatus.Active || user.Role == UserRole.Admin)
             throw AppException.Forbidden("Active Customer access is required.");
     }
-    private async Task RequireOwnerAsync(Guid id, Guid shopId, CancellationToken ct)
+    // Validate selected quantities, per-item reasons and evidence before creating immutable item snapshots.
+    private static List<RefundItem> BuildRequestedItems(Order order, IReadOnlyList<RefundItemRequest>? selections)
     {
-        if (!await _shops.RequireAccessAsync(id, shopId, ct)) throw AppException.Forbidden("Only the Store Owner may access refund management.");
+        var selected = new List<RefundItem>();
+        if (selections == null || selections.Count is < 1 or > 100 || selections.Select(x => x.OrderItemId).Distinct().Count() != selections.Count)
+            throw AppException.BadRequest("Select distinct order items and their refund quantities.");
+        var purchasedItems = order.Items.ToDictionary(x => x.Id);
+        var evidenceUrls = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var selection in selections)
+        {
+            var item = purchasedItems.GetValueOrDefault(selection.OrderItemId);
+            if (item == null || selection.Quantity < 1 || selection.Quantity > item.Quantity)
+                throw AppException.BadRequest("Refund items must belong to this order and quantities cannot exceed purchased quantities.");
+            ValidateText(selection.Reason, 1000, $"{item.ProductNameSnapshot}: enter a refund reason (up to 1,000 characters).");
+            // Each refunded portion needs its own evidence; an image cannot be reused across items.
+            if (selection.EvidenceUrls == null || selection.EvidenceUrls.Count < selection.Quantity
+                || selection.EvidenceUrls.Count > (2L * selection.Quantity))
+                throw AppException.BadRequest($"{item.ProductNameSnapshot}: supply at least {selection.Quantity} different evidence images (maximum {(2L * selection.Quantity)}).");
+            foreach (var url in selection.EvidenceUrls)
+            {
+                ValidateUrl(url);
+                var imageKey = new Uri(url).GetLeftPart(UriPartial.Path);
+                if (!evidenceUrls.Add(imageKey)) throw AppException.BadRequest("Each evidence image may be used only once, including across different items.");
+            }
+            selected.Add(new RefundItem
+            {
+                Id = Guid.NewGuid(),
+                OrderItemId = item.Id,
+                ProductName = item.ProductNameSnapshot,
+                Reason = selection.Reason.Trim(),
+                ImageUrl = item.FlashDealVariant?.FlashDeal?.Product?.Images.OrderBy(x => x.Id).Select(x => x.ImageUrl).FirstOrDefault(),
+                VariantName = item.VariantNameSnapshot,
+                PurchasedQuantity = item.Quantity,
+                Quantity = selection.Quantity,
+                UnitPrice = item.UnitPrice,
+                Amount = item.UnitPrice * selection.Quantity
+            });
+        }
+        return selected;
     }
+
     private async Task WaiveFeeAsync(Refund f, CancellationToken ct)
     {
         var adjustment = RefundFeePolicy.Waive(f.Order, f, await _refunds.FeeAsync(f.OrderId, ct), Now);
@@ -365,11 +416,12 @@ public class RefundService : IRefundService
         if (f.AccumulatedValueReclaimedAt.HasValue || f.Order.Status != OrderStatus.Completed) return;
         var receipt = await _refunds.ProcessingAsync(f.OrderId, ct);
         var credited = receipt?.CreditedOrderValue ?? (await _refunds.LegacyCreditAsync(f.OrderId, ct) ? f.Order.TotalAmount : 0);
+        var reclaimed = Math.Min(credited, f.TransferredAmount);
         var progress = await _trust.ProgressAsync(f.Order.CustomerId, ct);
         if (credited > 0 && progress == null) throw AppException.ServiceUnavailable("Accumulated progress is missing; refund processing requires review.");
         if (progress != null)
         {
-            progress.AccumulatedOrderValue = Math.Max(0, progress.AccumulatedOrderValue - credited);
+            progress.AccumulatedOrderValue = Math.Max(0, progress.AccumulatedOrderValue - reclaimed);
             progress.UpdatedAt = Now;
             var score = await _trust.ScoreAsync(f.Order.CustomerId, ct);
             var levels = await _trust.LevelsAsync(ct);
@@ -379,29 +431,56 @@ public class RefundService : IRefundService
                 && x.Requirement.MinTotalOrderValue <= progress.AccumulatedOrderValue).OrderByDescending(x => x.Rank).FirstOrDefault() ?? levels[0];
             if (level.Id != score.TrustLevelId)
             {
-                _refunds.Add(new UserTrustLevelHistory { Id = Guid.NewGuid(), UserId = score.UserId,
-                    PreviousTrustLevelId = score.TrustLevelId, NewTrustLevelId = level.Id,
-                    Reason = TrustLevelChangeReason.RefundTransferred, OrderId = f.OrderId, CreatedAt = Now });
+                _refunds.Add(new UserTrustLevelHistory
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = score.UserId,
+                    PreviousTrustLevelId = score.TrustLevelId,
+                    NewTrustLevelId = level.Id,
+                    Reason = TrustLevelChangeReason.RefundTransferred,
+                    OrderId = f.OrderId,
+                    CreatedAt = Now
+                });
                 score.TrustLevelId = level.Id; score.UpdatedAt = Now;
             }
         }
-        if (receipt != null) receipt.CreditedOrderValue = 0;
+        if (receipt != null) receipt.CreditedOrderValue = credited - reclaimed;
         f.AccumulatedValueReclaimedAt = Now;
     }
     private void Audit(Refund f, RefundStatus? before, Guid? actorId, string role, string name, string decision, string? note, string? proof = null)
     {
         f.UpdatedAt = Now;
-        var history = new RefundStatusHistory { Id = Guid.NewGuid(), RefundId = f.Id, FromStatus = before, ToStatus = f.Status,
-            ActorId = actorId, ActorRole = role, ActorName = name, Decision = decision, Note = note,
-            TransferReference = f.TransferReference, ProofUrl = proof, CreatedAt = Now };
+        var history = new RefundStatusHistory
+        {
+            Id = Guid.NewGuid(),
+            RefundId = f.Id,
+            FromStatus = before,
+            ToStatus = f.Status,
+            ActorId = actorId,
+            ActorRole = role,
+            ActorName = name,
+            Decision = decision,
+            Note = note,
+            TransferReference = f.TransferReference,
+            ProofUrl = proof,
+            CreatedAt = Now
+        };
         f.History.Add(history);
         _refunds.Add(history);
     }
     // Explicitly mark new dependent rows as Added even when their GUID keys are already assigned.
-    private void AddEvidence(Refund f, Guid actor, string url, RefundEvidenceType type)
+    private void AddEvidence(Refund f, Guid actor, string url, RefundEvidenceType type, Guid? refundItemId = null)
     {
-        var evidence = new RefundEvidenceImage { Id = Guid.NewGuid(), RefundId = f.Id, ImageUrl = url,
-            ImageType = type, UploadedBy = actor, CreatedAt = Now };
+        var evidence = new RefundEvidenceImage
+        {
+            Id = Guid.NewGuid(),
+            RefundId = f.Id,
+            ImageUrl = url,
+            RefundItemId = refundItemId,
+            ImageType = type,
+            UploadedBy = actor,
+            CreatedAt = Now
+        };
         f.EvidenceImages.Add(evidence);
         _refunds.Add(evidence);
     }
@@ -437,31 +516,70 @@ public class RefundService : IRefundService
     {
         if (f.Status == RefundStatus.AwaitingCustomerDetails) return "WaitingCustomer";
         if (f.Status is RefundStatus.Rejected or RefundStatus.Withdrawn or RefundStatus.Transferred or RefundStatus.Completed) return "Closed";
-        if (!f.ReviewDeadlineAt.HasValue || f.ReviewDeadlineAt <= Now || f.Status == RefundStatus.Overdue) return "DeadlinePassed";
+        if (!f.ReviewDeadlineAt.HasValue || f.ReviewDeadlineAt <= Now) return "DeadlinePassed";
         if (f.DestinationConfirmedAt == null) return "WaitingCustomer";
         if (f.Status == RefundStatus.PendingVerification && f.RefundType == RefundType.CustomerRequest) return "ReviewRequired";
         return f.Status == RefundStatus.AwaitingTransfer ? "TransferRequired" : "Closed";
     }
     private RefundResponse Map(Refund f) => new()
     {
-        Id = f.Id, OrderId = f.OrderId, OrderCode = f.Order.OrderCode, OrderStatus = f.Order.Status.ToString(), OrderTotal = f.Order.TotalAmount,
-        ShopId = f.Order.ShopId, ShopName = f.Order.Shop.Name, ShopLogoUrl = f.Order.Shop.LogoUrl, CustomerName = f.Order.Customer.FullName, Type = f.RefundType.ToString(), Status = f.Status.ToString(),
-        CustomerAvatarUrl = f.Order.Customer.AvatarUrl, CustomerPhone = f.Order.Customer.Phone,
-        CustomerLevelName = f.Order.Customer.TrustScore?.TrustLevel?.Name, CustomerLevelRank = f.Order.Customer.TrustScore?.TrustLevel?.Rank,
-        ShopAction = ShopAction(f), RequiresShopAction = ShopAction(f) is "ReviewRequired" or "TransferRequired",
-        Amount = f.RequestedAmount, TransferredAmount = f.TransferredAmount, Reason = f.Reason, RejectReason = f.RejectReason,
-        ReceiverMethod = f.ReceiverMethod?.ToString(), ReceiverQrImageUrl = f.ReceiverQrImageUrl,
-        BankBin = f.ReceiverBankBin, BankName = f.ReceiverBankName, AccountNumber = f.ReceiverAccountNumber, AccountHolder = f.ReceiverAccountHolder,
-        ConfirmationExpiresAt = f.VerificationExpiresAt, DestinationConfirmedAt = f.DestinationConfirmedAt,
-        CustomerDetailsDeadlineAt = f.CustomerDetailsDeadlineAt, PendingVerificationAt = f.PendingVerificationAt, ReviewDeadlineAt = f.ReviewDeadlineAt,
-        IsOverdue = f.Status == RefundStatus.Overdue || (f.Status is (RefundStatus.PendingVerification or RefundStatus.AwaitingTransfer) && f.ReviewDeadlineAt <= Now),
+        Id = f.Id,
+        OrderId = f.OrderId,
+        OrderCode = f.Order.OrderCode,
+        OrderStatus = f.Order.Status.ToString(),
+        OrderTotal = f.Order.TotalAmount,
+        OrderRefundedAmount = f.Order.RefundedAmount,
+        OrderNetAmount = Math.Max(0, f.Order.TotalAmount - f.Order.RefundedAmount),
+        Items = f.Items.Select(x => new RefundItemResponse { Reason = x.Reason, EvidenceUrls = f.EvidenceImages.Where(image => image.RefundItemId == x.Id && image.ImageType == RefundEvidenceType.RequestEvidence).Select(image => image.ImageUrl).ToList(), OrderItemId = x.OrderItemId, ProductName = x.ProductName, VariantName = x.VariantName, ImageUrl = x.ImageUrl, PurchasedQuantity = x.PurchasedQuantity, Quantity = x.Quantity, UnitPrice = x.UnitPrice, Amount = x.Amount }).ToList(),
+        ShopId = f.Order.ShopId,
+        ShopName = f.Order.Shop.Name,
+        ShopLogoUrl = f.Order.Shop.LogoUrl,
+        CustomerName = f.Order.Customer.FullName,
+        Type = f.RefundType.ToString(),
+        Status = f.Status.ToString(),
+        CustomerAvatarUrl = f.Order.Customer.AvatarUrl,
+        CustomerPhone = f.Order.Customer.Phone,
+        CustomerLevelName = f.Order.Customer.TrustScore?.TrustLevel?.Name,
+        CustomerLevelRank = f.Order.Customer.TrustScore?.TrustLevel?.Rank,
+        ShopAction = ShopAction(f),
+        RequiresShopAction = ShopAction(f) is "ReviewRequired" or "TransferRequired",
+        Amount = f.RequestedAmount,
+        TransferredAmount = f.TransferredAmount,
+        Reason = f.Reason,
+        RejectReason = f.RejectReason,
+        ReceiverMethod = f.ReceiverMethod?.ToString(),
+        ReceiverQrImageUrl = f.ReceiverQrImageUrl,
+        BankBin = f.ReceiverBankBin,
+        BankName = f.ReceiverBankName,
+        AccountNumber = f.ReceiverAccountNumber,
+        AccountHolder = f.ReceiverAccountHolder,
+        ConfirmationExpiresAt = f.VerificationExpiresAt,
+        DestinationConfirmedAt = f.DestinationConfirmedAt,
+        CustomerDetailsDeadlineAt = f.CustomerDetailsDeadlineAt,
+        PendingVerificationAt = f.PendingVerificationAt,
+        ReviewDeadlineAt = f.ReviewDeadlineAt,
+        IsOverdue = (f.Status is (RefundStatus.PendingVerification or RefundStatus.AwaitingTransfer) && f.ReviewDeadlineAt <= Now),
         IsPlatformFeeExempt = f.Order.IsPlatformFeeExempt,
-        ReviewedBy = f.ReviewedBy, ReviewedAt = f.ReviewedAt, TransferReference = f.TransferReference, TransferredAt = f.TransferredAt,
-        CreatedAt = f.CreatedAt, EvidenceUrls = f.EvidenceImages.Where(x => x.ImageType == RefundEvidenceType.RequestEvidence).Select(x => x.ImageUrl).ToList(),
+        ReviewedBy = f.ReviewedBy,
+        ReviewedAt = f.ReviewedAt,
+        TransferReference = f.TransferReference,
+        TransferredAt = f.TransferredAt,
+        CreatedAt = f.CreatedAt,
+        EvidenceUrls = f.EvidenceImages.Where(x => x.ImageType == RefundEvidenceType.RequestEvidence).Select(x => x.ImageUrl).ToList(),
         TransferProofUrls = f.EvidenceImages.Where(x => x.ImageType == RefundEvidenceType.TransferProof).Select(x => x.ImageUrl).ToList(),
-        History = f.History.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).Select(x => new RefundHistoryResponse {
-            Id = x.Id, FromStatus = x.FromStatus?.ToString(), ToStatus = x.ToStatus.ToString(), ActorId = x.ActorId,
-            ActorRole = x.ActorRole, ActorName = x.ActorName, Decision = x.Decision, Note = x.Note,
-            TransferReference = x.TransferReference, ProofUrl = x.ProofUrl, CreatedAt = x.CreatedAt }).ToList()
+        History = f.History.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).Select(x => new RefundHistoryResponse
+        {
+            Id = x.Id,
+            FromStatus = x.FromStatus?.ToString(),
+            ToStatus = x.ToStatus.ToString(),
+            ActorId = x.ActorId,
+            ActorRole = x.ActorRole,
+            ActorName = x.ActorName,
+            Decision = x.Decision,
+            Note = x.Note,
+            TransferReference = x.TransferReference,
+            ProofUrl = x.ProofUrl,
+            CreatedAt = x.CreatedAt
+        }).ToList()
     };
 }

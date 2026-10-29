@@ -36,6 +36,7 @@ public class Order
     public string? ConfirmationExpirationJobId { get; set; }
     public bool InventoryReservationActive { get; set; }
     public bool PaymentReviewRequired { get; set; }
+    public decimal RefundedAmount { get; set; }
     public bool IsPlatformFeeExempt { get; set; }
 
     public string? CancelReason { get; set; }

@@ -44,7 +44,7 @@ public sealed class TrustOrderService : ITrustOrderService
             {
                 progress.CompletedOrdersCount = checked(progress.CompletedOrdersCount + 1);
                 // A transfer can precede delayed completion delivery; refunded orders never earn accumulated value.
-                creditedValue = order.Refunds.Any(x => x.Status is RefundStatus.Transferred or RefundStatus.Completed) ? 0 : order.TotalAmount;
+                creditedValue = Math.Max(0, order.TotalAmount - order.RefundedAmount);
                 progress.AccumulatedOrderValue += creditedValue;
                 progress.UpdatedAt = now;
                 var type = order.PaymentMethod == PaymentMethod.OnlinePayment

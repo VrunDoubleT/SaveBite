@@ -6,6 +6,8 @@ public class RefundEvidenceImage
 {
     public Guid Id { get; set; }
     public Guid RefundId { get; set; }
+    public Guid? RefundItemId { get; set; }
+    public RefundItem? RefundItem { get; set; }
 
     public string ImageUrl { get; set; } = string.Empty;
     public RefundEvidenceType ImageType { get; set; }

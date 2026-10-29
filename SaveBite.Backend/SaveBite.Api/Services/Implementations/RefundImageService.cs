@@ -14,12 +14,13 @@ public class RefundImageService : IRefundImageService
     { _orders = orders; _shops = shops; _images = images; }
 
     // Authorize before upload; Cloudinary validates image signatures and stores the actual file.
-    public async Task<RefundImageResponse> UploadAsync(Guid userId, Guid orderId, Guid? shopId, IFormFile file, string purpose, CancellationToken ct)
+    public async Task<RefundImageResponse> UploadAsync(Guid userId, Guid orderId, bool forShop, IFormFile file, string purpose, CancellationToken ct)
     {
-        if (shopId.HasValue)
+        if (forShop)
         {
-            if (purpose != "transfer-proof" || !await _shops.RequireAccessAsync(userId, shopId.Value, ct)) throw AppException.Forbidden();
-            _ = await _shops.GetAsync(shopId.Value, orderId, ct) ?? throw AppException.NotFound();
+            if (purpose != "transfer-proof") throw AppException.Forbidden();
+            var shopId = await _shops.OwnerShopAsync(userId, ct);
+            _ = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
         }
         else
         {

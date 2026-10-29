@@ -58,6 +58,7 @@ public static class CheckoutOrderMapper
             Policy = policy,
             Items = order.Items.Select(x => new CheckoutOrderItemResponse
             {
+                OrderItemId = x.Id,
                 FlashDealVariantId = x.FlashDealVariantId,
                 ProductName = x.ProductNameSnapshot,
                 VariantName = x.VariantNameSnapshot,
