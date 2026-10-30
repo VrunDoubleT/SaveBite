@@ -6,15 +6,19 @@ namespace SaveBite.Backend.Services.Interfaces;
 
 public interface INotificationService
 {
-    //  View Notifications
+    // View Notifications
     Task<NotificationListResponse> GetMyNotificationsAsync(
         Guid userId, NotificationRequests.GetNotificationsRequest request, CancellationToken ct = default);
 
-    //  Mark Notification as Read
+    // Mark Notification as Read
     Task<NotificationItemResponse> MarkAsReadAsync(
         Guid userId, Guid notificationId, CancellationToken ct = default);
 
-    //  Delete Notification
+    // Mark All Notifications as Read
+    Task MarkAllAsReadAsync(
+        Guid userId, CancellationToken ct = default);
+
+    // Delete Notification
     Task DeleteNotificationAsync(
         Guid userId, Guid notificationId, CancellationToken ct = default);
 

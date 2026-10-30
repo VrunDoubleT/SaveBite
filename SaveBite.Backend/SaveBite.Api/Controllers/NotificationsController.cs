@@ -22,7 +22,7 @@ public sealed class NotificationsController : ControllerBase
         _notificationService = notificationService;
     }
 
-    // UC-22: View Notifications
+    // View Notifications
     [HttpGet]
     public async Task<ActionResult<ApiResponse<NotificationListResponse>>> GetMyNotifications(
         [FromQuery] NotificationRequests.GetNotificationsRequest request,
@@ -33,7 +33,15 @@ public sealed class NotificationsController : ControllerBase
         return Ok(ApiResponse<NotificationListResponse>.Ok(result, "Get notifications successfully."));
     }
 
-    // UC-23: Mark Notification as Read
+    // Mark All Notifications as Read
+    [HttpPatch("read-all")]
+    public async Task<ActionResult<ApiResponse>> MarkAllAsRead(CancellationToken cancellationToken)
+    {
+        await _notificationService.MarkAllAsReadAsync(GetAuthenticatedUserId(), cancellationToken);
+        return Ok(ApiResponse.Ok("All notifications marked as read."));
+    }
+
+    // Mark Notification as Read
     [HttpPatch("{notificationId:guid}/read")]
     public async Task<ActionResult<ApiResponse<NotificationItemResponse>>> MarkAsRead(
         Guid notificationId,
@@ -44,7 +52,7 @@ public sealed class NotificationsController : ControllerBase
         return Ok(ApiResponse<NotificationItemResponse>.Ok(result, "Notification marked as read."));
     }
 
-    // UC-24: Delete Notification
+    // Delete Notification
     [HttpDelete("{notificationId:guid}")]
     public async Task<ActionResult<ApiResponse>> DeleteNotification(
         Guid notificationId,

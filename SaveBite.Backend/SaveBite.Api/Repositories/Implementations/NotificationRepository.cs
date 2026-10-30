@@ -192,6 +192,13 @@ public sealed class NotificationRepository : INotificationRepository
         => _db.Notifications
             .SingleOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId && n.DismissedAt == null, ct);
 
+    public async Task<int> MarkAllAsReadAsync(Guid userId, DateTime readAt, CancellationToken ct = default)
+    {
+        return await _db.Notifications
+            .Where(n => n.UserId == userId && n.DismissedAt == null && n.ReadAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(n => n.ReadAt, readAt), ct);
+    }
+
     public Task SaveChangesAsync(CancellationToken ct = default)
         => _db.SaveChangesAsync(ct);
 }

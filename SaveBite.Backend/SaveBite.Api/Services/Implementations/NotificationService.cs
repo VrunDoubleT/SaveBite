@@ -27,7 +27,7 @@ public sealed class NotificationService : INotificationService
         _clock = clock;
     }
 
-    // UC-22: Retrieve paginated notifications for the authenticated user.
+    // Retrieve paginated notifications for the authenticated user.
     public async Task<NotificationListResponse> GetMyNotificationsAsync(
         Guid userId, NotificationRequests.GetNotificationsRequest request, CancellationToken ct = default)
     {
@@ -43,7 +43,7 @@ public sealed class NotificationService : INotificationService
         return new NotificationListResponse(pagedResult, unreadCount);
     }
 
-    // UC-23: Mark a notification as read and sync realtime state across active tabs.
+    // Mark a notification as read and sync realtime state across active tabs.
     public async Task<NotificationItemResponse> MarkAsReadAsync(
         Guid userId, Guid notificationId, CancellationToken ct = default)
     {
@@ -65,7 +65,21 @@ public sealed class NotificationService : INotificationService
         return MapToResponse(notification);
     }
 
-    // UC-24: Soft-delete a notification via DismissedAt and sync realtime state across active tabs.
+    // Mark all notifications as read and sync realtime state across active tabs.
+    public async Task MarkAllAsReadAsync(Guid userId, CancellationToken ct = default)
+    {
+        var now = _clock.GetUtcNow().UtcDateTime;
+        var updatedCount = await _repository.MarkAllAsReadAsync(userId, now, ct);
+        if (updatedCount > 0)
+        {
+            await _realtime.SendToUserAsync(
+                userId,
+                RealtimeEvents.NotificationRead,
+                new NotificationStateSyncPayload(Guid.Empty, 0, now));
+        }
+    }
+
+    // Soft-delete a notification via DismissedAt and sync realtime state across active tabs.
     public async Task DeleteNotificationAsync(
         Guid userId, Guid notificationId, CancellationToken ct = default)
     {

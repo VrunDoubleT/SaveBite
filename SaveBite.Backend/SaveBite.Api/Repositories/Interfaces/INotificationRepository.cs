@@ -16,6 +16,8 @@ public interface INotificationRepository
 
     Task<int> GetUnreadCountAsync(Guid userId, CancellationToken ct = default);
 
+    Task<int> MarkAllAsReadAsync(Guid userId, DateTime readAt, CancellationToken ct = default);
+
     Task<Notification?> GetByIdForUserAsync(
         Guid notificationId, Guid userId, CancellationToken ct = default);
 
