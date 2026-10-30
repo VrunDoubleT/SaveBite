@@ -127,4 +127,86 @@ public sealed class ProductRepository : IProductRepository
             throw AppException.Conflict("One of the supplied identifiers already exists. Reload and try again.");
         }
     }
+    
+    // Manage Products.
+    public async Task<(IReadOnlyList<Product> Items, int Total)> GetProductListAsync(string? keyword, int page, int pageSize, CancellationToken ct)
+    {
+        var query = _db.Products.AsNoTracking().Where(p => p.DeletedAt == null);
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var search = $"%{keyword.Trim()}%";
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Name, search) ||
+                EF.Functions.ILike(p.Shop.Name, search));
+        }
+
+        var total = await query.CountAsync(ct);
+        var offset = ((long)page - 1) * pageSize;
+        if (offset >= total) return (Array.Empty<Product>(), total);
+
+        var items = await query
+            .OrderByDescending(p => p.CreatedAt)
+            .ThenBy(p => p.Id)
+            .Skip((int)offset)
+            .Take(pageSize)
+            .Include(p => p.Shop)
+            .Include(p => p.Category)
+            .Include(p => p.Variants)
+            .Include(p => p.Images)
+            .Include(p => p.ContentRevisions
+                .OrderByDescending(revision => revision.RevisionNumber)
+                .Take(1))
+            .AsSplitQuery()
+            .ToListAsync(ct);
+
+        return (items, total);
+    }
+    
+    // Manage Products.
+    public async Task<Product?> GetProductContentAsync(Guid productId, CancellationToken ct)
+    {
+        return await Details(_db.Products.AsNoTracking().Include(p => p.Shop))
+            .SingleOrDefaultAsync(p => p.Id == productId && p.DeletedAt == null, ct);
+    }
+    
+    // Manage Products.
+    public async Task<Product?> GetProductForViolationRemovalAsync(Guid productId, CancellationToken ct)
+    {
+        return await _db.Products.FirstOrDefaultAsync(x => x.Id == productId, ct);
+    }
+
+    // Manage Products.
+    public async Task RemoveProductForViolationAndCancelDealsAsync(Product product, CancellationToken ct)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+        await _db.FlashDeals
+            .Where(x =>
+                x.ProductId == product.Id &&
+                x.Status != FlashDealStatus.Cancelled &&
+                x.Status != FlashDealStatus.Closed)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(
+                        x => x.Status,
+                        FlashDealStatus.Cancelled)
+                    .SetProperty(
+                        x => x.UpdatedAt,
+                        DateTime.UtcNow),
+                ct);
+
+        await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
+    
+    // Manage Products.
+    public async Task<ProductContentRevision?> GetLatestRevisionForReviewAsync(Guid productId, CancellationToken ct)
+    {
+        return await _db.ProductContentRevisions.OrderByDescending(x => x.RevisionNumber)
+            .FirstOrDefaultAsync(x => x.ProductId == productId, ct);
+    }
+
+    // Manage Products.
+    public void AddContentRevision(ProductContentRevision revision) => _db.ProductContentRevisions.Add(revision);
 }

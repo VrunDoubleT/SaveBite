@@ -1,6 +1,11 @@
+using System.Text.Json;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Constants;
+using SaveBite.Backend.Messaging.Events;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Repositories.Interfaces;
@@ -13,15 +18,18 @@ public sealed class ShopService : IShopService
     private readonly IShopRepository _shopRepository;
     private readonly IUserAddressRepository _userAddressRepository;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IRabbitMqPublisher _publisher;
 
     public ShopService(
         IShopRepository shopRepository,
         IUserAddressRepository userAddressRepository,
-        ICloudinaryService cloudinaryService)
+        ICloudinaryService cloudinaryService,
+        IRabbitMqPublisher publisher)
     {
         _shopRepository = shopRepository;
         _userAddressRepository = userAddressRepository;
         _cloudinaryService = cloudinaryService;
+        _publisher = publisher;
     }
 
     public async Task<ShopSummaryResponse> GetOwnerShopAsync(
@@ -375,5 +383,169 @@ public sealed class ShopService : IShopService
             TotalReviews = totalReviews,
             RatingBreakdown = breakdown
         };
+    }
+    
+    // Manage Shops.
+    public async Task<PagedResult<ShopListResponse>> GetShopListAsync(string? keyword, int page, int pageSize, CancellationToken ct)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var (items, total) = await _shopRepository.GetShopListAsync(keyword, page, pageSize, ct);
+
+        var responses = items.Select(s => new ShopListResponse
+        {
+            Id = s.Id,
+            Name = s.Name,
+            Description = s.Description,
+            Status = s.Status.ToString(),
+            City = s.City,
+            OwnerUserId = s.OwnerUserId,
+            OwnerName = s.Owner.FullName,
+            CreatedAt = s.CreatedAt
+        }).ToArray();
+
+        return PagedResult<ShopListResponse>.Create(responses, page, pageSize, total);
+    }
+
+    // Manage Shops.
+    public async Task<ShopContentResponse> GetShopContentAsync(Guid shopId, CancellationToken ct = default)
+    {
+        var shop = await _shopRepository.GetShopContentAsync(shopId, ct)
+                   ?? throw AppException.NotFound("Shop not found.");
+
+        var auditLogs = await _shopRepository.GetShopStatusHistoryAsync(shopId, ct);
+        var statusHistory = auditLogs.Select(log => new ShopStatusHistoryResponse
+        {
+            Id = log.Id,
+            FromStatus = ReadStatus(log.OldValuesJson),
+            ToStatus = ReadStatus(log.NewValuesJson) ?? string.Empty,
+            Reason = log.Reason,
+            CreatedAt = log.CreatedAt
+        }).ToArray();
+
+        var currentStatusReason = shop.Status.ToString() is "Paused" or "Suspended"
+            ? statusHistory.FirstOrDefault(item => item.ToStatus == shop.Status.ToString())?.Reason
+            : null;
+
+        return new ShopContentResponse
+        {
+            Id = shop.Id,
+            OwnerUserId = shop.OwnerUserId,
+            Owner = shop.Owner == null ? null : new ShopOwnerResponse
+            {
+                Id = shop.Owner.Id,
+                FullName = shop.Owner.FullName,
+                Email = shop.Owner.Email,
+                PhoneNumber = shop.Owner.Phone
+            },
+            Name = shop.Name,
+            Description = shop.Description,
+            LogoUrl = shop.LogoUrl,
+            CoverImageUrl = shop.CoverImageUrl,
+            AddressLine = shop.AddressLine,
+            Ward = shop.Ward,
+            District = shop.District,
+            City = shop.City,
+            Latitude = shop.Latitude,
+            Longitude = shop.Longitude,
+            OpeningTime = shop.OpeningTime,
+            ClosingTime = shop.ClosingTime,
+            BusinessLicenseNo = shop.Application?.BusinessLicenseNo,
+            Documents = shop.Application?.Documents
+                .Where(document => document.IsCurrent)
+                .OrderBy(document => document.DocumentType)
+                .Select(document => new ShopProfileDocumentResponse
+                {
+                    Id = document.Id,
+                    DocumentType = document.DocumentType.ToString(),
+                    FileUrl = document.FileUrl,
+                    OriginalFileName = document.OriginalFileName,
+                    ContentType = document.ContentType,
+                    UploadedAt = document.UploadedAt
+                }).ToList() ?? new List<ShopProfileDocumentResponse>(),
+            Status = shop.Status.ToString(),
+            CurrentStatusReason = currentStatusReason,
+            StatusHistory = statusHistory,
+            CreatedAt = shop.CreatedAt,
+            UpdatedAt = shop.UpdatedAt
+        };
+    }
+    
+    // Manage Shops.
+    public async Task<ModerationActionResponse> UpdateShopStatusAsync(Guid adminId, Guid shopId, UpdateShopModerationStatusRequest request, CancellationToken ct)
+    {
+        var targetStatus = Enum.Parse<ShopStatus>(request.Status.Trim(), ignoreCase: true);
+        
+        var shop = await _shopRepository.GetShopForStatusUpdateAsync(shopId, ct);
+
+        if (shop is null)
+            throw AppException.NotFound("Shop not found.");
+
+        var currentStatus = shop.Status;
+                  
+        if (currentStatus == targetStatus)
+            throw AppException.Conflict("Shop already has this status.");
+        
+        var isAllowed = currentStatus switch
+        {
+            ShopStatus.Active => targetStatus is ShopStatus.Paused or ShopStatus.Suspended,
+            ShopStatus.Paused => targetStatus is ShopStatus.Active or ShopStatus.Suspended,
+            ShopStatus.Suspended => targetStatus == ShopStatus.Active,
+            _ => false
+        };
+
+        if (!isAllowed)
+            throw AppException.BadRequest($"Cannot change shop status from {currentStatus} to {targetStatus}.");
+
+        var requiresReason = targetStatus is ShopStatus.Paused or ShopStatus.Suspended;
+        var reason = request.Reason?.Trim();
+
+        if (!requiresReason) reason = null;
+        
+        var oldValues = new
+        {
+            Status = currentStatus.ToString()
+        };
+
+        shop.Status = targetStatus;
+        shop.UpdatedAt = DateTime.UtcNow;
+        await _shopRepository.SaveChangesAsync(ct);
+
+        var moderationEvent = new ModerationEvent
+        {
+            Id = Guid.NewGuid(),
+            ActorUserId = adminId,
+            Action = "SHOP_STATUS_UPDATED",
+            TargetType = "Shop",
+            TargetId = shopId,
+            Reason = reason,
+            OldValuesJson = JsonSerializer.Serialize(oldValues),
+            NewValuesJson = JsonSerializer.Serialize(new { Status = targetStatus.ToString() }),
+            CreatedAt = DateTime.UtcNow
+        };
+        await _publisher.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, moderationEvent, ct);
+
+        return new ModerationActionResponse
+        {
+            TargetId = shopId,
+            Action = "SHOP_STATUS_UPDATED",
+            Message = $"Shop status changed from {currentStatus} to {targetStatus}."
+        };
+    }
+    
+    // Manage Shops.
+    private static string? ReadStatus(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        
+        using var document = JsonDocument.Parse(json);
+        if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
+        foreach (var property in document.RootElement.EnumerateObject())
+        {
+            if (property.Name.Equals("Status", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
+                return property.Value.GetString();
+        }
+        return null;
     }
 }

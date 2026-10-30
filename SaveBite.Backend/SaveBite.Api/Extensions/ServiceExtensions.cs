@@ -62,6 +62,9 @@ public static class ServiceExtensions
             client.Timeout = TimeSpan.FromSeconds(15);
         }).RemoveAllLoggers();
         services.AddScoped<ICartDealEventService, CartDealEventService>();
+        
+        services.AddScoped<IWarningService, WarningService>();
+        services.AddScoped<IFeedbackService, FeedbackService>();
 
         return services;
     }

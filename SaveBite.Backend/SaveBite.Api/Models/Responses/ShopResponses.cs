@@ -94,3 +94,62 @@ public sealed class ShopProfileDocumentResponse
     public string ContentType { get; set; } = string.Empty;
     public DateTime UploadedAt { get; set; }
 }
+
+// Manage Shops.
+public class ShopOwnerResponse
+{
+    public Guid Id { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? PhoneNumber { get; set; }
+}
+
+// Manage Shops.
+public class ShopListResponse
+{
+    public Guid Id { get; set; }
+    public string Name  { get; set; } = string.Empty;
+    public string? Description  { get; set; }
+    public string Status   { get; set; } = string.Empty;
+    public string? City { get; set; }
+    public Guid OwnerUserId { get; set; }
+    public string? OwnerName { get; set; }
+    public DateTime CreatedAt  { get; set; }
+}
+
+// Manage Shops.
+public class ShopStatusHistoryResponse
+{
+    public Guid Id { get; set; }
+    public string? FromStatus { get; set; }
+    public string ToStatus { get; set; } = string.Empty;
+    public string? Reason { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+// Manage Shops.
+public class ShopContentResponse
+{
+    public Guid Id { get; set; }
+    public Guid OwnerUserId { get; set; }
+    public ShopOwnerResponse? Owner { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? LogoUrl { get; set; }
+    public string? CoverImageUrl { get; set; }
+    public string AddressLine { get; set; } = string.Empty;
+    public string? Ward { get; set; }
+    public string? District { get; set; }
+    public string? City { get; set; }
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public TimeOnly? OpeningTime { get; set; }
+    public TimeOnly? ClosingTime { get; set; }
+    public string? BusinessLicenseNo { get; set; }
+    public IReadOnlyList<ShopProfileDocumentResponse> Documents { get; set; } = Array.Empty<ShopProfileDocumentResponse>();
+    public string Status { get; set; } = string.Empty;
+    public string? CurrentStatusReason { get; set; }
+    public IReadOnlyList<ShopStatusHistoryResponse> StatusHistory { get; set; } = Array.Empty<ShopStatusHistoryResponse>();
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}

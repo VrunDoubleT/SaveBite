@@ -13,7 +13,7 @@ public sealed record ProductVariantResponse(
     Guid Id, string? Sku, decimal OriginalPrice, decimal DealPrice,
     bool IsActive, IReadOnlyList<Guid> ValueIds);
 public sealed record ProductReviewResponse(
-    ProductReviewStatus Status, string? Note, DateTime? ReviewedAt);
+    ProductReviewStatus Status, string? Note, DateTime? ReviewedAt, Guid? RevisionId = null);
 public sealed record ProductResponse(
     Guid Id, Guid ShopId, Guid CategoryId, string CategoryName,
     string Name, string? Description, ProductStatus Status,
@@ -44,3 +44,42 @@ public sealed record ProductOptionsResponse(
     ProductShopOption? Shop, IReadOnlyList<ProductCategoryOption> Categories);
 
 public sealed record ProductSummaryResponse(int TotalProducts, int ActiveProducts, int HiddenProducts, int TotalVariants);
+
+// Manage Products.
+public class ProductListResponse
+{
+    public Guid Id { get; set; }
+    public Guid ShopId { get; set; }
+    public string ShopName { get; set; } = string.Empty;
+    public Guid CategoryId { get; set; }
+    public string CategoryName { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public ProductStatus Status { get; set; }
+    public int VariantCount { get; set; }
+    public decimal? MinOriginalPrice { get; set; }
+    public decimal? MinDealPrice { get; set; }
+    public decimal? MaxDealPrice { get; set; }
+    public IReadOnlyList<ProductImageResponse> Images { get; set; } = Array.Empty<ProductImageResponse>();
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public ProductReviewResponse? LatestReview { get; set; }
+}
+
+// Manage Products.
+public class ProductContentResponse
+{
+    public Guid Id { get; set; }
+    public Guid ShopId { get; set; }
+    public string ShopName { get; set; } = string.Empty;
+    public Guid CategoryId { get; set; }
+    public string CategoryName { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public ProductStatus Status { get; set; }
+    public IReadOnlyList<ProductImageResponse> Images { get; set; } = Array.Empty<ProductImageResponse>();
+    public IReadOnlyList<ProductAttributeResponse> Attributes { get; set; } = Array.Empty<ProductAttributeResponse>();
+    public IReadOnlyList<ProductVariantResponse> Variants { get; set; } = Array.Empty<ProductVariantResponse>();
+    public ProductReviewResponse? LatestReview { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}

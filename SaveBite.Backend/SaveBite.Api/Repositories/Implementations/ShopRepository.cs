@@ -173,4 +173,54 @@ public sealed class ShopRepository : IShopRepository
         _context.Shops.Update(shop);
         await _context.SaveChangesAsync(cancellationToken);
     }
+    
+    // Manage Shops.
+    public async Task<(IReadOnlyList<Shop> Items, int Total)> GetShopListAsync(string? keyword, int page, int pageSize, CancellationToken ct)
+    {
+        var query = _context.Shops.AsNoTracking()
+            .Include(s => s.Owner).AsQueryable();
+        
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            query = query.Where(shop => EF.Functions.ILike(shop.Name, $"%{keyword.Trim()}%"));
+        }
+
+        var total = await query.CountAsync(ct);
+
+        var items = await query
+            .OrderByDescending(s => s.CreatedAt)
+            .ThenBy(s => s.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, total);
+    }
+    
+    // Manage Shops.
+    public async Task<Shop?> GetShopContentAsync(Guid shopId, CancellationToken ct)
+    {
+        return await _context.Shops.AsNoTracking()
+            .Include(s => s.Owner)
+            .Include(s => s.Application)
+            .ThenInclude(a => a.Documents.Where(d => d.IsCurrent))
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(s => s.Id == shopId, ct);
+    }
+    
+    // Manage Shops.
+    public async Task<IReadOnlyList<AuditLog>> GetShopStatusHistoryAsync(Guid shopId, CancellationToken ct)
+    {
+        return await _context.AuditLogs.AsNoTracking()
+            .Where(log => log.TargetType == "Shop" && log.TargetId == shopId && log.Action == "SHOP_STATUS_UPDATED")
+            .OrderByDescending(log => log.CreatedAt)
+            .ThenByDescending(log => log.Id)
+            .ToListAsync(ct);
+    }
+    
+    // Manage Shops.
+    public async Task<Shop?> GetShopForStatusUpdateAsync(Guid shopId, CancellationToken ct)
+    {
+        return await _context.Shops.FirstOrDefaultAsync(x => x.Id == shopId, ct);
+    }
 }

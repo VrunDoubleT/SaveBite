@@ -128,12 +128,61 @@ public sealed class ProductsController : ControllerBase
         Guid productId, [FromBody] UpdateProductStatusRequest request,
         CancellationToken cancellationToken)
         => Ok(ApiResponse<ProductResponse>.Ok(
-            await _products.UpdateStatusAsync(UserId(), productId, request, cancellationToken),
+            await _products.UpdateStatusAsync(UserId(), productId, request, cancellationToken), 
             $"Product status updated to {request.Status} successfully."));
 
     private Guid UserId()
     {
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
         return Guid.TryParse(claim, out var id) ? id : throw AppException.Unauthorized();
+    }
+    
+    // Manage Products.
+    [HttpGet("admin")]
+    [AdminAccess]
+    public async Task<ActionResult<ApiResponse<PagedResult<ProductListResponse>>>> ViewProductsForAdmin(
+        [FromQuery] string? keyword,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _products.GetProductListAsync(keyword, page, pageSize, cancellationToken);
+        return Ok(ApiResponse<PagedResult<ProductListResponse>>.Ok(result, "Product list retrieved successfully."));
+    }
+    
+    // Manage Products.
+    [HttpGet("admin/{productId:guid}")]
+    [AdminAccess]
+    public async Task<ActionResult<ApiResponse<ProductContentResponse>>> ViewProductContentForAdmin(Guid productId, CancellationToken cancellationToken)
+    {
+        if (productId == Guid.Empty)
+            throw AppException.BadRequest("Product ID is invalid.");
+        
+        var result = await _products.GetProductContentAsync(productId, cancellationToken);
+        return Ok(ApiResponse<ProductContentResponse>.Ok(result, "Product content retrieved successfully."));
+    }
+    
+    // Manage Products.
+    [HttpDelete("admin/{productId:guid}/violation")]
+    [AdminAccess]
+    public async Task<ActionResult<ApiResponse<ModerationActionResponse>>> RemoveViolation(Guid productId, [FromBody] RemoveViolatingProductRequest request, CancellationToken cancellationToken)
+    {
+        if (productId == Guid.Empty)
+            throw AppException.BadRequest("Product ID is invalid.");
+
+        var result = await _products.RemoveProductAsync(UserId(), productId, request, cancellationToken);
+        return Ok(ApiResponse<ModerationActionResponse>.Ok(result, "Violating product removed successfully."));
+    }
+    
+    // Manage Products.
+    [HttpPost("admin/{productId:guid}/content-revisions/{revisionId:guid}/approve")]
+    [AdminAccess]
+    public async Task<ActionResult<ApiResponse<ModerationActionResponse>>> ApproveContent(Guid productId, Guid revisionId, CancellationToken cancellationToken)
+    {
+        if (productId == Guid.Empty)
+            throw AppException.BadRequest("Product ID is invalid.");
+
+        var result = await _products.ApproveContentAsync(UserId(), productId, revisionId, cancellationToken);
+        return Ok(ApiResponse<ModerationActionResponse>.Ok(result, "Content revision approved successfully."));
     }
 }

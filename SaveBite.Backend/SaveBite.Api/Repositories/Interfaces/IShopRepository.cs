@@ -32,4 +32,10 @@ public interface IShopRepository
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
     Task<Shop?> GetShopProfileByOwnerUserIdAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
     Task UpdateShopAsync(Shop shop, CancellationToken cancellationToken = default);
+    
+    // Manage Shops.
+    Task<(IReadOnlyList<Shop> Items, int Total)> GetShopListAsync(string? keyword, int page, int pageSize, CancellationToken ct);
+    Task<Shop?> GetShopContentAsync(Guid shopId, CancellationToken ct);
+    Task<IReadOnlyList<AuditLog>> GetShopStatusHistoryAsync(Guid shopId, CancellationToken ct);
+    Task<Shop?> GetShopForStatusUpdateAsync(Guid shopId, CancellationToken ct);
 }

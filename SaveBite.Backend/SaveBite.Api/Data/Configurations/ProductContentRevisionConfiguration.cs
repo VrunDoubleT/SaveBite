@@ -87,12 +87,6 @@ public class ProductContentRevisionConfiguration
             x.RevisionNumber
         }).IsUnique();
         
-        builder.HasIndex(x => x.ProductId)
-            .IsUnique()
-            .HasFilter("\"status\" = 'Pending'")
-            .HasDatabaseName(
-                "ux_product_content_revisions_pending_product");
-
         builder.HasOne(x => x.Product)
             .WithMany(x => x.ContentRevisions)
             .HasForeignKey(x => x.ProductId)

@@ -31,6 +31,9 @@ public static class RepositoryExtensions
         services.AddScoped<IPaymentHistoryRepository, PaymentHistoryRepository>();
         services.AddScoped<IOrderEventRepository, OrderEventRepository>();
         services.AddScoped<IShopOrderRepository, ShopOrderRepository>();
+        
+        services.AddScoped<IWarningRepository, WarningRepository>();
+        services.AddScoped<IFeedbackRepository, FeedbackRepository>();
         return services;
     }
 }

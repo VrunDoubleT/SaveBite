@@ -1438,11 +1438,6 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.HasIndex("ProductId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_product_content_revisions_pending_product")
-                        .HasFilter("\"status\" = 'Pending'");
-
                     b.HasIndex("ReviewedByUserId");
 
                     b.HasIndex("SubmittedByUserId");
