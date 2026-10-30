@@ -25,6 +25,10 @@ export const notificationApi = {
     return response.data.data;
   },
 
+  async markAllAsRead(): Promise<void> {
+    await httpClient.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ);
+  },
+
   async deleteNotification(notificationId: string): Promise<void> {
     await httpClient.delete(API_ENDPOINTS.NOTIFICATIONS.DELETE(notificationId));
   },

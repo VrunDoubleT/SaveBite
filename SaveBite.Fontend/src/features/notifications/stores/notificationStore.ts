@@ -11,24 +11,32 @@ interface NotificationState {
   unreadCount: number;
   isLoading: boolean;
   filter: "all" | "unread";
+  livePreviews: NotificationItem[];
   livePreview: NotificationItem | null;
   setFilter: (filter: "all" | "unread") => Promise<void>;
   fetchNotifications: (filter?: "all" | "unread") => Promise<void>;
   markAsRead: (notificationId: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
-  dismissLivePreview: () => void;
+  dismissLivePreview: (notificationId?: string) => void;
   onNotificationReceived: (payload: NotificationRealtimePayload) => void;
   onNotificationRead: (payload: NotificationStateSyncPayload) => void;
   onNotificationDeleted: (payload: NotificationStateSyncPayload) => void;
   reset: () => void;
 }
 
-let previewTimeout: ReturnType<typeof setTimeout> | null = null;
+const previewTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
-function clearPreviewTimer() {
-  if (previewTimeout) {
-    clearTimeout(previewTimeout);
-    previewTimeout = null;
+function clearAllPreviewTimers() {
+  previewTimeouts.forEach((timeout) => clearTimeout(timeout));
+  previewTimeouts.clear();
+}
+
+function clearPreviewTimer(id: string) {
+  const timeout = previewTimeouts.get(id);
+  if (timeout) {
+    clearTimeout(timeout);
+    previewTimeouts.delete(id);
   }
 }
 
@@ -37,6 +45,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   unreadCount: 0,
   isLoading: false,
   filter: "all",
+  livePreviews: [],
   livePreview: null,
 
   async setFilter(filter) {
@@ -87,15 +96,38 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
+  async markAllAsRead() {
+    const nowIso = new Date().toISOString();
+    set((state) => ({
+      items:
+        state.filter === "unread"
+          ? []
+          : state.items.map((n) => ({ ...n, isRead: true, readAt: nowIso })),
+      unreadCount: 0,
+    }));
+
+    try {
+      await notificationApi.markAllAsRead();
+    } catch {
+      await get().fetchNotifications();
+    }
+  },
+
   async deleteNotification(notificationId) {
     const target = get().items.find((n) => n.id === notificationId);
     const wasUnread = target && !target.isRead;
 
-    set((state) => ({
-      items: state.items.filter((n) => n.id !== notificationId),
-      unreadCount: wasUnread ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
-      livePreview: state.livePreview?.id === notificationId ? null : state.livePreview,
-    }));
+    clearPreviewTimer(notificationId);
+
+    set((state) => {
+      const nextPreviews = state.livePreviews.filter((n) => n.id !== notificationId);
+      return {
+        items: state.items.filter((n) => n.id !== notificationId),
+        unreadCount: wasUnread ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
+        livePreviews: nextPreviews,
+        livePreview: nextPreviews[0] ?? null,
+      };
+    });
 
     try {
       await notificationApi.deleteNotification(notificationId);
@@ -104,20 +136,39 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
-  dismissLivePreview() {
-    clearPreviewTimer();
-    set({ livePreview: null });
+  dismissLivePreview(notificationId) {
+    if (notificationId) {
+      clearPreviewTimer(notificationId);
+      set((state) => {
+        const nextPreviews = state.livePreviews.filter((n) => n.id !== notificationId);
+        return {
+          livePreviews: nextPreviews,
+          livePreview: nextPreviews[0] ?? null,
+        };
+      });
+    } else {
+      clearAllPreviewTimers();
+      set({
+        livePreviews: [],
+        livePreview: null,
+      });
+    }
   },
 
   onNotificationReceived(payload) {
     if (!payload?.notification) return;
-    clearPreviewTimer();
+    const notification = payload.notification;
+
+    clearPreviewTimer(notification.id);
 
     set((state) => {
-      const exists = state.items.some((n) => n.id === payload.notification.id);
+      const exists = state.items.some((n) => n.id === notification.id);
       const nextItems = exists
-        ? state.items.map((n) => (n.id === payload.notification.id ? payload.notification : n))
-        : [payload.notification, ...state.items].slice(0, 30);
+        ? state.items.map((n) => (n.id === notification.id ? notification : n))
+        : [notification, ...state.items].slice(0, 30);
+
+      const existingPreviews = state.livePreviews.filter((n) => n.id !== notification.id);
+      const nextPreviews = [notification, ...existingPreviews].slice(0, 3);
 
       return {
         items: nextItems,
@@ -125,52 +176,85 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           typeof payload.unreadCount === "number"
             ? payload.unreadCount
             : state.unreadCount + (exists ? 0 : 1),
-        livePreview: payload.notification,
+        livePreviews: nextPreviews,
+        livePreview: nextPreviews[0] ?? null,
       };
     });
 
-    // Automatically hide the drop-down notification preview after 3 seconds.
-    previewTimeout = setTimeout(() => {
-      set({ livePreview: null });
-      previewTimeout = null;
-    }, 3000);
+    // Auto dismiss each preview after 5 seconds
+    const timer = setTimeout(() => {
+      get().dismissLivePreview(notification.id);
+    }, 5000);
+    previewTimeouts.set(notification.id, timer);
   },
 
   onNotificationRead(payload) {
-    if (!payload?.notificationId) return;
-    set((state) => ({
-      items:
-        state.filter === "unread"
-          ? state.items.filter((n) => n.id !== payload.notificationId)
-          : state.items.map((n) =>
-              n.id === payload.notificationId
-                ? { ...n, isRead: true, readAt: payload.readAt ?? new Date().toISOString() }
-                : n,
-            ),
-      unreadCount:
-        typeof payload.unreadCount === "number" ? payload.unreadCount : state.unreadCount,
-    }));
+    if (!payload) return;
+    const isReadAll =
+      !payload.notificationId ||
+      payload.notificationId === "00000000-0000-0000-0000-000000000000" ||
+      payload.notificationId === "all";
+
+    const nowIso = payload.readAt ?? new Date().toISOString();
+
+    set((state) => {
+      if (isReadAll) {
+        return {
+          items:
+            state.filter === "unread"
+              ? []
+              : state.items.map((n) => ({ ...n, isRead: true, readAt: nowIso })),
+          unreadCount:
+            typeof payload.unreadCount === "number" ? payload.unreadCount : 0,
+        };
+      }
+
+      return {
+        items:
+          state.filter === "unread"
+            ? state.items.filter((n) => n.id !== payload.notificationId)
+            : state.items.map((n) =>
+                n.id === payload.notificationId
+                  ? { ...n, isRead: true, readAt: nowIso }
+                  : n,
+              ),
+        unreadCount:
+          typeof payload.unreadCount === "number" ? payload.unreadCount : state.unreadCount,
+      };
+    });
   },
 
   onNotificationDeleted(payload) {
     if (!payload?.notificationId) return;
-    set((state) => ({
-      items: state.items.filter((n) => n.id !== payload.notificationId),
-      unreadCount:
-        typeof payload.unreadCount === "number" ? payload.unreadCount : state.unreadCount,
-      livePreview:
-        state.livePreview?.id === payload.notificationId ? null : state.livePreview,
-    }));
+    clearPreviewTimer(payload.notificationId);
+
+    set((state) => {
+      const nextPreviews = state.livePreviews.filter((n) => n.id !== payload.notificationId);
+      return {
+        items: state.items.filter((n) => n.id !== payload.notificationId),
+        unreadCount:
+          typeof payload.unreadCount === "number" ? payload.unreadCount : state.unreadCount,
+        livePreviews: nextPreviews,
+        livePreview: nextPreviews[0] ?? null,
+      };
+    });
   },
 
   reset() {
-    clearPreviewTimer();
+    clearAllPreviewTimers();
     set({
       items: [],
       unreadCount: 0,
       isLoading: false,
       filter: "all",
+      livePreviews: [],
       livePreview: null,
     });
   },
 }));
+
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).__notificationStore = useNotificationStore;
+}
+

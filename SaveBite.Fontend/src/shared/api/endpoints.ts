@@ -142,6 +142,7 @@ export const API_ENDPOINTS = {
   },
   NOTIFICATIONS: {
     BASE: "/notifications",
+    MARK_ALL_READ: "/notifications/read-all",
     MARK_READ: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}/read`,
     DELETE: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}`,
   },
