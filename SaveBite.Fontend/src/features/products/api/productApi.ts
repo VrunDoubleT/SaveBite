@@ -4,11 +4,15 @@ import type {
   FlashDeal,
   Page,
   Product,
+  ProductContentManagement,
   ProductListItem,
+  ProductListManagement,
   ProductListQuery,
   ProductOptions,
   ProductSummary,
+  RemoveViolatingProduct,
 } from "../types/product.types";
+import type { ModerationActionResult } from "@/shared/types/moderationAction.types";
 
 // Override the shared JSON default so the browser supplies the multipart boundary.
 const uploadConfig = { headers: { "Content-Type": undefined }, timeout: 120_000 };
@@ -103,5 +107,58 @@ export const productApi = {
         status,
       })
     ).data.data;
+  },
+
+  // Product Management
+  async getProductsForManagement(
+    params: {
+      keyword?: string;
+      page: number;
+      pageSize: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<Page<ProductListManagement>> {
+    const response = await httpClient.get<ApiResponse<Page<ProductListManagement>>>(
+      API_ENDPOINTS.PRODUCTS.ADMIN_LIST,
+      {
+        params,
+        signal,
+      },
+    );
+
+    return response.data.data;
+  },
+
+  // Product Content Management
+  async getProductContentForManagement(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<ProductContentManagement> {
+    const response = await httpClient.get<ApiResponse<ProductContentManagement>>(
+      API_ENDPOINTS.PRODUCTS.ADMIN_CONTENT(id),
+      {
+        signal,
+      },
+    );
+
+    return response.data.data;
+  },
+
+  // Product Violation Management
+  async removeForViolation(productId: string, reason: string): Promise<ModerationActionResult> {
+    const request: RemoveViolatingProduct = { reason };
+    const response = await httpClient.delete<ApiResponse<ModerationActionResult>>(
+      API_ENDPOINTS.PRODUCTS.VIOLATION(productId),
+      { data: request },
+    );
+    return response.data.data;
+  },
+
+  // Product Content Management - Approve Content
+  async approveContent(productId: string, revisionId: string): Promise<ModerationActionResult> {
+    const response = await httpClient.post<ApiResponse<ModerationActionResult>>(
+      API_ENDPOINTS.PRODUCTS.APPROVE_CONTENT(productId, revisionId),
+    );
+    return response.data.data;
   },
 };

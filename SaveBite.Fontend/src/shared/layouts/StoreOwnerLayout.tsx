@@ -4,6 +4,7 @@ import {
   CreditCard,
   Package,
   Settings2,
+  ShieldAlert,
   Store,
   Users,
   Zap,
@@ -29,11 +30,7 @@ const navigation = [
     label: "Orders",
     end: false,
     icon: ClipboardList,
-    badge: (
-      <ShopOrderWorkspaceNotifications
-        ordersPath={`${APP_PATHS.STORE_OWNER}/orders`}
-      />
-    ),
+    badge: <ShopOrderWorkspaceNotifications ordersPath={`${APP_PATHS.STORE_OWNER}/orders`} />,
   },
   {
     to: APP_PATHS.STORE_OWNER_STAFF,
@@ -58,6 +55,12 @@ const navigation = [
     label: "Shop Profile",
     end: false,
     icon: Settings2,
+  },
+  {
+    to: "/store-owner/warnings",
+    label: "Warning History",
+    end: false,
+    icon: ShieldAlert,
   },
 ] as const;
 

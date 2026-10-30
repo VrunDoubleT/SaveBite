@@ -59,7 +59,7 @@ export interface Product {
   images: ProductImage[];
   attributes: ProductAttribute[];
   variants: ProductVariant[];
-  latestReview?: { status: number; note?: string; reviewedAt?: string };
+  latestReview?: { status: number; note?: string; reviewedAt?: string; revisionId?: string };
 }
 export interface Page<T> {
   items: T[];
@@ -127,4 +127,19 @@ export interface ProductSummary {
   activeProducts: number;
   hiddenProducts: number;
   totalVariants: number;
+}
+
+export interface ProductListManagement extends ProductListItem {
+  latestReview?: Product["latestReview"];
+  shopId: string;
+  shopName: string;
+  createdAt: string;
+}
+
+export interface ProductContentManagement extends Product {
+  shopName: string;
+}
+
+export interface RemoveViolatingProduct {
+  reason: string;
 }
