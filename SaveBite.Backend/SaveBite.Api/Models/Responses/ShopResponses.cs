@@ -1,4 +1,5 @@
 using SaveBite.Backend.Models.Common;
+
 namespace SaveBite.Backend.Models.Responses;
 
 public class NearbyShopResponse
@@ -18,6 +19,29 @@ public class NearbyShopResponse
     public double AverageRating { get; set; }
     public int TotalReviews { get; set; }
     public int FlashDealCount { get; set; }
+}
+
+public class NearbyShopsPagedResult : PagedResult<NearbyShopResponse>
+{
+    public int AllStoresCount { get; init; }
+    public int FlashDealsStoresCount { get; init; }
+
+    public static NearbyShopsPagedResult Create(
+        IReadOnlyList<NearbyShopResponse> items,
+        int page,
+        int pageSize,
+        int totalItems,
+        int allStoresCount,
+        int flashDealsStoresCount)
+        => new()
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems,
+            AllStoresCount = allStoresCount,
+            FlashDealsStoresCount = flashDealsStoresCount
+        };
 }
 
 public class ShopProfileResponse
@@ -74,6 +98,7 @@ public class StoreReviewsSummaryResponse
     public Dictionary<int, int> RatingBreakdown { get; set; } = new();
     public PagedResult<StoreReviewResponse> Reviews { get; set; } = null!;
 }
+
 public class ShopPaymentConfigResponse
 {
     public string? BankName { get; set; }

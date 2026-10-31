@@ -34,7 +34,7 @@ public sealed class ShopService : IShopService
         return new ShopSummaryResponse(shop.Id, shop.Name);
     }
 
-    public async Task<PagedResult<NearbyShopResponse>> GetNearbyShopsAsync(
+    public async Task<NearbyShopsPagedResult> GetNearbyShopsAsync(
         NearbyShopsRequest request,
         Guid? userId = null,
         CancellationToken cancellationToken = default)
@@ -60,17 +60,17 @@ public sealed class ShopService : IShopService
             }
             else
             {
-                return PagedResult<NearbyShopResponse>.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0);
+                return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
             }
         }
         else
         {
-            return PagedResult<NearbyShopResponse>.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0);
+            return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
         }
 
         var shops = await _shopRepository.GetActiveShopsAsync(request.Keyword, cancellationToken);
         if (!shops.Any())
-            return PagedResult<NearbyShopResponse>.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0);
+            return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
 
         var nowTime = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
 
@@ -87,6 +87,20 @@ public sealed class ShopService : IShopService
             matchingShops.Add((shop, distance, isOpen));
         }
 
+        if (!matchingShops.Any())
+            return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
+
+        var allMatchingShopIds = matchingShops.Select(x => x.Shop.Id).ToList();
+        var allDealCounts = await _shopRepository.GetActiveDealCountsForShopsAsync(allMatchingShopIds, cancellationToken);
+
+        var allStoresCount = matchingShops.Count;
+        var flashDealsStoresCount = matchingShops.Count(x => allDealCounts.TryGetValue(x.Shop.Id, out var count) && count > 0);
+
+        if (request.IsFlashDealsOnly)
+        {
+            matchingShops = matchingShops.Where(x => allDealCounts.TryGetValue(x.Shop.Id, out var count) && count > 0).ToList();
+        }
+
         var totalItems = matchingShops.Count;
         var pagedShops = matchingShops
             .OrderBy(x => x.Distance)
@@ -96,14 +110,13 @@ public sealed class ShopService : IShopService
 
         var pagedShopIds = pagedShops.Select(x => x.Shop.Id).ToList();
         var reviewsStats = await _shopRepository.GetReviewsStatsForShopsAsync(pagedShopIds, cancellationToken);
-        var dealCounts = await _shopRepository.GetActiveDealCountsForShopsAsync(pagedShopIds, cancellationToken);
 
         var results = new List<NearbyShopResponse>();
         foreach (var item in pagedShops)
         {
             var shop = item.Shop;
             reviewsStats.TryGetValue(shop.Id, out var stat);
-            dealCounts.TryGetValue(shop.Id, out var dealCount);
+            allDealCounts.TryGetValue(shop.Id, out var dealCount);
 
             results.Add(new NearbyShopResponse
             {
@@ -125,7 +138,7 @@ public sealed class ShopService : IShopService
             });
         }
 
-        return PagedResult<NearbyShopResponse>.Create(results, page, pageSize, totalItems);
+        return NearbyShopsPagedResult.Create(results, page, pageSize, totalItems, allStoresCount, flashDealsStoresCount);
     }
 
     public async Task<ShopProfileResponse> GetShopProfileAsync(
@@ -229,7 +242,7 @@ public sealed class ShopService : IShopService
             ? now >= opening.Value && now <= closing.Value
             : now >= opening.Value || now <= closing.Value;
     }
-    // ===== iss-12: payment config =====
+    //  payment config =====
 
     public async Task<ShopPaymentConfigResponse> GetOwnerPaymentConfigAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
@@ -279,7 +292,7 @@ public sealed class ShopService : IShopService
         };
     }
 
-    // ===== iss-13: store profile & operating management =====
+    //  store profile & operating management =====
 
     public Task<ShopProfileResponse> GetOwnerShopProfileAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
