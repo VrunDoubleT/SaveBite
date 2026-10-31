@@ -47,7 +47,9 @@ export function AdminStatementDetailModal({
 }: AdminStatementDetailModalProps) {
   const [statement, setStatement] = useState<PlatformFeeStatementDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"orders" | "adjustments" | "payments" | "histories">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "adjustments" | "payments" | "histories">(
+    "orders",
+  );
 
   useEffect(() => {
     if (!isOpen || !statementId) {
@@ -98,7 +100,9 @@ export function AdminStatementDetailModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900">
-                  {statement ? `${statement.shopName} — Kỳ ${statement.billingMonth}/${statement.billingYear}` : "Statement Detail"}
+                  {statement
+                    ? `${statement.shopName} — Kỳ ${statement.billingMonth}/${statement.billingYear}`
+                    : "Statement Detail"}
                 </h3>
                 {statement && <StatusBadge status={statement.status} size="sm" />}
               </div>
@@ -334,9 +338,12 @@ export function AdminStatementDetailModal({
                       ) : (
                         statement.payments.map((p) => (
                           <tr key={p.id} className="hover:bg-slate-50/50 transition">
-                            <td className="px-4 py-3 font-mono text-slate-600 text-[11px]">{p.id}</td>
+                            <td className="px-4 py-3 font-mono text-slate-600 text-[11px]">
+                              {p.id}
+                            </td>
                             <td className="px-4 py-3 font-semibold text-slate-800">
-                              {p.paymentMethod === "OnlinePayment" || String(p.paymentMethod) === "0"
+                              {p.paymentMethod === "OnlinePayment" ||
+                              String(p.paymentMethod) === "0"
                                 ? "Online Payment (PayOS)"
                                 : p.paymentMethod === "PayAtShop" || String(p.paymentMethod) === "1"
                                   ? "Manual / Shop Payment"
@@ -349,7 +356,7 @@ export function AdminStatementDetailModal({
                               {p.gatewayTransactionId || "—"}
                             </td>
                             <td className="px-4 py-3">
-                               <span
+                              <span
                                 className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold border ${
                                   p.status === "Succeeded"
                                     ? "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -409,13 +416,20 @@ export function AdminStatementDetailModal({
                             <td className="px-4 py-3 text-slate-600">
                               {formatVnd(h.previousAmount)}
                             </td>
-                            <td className={`px-4 py-3 font-bold ${h.adjustmentAmount < 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                              {h.adjustmentAmount > 0 ? `+${formatVnd(h.adjustmentAmount)}` : formatVnd(h.adjustmentAmount)}
+                            <td
+                              className={`px-4 py-3 font-bold ${(h.adjustmentAmount ?? h.changeAmount) < 0 ? "text-rose-600" : "text-emerald-600"}`}
+                            >
+                              {(h.adjustmentAmount ?? h.changeAmount) > 0
+                                ? `+${formatVnd(h.adjustmentAmount ?? h.changeAmount)}`
+                                : formatVnd(h.adjustmentAmount ?? h.changeAmount)}
                             </td>
                             <td className="px-4 py-3 font-black text-slate-900">
                               {formatVnd(h.newAmount)}
                             </td>
-                            <td className="px-4 py-3 text-slate-700 max-w-xs truncate" title={h.reason}>
+                            <td
+                              className="px-4 py-3 text-slate-700 max-w-xs truncate"
+                              title={h.reason}
+                            >
                               {h.reason || "—"}
                             </td>
                           </tr>

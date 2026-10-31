@@ -65,6 +65,19 @@ export interface PlatformFeePaymentItem {
   paidAt?: string;
   createdAt: string;
 }
+export interface PlatformFeeStatementHistoryItem {
+  id: string;
+  statementId: string;
+  changeType: string;
+  previousAmount: number;
+  changeAmount: number;
+  adjustmentAmount?: number;
+  newAmount: number;
+  reason: string;
+  relatedRefundId?: string | null;
+  relatedOrderId?: string | null;
+  createdAt: string;
+}
 
 export interface PlatformFeeStatementDetail {
   id: string;
@@ -81,6 +94,7 @@ export interface PlatformFeeStatementDetail {
   orders: OrderPlatformFeeItem[];
   adjustments: PlatformFeeAdjustmentItem[];
   payments: PlatformFeePaymentItem[];
+  histories?: PlatformFeeStatementHistoryItem[];
 }
 
 export interface PlatformFeePaymentLinkResponse {

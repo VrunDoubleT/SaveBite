@@ -30,7 +30,9 @@ export function PlatformFeeDetailPage() {
   const [loading, setLoading] = useState(true);
 
   // Active tab state
-  const [activeTab, setActiveTab] = useState<"orders" | "adjustments" | "payments" | "histories">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "adjustments" | "payments" | "histories">(
+    "orders",
+  );
 
   // Payment modal state
   const [paymentData, setPaymentData] = useState<PlatformFeePaymentLinkResponse | null>(null);
@@ -438,11 +440,13 @@ export function PlatformFeeDetailPage() {
                           {h.changeType}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-slate-600">
-                        {formatVnd(h.previousAmount)}
-                      </td>
-                      <td className={`px-5 py-3.5 font-bold ${h.adjustmentAmount < 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                        {h.adjustmentAmount > 0 ? `+${formatVnd(h.adjustmentAmount)}` : formatVnd(h.adjustmentAmount)}
+                      <td className="px-5 py-3.5 text-slate-600">{formatVnd(h.previousAmount)}</td>
+                      <td
+                        className={`px-5 py-3.5 font-bold ${(h.adjustmentAmount ?? h.changeAmount) < 0 ? "text-rose-600" : "text-emerald-600"}`}
+                      >
+                        {(h.adjustmentAmount ?? h.changeAmount) > 0
+                          ? `+${formatVnd(h.adjustmentAmount ?? h.changeAmount)}`
+                          : formatVnd(h.adjustmentAmount ?? h.changeAmount)}
                       </td>
                       <td className="px-5 py-3.5 font-bold text-slate-900">
                         {formatVnd(h.newAmount)}
