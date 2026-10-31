@@ -6,6 +6,7 @@ import {
   SlidersHorizontal,
   History,
   RefreshCw,
+  FileText,
 } from "lucide-react";
 import { platformFeeApi } from "../api/platformFeeApi";
 import type { PlatformFeeStatementDetail } from "../types/platformFee.types";
@@ -46,7 +47,7 @@ export function AdminStatementDetailModal({
 }: AdminStatementDetailModalProps) {
   const [statement, setStatement] = useState<PlatformFeeStatementDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"orders" | "adjustments" | "payments">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "adjustments" | "payments" | "histories">("orders");
 
   useEffect(() => {
     if (!isOpen || !statementId) {
@@ -205,6 +206,19 @@ export function AdminStatementDetailModal({
                 <History className="h-3.5 w-3.5" />
                 Payments ({statement.payments?.length || 0})
               </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("histories")}
+                className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition-colors ${
+                  activeTab === "histories"
+                    ? "border-emerald-600 text-emerald-700"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Statement History ({statement.histories?.length || 0})
+              </button>
             </div>
 
             {/* Tab 1: Orders */}
@@ -349,6 +363,60 @@ export function AdminStatementDetailModal({
                             </td>
                             <td className="px-4 py-3 text-slate-500">
                               {formatDateTime(p.paidAt || p.createdAt)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: Histories */}
+            {activeTab === "histories" && (
+              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100">
+                      <tr>
+                        <th className="px-4 py-3">Timestamp</th>
+                        <th className="px-4 py-3">Change Type</th>
+                        <th className="px-4 py-3">Previous</th>
+                        <th className="px-4 py-3">Adjustment</th>
+                        <th className="px-4 py-3">New Amount</th>
+                        <th className="px-4 py-3">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {!statement.histories || statement.histories.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400">
+                            No history records logged for this statement.
+                          </td>
+                        </tr>
+                      ) : (
+                        statement.histories.map((h) => (
+                          <tr key={h.id} className="hover:bg-slate-50/50 transition">
+                            <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                              {formatDateTime(h.createdAt)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                                {h.changeType}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">
+                              {formatVnd(h.previousAmount)}
+                            </td>
+                            <td className={`px-4 py-3 font-bold ${h.adjustmentAmount < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                              {h.adjustmentAmount > 0 ? `+${formatVnd(h.adjustmentAmount)}` : formatVnd(h.adjustmentAmount)}
+                            </td>
+                            <td className="px-4 py-3 font-black text-slate-900">
+                              {formatVnd(h.newAmount)}
+                            </td>
+                            <td className="px-4 py-3 text-slate-700 max-w-xs truncate" title={h.reason}>
+                              {h.reason || "—"}
                             </td>
                           </tr>
                         ))
