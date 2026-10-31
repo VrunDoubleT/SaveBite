@@ -14,7 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<UserAddress> UserAddresses => Set<UserAddress>();
     public DbSet<AccountStatusLog> AccountStatusLogs => Set<AccountStatusLog>();
-    public DbSet<UserRoleChangeLog>  UserRoleChangeLogs => Set<UserRoleChangeLog>();
+    public DbSet<UserRoleChangeLog> UserRoleChangeLogs => Set<UserRoleChangeLog>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     // Products.
     public DbSet<Category> Categories => Set<Category>();
@@ -69,6 +69,7 @@ public class AppDbContext : DbContext
     // Feedbacks.
     public DbSet<ProductFeedback> ProductFeedbacks => Set<ProductFeedback>();
     public DbSet<ProductFeedbackReply> ProductFeedbackReplies => Set<ProductFeedbackReply>();
+    public DbSet<ProductWarning> ProductWarnings => Set<ProductWarning>();
     // Content Moderation.
     public DbSet<ProductContentRevision> ProductContentRevisions => Set<ProductContentRevision>();
     // Feedback Moderation.

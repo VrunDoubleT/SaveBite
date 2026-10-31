@@ -61,6 +61,7 @@ public sealed class ProductRepository : IProductRepository
         => query.Include(x => x.Category).Include(x => x.Images)
             .Include(x => x.Attributes).ThenInclude(x => x.Values)
             .Include(x => x.Variants).ThenInclude(x => x.VariantValues)
+            .Include(x => x.Warnings.Where(w => w.ResolvedAt == null))
             .Include(x => x.ContentRevisions.OrderByDescending(r => r.RevisionNumber).Take(1))
             .AsSplitQuery();
 
@@ -112,7 +113,7 @@ public sealed class ProductRepository : IProductRepository
             .Where(fdv => fdv.VariantId == variantId &&
                           (fdv.FlashDeal.Status == FlashDealStatus.Pending || fdv.FlashDeal.Status == FlashDealStatus.OnSale))
             .Select(fdv => (decimal?)fdv.DealPrice)
-            .MaxAsync(ct); 
+            .MaxAsync(ct);
 
     public async Task SaveChangesAsync(CancellationToken ct)
     {
@@ -122,12 +123,12 @@ public sealed class ProductRepository : IProductRepository
             throw AppException.Conflict("The product changed during this request. Reload it and try again.");
         }
         catch (DbUpdateException exception) when (exception.InnerException is Npgsql.PostgresException
-            { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
+        { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
         {
             throw AppException.Conflict("One of the supplied identifiers already exists. Reload and try again.");
         }
     }
-    
+
     // Manage Products.
     public async Task<(IReadOnlyList<Product> Items, int Total)> GetProductListAsync(string? keyword, int page, int pageSize, CancellationToken ct)
     {
@@ -154,6 +155,7 @@ public sealed class ProductRepository : IProductRepository
             .Include(p => p.Category)
             .Include(p => p.Variants)
             .Include(p => p.Images)
+            .Include(p => p.Warnings.Where(w => w.ResolvedAt == null))
             .Include(p => p.ContentRevisions
                 .OrderByDescending(revision => revision.RevisionNumber)
                 .Take(1))
@@ -162,14 +164,22 @@ public sealed class ProductRepository : IProductRepository
 
         return (items, total);
     }
-    
+
     // Manage Products.
     public async Task<Product?> GetProductContentAsync(Guid productId, CancellationToken ct)
     {
-        return await Details(_db.Products.AsNoTracking().Include(p => p.Shop))
+        return await _db.Products.AsNoTrackingWithIdentityResolution()
+            .Include(p => p.Shop).Include(p => p.Category).Include(p => p.Images)
+            .Include(p => p.Attributes).ThenInclude(a => a.Values)
+            .Include(p => p.Variants).ThenInclude(v => v.VariantValues)
+            .Include(p => p.Warnings)
+            .Include(p => p.ContentRevisions).ThenInclude(r => r.Category)
+            .Include(p => p.ContentRevisions).ThenInclude(r => r.SubmittedByUser)
+            .Include(p => p.ContentRevisions).ThenInclude(r => r.ReviewedByUser)
+            .AsSplitQuery()
             .SingleOrDefaultAsync(p => p.Id == productId && p.DeletedAt == null, ct);
     }
-    
+
     // Manage Products.
     public async Task<Product?> GetProductForViolationRemovalAsync(Guid productId, CancellationToken ct)
     {
@@ -199,7 +209,7 @@ public sealed class ProductRepository : IProductRepository
         await _db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
     }
-    
+
     // Manage Products.
     public async Task<ProductContentRevision?> GetLatestRevisionForReviewAsync(Guid productId, CancellationToken ct)
     {

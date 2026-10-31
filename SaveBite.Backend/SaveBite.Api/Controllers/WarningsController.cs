@@ -23,10 +23,10 @@ public sealed class WarningsController : ControllerBase
     // View Warning History.
     [HttpGet]
     [StoreOwnerAnyStatusAccess]
-    public async Task<ActionResult<ApiResponse<PagedResult<WarningResponse>>>> History([FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<ApiResponse<PagedResult<WarningResponse>>>> History([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? status = null, CancellationToken cancellationToken = default)
     {
         var ownerUserId = GetRequiredCurrentUserId();
-        var result = await _warningService.GetHistoryAsync(ownerUserId, page, pageSize, cancellationToken);
+        var result = await _warningService.GetHistoryAsync(ownerUserId, page, pageSize, cancellationToken, status);
         return Ok(ApiResponse<PagedResult<WarningResponse>>.Ok(result, "Warning history retrieved successfully."));
     }
 
@@ -37,7 +37,7 @@ public sealed class WarningsController : ControllerBase
     {
         if (warningId == Guid.Empty)
             throw AppException.BadRequest("Warning ID is invalid.");
-        
+
         var ownerUserId = GetRequiredCurrentUserId();
         var result = await _warningService.GetDetailsAsync(ownerUserId, warningId, cancellationToken);
         return Ok(ApiResponse<WarningResponse>.Ok(result, "Warning details retrieved successfully."));
@@ -54,7 +54,7 @@ public sealed class WarningsController : ControllerBase
         var result = await _warningService.IssueWarningAsync(GetRequiredCurrentUserId(), productId, request, cancellationToken);
         return Ok(ApiResponse<ModerationActionResponse>.Ok(result, "Violation warning issued successfully."));
     }
-    
+
     private Guid? TryGetCurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
@@ -66,7 +66,7 @@ public sealed class WarningsController : ControllerBase
         var id = TryGetCurrentUserId();
         if (!id.HasValue || id.Value == Guid.Empty)
             throw AppException.Unauthorized("Unable to identify the authenticated user.");
-        
+
         return id.Value;
     }
 }

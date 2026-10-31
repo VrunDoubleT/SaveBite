@@ -1,8 +1,8 @@
+using SaveBite.Backend.Helpers;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
-using SaveBite.Backend.Messaging.Constants;
-using SaveBite.Backend.Messaging.Events;
-using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -16,12 +16,14 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class WarningService : IWarningService
 {
     private readonly IWarningRepository _warningRepository;
-    private readonly IRabbitMqPublisher _publisher;
+    private readonly AppDbContext _db;
+    private readonly TimeProvider _clock;
 
-    public WarningService(IWarningRepository warningRepository, IRabbitMqPublisher publisher)
+    public WarningService(IWarningRepository warningRepository, AppDbContext db, TimeProvider clock)
     {
         _warningRepository = warningRepository;
-        _publisher = publisher;
+        _db = db;
+        _clock = clock;
     }
 
     private async Task<Guid> GetShopIdAsync(Guid ownerId, CancellationToken cancellationToken)
@@ -34,12 +36,14 @@ public sealed class WarningService : IWarningService
     }
 
     // View Warning History.
-    public async Task<PagedResult<WarningResponse>> GetHistoryAsync(Guid ownerId, int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<PagedResult<WarningResponse>> GetHistoryAsync(Guid ownerId, int page, int pageSize, CancellationToken cancellationToken, string? status = null)
     {
+        if (status is not (null or "all" or "new" or "submitted" or "resolved"))
+            throw AppException.BadRequest("Invalid warning status filter.");
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var shopId = await GetShopIdAsync(ownerId, cancellationToken);
-        var (items, total) = await _warningRepository.GetHistoryAsync(shopId, page, pageSize, cancellationToken);
+        var (items, total) = await _warningRepository.GetHistoryAsync(shopId, page, pageSize, cancellationToken, status);
         var responses = items.Select(Map).ToArray();
         return PagedResult<WarningResponse>.Create(responses, page, pageSize, total);
     }
@@ -55,10 +59,10 @@ public sealed class WarningService : IWarningService
 
         if (warning == null)
             throw AppException.NotFound("Warning not found.");
-        
+
         return Map(warning);
     }
-    
+
     // Send Violation Warning.
     public async Task<ModerationActionResponse> IssueWarningAsync(Guid adminId, Guid productId, IssueViolationWarningRequest request, CancellationToken ct)
     {
@@ -66,10 +70,10 @@ public sealed class WarningService : IWarningService
 
         if (product == null)
             throw AppException.NotFound("Product not found.");
-        
+
         if (product.DeletedAt != null)
             throw AppException.Conflict("Product has been removed.");
-        
+
         var reason = request.Reason.Trim();
         var requiredCorrection = request.RequiredCorrection.Trim();
 
@@ -80,53 +84,57 @@ public sealed class WarningService : IWarningService
         if (revision.Status == ProductReviewStatus.NeedsRevision)
             throw AppException.Conflict("A correction has already been requested for this revision.");
 
+        if (await _db.ProductWarnings.AnyAsync(x => x.ProductId == productId && x.ResolvedAt == null, ct))
+            throw AppException.Conflict("This product already has an unresolved warning.");
+
+        var now = _clock.GetUtcNow().UtcDateTime;
+        revision.AttributeValuesJson ??= JsonSerializer.Serialize(ProductAttributeContentHelper.Capture(product));
         revision.Status = ProductReviewStatus.NeedsRevision;
         revision.ReviewedByUserId = adminId;
-        revision.ReviewedAt = DateTime.UtcNow;
+        revision.ReviewedAt = now;
         revision.ReviewNote = requiredCorrection;
-        await _warningRepository.SaveChangesAsync(ct);
-
-        var moderationEvent = new ModerationEvent
+        _db.ProductWarnings.Add(new ProductWarning
         {
             Id = Guid.NewGuid(),
-            ActorUserId = adminId,
-            Action = "SHOP_WARNING_ISSUED",
-            TargetType = "Shop",
-            TargetId = product.ShopId,
+            ProductId = productId,
+            ShopId = product.ShopId,
+            IssuedByUserId = adminId,
+            BaselineRevisionId = revision.Id,
+            ProductName = product.Name,
             Reason = reason,
-            OldValuesJson = null,
-            NewValuesJson = JsonSerializer.Serialize(new
-            {
-                ProductId = product.Id,
-                ProductName = product.Name,
-                RevisionId = revision.Id,
-                RequiredCorrection = requiredCorrection
-            }),
-            CreatedAt = DateTime.UtcNow
-        };
-        await _publisher.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, moderationEvent, ct);
+            RequiredCorrection = requiredCorrection,
+            CreatedAt = now,
+            DueAt = now.AddDays(7)
+        });
+        await _db.SaveChangesAsync(ct);
 
         return new ModerationActionResponse
         {
             TargetId = product.ShopId,
             Action = "SHOP_WARNING_ISSUED",
-            Message = "Warning queued for delivery to audit log."
+            Message = "Warning saved. The shop has seven days to submit corrections."
         };
     }
-    
+
     // Map Responses.
-    private static WarningResponse Map(AuditLog auditLog)
+    private WarningResponse Map(ProductWarning warning)
     {
         return new WarningResponse
         {
-            Id = auditLog.Id,
-            ShopId = auditLog.TargetId,
-            Action = auditLog.Action,
-            Reason = auditLog.Reason,
-            OldValuesJson = auditLog.OldValuesJson,
-            NewValuesJson = auditLog.NewValuesJson,
-            IssuedByUserId = auditLog.ActorUserId,
-            CreatedAt = auditLog.CreatedAt
+            Id = warning.Id,
+            ProductId = warning.ProductId,
+            ProductName = warning.ProductName,
+            RequiredCorrection = warning.RequiredCorrection,
+            ShopId = warning.ShopId,
+            Action = "SHOP_WARNING_ISSUED",
+            Reason = warning.Reason,
+            NewValuesJson = JsonSerializer.Serialize(new { warning.ProductId, warning.ProductName, warning.RequiredCorrection }),
+            IssuedByUserId = warning.IssuedByUserId,
+            CreatedAt = warning.CreatedAt,
+            DueAt = warning.DueAt,
+            FirstEditedAt = warning.FirstEditedAt,
+            ResolvedAt = warning.ResolvedAt,
+            DealBlocked = warning.IsDealBlocked(_clock.GetUtcNow().UtcDateTime)
         };
     }
 }

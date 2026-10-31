@@ -5,6 +5,7 @@ using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Repositories.Interfaces;
+using SaveBite.Backend.Services.Implementations;
 
 namespace SaveBite.Backend.Repositories.Implementations;
 
@@ -95,11 +96,11 @@ public sealed class FlashDealRepository : IFlashDealRepository
 
         return (items, hasOlder);
     }
-    
-     // Retrieve paginated flash deals of a specific shop with optional filters.
+
+    // Retrieve paginated flash deals of a specific shop with optional filters.
     public async Task<PagedResult<FlashDeal>> GetShopDealsAsync(
-        Guid shopId, 
-        ShopFlashDealQueryRequest request, 
+        Guid shopId,
+        ShopFlashDealQueryRequest request,
         CancellationToken cancellationToken = default)
     {
         var query = _context.Set<FlashDeal>()
@@ -141,8 +142,8 @@ public sealed class FlashDealRepository : IFlashDealRepository
     }
     // Retrieve full detail of a specific flash deal belonging to a shop (including attributes and variant values).
     public async Task<FlashDeal?> GetShopDealByIdAsync(
-        Guid shopId, 
-        Guid dealId, 
+        Guid shopId,
+        Guid dealId,
         CancellationToken cancellationToken = default)
     {
         return await _context.Set<FlashDeal>()
@@ -155,11 +156,11 @@ public sealed class FlashDealRepository : IFlashDealRepository
     }
     // Check if there is an existing overlapping deal for the same product in this shop.
     public async Task<bool> HasOverlappingDealAsync(
-        Guid shopId, 
-        Guid productId, 
-        DateTime startTime, 
-        DateTime endTime, 
-        Guid? excludeDealId = null, 
+        Guid shopId,
+        Guid productId,
+        DateTime startTime,
+        DateTime endTime,
+        Guid? excludeDealId = null,
         CancellationToken cancellationToken = default)
     {
         var activeStatuses = new[] { FlashDealStatus.Pending, FlashDealStatus.OnSale, FlashDealStatus.Hidden };
@@ -178,8 +179,8 @@ public sealed class FlashDealRepository : IFlashDealRepository
     }
     // Retrieve active product and its variants to validate deal creation.
     public async Task<Product?> GetProductForDealCreationAsync(
-        Guid shopId, 
-        Guid productId, 
+        Guid shopId,
+        Guid productId,
         CancellationToken cancellationToken = default)
     {
         return await _context.Set<Product>()
@@ -188,7 +189,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
     }
     // Retrieve active products with variants and categories for flash deal creation dropdown.
     public async Task<List<Product>> GetShopEligibleProductsAsync(
-        Guid shopId, 
+        Guid shopId,
         CancellationToken cancellationToken = default)
     {
         return await _context.Set<Product>()
@@ -197,6 +198,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
             .Include(p => p.Images)
             .Include(p => p.Variants).ThenInclude(v => v.VariantValues).ThenInclude(vv => vv.AttributeValue)
             .Where(p => p.ShopId == shopId && p.Status == ProductStatus.Active && p.Variants.Any(v => v.IsActive))
+            .Where(p => !_context.ProductWarnings.Where(WarningDealPolicy.BlockedAt(DateTime.UtcNow)).Any(w => w.ProductId == p.Id))
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
     }

@@ -18,22 +18,17 @@ public sealed class WarningRepository : IWarningRepository
         => _db.ProductContentRevisions.OrderByDescending(x => x.RevisionNumber)
             .FirstOrDefaultAsync(x => x.ProductId == productId, ct);
 
-    public Task SaveChangesAsync(CancellationToken ct) => _db.SaveChangesAsync(ct);
-
-    private IQueryable<AuditLog> Warnings(Guid shopId)
+    private IQueryable<ProductWarning> Warnings(Guid shopId)
     {
-        return _db.Set<AuditLog>().AsNoTracking()
-            .Where(x =>
-                x.TargetType == "Shop" &&
-                x.TargetId == shopId &&
-                x.Action == "SHOP_WARNING_ISSUED");
+        return _db.Set<ProductWarning>().AsNoTracking()
+            .Where(x => x.ShopId == shopId);
     }
 
     public async Task<Product?> GetProductForWarningAsync(Guid productId, CancellationToken ct)
     {
-        return await _db.Products.AsNoTracking().FirstOrDefaultAsync(x => x.Id == productId, ct);
+        return await _db.Products.AsNoTracking().Include(p => p.Attributes).ThenInclude(a => a.Values).FirstOrDefaultAsync(x => x.Id == productId, ct);
     }
-    
+
     public async Task<Guid?> GetOwnedShopIdAsync(Guid ownerId, CancellationToken cancellationToken)
     {
         return await _db.Shops.AsNoTracking()
@@ -42,9 +37,16 @@ public sealed class WarningRepository : IWarningRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<(IReadOnlyList<AuditLog> Items, int Total)> GetHistoryAsync(Guid shopId, int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<(IReadOnlyList<ProductWarning> Items, int Total)> GetHistoryAsync(Guid shopId, int page, int pageSize, CancellationToken cancellationToken, string? status = null)
     {
         var query = Warnings(shopId);
+        query = status switch
+        {
+            "new" => query.Where(w => w.ResolvedAt == null && w.FirstEditedAt == null),
+            "submitted" => query.Where(w => w.ResolvedAt == null && w.FirstEditedAt != null),
+            "resolved" => query.Where(w => w.ResolvedAt != null),
+            _ => query
+        };
         var total = await query.CountAsync(cancellationToken);
 
         var items = await query
@@ -57,7 +59,7 @@ public sealed class WarningRepository : IWarningRepository
         return (items, total);
     }
 
-    public async Task<AuditLog?> GetByIdAsync(Guid shopId, Guid warningId, CancellationToken cancellationToken)
+    public async Task<ProductWarning?> GetByIdAsync(Guid shopId, Guid warningId, CancellationToken cancellationToken)
     {
         return await Warnings(shopId).FirstOrDefaultAsync(x => x.Id == warningId, cancellationToken);
     }

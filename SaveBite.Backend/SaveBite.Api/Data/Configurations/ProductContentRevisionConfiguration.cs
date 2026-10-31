@@ -26,7 +26,10 @@ public class ProductContentRevisionConfiguration
                     "AND \"reviewed_at\" IS NOT NULL)");
         });
 
+        builder.Property(x => x.AttributeValuesJson).HasColumnName("attribute_values_json").HasColumnType("jsonb");
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.WarningId).HasColumnName("warning_id");
+        builder.HasOne<ProductWarning>().WithMany().HasForeignKey(x => x.WarningId).OnDelete(DeleteBehavior.Restrict);
 
         builder.Property(x => x.Id)
             .HasColumnName("id")
@@ -80,13 +83,13 @@ public class ProductContentRevisionConfiguration
 
         builder.Property(x => x.ReviewedAt)
             .HasColumnName("reviewed_at");
-        
+
         builder.HasIndex(x => new
         {
             x.ProductId,
             x.RevisionNumber
         }).IsUnique();
-        
+
         builder.HasOne(x => x.Product)
             .WithMany(x => x.ContentRevisions)
             .HasForeignKey(x => x.ProductId)

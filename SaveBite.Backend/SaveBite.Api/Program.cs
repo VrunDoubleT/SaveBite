@@ -1,3 +1,4 @@
+using SaveBite.Backend.Messaging.Consumer;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.BackgroundJobs.Extensions;
 using SaveBite.Backend.Data;
@@ -33,6 +34,7 @@ builder.Services.AddBackgroundJobs(builder.Configuration);
 
 builder.Services.AddRabbitMq(builder.Configuration);
 builder.Services.AddAllRabbitMqConsumers();
+builder.Services.AddHostedService<ProductWarningDeadlineConsumer>();
 
 builder.Services.AddRedis(builder.Configuration);
 builder.Services.AddAuthServices(builder.Configuration);

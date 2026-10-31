@@ -1380,6 +1380,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("gen_random_uuid()");
 
+                    b.Property<string>("AttributeValuesJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("attribute_values_json");
+
                     b.Property<Guid>("CategoryId")
                         .HasColumnType("uuid")
                         .HasColumnName("category_id");
@@ -1434,6 +1438,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("submitted_by_user_id");
 
+                    b.Property<Guid?>("WarningId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("warning_id");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
@@ -1441,6 +1449,8 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasIndex("ReviewedByUserId");
 
                     b.HasIndex("SubmittedByUserId");
+
+                    b.HasIndex("WarningId");
 
                     b.HasIndex("ProductId", "RevisionNumber")
                         .IsUnique();
@@ -1708,6 +1718,71 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasIndex("AttributeValueId");
 
                     b.ToTable("product_variant_values", (string)null);
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.ProductWarning", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BaselineRevisionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("DealBlocked")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("DueAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FirstEditedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("IssuedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("RequiredCorrection")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BaselineRevisionId");
+
+                    b.HasIndex("IssuedByUserId");
+
+                    b.HasIndex("ProductId")
+                        .IsUnique()
+                        .HasFilter("\"ResolvedAt\" IS NULL");
+
+                    b.HasIndex("ShopId");
+
+                    b.HasIndex("ResolvedAt", "DueAt");
+
+                    b.ToTable("product_warnings", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.RecoveryRequirementRule", b =>
@@ -3559,6 +3634,11 @@ namespace SaveBite.Backend.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("SaveBite.Backend.Models.Entities.ProductWarning", null)
+                        .WithMany()
+                        .HasForeignKey("WarningId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Category");
 
                     b.Navigation("Product");
@@ -3672,6 +3752,35 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("AttributeValue");
 
                     b.Navigation("Variant");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.ProductWarning", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.ProductContentRevision", "BaselineRevision")
+                        .WithMany()
+                        .HasForeignKey("BaselineRevisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("IssuedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.Product", null)
+                        .WithMany("Warnings")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BaselineRevision");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.RecoveryRequirementRule", b =>
@@ -4162,6 +4271,8 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("Images");
 
                     b.Navigation("Variants");
+
+                    b.Navigation("Warnings");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.ProductAttribute", b =>

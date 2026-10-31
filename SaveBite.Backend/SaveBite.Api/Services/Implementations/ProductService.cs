@@ -1,22 +1,25 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Constants;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Events;
 using SaveBite.Backend.Messaging.Interfaces;
+using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Interfaces;
-using SaveBite.Backend.Models.Common;
 
 namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class ProductService : IProductService
 {
+    private readonly AppDbContext _db;
     private readonly IProductRepository _repository;
     private readonly ICloudinaryService _images;
     private readonly TimeProvider _clock;
@@ -24,8 +27,8 @@ public sealed class ProductService : IProductService
     private readonly IRabbitMqPublisher _publisher;
 
     public ProductService(IProductRepository repository, ICloudinaryService images,
-        TimeProvider clock, ILogger<ProductService> logger, IRabbitMqPublisher publisher)
-        => (_repository, _images, _clock, _logger, _publisher) = (repository, images, clock, logger, publisher);
+        TimeProvider clock, ILogger<ProductService> logger, IRabbitMqPublisher publisher, AppDbContext db)
+        => (_repository, _images, _clock, _logger, _publisher, _db) = (repository, images, clock, logger, publisher, db);
 
     public async Task<ProductSummaryResponse> GetSummaryAsync(Guid userId, CancellationToken ct)
         => await _repository.GetSummaryAsync(await RequireShopAsync(userId, ct), ct);
@@ -44,9 +47,14 @@ public sealed class ProductService : IProductService
         var now = Now();
         var product = new Product
         {
-            Id = Guid.NewGuid(), ShopId = shopId, CategoryId = request.CategoryId,
-            Name = request.Name.Trim(), Description = request.Description?.Trim(),
-            Status = ProductStatus.Active, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            ShopId = shopId,
+            CategoryId = request.CategoryId,
+            Name = request.Name.Trim(),
+            Description = request.Description?.Trim(),
+            Status = ProductStatus.Active,
+            CreatedAt = now,
+            UpdatedAt = now
         };
         var uploads = new List<(ProductAttributeValue Value, IFormFile File)>();
         foreach (var input in request.Attributes)
@@ -54,8 +62,10 @@ public sealed class ProductService : IProductService
             EnsureUniqueNames(input.Values.Select(x => x.Value), "Attribute values");
             var attribute = new ProductAttribute
             {
-                Id = Guid.NewGuid(), ProductId = product.Id,
-                Name = input.Name.Trim(), SortOrder = product.Attributes.Count
+                Id = Guid.NewGuid(),
+                ProductId = product.Id,
+                Name = input.Name.Trim(),
+                SortOrder = product.Attributes.Count
             };
             foreach (var value in input.Values)
             {
@@ -73,11 +83,15 @@ public sealed class ProductService : IProductService
                 throw AppException.BadRequest("Without attributes, provide one variant price with an empty valueIds list.");
             var attribute = new ProductAttribute
             {
-                Id = Guid.NewGuid(), ProductId = product.Id, Name = "Type"
+                Id = Guid.NewGuid(),
+                ProductId = product.Id,
+                Name = "Type"
             };
             var value = new ProductAttributeValue
             {
-                Id = Guid.NewGuid(), AttributeId = attribute.Id, Value = "Default"
+                Id = Guid.NewGuid(),
+                AttributeId = attribute.Id,
+                Value = "Default"
             };
             attribute.Values.Add(value);
             product.Attributes.Add(attribute);
@@ -209,6 +223,7 @@ public sealed class ProductService : IProductService
             foreach (var variant in variants) product.Variants.Add(variant);
             _repository.AddVariants(variants);
             Touch(product);
+            await AddNextRevisionAsync(product, userId, ct, added.Count > 0);
         }, ct);
         return Map(product);
     }
@@ -219,10 +234,12 @@ public sealed class ProductService : IProductService
         var product = await RequireProductAsync(userId, productId, false, ct);
         var value = product.Attributes.SelectMany(x => x.Values).SingleOrDefault(x => x.Id == valueId)
             ?? throw AppException.NotFound("Product value was not found.");
+        var previousImage = value.ImageUrl;
         await PersistWithUploadsAsync(async uploaded =>
         {
             await SetValueImageAsync(value, request.Image, uploaded, ct);
             Touch(product);
+            await AddNextRevisionAsync(product, userId, ct, previousImage != value.ImageUrl);
         }, ct);
         return Map(product);
     }
@@ -286,7 +303,9 @@ public sealed class ProductService : IProductService
     private static ProductAttributeValue NewValue(ProductAttribute attribute, CreateProductValueRequest input)
         => new()
         {
-            Id = input.Id, AttributeId = attribute.Id, Value = input.Value.Trim(),
+            Id = input.Id,
+            AttributeId = attribute.Id,
+            Value = input.Value.Trim(),
             SortOrder = attribute.Values.Select(x => x.SortOrder).DefaultIfEmpty(-1).Max() + 1
         };
 
@@ -296,8 +315,11 @@ public sealed class ProductService : IProductService
         var result = await UploadAsync(file, uploaded, ct);
         return new ProductImage
         {
-            Id = Guid.NewGuid(), ProductId = productId, ImageUrl = result.Url,
-            PublicId = result.PublicId, SortOrder = order
+            Id = Guid.NewGuid(),
+            ProductId = productId,
+            ImageUrl = result.Url,
+            PublicId = result.PublicId,
+            SortOrder = order
         };
     }
 
@@ -357,21 +379,31 @@ public sealed class ProductService : IProductService
         // Previously saved assets are retained: historical moderation records may reference their URLs.
     }
 
-    private async Task AddNextRevisionAsync(Product product, Guid userId, CancellationToken ct)
+    private async Task AddNextRevisionAsync(Product product, Guid userId, CancellationToken ct, bool attributeContentChanged = false)
     {
         var latest = await _repository.GetLatestRevisionForReviewAsync(product.Id, ct);
-        AddRevision(product, userId, (latest?.RevisionNumber ?? 0) + 1);
+        var warning = await _db.ProductWarnings.Include(w => w.BaselineRevision)
+            .SingleOrDefaultAsync(w => w.ProductId == product.Id && w.ResolvedAt == null, ct);
+        warning?.RecordContentEdit(product, Now(), attributeContentChanged);
+        AddRevision(product, userId, (latest?.RevisionNumber ?? 0) + 1, warning?.Id);
     }
 
-    private void AddRevision(Product product, Guid userId, int number = 1)
+    private void AddRevision(Product product, Guid userId, int number = 1, Guid? warningId = null)
     {
         _repository.AddContentRevision(new ProductContentRevision
         {
-            Id = Guid.NewGuid(), ProductId = product.Id, RevisionNumber = number,
-            SubmittedByUserId = userId, Name = product.Name,
-            Description = product.Description, CategoryId = product.CategoryId,
+            Id = Guid.NewGuid(),
+            ProductId = product.Id,
+            RevisionNumber = number,
+            WarningId = warningId,
+            SubmittedByUserId = userId,
+            Name = product.Name,
+            Description = product.Description,
+            CategoryId = product.CategoryId,
+            AttributeValuesJson = JsonSerializer.Serialize(ProductAttributeContentHelper.Capture(product)),
             ImagesJson = JsonSerializer.Serialize(product.Images.OrderBy(x => x.SortOrder).Select(x => x.ImageUrl)),
-            Status = ProductReviewStatus.Pending, SubmittedAt = Now()
+            Status = ProductReviewStatus.Pending,
+            SubmittedAt = Now()
         });
     }
 
@@ -389,6 +421,14 @@ public sealed class ProductService : IProductService
             throw AppException.Conflict("This revision has already been approved.");
         if (revision.Status == ProductReviewStatus.Suspended)
             throw AppException.Conflict("This revision is suspended.");
+        var warning = await _db.ProductWarnings.SingleOrDefaultAsync(w => w.ProductId == productId && w.ResolvedAt == null, ct);
+        if (warning != null)
+        {
+            if (warning.FirstEditedAt == null)
+                throw AppException.Conflict("The shop must submit corrections before this warning can be resolved.");
+            warning.ResolvedAt = Now();
+            warning.DealBlocked = false;
+        }
         revision.Status = ProductReviewStatus.Approved;
         revision.ReviewedByUserId = adminId;
         revision.ReviewedAt = Now();
@@ -403,7 +443,7 @@ public sealed class ProductService : IProductService
         product.UpdatedAt = Now();
         product.Version = Guid.NewGuid();
     }
-    
+
 
     private static IReadOnlyList<ProductImageResponse> MapImages(Product product)
         => product.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.Id)
@@ -427,9 +467,11 @@ public sealed class ProductService : IProductService
             product.Variants.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id)
                 .Select(v => new ProductVariantResponse(v.Id, v.Sku, v.OriginalPrice, v.DealPrice,
                     v.IsActive, v.VariantValues.Select(x => x.AttributeValueId).OrderBy(id => id).ToArray())).ToArray(),
-            review is null ? null : new ProductReviewResponse(review.Status, review.ReviewNote, review.ReviewedAt, review.Id));
+            review is null ? null : ProductReviewResponse.FromRevision(review, product.Warnings.FirstOrDefault(w => w.Id == review.WarningId)),
+            product.Warnings.Where(w => w.ResolvedAt == null).Select(w => new ActiveWarningResponse(w.Id, w.RequiredCorrection, w.DueAt, w.FirstEditedAt,
+                w.IsDealBlocked(DateTime.UtcNow))).FirstOrDefault());
     }
-    
+
     public async Task<ProductResponse> UpdateVariantAsync(Guid userId, Guid productId,
         Guid variantId, UpdateProductVariantRequest request, CancellationToken ct)
     {
@@ -454,7 +496,7 @@ public sealed class ProductService : IProductService
         await _repository.SaveChangesAsync(ct);
         return Map(product);
     }
-    
+
     public async Task<ProductResponse> UpdateStatusAsync(Guid userId, Guid productId,
         UpdateProductStatusRequest request, CancellationToken ct)
     {
@@ -477,7 +519,7 @@ public sealed class ProductService : IProductService
         await _repository.SaveChangesAsync(ct);
         return Map(product);
     }
-    
+
     // Manage Products.
     public async Task<PagedResult<ProductListResponse>> GetProductListAsync(string? keyword, int page, int pageSize, CancellationToken ct)
     {
@@ -502,7 +544,7 @@ public sealed class ProductService : IProductService
             Images = MapImages(product),
             CreatedAt = product.CreatedAt,
             UpdatedAt = product.UpdatedAt,
-            LatestReview = product.ContentRevisions.OrderByDescending(x => x.RevisionNumber).Select(x => new ProductReviewResponse(x.Status, x.ReviewNote, x.ReviewedAt, x.Id)).FirstOrDefault()
+            LatestReview = product.ContentRevisions.OrderByDescending(x => x.RevisionNumber).Select(x => ProductReviewResponse.FromRevision(x, product.Warnings.FirstOrDefault(w => w.Id == x.WarningId))).FirstOrDefault()
         }).ToArray();
 
         return PagedResult<ProductListResponse>.Create(responses, page, pageSize, total);
@@ -514,10 +556,17 @@ public sealed class ProductService : IProductService
         if (productId == Guid.Empty)
             throw AppException.BadRequest("Product ID is invalid.");
 
-        var product = await _repository.GetProductContentAsync(productId, ct) 
+        var product = await _repository.GetProductContentAsync(productId, ct)
                       ?? throw AppException.NotFound("Product not found.");
 
         var detail = Map(product);
+        var warning = product.Warnings.SingleOrDefault(w => w.ResolvedAt == null);
+        var baseline = warning == null ? null : product.ContentRevisions.Single(r => r.Id == warning.BaselineRevisionId);
+        WarningComparisonResponse? comparison = warning == null ? null : new(
+            warning.Id, warning.Reason, warning.RequiredCorrection, warning.DueAt, warning.FirstEditedAt,
+            warning.IsDealBlocked(Now()),
+            ProductRevisionHistoryResponse.Snapshot(baseline!),
+            new(product.Name, product.Description, product.CategoryId, product.Category.Name, product.Images.OrderBy(i => i.SortOrder).Select(i => i.ImageUrl).ToArray(), ProductAttributeContentHelper.Capture(product)));
 
         return new ProductContentResponse
         {
@@ -533,21 +582,23 @@ public sealed class ProductService : IProductService
             Attributes = detail.Attributes,
             Variants = detail.Variants,
             LatestReview = detail.LatestReview,
+            WarningComparison = comparison,
+            RevisionHistory = ProductRevisionHistoryResponse.FromProduct(product),
             CreatedAt = detail.CreatedAt,
             UpdatedAt = detail.UpdatedAt
         };
     }
-    
+
     // Manage Products.
     public async Task<ModerationActionResponse> RemoveProductAsync(Guid adminId, Guid productId, RemoveViolatingProductRequest request, CancellationToken ct)
     {
         var product = await _repository.GetProductForViolationRemovalAsync(productId, ct);
         if (product == null)
             throw AppException.NotFound("Product not found.");
-        
+
         if (product.DeletedAt != null)
             throw AppException.Conflict("Product already removed.");
-        
+
         var reason = request.Reason.Trim();
 
         var oldValues = new
