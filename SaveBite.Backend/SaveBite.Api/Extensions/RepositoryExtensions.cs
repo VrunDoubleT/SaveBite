@@ -27,7 +27,6 @@ public static class RepositoryExtensions
         services.AddScoped<ITrustScoreRepository, TrustScoreRepository>();
         services.AddScoped<ITrustOrderRepository, TrustOrderRepository>();
         services.AddScoped<ITrustConfigRepository, TrustConfigRepository>();
-        
 
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<ICheckoutRepository, CheckoutRepository>();
@@ -38,6 +37,10 @@ public static class RepositoryExtensions
         services.AddScoped<IPlatformFeeStatementRepository, PlatformFeeStatementRepository>();
         services.AddScoped<IPlatformFeeConfigRepository, PlatformFeeConfigRepository>();
         services.AddScoped<IRefundRepository, RefundRepository>();
+
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IStoreAnalyticsRepository, StoreAnalyticsRepository>();
+        services.AddScoped<IPlatformAnalyticsRepository, PlatformAnalyticsRepository>();
         return services;
     }
 }

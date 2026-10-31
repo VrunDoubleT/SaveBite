@@ -152,4 +152,24 @@ export const API_ENDPOINTS = {
       `/shops/${shopId}/platform-fees/${statementId}/payment-link`,
     WEBHOOK: "/platform-fees/payos/webhook",
   },
+  STORE_ANALYTICS: {
+    DASHBOARD: "/shops/me/analytics",
+    REVENUE_OVERVIEW: "/shops/me/analytics/revenue-overview",
+    ORDERS: "/shops/me/analytics/orders",
+    FLASH_DEALS: "/shops/me/analytics/flash-deals",
+    PAYMENT_METHODS: "/shops/me/analytics/payment-methods",
+  },
+  ADMIN_ANALYTICS: {
+    DASHBOARD: "/admin/analytics",
+    PLATFORM_FEES: "/admin/analytics/platform-fees",
+    USERS: "/admin/analytics/users",
+    SHOPS: "/admin/analytics/shops",
+    REVENUE_ORDERS: "/admin/analytics/revenue-orders",
+    FLASH_DEALS: "/admin/analytics/flash-deals",
+    PAYMENTS_REFUNDS: "/admin/analytics/payments-refunds",
+  },
+  ADMIN_AUDIT_LOGS: {
+    BASE: "/admin/audit-logs",
+    DETAIL: (id: string) => `/admin/audit-logs/${id}`,
+  },
 } as const;

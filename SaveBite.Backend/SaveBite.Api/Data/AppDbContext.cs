@@ -73,6 +73,7 @@ public class AppDbContext : DbContext
     public DbSet<ProductContentRevision> ProductContentRevisions => Set<ProductContentRevision>();
     // Feedback Moderation.
     public DbSet<ProductFeedbackModerationLog> ProductFeedbackModerationLogs => Set<ProductFeedbackModerationLog>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
