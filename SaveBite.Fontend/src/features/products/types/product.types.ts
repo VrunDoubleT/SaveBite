@@ -59,7 +59,22 @@ export interface Product {
   images: ProductImage[];
   attributes: ProductAttribute[];
   variants: ProductVariant[];
-  latestReview?: { status: number; note?: string; reviewedAt?: string; revisionId?: string };
+  activeWarning?: {
+    id: string;
+    requiredCorrection: string;
+    dueAt: string;
+    firstEditedAt?: string;
+    dealBlocked: boolean;
+  };
+  latestReview?: {
+    status: number;
+    note?: string;
+    reviewedAt?: string;
+    revisionId?: string;
+    warningId?: string | null;
+    correctionSubmitted: boolean;
+    submittedAt?: string;
+  };
 }
 export interface Page<T> {
   items: T[];
@@ -136,10 +151,57 @@ export interface ProductListManagement extends ProductListItem {
   createdAt: string;
 }
 
+export interface AttributeValueContent {
+  attributeId: string;
+  attributeName: string;
+  valueId: string;
+  value: string;
+  imageUrl: string | null;
+}
+
 export interface ProductContentManagement extends Product {
+  revisionHistory: ProductRevisionHistory[];
+  warningComparison?: {
+    warningId: string;
+    reason: string;
+    requiredCorrection: string;
+    dueAt: string;
+    firstEditedAt?: string;
+    dealBlocked: boolean;
+    before: RevisionContentSnapshot;
+    after: RevisionContentSnapshot;
+  };
   shopName: string;
 }
 
 export interface RemoveViolatingProduct {
   reason: string;
+}
+
+export interface RevisionContentSnapshot {
+  name: string;
+  description: string | null;
+  categoryId: string;
+  categoryName: string;
+  images: string[];
+  attributeValues: AttributeValueContent[] | null;
+}
+export interface ProductRevisionHistory {
+  id: string;
+  revisionNumber: number;
+  isLatest: boolean;
+  submittedByUserId: string;
+  submittedByName: string;
+  submittedAt: string;
+  status: number;
+  reviewNote: string | null;
+  reviewedByUserId: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  warningId: string | null;
+  warningReason: string | null;
+  warningDueAt?: string | null;
+  requiredCorrection: string | null;
+  before: RevisionContentSnapshot | null;
+  after: RevisionContentSnapshot;
 }

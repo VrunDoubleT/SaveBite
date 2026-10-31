@@ -101,7 +101,7 @@ function Detail({
             </div>
           </div>
         </div>
-       <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled={busy}
@@ -137,19 +137,37 @@ function Detail({
         </div>
       </div>
       {notice && <Alert success>{notice}</Alert>}
-      {product.latestReview && [3, 4].includes(product.latestReview.status) && (
+      {product.activeWarning && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-semibold">
-            {product.latestReview.status === 4
-              ? "Product flagged for review"
-              : "Content needs changes"}
+            {product.activeWarning.dealBlocked
+              ? "Opening deals is blocked pending correction approval"
+              : "Administrator requested corrections"}
           </p>
-          <p className="mt-1">
-            {product.latestReview.note ??
-              "Please review the product information as requested by the administrator."}
+          <p className="mt-1 whitespace-pre-wrap">{product.activeWarning.requiredCorrection}</p>
+          <p className="mt-2">
+            Edit deadline: {new Date(product.activeWarning.dueAt).toLocaleString("vi-VN")}
           </p>
+          {product.activeWarning.firstEditedAt && (
+            <p>Corrections submitted. Further edits remain part of this warning until approved.</p>
+          )}
         </div>
       )}
+      {!product.activeWarning &&
+        product.latestReview &&
+        [3, 4].includes(product.latestReview.status) && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p className="font-semibold">
+              {product.latestReview.status === 4
+                ? "Product flagged for review"
+                : "Content needs changes"}
+            </p>
+            <p className="mt-1">
+              {product.latestReview.note ??
+                "Please review the product information as requested by the administrator."}
+            </p>
+          </div>
+        )}
       <div
         role="tablist"
         aria-label="Product management"

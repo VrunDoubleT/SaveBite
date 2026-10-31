@@ -53,6 +53,25 @@ function ReviewPill({ status }: { status?: number }) {
   return <Pill {...((status != null && REVIEW[status]) || PENDING)} />;
 }
 
+function EditSource({ product }: { product: ProductListManagement }) {
+  const review = product.latestReview;
+  if (review?.status !== 1) return <span className="text-text-muted">—</span>;
+  if (!review.warningId)
+    return <Pill label="Shop update" badge="bg-blue-50 text-blue-700" dot="bg-blue-500" />;
+  return (
+    <div className="space-y-1.5">
+      <Pill label="Warning correction" badge="bg-violet-50 text-violet-700" dot="bg-violet-500" />
+      <p
+        className={`text-xs font-medium ${review.correctionSubmitted ? "text-green-700" : "text-orange-700"}`}
+      >
+        {review.correctionSubmitted
+          ? "Correction submitted · awaiting review"
+          : "No content changes submitted"}
+      </p>
+    </div>
+  );
+}
+
 function Thumbnail({ product }: { product: ProductListManagement }) {
   const image =
     product.images?.find((item) => item.source === "product")?.url ?? product.images?.[0]?.url;
@@ -100,7 +119,7 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-3xl border border-border-default bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] md:block">
+      <div className="hidden overflow-x-auto rounded-3xl border border-border-default bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] md:block">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-xs text-text-secondary">
             <tr>
@@ -112,6 +131,9 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
               </th>
               <th scope="col" className="px-4 py-3.5 font-semibold">
                 Content review
+              </th>
+              <th scope="col" className="px-4 py-3.5 font-semibold">
+                Edit source
               </th>
               <th scope="col" className="px-4 py-3.5 text-right font-semibold">
                 Deal price
@@ -140,6 +162,9 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
                   <ReviewPill status={product.latestReview?.status} />
                 </td>
 
+                <td className="px-4 py-4">
+                  <EditSource product={product} />
+                </td>
                 <td className="whitespace-nowrap px-4 py-4 text-right font-semibold tabular-nums">
                   {formatPriceRange(product.minDealPrice, product.maxDealPrice)}
                 </td>
@@ -173,6 +198,10 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
               <ReviewPill status={product.latestReview?.status} />
             </div>
 
+            <div className="text-sm">
+              <span className="mb-1 block text-xs text-text-secondary">Edit source</span>
+              <EditSource product={product} />
+            </div>
             <div className="flex items-center justify-between gap-3 border-t border-border-default pt-3">
               <p className="text-sm font-semibold tabular-nums text-text-primary">
                 {formatPriceRange(product.minDealPrice, product.maxDealPrice)}

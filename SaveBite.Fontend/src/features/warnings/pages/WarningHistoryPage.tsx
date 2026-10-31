@@ -41,35 +41,48 @@ function ListSkeleton() {
 
 export function WarningHistoryPage() {
   const [page, setPage] = useState(1);
-  const [items, setItems] = useState<Warning[]>([]);
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState("all");
   const [reloadKey, setReloadKey] = useState(0);
+  const requestKey = `${status}:${page}:${reloadKey}`;
+  const [result, setResult] = useState<{
+    key: string;
+    items: Warning[];
+    totalItems: number;
+    totalPages: number;
+    error: string | null;
+  }>({ key: "", items: [], totalItems: 0, totalPages: 1, error: null });
+  const loading = result.key !== requestKey;
+  const { items, totalItems, totalPages } = loading
+    ? { items: [], totalItems: 0, totalPages: 1 }
+    : result;
+  const error = loading ? null : result.error;
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
     void warningApi
-      .history(page, PAGE_SIZE, controller.signal)
+      .history(page, PAGE_SIZE, controller.signal, status)
       .then((data) => {
-        if (controller.signal.aborted) return;
-        setItems(data?.items ?? []);
-        setTotalItems(data?.totalItems ?? 0);
-        setTotalPages(Math.max(1, data?.totalPages ?? 1));
+        if (!controller.signal.aborted)
+          setResult({
+            key: requestKey,
+            items: data.items ?? [],
+            totalItems: data.totalItems ?? 0,
+            totalPages: Math.max(1, data.totalPages ?? 1),
+            error: null,
+          });
       })
       .catch(() => {
-        if (!controller.signal.aborted) {
-          setError("We couldn't load your warnings. Check your connection and try again.");
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted)
+          setResult({
+            key: requestKey,
+            items: [],
+            totalItems: 0,
+            totalPages: 1,
+            error: "We couldn't load your warnings. Check your connection and try again.",
+          });
       });
     return () => controller.abort();
-  }, [page, reloadKey]);
+  }, [page, requestKey, status]);
 
   const retry = useCallback(() => setReloadKey((k) => k + 1), []);
   const hasWarnings = !loading && !error && totalItems > 0;
@@ -88,8 +101,8 @@ export function WarningHistoryPage() {
                 Warning History
               </h1>
               <p className="max-w-xl text-sm leading-6 text-text-secondary">
-                Products in your shop that received a warning. Open one to see why and how to fix
-                it.
+                Track warnings that need action, corrections you have submitted, and warnings
+                approved by the administrator.
               </p>
             </div>
           </div>
@@ -100,13 +113,46 @@ export function WarningHistoryPage() {
                 {totalItems}
               </p>
               <p className="mt-1 text-xs font-medium text-amber-700">
-                {totalItems === 1 ? "warning" : "warnings"} in total
+                {totalItems === 1 ? "warning" : "warnings"}{" "}
+                {status === "all" ? "in total" : "in this status"}
               </p>
             </div>
           )}
         </div>
       </header>
 
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap gap-2" aria-label="Filter warnings by status">
+          {[
+            ["all", "All warnings"],
+            ["new", "Needs your action"],
+            ["submitted", "Correction submitted"],
+            ["resolved", "Resolved"],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={status === value}
+              onClick={() => {
+                setPage(1);
+                setStatus(value);
+              }}
+              className={`rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${status === value ? "border-primary-700 bg-primary-700 text-white" : "border-border-default bg-white text-text-secondary hover:bg-neutral-50"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={retry}
+          className="inline-flex items-center gap-2 text-sm font-medium text-primary-700 disabled:opacity-50"
+        >
+          <RotateCw className="size-4" />
+          Refresh status
+        </button>
+      </div>
       <div aria-busy={loading}>
         {loading ? (
           <ListSkeleton />
@@ -129,9 +175,13 @@ export function WarningHistoryPage() {
             <span className="flex size-16 items-center justify-center rounded-full bg-green-50 text-green-600 ring-8 ring-green-50/50">
               <ShieldCheck className="size-8" aria-hidden="true" />
             </span>
-            <p className="mt-2 text-lg font-semibold text-text-primary">No warnings yet</p>
+            <p className="mt-2 text-lg font-semibold text-text-primary">
+              {status === "all" ? "No warnings yet" : "No warnings in this status"}
+            </p>
             <p className="max-w-sm text-sm leading-6 text-text-secondary">
-              Your shop is in good standing. When a warning is issued, it will appear here.
+              {status === "all"
+                ? "Warnings from the administrator will appear here."
+                : "Choose another status to view your other warnings."}
             </p>
           </div>
         ) : (

@@ -60,11 +60,13 @@ export function ProductModerationActions({
   onRemoved,
   onReviewed,
   latestReview,
+  warning,
 }: {
   productId: string;
   onRemoved: () => void;
   onReviewed: () => void;
   latestReview?: { status: number; revisionId?: string };
+  warning?: { firstEditedAt?: string } | null;
 }) {
   const id = useId();
 
@@ -79,7 +81,10 @@ export function ProductModerationActions({
   const [approving, setApproving] = useState(false);
   const isRemove = action === "remove";
   const canApprove =
-    !!latestReview?.revisionId && latestReview.status !== 2 && latestReview.status !== 4;
+    !!latestReview?.revisionId &&
+    latestReview.status !== 2 &&
+    latestReview.status !== 4 &&
+    (!warning || !!warning.firstEditedAt);
   const reviewState = latestReview ? REVIEW_LABEL[latestReview.status] : undefined;
 
   const approve = async () => {
@@ -98,7 +103,8 @@ export function ProductModerationActions({
   };
   const current = ACTIONS.find((item) => item.value === action) ?? ACTIONS[0];
   const valid =
-    reason.trim().length >= REASON_MIN && (isRemove || correction.trim().length >= CORRECTION_MIN);
+    reason.trim().length >= REASON_MIN &&
+    (isRemove || (!warning && correction.trim().length >= CORRECTION_MIN));
 
   const changeAction = (next: ModerationAction) => {
     setAction(next);

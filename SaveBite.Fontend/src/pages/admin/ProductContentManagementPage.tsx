@@ -263,6 +263,7 @@ export function ProductContentManagementPage() {
             <ProductModerationActions
               productId={product.id}
               latestReview={product.latestReview}
+              warning={product.warningComparison}
               onReviewed={retry}
               onRemoved={() => {
                 setProduct(null);

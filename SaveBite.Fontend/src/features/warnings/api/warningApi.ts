@@ -6,11 +6,17 @@ import type { IssueViolationWarning, Warning, WarningPage } from "../types/warni
 import type { ModerationActionResult } from "@/shared/types/moderationAction.types";
 
 export const warningApi = {
-  async history(page: number, pageSize: number, signal?: AbortSignal): Promise<WarningPage> {
+  async history(
+    page: number,
+    pageSize: number,
+    signal?: AbortSignal,
+    status = "all",
+  ): Promise<WarningPage> {
     const response = await httpClient.get<ApiResponse<WarningPage>>(API_ENDPOINTS.WARNINGS.BASE, {
       params: {
         page,
         pageSize,
+        status,
       },
       signal,
     });
