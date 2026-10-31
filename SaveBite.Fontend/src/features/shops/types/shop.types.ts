@@ -83,6 +83,8 @@ export interface NearbyShopsPagedResponse {
   totalPages: number;
   hasPrevious: boolean;
   hasNext: boolean;
+  allStoresCount?: number;
+  flashDealsStoresCount?: number;
 }
 
 export interface NearbyShopsRequest {
@@ -91,6 +93,8 @@ export interface NearbyShopsRequest {
   radiusInKm?: number;
   keyword?: string;
   onlyOpen?: boolean;
+  onlyWithFlashDeals?: boolean;
+  hasFlashDeals?: boolean;
   page?: number;
   pageSize?: number;
 }

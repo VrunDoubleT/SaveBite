@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   Store,
@@ -80,32 +80,12 @@ export function NearbyStoresMapSection({
 
   // Filter mode: "all" stores vs "deals_only"
   const [storeFilter, setStoreFilter] = useState<"all" | "deals_only">("all");
-
-  const dealsStoresCount = useMemo(
-    () => shops.filter((s) => (s.flashDealCount ?? 0) > 0).length,
-    [shops],
+  const [allStoresCount, setAllStoresCount] = useState<number>(() => cachedNearbyShops.length);
+  const [dealsStoresCount, setDealsStoresCount] = useState<number>(
+    () => cachedNearbyShops.filter((s) => (s.flashDealCount ?? 0) > 0).length,
   );
 
-  const filteredShops = useMemo(() => {
-    if (storeFilter === "deals_only") {
-      return shops.filter((s) => (s.flashDealCount ?? 0) > 0);
-    }
-    return shops;
-  }, [shops, storeFilter]);
-
-  const handleFilterChange = (filter: "all" | "deals_only") => {
-    setStoreFilter(filter);
-    if (filter === "deals_only" && selectedShop && (selectedShop.flashDealCount ?? 0) === 0) {
-      setSelectedShop(null);
-      setRouteResult(null);
-      setRouteError(null);
-      setShowStepDetails(false);
-      if (routePolylineRef.current && mapInstanceRef.current) {
-        mapInstanceRef.current.removeLayer(routePolylineRef.current);
-        routePolylineRef.current = null;
-      }
-    }
-  };
+  const filteredShops = shops;
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -117,31 +97,64 @@ export function NearbyStoresMapSection({
   const lastLocationRef = useRef<{ lat: number; lng: number; mode?: string | null } | null>(null);
 
   // 1. Fetch nearby shops from Backend API
-  const fetchShops = useCallback(async (lat?: number | null, lng?: number | null) => {
-    const isSavedAddress = locationMode === "saved_address";
-    const targetLat = lat ?? latitude;
-    const targetLng = lng ?? longitude;
-    if (!isLocationReady) return;
-    if (!isSavedAddress && (targetLat == null || targetLng == null)) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await shopApi.getNearbyShops({
-        latitude: isSavedAddress ? undefined : (targetLat ?? undefined),
-        longitude: isSavedAddress ? undefined : (targetLng ?? undefined),
-        radiusInKm: Math.min(radiusInKm, 10),
-        page: 1,
-        pageSize: 50,
-      });
-      const list = res.shops || [];
-      setShops(list);
-      cachedNearbyShops = list;
-    } catch {
-      setError("Unable to load nearby stores.");
-    } finally {
-      setIsLoading(false);
+  const fetchShops = useCallback(
+    async (lat?: number | null, lng?: number | null, filterOverride?: "all" | "deals_only") => {
+      const isSavedAddress = locationMode === "saved_address";
+      const targetLat = lat ?? latitude;
+      const targetLng = lng ?? longitude;
+      if (!isLocationReady) return;
+      if (!isSavedAddress && (targetLat == null || targetLng == null)) return;
+      setIsLoading(true);
+      setError(null);
+      const activeFilter = filterOverride ?? storeFilter;
+      try {
+        const res = await shopApi.getNearbyShops({
+          latitude: isSavedAddress ? undefined : (targetLat ?? undefined),
+          longitude: isSavedAddress ? undefined : (targetLng ?? undefined),
+          radiusInKm: Math.min(radiusInKm, 10),
+          page: 1,
+          pageSize: 50,
+          onlyWithFlashDeals: activeFilter === "deals_only",
+        });
+        const list = res.shops || [];
+        setShops(list);
+        if (res.allStoresCount !== undefined) {
+          setAllStoresCount(res.allStoresCount);
+        } else if (activeFilter === "all") {
+          setAllStoresCount(list.length);
+        }
+        if (res.flashDealsStoresCount !== undefined) {
+          setDealsStoresCount(res.flashDealsStoresCount);
+        } else {
+          setDealsStoresCount(list.filter((s) => (s.flashDealCount ?? 0) > 0).length);
+        }
+        if (activeFilter === "all") {
+          cachedNearbyShops = list;
+        }
+      } catch {
+        setError("Unable to load nearby stores.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isLocationReady, latitude, longitude, locationMode, radiusInKm, storeFilter],
+  );
+
+  const handleFilterChange = (filter: "all" | "deals_only") => {
+    if (filter === storeFilter) return;
+    setStoreFilter(filter);
+    if (filter === "deals_only" && selectedShop && (selectedShop.flashDealCount ?? 0) === 0) {
+      setSelectedShop(null);
+      setRouteResult(null);
+      setRouteError(null);
+      setShowStepDetails(false);
+      if (routePolylineRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(routePolylineRef.current);
+        routePolylineRef.current = null;
+      }
     }
-  }, [isLocationReady, latitude, longitude, locationMode, radiusInKm]);
+    void fetchShops(latitude, longitude, filter);
+  };
 
   // Fetch shops when location, mode, or version changes
   useEffect(() => {
@@ -841,7 +854,7 @@ export function NearbyStoresMapSection({
             Nearby Stores 
           </h3>
           <span className="text-xs font-semibold text-neutral-500">
-            ({filteredShops.length} store{filteredShops.length === 1 ? "" : "s"} found)
+            ({storeFilter === "deals_only" ? dealsStoresCount : allStoresCount} store{(storeFilter === "deals_only" ? dealsStoresCount : allStoresCount) === 1 ? "" : "s"} found)
           </span>
         </div>
 
@@ -868,7 +881,7 @@ export function NearbyStoresMapSection({
                   : "text-neutral-400"
               }`}
             >
-              {shops.length}
+              {allStoresCount}
             </span>
           </button>
 
