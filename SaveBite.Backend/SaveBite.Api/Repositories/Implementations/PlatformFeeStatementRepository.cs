@@ -100,6 +100,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
             .Include(s => s.OrderPlatformFees)
             .Include(s => s.Adjustments)
             .Include(s => s.Payments)
+            .Include(s => s.Histories)
             .FirstOrDefaultAsync(s => s.Id == statementId, ct);
     }
 

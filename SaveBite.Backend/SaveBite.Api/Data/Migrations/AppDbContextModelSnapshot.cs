@@ -1251,41 +1251,57 @@ namespace SaveBite.Backend.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<decimal>("ChangeAmount")
-                        .HasColumnType("numeric");
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)")
+                        .HasColumnName("change_amount");
 
-                    b.Property<int>("ChangeType")
-                        .HasColumnType("integer");
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("change_type");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
 
                     b.Property<decimal>("NewAmount")
-                        .HasColumnType("numeric");
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)")
+                        .HasColumnName("new_amount");
 
                     b.Property<decimal>("PreviousAmount")
-                        .HasColumnType("numeric");
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)")
+                        .HasColumnName("previous_amount");
 
                     b.Property<string>("Reason")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
 
                     b.Property<Guid?>("RelatedOrderId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("related_order_id");
 
                     b.Property<Guid?>("RelatedRefundId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("related_refund_id");
 
                     b.Property<Guid>("StatementId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("statement_id");
 
                     b.HasKey("Id");
 
                     b.HasIndex("StatementId");
 
-                    b.ToTable("PlatformFeeStatementHistories");
+                    b.ToTable("platform_fee_statement_histories", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Product", b =>

@@ -85,5 +85,9 @@ public class PlatformFeeStatementConfiguration
             .WithMany(x => x.PlatformFeeStatements)
             .HasForeignKey(x => x.ShopId)
             .OnDelete(DeleteBehavior.NoAction);
+        builder.HasMany(x => x.Histories)
+            .WithOne(x => x.Statement)
+            .HasForeignKey(x => x.StatementId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

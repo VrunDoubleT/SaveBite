@@ -136,6 +136,20 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             p.PaidAt,
             p.CreatedAt
         )).ToList();
+        var historyItems = statement.Histories
+            .OrderByDescending(h => h.CreatedAt)
+            .Select(h => new PlatformFeeStatementHistoryItemResponse(
+                h.Id,
+                h.StatementId,
+                h.ChangeType,
+                h.PreviousAmount,
+                h.ChangeAmount,
+                h.NewAmount,
+                h.Reason,
+                h.RelatedRefundId,
+                h.RelatedOrderId,
+                h.CreatedAt
+            )).ToList();
 
         return new PlatformFeeStatementDetailResponse(
             statement.Id,
@@ -151,7 +165,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             statement.CreatedAt,
             orderItems,
             adjustmentItems,
-            paymentItems
+            paymentItems,
+            historyItems
         );
     }
 
@@ -188,6 +203,20 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 p.PaidAt,
                 p.CreatedAt
             )).ToList();
+            var historyItems = statement.Histories
+                .OrderByDescending(h => h.CreatedAt)
+                .Select(h => new PlatformFeeStatementHistoryItemResponse(
+                    h.Id,
+                    h.StatementId,
+                    h.ChangeType,
+                    h.PreviousAmount,
+                    h.ChangeAmount,
+                    h.NewAmount,
+                    h.Reason,
+                    h.RelatedRefundId,
+                    h.RelatedOrderId,
+                    h.CreatedAt
+                )).ToList();
             return new PlatformFeeStatementDetailResponse(
                 statement.Id,
                 statement.ShopId,
@@ -202,7 +231,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 statement.CreatedAt,
                 orderItems,
                 adjustmentItems,
-                paymentItems
+                paymentItems,
+                historyItems
             );
         }
     // UC-81: Pay Platform Fee (BR-092, BR-094, BR-097)
@@ -715,6 +745,17 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                         CreatedAt = now,
                         UpdatedAt = now
                     };
+                    statement.Histories.Add(new PlatformFeeStatementHistory
+                    {
+                        Id = Guid.NewGuid(),
+                        StatementId = statement.Id,
+                        PreviousAmount = 0,
+                        ChangeAmount = netFee,
+                        NewAmount = netFee,
+                        ChangeType = StatementChangeType.InitialIssuance,
+                        Reason = $"Initial statement generated for period {billingMonth:D2}/{billingYear}.",
+                        CreatedAt = now
+                    });
                     await _repository.AddStatementAsync(statement, ct);
                     foreach (var fee in shopFees)
                     {
