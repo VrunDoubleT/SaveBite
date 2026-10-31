@@ -1247,6 +1247,47 @@ namespace SaveBite.Backend.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.PlatformFeeStatementHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ChangeAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<int>("ChangeType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("NewAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("PreviousAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("RelatedOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RelatedRefundId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StatementId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StatementId");
+
+                    b.ToTable("PlatformFeeStatementHistories");
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3498,6 +3539,17 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("Shop");
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.PlatformFeeStatementHistory", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.PlatformFeeStatement", "Statement")
+                        .WithMany("Histories")
+                        .HasForeignKey("StatementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Statement");
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Product", b =>
                 {
                     b.HasOne("SaveBite.Backend.Models.Entities.Category", "Category")
@@ -4148,6 +4200,8 @@ namespace SaveBite.Backend.Data.Migrations
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.PlatformFeeStatement", b =>
                 {
                     b.Navigation("Adjustments");
+
+                    b.Navigation("Histories");
 
                     b.Navigation("OrderPlatformFees");
 

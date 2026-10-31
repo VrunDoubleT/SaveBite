@@ -520,44 +520,74 @@ public sealed class ShopOrderService : IShopOrderService
             f.Status = RefundStatus.Transferred; f.TransferReference = reference.Trim(); f.TransferredAt = Now; f.ReviewedBy = userId; f.ReviewedAt = Now; f.UpdatedAt = Now;
             AddActivity(order, await _shops.ActorAsync(userId, shopId, ct), $"Recorded refund bank transfer of {transferredNow} VND: " + reference.Trim());
           
-            // BR-205: When Store Owner executes refund transfer, record a negative platform-fee adjustment
-            if (transferredNow > 0)
+          // BR-205: Update platform fee when Store Owner executes refund transfer
+if (transferredNow > 0)
+{
+    var orderFee = await _shops.GetOrderPlatformFeeAsync(order.Id, ct);
+    if (orderFee != null)
+    {
+        var feeReduction = Math.Round(transferredNow * orderFee.FeeRate, 2);
+        if (feeReduction > 0)
+        {
+            // Case 1: Statement is already Paid -> record PlatformFeeAdjustment for the next billing cycle
+            if (orderFee.Statement != null && orderFee.Statement.Status == PlatformFeeStatementStatus.Paid)
             {
-                var orderFee = await _shops.GetOrderPlatformFeeAsync(order.Id, ct);
-                if (orderFee != null)
+                var adjustment = new PlatformFeeAdjustment
                 {
-                    var adjAmount = -Math.Round(transferredNow * orderFee.FeeRate, 2);
-                    if (adjAmount < 0)
+                    Id = Guid.NewGuid(),
+                    ShopId = order.ShopId,
+                    OrderFeeId = orderFee.Id,
+                    RefundId = f.Id,
+                    StatementId = null,
+                    Amount = -feeReduction,
+                    Reason = $"Fee reduction via refund {transferredNow:N0} VND for order #{order.OrderCode}.",
+                    CreatedAt = Now
+                };
+                _shops.AddFeeAdjustment(adjustment);
+            }
+            // Case 2: Statement is not yet issued or not yet Paid -> directly deduct fee and record statement history
+            else
+            {
+                orderFee.FeeAmount = Math.Max(0, orderFee.FeeAmount - feeReduction);
+                orderFee.UpdatedAt = Now;
+
+                if (orderFee.Statement != null)
+                {
+                    var previousTotal = orderFee.Statement.TotalFeeAmount;
+                    var newTotal = Math.Max(0, previousTotal - feeReduction);
+                    orderFee.Statement.TotalFeeAmount = newTotal;
+                    orderFee.Statement.UpdatedAt = Now;
+
+                    if (newTotal == 0)
                     {
-                        var adjustment = new PlatformFeeAdjustment
-                        {
-                            Id = Guid.NewGuid(),
-                            ShopId = order.ShopId,
-                            OrderFeeId = orderFee.Id,
-                            RefundId = f.Id,
-                            StatementId = null,
-                            Amount = adjAmount,
-                            Reason = $"Fee reduction via refund {transferredNow:N0} VND.",
-                            CreatedAt = Now
-                        };
-                        // If statement is already issued for this fee and is still unpaid (Issued),
-                        // directly credit the adjustment to that statement so the shop is relieved immediately!
-                        if (orderFee.Statement != null && orderFee.Statement.Status == PlatformFeeStatementStatus.Issued)
-                        {
-                            adjustment.StatementId = orderFee.Statement.Id;
-                            orderFee.Statement.TotalFeeAmount = Math.Max(0, orderFee.Statement.TotalFeeAmount + adjAmount);
-                            orderFee.Statement.UpdatedAt = Now;
-                            if (orderFee.Statement.TotalFeeAmount == 0)
-                            {
-                                orderFee.Statement.Status = PlatformFeeStatementStatus.Paid;
-                                orderFee.Statement.PaidAt = Now;
-                                orderFee.Statement.DueAt = null;
-                            }
-                        }
-                        _shops.AddFeeAdjustment(adjustment);
+                        orderFee.Statement.Status = PlatformFeeStatementStatus.Paid;
+                        orderFee.Statement.PaidAt = Now;
+                        orderFee.Statement.DueAt = null;
                     }
+
+                    var isPartial = f.RequestedAmount < order.TotalAmount;
+                    var history = new PlatformFeeStatementHistory
+                    {
+                        Id = Guid.NewGuid(),
+                        StatementId = orderFee.Statement.Id,
+                        PreviousAmount = previousTotal,
+                        ChangeAmount = -feeReduction,
+                        NewAmount = newTotal,
+                        ChangeType = isPartial
+                            ? StatementChangeType.PartialRefundDeduction
+                            : StatementChangeType.FullRefundDeduction,
+                        Reason = $"Fee reduction via refund {transferredNow:N0} VND for order #{order.OrderCode}.",
+                        RelatedRefundId = f.Id,
+                        RelatedOrderId = order.Id,
+                        CreatedAt = Now
+                    };
+                    _shops.AddStatementHistory(history);
                 }
             }
+        }
+    }
+}
+
 
             await _orders.SaveAsync(ct);
             return MapRefund(f);

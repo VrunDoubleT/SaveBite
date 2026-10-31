@@ -116,4 +116,7 @@ public sealed class ShopOrderRepository : IShopOrderRepository
             .FirstOrDefaultAsync(x => x.OrderId == orderId, ct);
     // Track a platform fee adjustment for a refund.
     public void AddFeeAdjustment(PlatformFeeAdjustment adjustment) => _db.Set<PlatformFeeAdjustment>().Add(adjustment);
+    public void AddStatementHistory(PlatformFeeStatementHistory history) 
+        => _db.Set<PlatformFeeStatementHistory>().Add(history);
+
 }

@@ -64,6 +64,7 @@ public class AppDbContext : DbContext
     public DbSet<OrderPlatformFee> OrderPlatformFees => Set<OrderPlatformFee>();
     public DbSet<PlatformFeeAdjustment> PlatformFeeAdjustments => Set<PlatformFeeAdjustment>();
     public DbSet<PlatformFeePayment> PlatformFeePayments => Set<PlatformFeePayment>();
+    public DbSet<PlatformFeeStatementHistory> PlatformFeeStatementHistories => Set<PlatformFeeStatementHistory>();
     // Notifications.
     public DbSet<Notification> Notifications => Set<Notification>();
     // Feedbacks.
