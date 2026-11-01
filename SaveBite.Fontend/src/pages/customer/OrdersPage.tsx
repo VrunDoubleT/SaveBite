@@ -1,4 +1,4 @@
-import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
+﻿import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
 import { readCustomerOrderPages } from "@/features/orders/utils/readCustomerOrderPages";
 import { OrderPickupCode } from "@/features/checkout/components/OrderPickupCode";
@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, CheckCircle2, MapPin, Package, ShoppingBag, Star, Store } from "lucide-react";
 import { RateOrderModal } from "@/features/feedbacks/components/RateOrderModal";
+import { EditReviewModal } from "@/features/feedbacks/components/EditReviewModal";
 import { APP_PATHS } from "@/app/router/paths";
 import { orderApi } from "@/features/orders/api/orderApi";
 import { OrderStatusPanel } from "@/features/checkout/components/OrderStatusPanel";
@@ -72,6 +73,12 @@ function CustomerOrders({
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [ratingOrder, setRatingOrder] = useState<CheckoutOrder | null>(null);
+  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<{
+    feedbackId: string;
+    productName?: string;
+    variantName?: string;
+    imageUrl?: string | null;
+  } | null>(null);
   const [now, setNow] = useState(Date.now);
   const alive = useRef(true);
   const operation = useRef(false);
@@ -239,6 +246,15 @@ function CustomerOrders({
           </Link>
         </div>
       )}
+      <EditReviewModal
+        isOpen={Boolean(editingFeedbackTarget)}
+        onClose={() => setEditingFeedbackTarget(null)}
+        feedbackId={editingFeedbackTarget?.feedbackId ?? null}
+        initialProductName={editingFeedbackTarget?.productName}
+        initialVariantName={editingFeedbackTarget?.variantName}
+        initialImageUrl={editingFeedbackTarget?.imageUrl}
+        onUpdated={onRefresh}
+      />
       <RateOrderModal
         isOpen={Boolean(ratingOrder)}
         onClose={() => setRatingOrder(null)}
@@ -259,16 +275,6 @@ function CustomerOrders({
               <div className="flex shrink-0 flex-col items-end gap-2">
                 {order.createdAt && (
                   <time dateTime={order.createdAt}>{checkoutTime(order.createdAt)}</time>
-                )}
-                {order.status === "Completed" && order.items.some((i) => i.canReview) && (
-                  <button
-                    type="button"
-                    onClick={() => setRatingOrder(order)}
-                    className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-                  >
-                    <Star size={14} className="fill-amber-400 text-amber-500" />
-                    Rate products
-                  </button>
                 )}
                 <Link
                   to={APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id))}
@@ -336,15 +342,25 @@ function CustomerOrders({
                       Qty {item.quantity} × {money(item.unitPrice)}
                     </p>
                     {item.rating && (
-                      <Link
-                        to={APP_PATHS.ACCOUNT_REVIEWS}
-                        className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (item.feedbackId) {
+                            setEditingFeedbackTarget({
+                              feedbackId: item.feedbackId,
+                              productName: item.productName,
+                              variantName: item.variantName,
+                              imageUrl: item.imageUrl,
+                            });
+                          }
+                        }}
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer text-left"
                       >
                         <CheckCircle2 size={12} />
                         Reviewed
                         <Star size={11} className="fill-amber-400 text-amber-400" />
-                        {item.rating}/5
-                      </Link>
+                        {item.rating}/5 · Edit
+                      </button>
                     )}
                   </div>
                   <p className="shrink-0 text-sm font-bold text-neutral-900">

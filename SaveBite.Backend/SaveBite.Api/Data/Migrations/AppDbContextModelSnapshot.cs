@@ -1528,6 +1528,45 @@ namespace SaveBite.Backend.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.ProductFeedbackImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("image_url");
+
+                    b.Property<Guid>("ProductFeedbackId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_feedback_id");
+
+                    b.Property<string>("PublicId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductFeedbackId");
+
+                    b.ToTable("product_feedback_images", (string)null);
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.ProductFeedbackModerationLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3712,6 +3751,17 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.ProductFeedbackImage", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.ProductFeedback", "ProductFeedback")
+                        .WithMany("Images")
+                        .HasForeignKey("ProductFeedbackId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductFeedback");
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.ProductFeedbackModerationLog", b =>
                 {
                     b.HasOne("SaveBite.Backend.Models.Entities.User", "AdminUser")
@@ -4304,6 +4354,8 @@ namespace SaveBite.Backend.Data.Migrations
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.ProductFeedback", b =>
                 {
+                    b.Navigation("Images");
+
                     b.Navigation("ModerationLogs");
 
                     b.Navigation("Reply");

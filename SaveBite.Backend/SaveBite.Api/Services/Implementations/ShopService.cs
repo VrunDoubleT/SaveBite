@@ -190,6 +190,7 @@ public sealed class ShopService : IShopService
             ProductName = f.Product?.Name ?? string.Empty,
             ProductImageUrl = f.Product?.Images?.Select(i => i.ImageUrl).FirstOrDefault(),
             CreatedAt = f.CreatedAt,
+            Images = f.Images?.OrderBy(i => i.SortOrder).Select(i => i.ImageUrl).ToList() ?? new List<string>(),
             Reply = f.Reply != null
                 ? new StoreReviewReplyResponse
                 {

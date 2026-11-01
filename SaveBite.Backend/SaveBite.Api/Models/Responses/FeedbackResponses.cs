@@ -20,10 +20,16 @@ public static class FeedbackResponses
         string OrderCode,
         string ShopName,
         string? ShopLogoUrl,
-        string? ImageUrl);
+        string? ImageUrl,
+        IReadOnlyList<string>? Images = null,
+        Guid? ShopId = null,
+        string? CustomerName = null,
+        string? CustomerAvatarUrl = null);
 
     public sealed record FeedbackReplyResponse(
         Guid Id,
         string Content,
-        DateTime CreatedAt);
+        DateTime CreatedAt,
+        DateTime? UpdatedAt = null,
+        string? RepliedByName = null);
 }

@@ -5,6 +5,7 @@ import {
   Package,
   ShieldCheck,
   ShoppingBag,
+  Star,
   Store,
   Users,
   Tags,
@@ -64,8 +65,12 @@ const navigation = [
     label: "Audit Logs",
     icon: FileSearch,
   },
+  {
+    to: APP_PATHS.ADMIN_REVIEWS,
+    label: "Feedbacks",
+    icon: Star,
+  },
 ] as const;
-
 export function AdminLayout() {
   return (
     <WorkspaceLayout

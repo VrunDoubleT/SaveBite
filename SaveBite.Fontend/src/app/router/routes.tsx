@@ -67,6 +67,8 @@ import { CustomerShopPage } from "@/pages/customer/CustomerShopPage";
 import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage";
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
+import { StoreOwnerReviewsPage } from "@/pages/store-owner/StoreOwnerReviewsPage";
+import { AdminReviewsPage } from "@/pages/admin/AdminReviewsPage";
 
 import { ShopOrdersPage } from "@/pages/shop/ShopOrdersPage";
 import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
@@ -258,7 +260,7 @@ export const routes: RouteObject[] = [
               />
             ),
           },
-          {
+                    {
             path: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
             element: <AdminShopApplicationsPage />,
           },
@@ -269,6 +271,10 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.ADMIN_AUDIT_LOGS,
             element: <AdminAuditLogsPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_REVIEWS,
+            element: <AdminReviewsPage />,
           },
         ],
       },
@@ -404,6 +410,10 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.STORE_OWNER_PROFILE,
             element: <ShopProfilePage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_REVIEWS,
+            element: <StoreOwnerReviewsPage />,
           },
         ],
       },

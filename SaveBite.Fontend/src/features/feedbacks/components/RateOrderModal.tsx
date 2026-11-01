@@ -1,5 +1,13 @@
-import { useEffect, useState } from "react";
-import { CheckCircle2, Package, Star, Store } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Camera,
+  CheckCircle2,
+  Loader2,
+  Package,
+  Star,
+  Store,
+  X,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
@@ -13,6 +21,7 @@ interface ItemDraft {
   enabled: boolean;
   rating: number;
   comment: string;
+  images: string[];
 }
 
 interface RateOrderModalProps {
@@ -32,6 +41,8 @@ export function RateOrderModal({
 }: RateOrderModalProps) {
   const [drafts, setDrafts] = useState<Record<string, ItemDraft>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     if (!order || !isOpen) return;
@@ -42,6 +53,7 @@ export function RateOrderModal({
           enabled: focusOrderItemId ? item.orderItemId === focusOrderItemId : true,
           rating: 5,
           comment: "",
+          images: [],
         };
       }
     }
@@ -68,10 +80,73 @@ export function RateOrderModal({
     setDrafts((prev) => ({
       ...prev,
       [orderItemId]: {
-        ...(prev[orderItemId] ?? { enabled: true, rating: 5, comment: "" }),
+        ...(prev[orderItemId] ?? {
+          enabled: true,
+          rating: 5,
+          comment: "",
+          images: [],
+        }),
         ...patch,
       },
     }));
+  };
+
+  const handleImageUpload = async (
+    orderItemId: string,
+    files: FileList | null,
+  ) => {
+    if (!files || files.length === 0) return;
+
+    const currentImages = drafts[orderItemId]?.images ?? [];
+    const remainingSlots = 5 - currentImages.length;
+
+    if (remainingSlots <= 0) {
+      toast.info("You can only upload a maximum of 5 images per review.");
+      return;
+    }
+
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+    if (files.length > remainingSlots) {
+      toast.info(`Only the first ${remainingSlots} images were uploaded (maximum 5).`);
+    }
+
+    try {
+      setUploadingItemId(orderItemId);
+      const uploadedUrls: string[] = [];
+
+      for (const file of filesToUpload) {
+        if (!file.type.startsWith("image/")) {
+          toast.error(`${file.name} is not an image file.`);
+          continue;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`${file.name} exceeds 5MB size limit.`);
+          continue;
+        }
+        const url = await feedbackApi.uploadImage(file);
+        uploadedUrls.push(url);
+      }
+
+      if (uploadedUrls.length > 0) {
+        updateDraft(orderItemId, {
+          images: [...currentImages, ...uploadedUrls].slice(0, 5),
+        });
+      }
+    } catch (error) {
+      toast.error(getApiErrorMessage(error) || "Failed to upload image.");
+    } finally {
+      setUploadingItemId(null);
+      if (fileInputRefs.current[orderItemId]) {
+        fileInputRefs.current[orderItemId]!.value = "";
+      }
+    }
+  };
+
+  const handleRemoveImage = (orderItemId: string, indexToRemove: number) => {
+    const currentImages = drafts[orderItemId]?.images ?? [];
+    updateDraft(orderItemId, {
+      images: currentImages.filter((_, idx) => idx !== indexToRemove),
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,6 +175,7 @@ export function RateOrderModal({
           orderItemId: item.orderItemId!,
           rating: draft.rating,
           comment: draft.comment.trim() || undefined,
+          images: draft.images.length > 0 ? draft.images : undefined,
         });
         submittedCount += 1;
       }
@@ -142,6 +218,7 @@ export function RateOrderModal({
             const itemId = item.orderItemId;
             const isReviewable = Boolean(itemId && item.canReview);
             const draft = itemId ? drafts[itemId] : undefined;
+            const isUploadingThisItem = uploadingItemId === itemId;
 
             return (
               <div
@@ -251,6 +328,71 @@ export function RateOrderModal({
                         className="w-full resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
                       />
                     </div>
+
+                    {/* Review Photos (Up to 5 images) */}
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <label className="block text-xs font-medium text-neutral-700">
+                          Add photos <span className="font-normal text-neutral-400">(optional, max 5)</span>
+                        </label>
+                        <span className="text-[11px] text-neutral-400">
+                          {draft.images.length}/5 photos
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {draft.images.map((imgUrl, imgIdx) => (
+                          <div
+                            key={imgIdx}
+                            className="relative size-16 overflow-hidden rounded-xl border border-neutral-200 group"
+                          >
+                            <img
+                              src={imgUrl}
+                              alt={`Upload ${imgIdx + 1}`}
+                              className="size-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(itemId, imgIdx)}
+                              disabled={isSubmitting}
+                              className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black"
+                              title="Remove image"
+                            >
+                              <X className="size-3" />
+                            </button>
+                          </div>
+                        ))}
+
+                        {draft.images.length < 5 && (
+                          <button
+                            type="button"
+                            disabled={isSubmitting || isUploadingThisItem}
+                            onClick={() => fileInputRefs.current[itemId]?.click()}
+                            className="flex size-16 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 text-neutral-500 transition hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-700 disabled:opacity-50"
+                          >
+                            {isUploadingThisItem ? (
+                              <Loader2 className="size-5 animate-spin text-emerald-600" />
+                            ) : (
+                              <>
+                                <Camera className="size-5" />
+                                <span className="text-[10px] font-medium">Add photo</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+
+                      <input
+                        ref={(el) => {
+                          fileInputRefs.current[itemId] = el;
+                        }}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => handleImageUpload(itemId, e.target.files)}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -271,7 +413,7 @@ export function RateOrderModal({
           {reviewableItems.length > 0 && (
             <button
               type="submit"
-              disabled={isSubmitting || selectedCount === 0}
+              disabled={isSubmitting || selectedCount === 0 || Boolean(uploadingItemId)}
               className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
             >
               {isSubmitting

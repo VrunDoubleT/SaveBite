@@ -15,6 +15,10 @@ public sealed class CreateFeedbackRequestValidator : AbstractValidator<FeedbackR
 
         RuleFor(x => x.Comment)
             .MaximumLength(2000).WithMessage("Comment cannot exceed 2000 characters.");
+
+        RuleFor(x => x.Images)
+            .Must(imgs => imgs == null || imgs.Count <= 5)
+            .WithMessage("A feedback cannot contain more than 5 images.");
     }
 }
 
@@ -27,5 +31,29 @@ public sealed class UpdateFeedbackRequestValidator : AbstractValidator<FeedbackR
 
         RuleFor(x => x.Comment)
             .MaximumLength(2000).WithMessage("Comment cannot exceed 2000 characters.");
+
+        RuleFor(x => x.Images)
+            .Must(imgs => imgs == null || imgs.Count <= 5)
+            .WithMessage("A feedback cannot contain more than 5 images.");
+    }
+}
+
+public sealed class CreateFeedbackReplyRequestValidator : AbstractValidator<FeedbackRequests.CreateFeedbackReplyRequest>
+{
+    public CreateFeedbackReplyRequestValidator()
+    {
+        RuleFor(x => x.Content)
+            .NotEmpty().WithMessage("Reply content cannot be empty.")
+            .MaximumLength(2000).WithMessage("Reply content cannot exceed 2000 characters.");
+    }
+}
+
+public sealed class UpdateFeedbackReplyRequestValidator : AbstractValidator<FeedbackRequests.UpdateFeedbackReplyRequest>
+{
+    public UpdateFeedbackReplyRequestValidator()
+    {
+        RuleFor(x => x.Content)
+            .NotEmpty().WithMessage("Reply content cannot be empty.")
+            .MaximumLength(2000).WithMessage("Reply content cannot exceed 2000 characters.");
     }
 }
