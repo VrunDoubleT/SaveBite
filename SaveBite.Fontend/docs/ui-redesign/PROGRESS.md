@@ -1,14 +1,14 @@
 # UI redesign progress
 
 Ngày audit: 2026-11-02 (Asia/Bangkok). Nhánh: ui-redesign (đã tồn tại).
-Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; chưa redesign từng trang, chưa tạo mock backend.
+Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; chưa redesign từng trang, đã tạo mock backend theo DTO thật.
 Chi tiết: [ROUTES.md](./ROUTES.md). Mọi route chức năng giữ trạng thái todo; redirect cần regression, không có page riêng.
 
 | Route/task | Status | Commit | Notes |
 |---|---|---|---|
 | Shell/layout + shared components | done | ui(tokens): theme and primitives | Responsive shell; desktop collapse, mobile drawer, primitives; xem TOKENS.md |
 | Tokens | done | ui(tokens): theme and primitives | Giữ 10 primary greens; màu phụ theo reference; xem TOKENS.md |
-| Mock layer | todo | — | HTTP + auth + realtime + ngoại dịch vụ |
+| Mock layer | done | chore(mock): frontend mock backend | MSW; typed DTO fixtures; session role/auth; realtime; search/filter/pagination; mutations + session persistence; xem MOCKS.md |
 | `/` | todo | — | R1; CustomerHomePage; guest, user, staff, storeOwner (admin redirected) |
 | `/shops/:id` | todo | — | R2; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
 | `/shop-profile` | todo | — | R3; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
@@ -86,6 +86,6 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Mọi route chức năng giữ trạng th�
 | `*` | todo | — | R75; NotFoundPage; public |
 | QA toàn bộ route/role/tab/alias | todo | — | Responsive, a11y, normal/loading/empty/error |
 
-Showcase development `/__ui`: đã tạo, chỉ bật với DEV + VITE_ENABLE_MOCK=true; chưa phải mock backend.
+Showcase `/__ui`: chỉ có trong DEV khi VITE_ENABLE_MOCK=true hoặc VITE_USE_MOCK=true. VITE_USE_MOCK đồng thời bật mock backend.
 
-Chi tiết và cách xem: [TOKENS.md](./TOKENS.md). Bước tiếp theo: ui-redesign-mock khi người dùng yêu cầu.
+Chi tiết và cách xem: [TOKENS.md](./TOKENS.md). Chi tiết mock: [MOCKS.md](./MOCKS.md). Bước tiếp theo: ui-redesign-page khi người dùng yêu cầu (cần ui-ux-pro-max trước khi redesign từng trang).

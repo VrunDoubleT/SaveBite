@@ -1,0 +1,433 @@
+// Generated from real service response DTOs. Regenerate with npm run mock:generate.
+import { past, future } from "./values";
+import type { ApiResponse } from "@/shared/types";
+import type {
+  LevelProgress,
+  PenaltyItem,
+  PenaltyRecovery,
+  TrustLevelInfo,
+  TrustScoreHistoryItem,
+  TrustScoreOverview,
+} from "@/features/trust/types/trust.types";
+interface BackendPaged<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+export const response0 = {
+  data: {
+    currentScore: 1,
+    level: {
+      id: "00000000-0000-4000-8000-000000000001",
+      name: "Bánh mì rau củ",
+      description: "Thực phẩm tươi ngon trong ngày, giảm lãng phí cùng SaveBite.",
+      rank: 1,
+      depositPolicy: {
+        id: "00000000-0000-4000-8000-000000000001",
+        requireFullOnlinePayment: true,
+        depositFreeOrderAmount: 25000,
+        maxDepositOrderAmount: 25000,
+        ranges: [
+          {
+            id: "00000000-0000-4000-8000-000000000001",
+            fromOrderAmount: 25000,
+            toOrderAmount: 25000,
+            depositAmount: 25000,
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000002",
+            fromOrderAmount: 50000,
+            toOrderAmount: 50000,
+            depositAmount: 50000,
+          },
+        ],
+        updatedAt: past,
+      },
+    },
+    requirement: {
+      minScore: 1,
+      minCompletedOrders: 1,
+      minTotalOrderValue: 1,
+    },
+    isHighestLevel: true,
+    isOfflineLockedPermanently: true,
+    completedOrdersCount: 1,
+    accumulatedOrderValue: 1,
+    activePenaltyCount: 1,
+    standing: "GoodStanding",
+    updatedAt: past,
+  },
+  message: "Tiêu chuẩn",
+  success: true,
+} satisfies ApiResponse<TrustScoreOverview>;
+export const response1 = {
+  data: {
+    currentLevel: {
+      id: "00000000-0000-4000-8000-000000000001",
+      name: "Bánh mì rau củ",
+      description: "Thực phẩm tươi ngon trong ngày, giảm lãng phí cùng SaveBite.",
+      rank: 1,
+      depositPolicy: {
+        id: "00000000-0000-4000-8000-000000000001",
+        requireFullOnlinePayment: true,
+        depositFreeOrderAmount: 25000,
+        maxDepositOrderAmount: 25000,
+        ranges: [
+          {
+            id: "00000000-0000-4000-8000-000000000001",
+            fromOrderAmount: 25000,
+            toOrderAmount: 25000,
+            depositAmount: 25000,
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000002",
+            fromOrderAmount: 50000,
+            toOrderAmount: 50000,
+            depositAmount: 50000,
+          },
+        ],
+        updatedAt: past,
+      },
+    },
+    nextLevel: {
+      id: "00000000-0000-4000-8000-000000000001",
+      name: "Bánh mì rau củ",
+      description: "Thực phẩm tươi ngon trong ngày, giảm lãng phí cùng SaveBite.",
+      rank: 1,
+      depositPolicy: {
+        id: "00000000-0000-4000-8000-000000000001",
+        requireFullOnlinePayment: true,
+        depositFreeOrderAmount: 25000,
+        maxDepositOrderAmount: 25000,
+        ranges: [
+          {
+            id: "00000000-0000-4000-8000-000000000001",
+            fromOrderAmount: 25000,
+            toOrderAmount: 25000,
+            depositAmount: 25000,
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000002",
+            fromOrderAmount: 50000,
+            toOrderAmount: 50000,
+            depositAmount: 50000,
+          },
+        ],
+        updatedAt: past,
+      },
+    },
+    isHighestLevel: true,
+    requirementsMet: true,
+    overallPercent: 25,
+    metrics: [
+      {
+        key: "score",
+        current: 1,
+        required: 1,
+        remaining: 1,
+        percent: 25,
+      },
+      {
+        key: "completedOrders",
+        current: 2,
+        required: 2,
+        remaining: 2,
+        percent: 25,
+      },
+      {
+        key: "orderValue",
+        current: 3,
+        required: 3,
+        remaining: 3,
+        percent: 25,
+      },
+      {
+        key: "onlineOrders",
+        current: 4,
+        required: 4,
+        remaining: 4,
+        percent: 25,
+      },
+      {
+        key: "onlineOrderValue",
+        current: 5,
+        required: 5,
+        remaining: 5,
+        percent: 25,
+      },
+    ],
+    scoreDeltaPerCompletedOrder: 1,
+    onlineOrderCompletedPoints: 1,
+    payAtShopOrderCompletedPoints: 1,
+  },
+  message: "Tiêu chuẩn",
+  success: true,
+} satisfies ApiResponse<LevelProgress>;
+export const response2 = {
+  data: {
+    items: [
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        eventType: "NoShow",
+        scoreBefore: 1,
+        scoreDelta: 1,
+        scoreAfter: 1,
+        reason: "Thực phẩm tươi ngon trong ngày, giảm lãng phí cùng SaveBite.",
+        orderId: "00000000-0000-4000-8000-000000000001",
+        orderCode: "SB1000",
+        createdAt: past,
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        eventType: "OrderCompleted",
+        scoreBefore: 2,
+        scoreDelta: 2,
+        scoreAfter: 2,
+        reason: "Thực phẩm tươi ngon trong ngày, giảm lãng phí cùng SaveBite.",
+        orderId: "00000000-0000-4000-8000-000000000002",
+        orderCode: "SB1001",
+        createdAt: past,
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000003",
+        eventType: "NoShow",
+        scoreBefore: 3,
+        scoreDelta: 3,
+        scoreAfter: 3,
+        createdAt: past,
+      },
+    ],
+    page: 1,
+    pageSize: 10,
+    totalItems: 1,
+    totalPages: 1,
+  },
+  message: "Tiêu chuẩn",
+  success: true,
+} satisfies ApiResponse<BackendPaged<TrustScoreHistoryItem>>;
+export const response3 = {
+  data: [
+    {
+      id: "00000000-0000-4000-8000-000000000001",
+      name: "Bánh mì rau củ",
+      description: "Thực phẩm tươi ngon trong ngày, giảm lãng phí cùng SaveBite.",
+      rank: 1,
+      requirement: {
+        minScore: 1,
+        minCompletedOrders: 1,
+        minTotalOrderValue: 1,
+      },
+      isCurrent: true,
+      isUnlocked: true,
+      depositPolicy: {
+        id: "00000000-0000-4000-8000-000000000001",
+        requireFullOnlinePayment: true,
+        depositFreeOrderAmount: 25000,
+        maxDepositOrderAmount: 25000,
+        ranges: [
+          {
+            id: "00000000-0000-4000-8000-000000000001",
+            fromOrderAmount: 25000,
+            toOrderAmount: 25000,
+            depositAmount: 25000,
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000002",
+            fromOrderAmount: 50000,
+            toOrderAmount: 50000,
+            depositAmount: 50000,
+          },
+        ],
+        updatedAt: past,
+      },
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000002",
+      name: "Túi bánh cuối ngày",
+      description: "Thực phẩm tươi ngon trong ngày, giảm lãng phí cùng SaveBite.",
+      rank: 1,
+      requirement: {
+        minScore: 2,
+        minCompletedOrders: 2,
+        minTotalOrderValue: 2,
+      },
+      isCurrent: true,
+      isUnlocked: true,
+      depositPolicy: {
+        id: "00000000-0000-4000-8000-000000000002",
+        requireFullOnlinePayment: true,
+        depositFreeOrderAmount: 50000,
+        maxDepositOrderAmount: 50000,
+        ranges: [
+          {
+            id: "00000000-0000-4000-8000-000000000001",
+            fromOrderAmount: 25000,
+            toOrderAmount: 25000,
+            depositAmount: 25000,
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000002",
+            fromOrderAmount: 50000,
+            toOrderAmount: 50000,
+            depositAmount: 50000,
+          },
+        ],
+        updatedAt: past,
+      },
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000003",
+      name: "Hộp rau tươi Đà Lạt",
+      rank: 1,
+      isCurrent: true,
+      isUnlocked: true,
+    },
+  ],
+  message: "Tiêu chuẩn",
+  success: true,
+} satisfies ApiResponse<TrustLevelInfo[]>;
+export const response4 = {
+  data: {
+    items: [
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        orderId: "00000000-0000-4000-8000-000000000001",
+        orderCode: "SB1000",
+        occurrenceNumber: 1,
+        scoreDeducted: 1,
+        permanentOfflineLock: true,
+        lockEndsAt: future,
+        status: "Recovering",
+        requiredOnlineOrders: 1,
+        requiredOnlineOrderValue: 1,
+        completedOnlineOrders: 1,
+        completedOnlineOrderValue: 1,
+        createdAt: past,
+        recoveredAt: "/images/deals/banh-mi/bm-overview.jpg",
+        reason: "Thực phẩm tươi ngon trong ngày, giảm lãng phí cùng SaveBite.",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        orderId: "00000000-0000-4000-8000-000000000002",
+        orderCode: "SB1001",
+        occurrenceNumber: 2,
+        scoreDeducted: 2,
+        permanentOfflineLock: true,
+        lockEndsAt: future,
+        status: "Recovered",
+        requiredOnlineOrders: 2,
+        requiredOnlineOrderValue: 2,
+        completedOnlineOrders: 2,
+        completedOnlineOrderValue: 2,
+        createdAt: past,
+        recoveredAt: "/images/deals/banh-mi/bm-overview.jpg",
+        reason: "Thực phẩm tươi ngon trong ngày, giảm lãng phí cùng SaveBite.",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000003",
+        orderId: "00000000-0000-4000-8000-000000000003",
+        occurrenceNumber: 3,
+        scoreDeducted: 3,
+        permanentOfflineLock: true,
+        status: "Recovering",
+        requiredOnlineOrders: 3,
+        requiredOnlineOrderValue: 3,
+        completedOnlineOrders: 3,
+        completedOnlineOrderValue: 3,
+        createdAt: past,
+      },
+    ],
+    page: 1,
+    pageSize: 10,
+    totalItems: 1,
+    totalPages: 1,
+  },
+  message: "Tiêu chuẩn",
+  success: true,
+} satisfies ApiResponse<BackendPaged<PenaltyItem>>;
+export const response5 = {
+  data: {
+    penalty: {
+      id: "00000000-0000-4000-8000-000000000001",
+      orderId: "00000000-0000-4000-8000-000000000001",
+      orderCode: "SB1000",
+      occurrenceNumber: 1,
+      scoreDeducted: 1,
+      permanentOfflineLock: true,
+      lockEndsAt: future,
+      status: "Recovering",
+      requiredOnlineOrders: 1,
+      requiredOnlineOrderValue: 1,
+      completedOnlineOrders: 1,
+      completedOnlineOrderValue: 1,
+      createdAt: past,
+      recoveredAt: "/images/deals/banh-mi/bm-overview.jpg",
+      reason: "Thực phẩm tươi ngon trong ngày, giảm lãng phí cùng SaveBite.",
+    },
+    isRecovered: true,
+    overallPercent: 25,
+    metrics: [
+      {
+        key: "score",
+        current: 1,
+        required: 1,
+        remaining: 1,
+        percent: 25,
+      },
+      {
+        key: "completedOrders",
+        current: 2,
+        required: 2,
+        remaining: 2,
+        percent: 25,
+      },
+      {
+        key: "orderValue",
+        current: 3,
+        required: 3,
+        remaining: 3,
+        percent: 25,
+      },
+      {
+        key: "onlineOrders",
+        current: 4,
+        required: 4,
+        remaining: 4,
+        percent: 25,
+      },
+      {
+        key: "onlineOrderValue",
+        current: 5,
+        required: 5,
+        remaining: 5,
+        percent: 25,
+      },
+    ],
+    recoveryOrders: [
+      {
+        orderId: "00000000-0000-4000-8000-000000000001",
+        orderCode: "SB1000",
+        orderValue: 1,
+        createdAt: past,
+      },
+      {
+        orderId: "00000000-0000-4000-8000-000000000002",
+        orderCode: "SB1001",
+        orderValue: 2,
+        createdAt: past,
+      },
+    ],
+  },
+  message: "Tiêu chuẩn",
+  success: true,
+} satisfies ApiResponse<PenaltyRecovery>;
+export default {
+  "trust-trustApi_getOverview_0": response0,
+  "trust-trustApi_getLevelProgress_1": response1,
+  "trust-trustApi_getHistory_2": response2,
+  "trust-trustApi_getLevels_3": response3,
+  "trust-trustApi_getPenalties_4": response4,
+  "trust-trustApi_getPenaltyRecovery_5": response5,
+};

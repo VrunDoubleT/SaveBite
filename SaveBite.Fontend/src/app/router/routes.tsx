@@ -84,7 +84,7 @@ import { FeedbackManagementPage } from "@/pages/admin/FeedbackManagementPage";
 
 
 export const routes: RouteObject[] = [
-  ...(import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCK === "true"
+  ...(import.meta.env.DEV && (import.meta.env.VITE_ENABLE_MOCK === "true" || import.meta.env.VITE_USE_MOCK === "true")
     ? [{ path: "/__ui", lazy: async () => ({ Component: (await import("@/pages/dev/UiShowcasePage")).UiShowcasePage }) }]
     : []),
   {

@@ -41,7 +41,7 @@ Từ thư mục `SaveBite.Fontend`:
 VITE_ENABLE_MOCK=true npm run dev
 ```
 
-Mở `/__ui` trên URL Vite in ra. Route chỉ tồn tại khi **DEV và VITE_ENABLE_MOCK=true**, lazy loaded và bị loại khỏi production bundle. Cờ này ở giai đoạn hiện tại chỉ bật showcase; chưa giả lập session, HTTP hay realtime. Showcase dùng dữ liệu mẫu nội bộ, không cần backend nếu trình duyệt chưa có session lưu. Nếu có session cũ, AppProvider hiện tại vẫn thực hiện session bootstrap như trước.
+Mở `/__ui` trên URL Vite in ra. Route chỉ tồn tại khi **DEV và (VITE_ENABLE_MOCK=true hoặc VITE_USE_MOCK=true)**, lazy loaded và bị loại khỏi production bundle. VITE_ENABLE_MOCK chỉ bật showcase. VITE_USE_MOCK bật cả session, HTTP và realtime mô phỏng; xem [MOCKS.md](./MOCKS.md). Showcase dùng dữ liệu mẫu nội bộ, không cần backend nếu trình duyệt chưa có session lưu. Nếu chỉ bật VITE_ENABLE_MOCK và có session cũ, AppProvider vẫn thực hiện session bootstrap như trước.
 
 Chạy bình thường `npm run dev` không bật showcase. Không thêm `/__ui` vào điều hướng production.
 
