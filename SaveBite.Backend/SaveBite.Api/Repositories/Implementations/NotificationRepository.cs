@@ -22,6 +22,10 @@ public sealed class NotificationRepository : INotificationRepository
     {
         switch (target.Scope)
         {
+            case NotificationRecipientScope.AccountStatusSubject:
+                return await _db.Users.AsNoTracking().Where(u => u.Id == target.EntityId)
+                    .Select(u => u.Id).ToListAsync(ct);
+
             case NotificationRecipientScope.Users:
             {
                 if (target.UserIds == null || target.UserIds.Count == 0)

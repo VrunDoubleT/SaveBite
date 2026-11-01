@@ -12,6 +12,18 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
 {
     private readonly AppDbContext _context;
 
+    public async Task<IReadOnlyList<PlatformFeeStatement>> GetUnpaidStatementsAsync(CancellationToken ct = default)
+        => await _context.PlatformFeeStatements.AsNoTracking().Include(s => s.Shop)
+            .Where(s => (s.Status == PlatformFeeStatementStatus.Issued || s.Status == PlatformFeeStatementStatus.Overdue)
+                && s.TotalFeeAmount > 0 && s.DueAt != null).ToListAsync(ct);
+
+
+    public async Task<IReadOnlyList<PlatformFeeStatement>> GetStatementsForPeriodAsync(int year, short month, CancellationToken ct = default)
+        => await _context.PlatformFeeStatements.AsNoTracking().Include(s => s.Shop)
+            .Where(s => s.BillingYear == year && s.BillingMonth == month && s.Status != PlatformFeeStatementStatus.Draft)
+            .ToListAsync(ct);
+
+
     public PlatformFeeStatementRepository(AppDbContext context)
     {
         _context = context;

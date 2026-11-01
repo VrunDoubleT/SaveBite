@@ -1,3 +1,4 @@
+import { UserAvatar } from "@/shared/components/avatar/UserAvatar";
 import { LogOut, ShoppingCart } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
@@ -52,9 +53,7 @@ export function AuthenticatedHeaderActions() {
         aria-label="Account"
         className="ml-1 flex items-center rounded-full font-bold focus-visible:outline-none focus-visible:shadow-focus"
       >
-        <span className="flex size-9 items-center justify-center rounded-full border border-border-default bg-primary-100 text-sm font-semibold text-primary-700">
-          {user.fullName.charAt(0).toUpperCase()}
-        </span>
+        <UserAvatar key={user.avatarUrl} fullName={user.fullName} avatarUrl={user.avatarUrl} />
         <span className="ml-2 hidden max-w-36 truncate text-sm font-medium text-text-primary sm:inline">
           {user.fullName}
         </span>

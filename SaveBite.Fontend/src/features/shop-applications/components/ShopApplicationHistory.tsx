@@ -28,6 +28,7 @@ type ApplicationDocument = ShopApplication["documents"][number];
 
 const STATUS_LABELS: Record<ShopApplicationStatus, string> = {
   Pending: "Pending",
+  NeedsRevision: "Needs revision",
   Approved: "Approved",
   Rejected: "Rejected",
   Cancelled: "Cancelled",
@@ -36,6 +37,11 @@ const STATUS_LABELS: Record<ShopApplicationStatus, string> = {
 const STATUS_META: Record<ShopApplicationStatus, { icon: LucideIcon; badge: string; dot: string }> =
   {
     Pending: {
+      icon: Clock,
+      badge: "bg-amber-50 text-amber-800 ring-amber-200",
+      dot: "bg-amber-100 text-amber-700 ring-amber-200",
+    },
+    NeedsRevision: {
       icon: Clock,
       badge: "bg-amber-50 text-amber-800 ring-amber-200",
       dot: "bg-amber-100 text-amber-700 ring-amber-200",
@@ -68,6 +74,7 @@ function normalizeStatus(status?: string | null): ShopApplicationStatus | null {
   if (!status) return null;
   const key = status.trim().toLowerCase();
   if (key === "Cancelled" || key === "cancelled") return "Cancelled";
+  if (key === "needsrevision") return "NeedsRevision";
   if (key === "pending") return "Pending";
   if (key === "approved") return "Approved";
   if (key === "rejected") return "Rejected";

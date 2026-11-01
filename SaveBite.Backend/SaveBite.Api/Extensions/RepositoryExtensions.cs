@@ -26,6 +26,7 @@ public static class RepositoryExtensions
         services.AddScoped<IFlashDealRepository, FlashDealRepository>();
         services.AddScoped<ITrustScoreRepository, TrustScoreRepository>();
         services.AddScoped<ITrustOrderRepository, TrustOrderRepository>();
+        services.AddScoped<ITrustNotificationRepository, TrustNotificationRepository>();
         services.AddScoped<ITrustConfigRepository, TrustConfigRepository>();
 
         services.AddScoped<IFeedbackRepository, FeedbackRepository>();

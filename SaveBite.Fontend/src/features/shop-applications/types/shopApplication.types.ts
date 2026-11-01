@@ -1,9 +1,7 @@
-export type ShopApplicationStatus = "Pending" | "Approved" | "Rejected" | "Cancelled";
+export type ShopApplicationStatus =
+  "Pending" | "Approved" | "Rejected" | "Cancelled" | "NeedsRevision";
 
-export type ShopDocumentType =
-  | "BusinessLicense"
-  | "FoodSafetyCertificate"
-  | "Other";
+export type ShopDocumentType = "BusinessLicense" | "FoodSafetyCertificate" | "Other";
 
 export interface ShopApplicationDocument {
   id: string;

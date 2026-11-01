@@ -651,6 +651,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("payment_review_required");
 
+                    b.Property<DateTime?>("PickupReminderEmailSentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("pickup_reminder_email_sent_at");
+
                     b.Property<DateTime?>("ReadyAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ready_at");

@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.Caching.Interfaces;
@@ -16,6 +17,7 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class CheckoutPaymentService : ICheckoutPaymentService
 {
     private readonly ICheckoutRepository _checkoutRepository;
+    private readonly INotificationQueue _notifications;
     private readonly ICheckoutPaymentGateway _paymentGateway;
     private readonly ICheckoutStockCache _stockCache;
     private readonly TimeProvider _clock;
@@ -32,9 +34,11 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         ICheckoutPaymentExpirationScheduler paymentExpirationScheduler,
         ILogger<CheckoutPaymentService> logger,
         IOrderEventPublisher orderEvents,
-        IShopOrderEventService shopOrderEvents)
+        IShopOrderEventService shopOrderEvents,
+        INotificationQueue notifications)
     {
         _checkoutRepository = repository;
+        _notifications = notifications;
         _paymentGateway = gateway;
         _stockCache = stockCache;
         _clock = clock;
@@ -191,6 +195,25 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             await _checkoutRepository.SaveAsync(ct);
             return CheckoutOrderMapper.Map(order, message, Now);
         }, ct);
+        if (result.Status == nameof(OrderStatus.Cancelled) && cancel
+            || result.Status == nameof(OrderStatus.Expired) && result.PaymentStatus == nameof(PaymentStatus.Expired))
+        {
+            var closed = await _checkoutRepository.GetOrderAsync(orderId, null, ct) ?? throw AppException.NotFound();
+            var expired = result.Status == nameof(OrderStatus.Expired);
+            var type = expired ? NotificationType.OrderPaymentExpired : NotificationType.OrderCancelledByCustomer;
+            var title = expired ? "Order payment expired" : "Order cancelled";
+            var body = expired ? $"The payment window for order {closed.OrderCode} has expired."
+                : $"The customer cancelled order {closed.OrderCode}.";
+            await _notifications.EnqueueAsync(NotificationTarget.User(closed.CustomerId), new CreateNotificationCommand(
+                type, title, body, $"/orders/{orderId}", $"order:{orderId}:{type}:customer"), ct);
+            if (notifyShopCancellation || closed.ConfirmedAt.HasValue || closed.StatusHistories.Any(h => h.ToStatus == OrderStatus.Pending))
+            {
+                await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(closed.ShopId), new CreateNotificationCommand(
+                    type, title, body, $"/store-owner/orders/{orderId}", $"order:{orderId}:{type}:owner"), ct);
+                await _notifications.EnqueueAsync(NotificationTarget.ShopStaff(closed.ShopId), new CreateNotificationCommand(
+                    type, title, body, $"/staff/shops/{closed.ShopId}/orders/{orderId}", $"order:{orderId}:{type}:staff"), ct);
+            }
+        }
         // Notify detail subscribers only after the verified balance payment has committed.
         if (notifyRemainingPayment)
         {

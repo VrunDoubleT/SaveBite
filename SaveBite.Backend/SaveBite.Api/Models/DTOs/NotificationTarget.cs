@@ -10,7 +10,8 @@ public enum NotificationRecipientScope
     ShopStaff,
     ShopOperators,
     Admins,
-    Customers
+    Customers,
+    AccountStatusSubject
 }
 
 public sealed record NotificationTarget(
@@ -18,6 +19,10 @@ public sealed record NotificationTarget(
     IReadOnlyCollection<Guid>? UserIds = null,
     Guid? EntityId = null)
 {
+    // Account moderation notices must remain available even after suspension.
+    public static NotificationTarget AccountStatusSubject(Guid userId) =>
+        new(NotificationRecipientScope.AccountStatusSubject, EntityId: userId);
+
     // 1. Send to a specific account (Customer, Staff, StoreOwner, or Admin)
     public static NotificationTarget User(Guid userId) =>
         new(NotificationRecipientScope.Users, new[] { userId });

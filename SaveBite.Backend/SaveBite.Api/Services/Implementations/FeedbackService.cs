@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Messaging.Constants;
@@ -16,10 +17,12 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class FeedbackService : IFeedbackService
 {
     private readonly IFeedbackRepository _feedbackRepo;
+    private readonly INotificationQueue _notifications;
 
-    public FeedbackService(IFeedbackRepository feedbackRepo)
+    public FeedbackService(IFeedbackRepository feedbackRepo, INotificationQueue notifications)
     {
         _feedbackRepo = feedbackRepo;
+        _notifications = notifications;
     }
 
     public async Task<PagedResult<FeedbackResponse>> ListAsync(int page, int pageSize, FeedbackStatus? status, string? search, CancellationToken ct = default)
@@ -54,9 +57,10 @@ public sealed class FeedbackService : IFeedbackService
             throw AppException.BadRequest("A reason is required.");
         var now = DateTime.UtcNow;
         var newStatus = restore ? FeedbackStatus.Visible : FeedbackStatus.HiddenByAdmin;
+        var moderationId = Guid.NewGuid();
         feedback.ModerationLogs.Add(new ProductFeedbackModerationLog
         {
-            Id = Guid.NewGuid(), ProductFeedbackId = feedbackId, AdminUserId = adminId,
+            Id = moderationId, ProductFeedbackId = feedbackId, AdminUserId = adminId,
             Action = restore ? FeedbackModerationAction.Restore : FeedbackModerationAction.Hide,
             PreviousStatus = feedback.Status, NewStatus = newStatus,
             Reason = reason?.Trim() ?? string.Empty, CreatedAt = now
@@ -65,6 +69,11 @@ public sealed class FeedbackService : IFeedbackService
         feedback.HiddenAt = restore ? null : now;
         feedback.UpdatedAt = now;
         await _feedbackRepo.UpdateAsync(feedback, ct);
+        if (!restore)
+            await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
+                NotificationType.FeedbackRemovedByAdmin, "Your review was removed",
+                $"An administrator removed your review of {feedback.Product.Name}. Reason: {reason!.Trim()}",
+                "/account/reviews", $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
         return new ModerationActionResponse
         {
             TargetId = feedbackId, Action = restore ? "FEEDBACK_RESTORED" : "FEEDBACK_HIDDEN",
@@ -127,6 +136,14 @@ public sealed class FeedbackService : IFeedbackService
         }
 
         var created = await _feedbackRepo.CreateAsync(feedback, ct);
+        var shopId = orderItem.Order.ShopId;
+        var body = $"{created.User.FullName} left a {created.Rating}-star review for {created.Product.Name}.";
+        await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(shopId), new CreateNotificationCommand(
+            NotificationType.FeedbackReceived, "New customer review", body,
+            "/store-owner/reviews", $"feedback:{created.Id}:created:owner"), ct);
+        await _notifications.EnqueueAsync(NotificationTarget.ShopStaff(shopId), new CreateNotificationCommand(
+            NotificationType.FeedbackReceived, "New customer review", body,
+            $"/staff/shops/{shopId}/reviews", $"feedback:{created.Id}:created:staff"), ct);
 
         return MapToResponse(created);
     }
@@ -243,6 +260,10 @@ public sealed class FeedbackService : IFeedbackService
         };
 
         var created = await _feedbackRepo.CreateReplyAsync(reply, ct);
+        await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
+            NotificationType.FeedbackReplied, "Your review has a reply",
+            $"{feedback.OrderItem.Order.Shop.Name} replied to your review of {feedback.Product.Name}.",
+            $"/account/reviews?feedbackId={feedbackId}", $"feedback:{feedbackId}:reply:{created.Id}"), ct);
 
         return new FeedbackResponses.FeedbackReplyResponse(
             created.Id,

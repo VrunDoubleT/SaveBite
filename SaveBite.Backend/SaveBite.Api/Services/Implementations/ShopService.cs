@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Exceptions;
@@ -15,6 +16,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class ShopService : IShopService
 {
+    private readonly INotificationQueue _notifications;
     private readonly IShopRepository _shopRepository;
     private readonly IUserAddressRepository _userAddressRepository;
     private readonly ICloudinaryService _cloudinaryService;
@@ -24,8 +26,10 @@ public sealed class ShopService : IShopService
         IShopRepository shopRepository,
         IUserAddressRepository userAddressRepository,
         ICloudinaryService cloudinaryService,
-        IRabbitMqPublisher publisher)
+        IRabbitMqPublisher publisher,
+        INotificationQueue notifications)
     {
+        _notifications = notifications;
         _shopRepository = shopRepository;
         _userAddressRepository = userAddressRepository;
         _cloudinaryService = cloudinaryService;
@@ -538,6 +542,10 @@ public sealed class ShopService : IShopService
             NewValuesJson = JsonSerializer.Serialize(new { Status = targetStatus.ToString() }),
             CreatedAt = DateTime.UtcNow
         };
+        await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
+            NotificationType.ShopStatusChanged, "Shop status updated",
+            $"{shop.Name}: {currentStatus} → {targetStatus}." + (string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}"),
+            "/account/workspace", $"shop-status:{moderationEvent.Id}"), ct);
         await _publisher.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, moderationEvent, ct);
 
         return new ModerationActionResponse

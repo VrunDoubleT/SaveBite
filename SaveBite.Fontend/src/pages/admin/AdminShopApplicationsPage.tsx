@@ -100,11 +100,11 @@ export function AdminShopApplicationsPage() {
     }
   };
 
-  const review = async (decision: "Approved" | "Rejected") => {
+  const review = async (decision: "Approved" | "Rejected" | "NeedsRevision") => {
     if (!selected) return;
 
-    if (decision === "Rejected" && !note.trim()) {
-      setError("Please provide a reason before rejecting this application.");
+    if (decision !== "Approved" && !note.trim()) {
+      setError("Please provide a reason for rejection or requested changes.");
       return;
     }
 

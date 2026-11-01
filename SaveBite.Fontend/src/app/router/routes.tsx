@@ -311,6 +311,7 @@ export const routes: RouteObject[] = [
             path: "flash-deals/:id",
             element: <StaffFlashDealDetailPage />,
           },
+          { path: "reviews", element: <StoreOwnerReviewsPage /> },
           { path: "orders", element: <ShopOrdersPage /> },
           { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
           {

@@ -4,6 +4,8 @@ namespace SaveBite.Backend.Repositories.Interfaces;
 
 public interface IStaffInvitationRepository
 {
+    Task<bool> TryTransitionPendingAsync(Guid invitationId, string status, DateTime now, CancellationToken cancellationToken = default);
+
     Task<Shop?> GetShopByOwnerUserIdAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
     Task<User?> GetUserByIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<(IReadOnlyList<User> Items, int TotalItems)> SearchStaffCandidatesAsync(Guid shopId, Guid ownerUserId, string? keyword, int page, int pageSize, CancellationToken cancellationToken = default);

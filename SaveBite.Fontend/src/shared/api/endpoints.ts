@@ -146,7 +146,6 @@ export const API_ENDPOINTS = {
     EARNING_RULES: "/admin/trust/earning-rules",
     EARNING_RULE: (ruleId: string) => `/admin/trust/earning-rules/${ruleId}`,
   },
-<<<<<<< HEAD
   PLATFORM_FEES: {
     ADMIN_CONFIG: "/admin/platform-fee-config",
     ADMIN_CONFIGS: "/admin/platform-fee-configs",
@@ -189,7 +188,7 @@ export const API_ENDPOINTS = {
     MARK_ALL_READ: "/notifications/read-all",
     MARK_READ: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}/read`,
     DELETE: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}`,
-=======
+  },
   STORE_ANALYTICS: {
     DASHBOARD: "/shops/me/analytics",
     REVENUE_OVERVIEW: "/shops/me/analytics/revenue-overview",
@@ -209,6 +208,5 @@ export const API_ENDPOINTS = {
   ADMIN_AUDIT_LOGS: {
     BASE: "/admin/audit-logs",
     DETAIL: (id: string) => `/admin/audit-logs/${id}`,
->>>>>>> origin/feature/iss-18-store-dashboard-analytics
   },
 } as const;

@@ -20,12 +20,14 @@ public static class ServiceExtensions
         services.AddScoped<IShopApplicationService, ShopApplicationService>();
         services.AddScoped<IShopStaffService, ShopStaffService>();
         services.AddScoped<IStaffInvitationService, StaffInvitationService>();
+        services.AddScoped<StaffInvitationNotificationService>();
         services.AddScoped<IUserAddressService, UserAddressService>();
 
         services.AddScoped<IShopService, ShopService>();
         services.AddScoped<IFlashDealService, FlashDealService>();
         services.AddScoped<ITrustScoreService, TrustScoreService>();
         services.AddScoped<ITrustOrderService, TrustOrderService>();
+        services.AddScoped<ITrustNotificationService, TrustNotificationService>();
         services.AddScoped<ITrustConfigService, TrustConfigService>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();

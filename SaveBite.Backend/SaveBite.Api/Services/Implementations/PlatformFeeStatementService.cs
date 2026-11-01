@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using SaveBite.Backend.Exceptions;
@@ -13,6 +14,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 {
+    private readonly INotificationQueue _notifications;
     private readonly IPlatformFeeStatementRepository _repository;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<PlatformFeeStatementService> _logger;
@@ -26,8 +28,10 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
        // ILogger<PlatformFeeStatementService> logger)
         ILogger<PlatformFeeStatementService> logger,
         IConfiguration configuration,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        INotificationQueue notifications)
     {
+        _notifications = notifications;
         _repository = repository;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -416,6 +420,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         // Idempotency: duplicate webhooks must not process twice
         if (payment.Status == PaymentStatus.Succeeded)
         {
+            await NotifyFeePaidAsync(payment.StatementId, ct);
             return;
         }
 
@@ -460,6 +465,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         }
 
         await _repository.SaveChangesAsync(ct);
+        await NotifyFeePaidAsync(payment.StatementId, ct);
         _logger.LogInformation("Platform fee statement {StatementId} marked Paid.", payment.StatementId);
     }
 
@@ -550,6 +556,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             await _repository.SaveChangesAsync(ct);
         }
 
+        await NotifyFeeDeadlinesAsync(ct);
         return suspendedCount;
     }
 
@@ -643,6 +650,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         _repository.AddAuditLog(audit);
 
         await _repository.SaveChangesAsync(ct);
+        await NotifyFeePaidAsync(statementId, ct);
         _logger.LogInformation("Admin {AdminId} recorded external payment of {Amount} for statement {StatementId}.", adminId, request.Amount, statement.Id);
     }
     
@@ -662,6 +670,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 
             if (unbilledFees.Count == 0 && unbilledAdjustments.Count == 0)
             {
+                await NotifyMonthlyStatementsAsync(billingYear, billingMonth, ct);
                 return 0;
             }
             var shopIds = unbilledFees.Select(f => f.ShopId)
@@ -770,10 +779,51 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 }
             }
             await _repository.SaveChangesAsync(ct);
+            await NotifyMonthlyStatementsAsync(billingYear, billingMonth, ct);
             _logger.LogInformation("Generated {Count} monthly platform fee statements for period {Year}-{Month}.", statementsCreated, billingYear, billingMonth);
             return statementsCreated;
         }
 
+
+    private async Task NotifyFeePaidAsync(Guid statementId, CancellationToken ct)
+    {
+        var statement = await _repository.GetStatementDetailAsync(statementId, ct) ?? throw AppException.NotFound();
+        await _notifications.EnqueueAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
+            NotificationType.PlatformFeePaid, "Platform fee payment received",
+            $"Payment for {statement.Shop.Name}, period {statement.BillingMonth:D2}/{statement.BillingYear}, has been recorded.",
+            $"/store-owner/platform-fees/{statement.Id}", $"platform-fee:{statement.Id}:paid"), ct);
+    }
+
+    private async Task NotifyFeeDeadlinesAsync(CancellationToken ct)
+    {
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        foreach (var statement in await _repository.GetUnpaidStatementsAsync(ct))
+        {
+            if (statement.DueAt > now.AddHours(24)) continue;
+            var overdue = statement.DueAt <= now;
+            await _notifications.EnqueueAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
+                overdue ? NotificationType.PlatformFeeOverdue : NotificationType.PlatformFeeDueSoon,
+                overdue ? "Platform fee overdue" : "Platform fee due within 24 hours",
+                $"{statement.Shop.Name}: {statement.TotalFeeAmount:N0} VND is due on {statement.DueAt:dd/MM/yyyy HH:mm} UTC." +
+                    (overdue ? " Please settle the statement to restore shop access." : " Please pay before the deadline."),
+                $"/store-owner/platform-fees/{statement.Id}", $"platform-fee:{statement.Id}:{(overdue ? "overdue" : "due-soon")}"), ct);
+        }
+    }
+
+    // Re-read committed statements so a retry can recover a broker failure after billing succeeded.
+    private async Task NotifyMonthlyStatementsAsync(int year, short month, CancellationToken ct)
+    {
+        var statements = await _repository.GetStatementsForPeriodAsync(year, month, ct);
+        foreach (var statement in statements)
+        {
+            var paymentInfo = statement.TotalFeeAmount == 0 ? "No payment is required."
+                : $"Amount: {statement.TotalFeeAmount:N0} VND." + (statement.DueAt.HasValue ? $" Due: {statement.DueAt:dd/MM/yyyy}." : "");
+            await _notifications.EnqueueAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
+                NotificationType.PlatformFeeStatementIssued, "Monthly platform fee statement",
+                $"{statement.Shop.Name}: your platform fee statement for {month:D2}/{year} is available. {paymentInfo}",
+                $"/store-owner/platform-fees/{statement.Id}", $"platform-fee-statement:{statement.Id}:issued"), ct);
+        }
+    }
 
     // BR-092: Only the Store Owner may access platform-fee statements belonging to their Shop
     private async Task ValidateStoreOwnerAccessAsync(Guid shopId, Guid currentUserId, CancellationToken ct)

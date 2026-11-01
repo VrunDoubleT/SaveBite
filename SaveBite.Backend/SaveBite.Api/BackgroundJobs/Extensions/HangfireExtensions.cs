@@ -15,6 +15,9 @@ public static class HangfireExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddScoped<IStaffInvitationScheduler, StaffInvitationScheduler>();
+        services.AddScoped<StaffInvitationJob>();
+        services.AddScoped<StaffInvitationRecoveryJob>();
         services.AddScoped<IRefundDeadlineScheduler, RefundDeadlineScheduler>();
         services.AddScoped<RefundDeadlineJob>();
         services.AddScoped<RefundDeadlineRecoveryJob>();
@@ -29,6 +32,8 @@ public static class HangfireExtensions
         services.AddScoped<OrderEventDispatchJob>();
         services.AddScoped<ShopOrderConfirmationJob>();
         services.AddScoped<ShopOrderNoShowJob>();
+        services.AddScoped<PickupDeadlineReminderJob>();
+        services.AddScoped<PickupReminderRecoveryJob>();
         services.AddScoped<PlatformFeeOverdueJob>();
         services.AddScoped<PlatformFeeMonthlyStatementJob>();
 
@@ -76,6 +81,11 @@ public static class HangfireExtensions
     public static WebApplication UseBackgroundJobs(this WebApplication app)
     {
         app.Services.GetRequiredService<IBackgroundJobClient>().Enqueue<RefundDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None));
+        app.Services.GetRequiredService<IBackgroundJobClient>().Enqueue<StaffInvitationRecoveryJob>(job => job.ExecuteAsync(true, CancellationToken.None));
+        app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<StaffInvitationRecoveryJob>(
+            "staff-invitation-recovery", job => job.ExecuteAsync(false, CancellationToken.None), Cron.Minutely());
+        app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<PickupReminderRecoveryJob>(
+            "pickup-deadline-reminder-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
         var options = app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value;
         if (app.Environment.IsDevelopment() && options.DashboardEnabled)
         {
@@ -91,11 +101,11 @@ public static class HangfireExtensions
                        job => job.ExecuteAsync(CancellationToken.None),
                        Cron.Monthly(1, 0)); // 00:00 on day-of-month 1
 
-                   // Overdue check: Runs daily at midnight (12:00 AM / 00:00) to mark overdue statements and suspend shops (BR-095, BR-193)
+                   // Check hourly for fees due within 24 hours and suspend overdue shops (BR-095, BR-193).
                    recurringJobs.AddOrUpdate<PlatformFeeOverdueJob>(
                        "platform-fee-overdue-check",
                        job => job.ExecuteAsync(CancellationToken.None),
-                       Cron.Daily(0)); // 00:00 every day
+                       Cron.Hourly()); // Check overdue fees and the 24-hour reminder window every hour
                }
 
 

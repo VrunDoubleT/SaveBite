@@ -25,7 +25,7 @@ export function ShopApplicationFormPage() {
           return;
         }
 
-        if (!["Cancelled", "Rejected"].includes(current.status)) {
+        if (!["Cancelled", "Rejected", "NeedsRevision"].includes(current.status)) {
           setError("Current shop application cannot be edited.");
           return;
         }

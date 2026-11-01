@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Constants;
@@ -20,6 +21,7 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class ProductService : IProductService
 {
     private readonly AppDbContext _db;
+    private readonly INotificationQueue _notifications;
     private readonly IProductRepository _repository;
     private readonly ICloudinaryService _images;
     private readonly TimeProvider _clock;
@@ -27,8 +29,8 @@ public sealed class ProductService : IProductService
     private readonly IRabbitMqPublisher _publisher;
 
     public ProductService(IProductRepository repository, ICloudinaryService images,
-        TimeProvider clock, ILogger<ProductService> logger, IRabbitMqPublisher publisher, AppDbContext db)
-        => (_repository, _images, _clock, _logger, _publisher, _db) = (repository, images, clock, logger, publisher, db);
+        TimeProvider clock, ILogger<ProductService> logger, IRabbitMqPublisher publisher, AppDbContext db, INotificationQueue notifications)
+        => (_repository, _images, _clock, _logger, _publisher, _db, _notifications) = (repository, images, clock, logger, publisher, db, notifications);
 
     public async Task<ProductSummaryResponse> GetSummaryAsync(Guid userId, CancellationToken ct)
         => await _repository.GetSummaryAsync(await RequireShopAsync(userId, ct), ct);
@@ -434,6 +436,10 @@ public sealed class ProductService : IProductService
         revision.ReviewedAt = Now();
         revision.ReviewNote = null;
         await _repository.SaveChangesAsync(ct);
+        await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
+            NotificationType.ProductContentApproved, "Product content approved",
+            $"The content of {product.Name} has been approved by an administrator.",
+            $"/store-owner/products/{productId}", $"product:{productId}:revision:{revisionId}:approved"), ct);
         return new ModerationActionResponse { TargetId = productId, Action = "PRODUCT_CONTENT_APPROVED", Message = "Current content revision approved." };
     }
 
@@ -632,6 +638,10 @@ public sealed class ProductService : IProductService
             }),
             CreatedAt = DateTime.UtcNow
         };
+        await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
+            NotificationType.ProductRemoved, "Product removed for a violation",
+            $"{product.Name} was removed by an administrator. Reason: {reason}",
+            "/store-owner/products", $"product-removed:{moderationEvent.Id}"), ct);
         await _publisher.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, moderationEvent, ct);
 
         return new ModerationActionResponse

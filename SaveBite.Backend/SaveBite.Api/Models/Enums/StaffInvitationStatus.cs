@@ -5,5 +5,6 @@ public enum StaffInvitationStatus
     Pending,
     Accepted,
     Declined,
-    Cancelled
+    Cancelled,
+    Expired
 }

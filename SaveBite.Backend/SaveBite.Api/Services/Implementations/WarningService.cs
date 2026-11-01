@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Helpers;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -15,12 +16,14 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class WarningService : IWarningService
 {
+    private readonly INotificationQueue _notifications;
     private readonly IWarningRepository _warningRepository;
     private readonly AppDbContext _db;
     private readonly TimeProvider _clock;
 
-    public WarningService(IWarningRepository warningRepository, AppDbContext db, TimeProvider clock)
+    public WarningService(IWarningRepository warningRepository, AppDbContext db, TimeProvider clock, INotificationQueue notifications)
     {
+        _notifications = notifications;
         _warningRepository = warningRepository;
         _db = db;
         _clock = clock;
@@ -93,9 +96,10 @@ public sealed class WarningService : IWarningService
         revision.ReviewedByUserId = adminId;
         revision.ReviewedAt = now;
         revision.ReviewNote = requiredCorrection;
+        var warningId = Guid.NewGuid();
         _db.ProductWarnings.Add(new ProductWarning
         {
-            Id = Guid.NewGuid(),
+            Id = warningId,
             ProductId = productId,
             ShopId = product.ShopId,
             IssuedByUserId = adminId,
@@ -107,6 +111,10 @@ public sealed class WarningService : IWarningService
             DueAt = now.AddDays(7)
         });
         await _db.SaveChangesAsync(ct);
+        await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
+            NotificationType.ProductNeedsRevision, "Product correction requested",
+            $"{product.Name}: {reason} Required correction: {requiredCorrection}. Submit corrections within 7 days.",
+            "/store-owner/warnings", $"product-warning:{warningId}"), ct);
 
         return new ModerationActionResponse
         {

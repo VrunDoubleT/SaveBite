@@ -9,5 +9,8 @@ public sealed record StaffInvitationResponse(
     string InvitedUserEmail,
     string Status,
     DateTime CreatedAt,
-    DateTime ExpiresAt
+    DateTime ExpiresAt,
+    string? ShopLogoUrl = null,
+    string? ShopCoverImageUrl = null,
+    string? ShopAddress = null
 );

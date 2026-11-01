@@ -20,8 +20,16 @@ public class NotificationQueue : INotificationQueue
     public Task EnqueueAsync(NotificationTarget target, CreateNotificationCommand command, CancellationToken ct = default)
     {
         var id = Guid.NewGuid();
+        var body = command.Body.Trim();
+        // Match the notification column limit, including long moderation reasons.
+        if (body.Length > 1000)
+        {
+            var limit = char.IsHighSurrogate(body[998]) ? 998 : 999;
+            body = body[..limit] + "…";
+        }
         command = command with
         {
+            Body = body,
             DeduplicationKey = string.IsNullOrWhiteSpace(command.DeduplicationKey)
                 ? $"notification-request:{id}"
                 : command.DeduplicationKey.Trim()

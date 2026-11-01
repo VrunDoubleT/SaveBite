@@ -183,7 +183,7 @@ public sealed class ProductRepository : IProductRepository
     // Manage Products.
     public async Task<Product?> GetProductForViolationRemovalAsync(Guid productId, CancellationToken ct)
     {
-        return await _db.Products.FirstOrDefaultAsync(x => x.Id == productId, ct);
+        return await _db.Products.Include(p => p.Shop).FirstOrDefaultAsync(x => x.Id == productId, ct);
     }
 
     // Manage Products.

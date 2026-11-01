@@ -6,6 +6,7 @@ import type {
 export const ADMIN_SHOP_APPLICATION_FILTERS: readonly ShopApplicationAdminFilter[] = [
   "All",
   "Pending",
+  "NeedsRevision",
   "Approved",
   "Rejected",
   "Cancelled",
@@ -16,7 +17,7 @@ export const ADMIN_SHOP_APPLICATION_NOTE_MAX_LENGTH = 2000;
 export function isShopApplicationReviewDecision(
   value: string,
 ): value is ShopApplicationReviewDecision {
-  return value === "Approved" || value === "Rejected";
+  return value === "Approved" || value === "Rejected" || value === "NeedsRevision";
 }
 
 import { Ban, CheckCircle2, Clock3, XCircle, type LucideIcon } from "lucide-react";
@@ -44,6 +45,12 @@ export type StatusMeta = { label: string; icon: LucideIcon; badge: string; dot: 
 export const STATUS_META: Record<string, StatusMeta> = {
   Pending: {
     label: "Pending",
+    icon: Clock3,
+    badge: "bg-amber-50 text-amber-800 ring-amber-200",
+    dot: "bg-amber-100 text-amber-700 ring-amber-200",
+  },
+  NeedsRevision: {
+    label: "Needs revision",
     icon: Clock3,
     badge: "bg-amber-50 text-amber-800 ring-amber-200",
     dot: "bg-amber-100 text-amber-700 ring-amber-200",

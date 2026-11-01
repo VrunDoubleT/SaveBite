@@ -42,6 +42,7 @@ public class Order
     public string? CancelReason { get; set; }
     public Guid? CancelledBy { get; set; }
 
+    public DateTime? PickupReminderEmailSentAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public DateTime? ReadyAt { get; set; }
     public DateTime? CompletedAt { get; set; }

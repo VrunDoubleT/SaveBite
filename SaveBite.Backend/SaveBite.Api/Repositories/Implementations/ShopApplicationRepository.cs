@@ -41,7 +41,7 @@ public sealed class ShopApplicationRepository : IShopApplicationRepository
     public Task<bool> HasActiveApplicationAsync(Guid applicantUserId, CancellationToken cancellationToken = default)
         => _dbContext.ShopApplications.AnyAsync(x =>
             x.ApplicantUserId == applicantUserId &&
-            (x.Status == ShopApplicationStatus.Pending
+            (x.Status == ShopApplicationStatus.Pending || x.Status == ShopApplicationStatus.NeedsRevision
              || x.Status == ShopApplicationStatus.Approved),
             cancellationToken);
 

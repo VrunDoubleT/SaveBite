@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -13,6 +14,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class UserService : IUserService
 {
+    private readonly INotificationQueue _notifications;
     private readonly IUserRepository _repository;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly TimeProvider _timeProvider;
@@ -24,8 +26,10 @@ public sealed class UserService : IUserService
         IRefreshTokenService refreshTokenService,
         TimeProvider timeProvider,
         ILogger<UserService> logger,
-        ICloudinaryService cloudinaryService)
+        ICloudinaryService cloudinaryService,
+        INotificationQueue notifications)
     {
+        _notifications = notifications;
         _repository = repository;
         _refreshTokenService = refreshTokenService;
         _timeProvider = timeProvider;
@@ -176,6 +180,11 @@ public sealed class UserService : IUserService
 
         user.UpdatedAt = now;
         await _repository.SaveChangesAsync(cancellationToken);
+        if (user.Role == UserRole.StoreOwner)
+            await _notifications.EnqueueAsync(NotificationTarget.AccountStatusSubject(targetUserId), new CreateNotificationCommand(
+                NotificationType.AccountStatusChanged, "Account access updated",
+                $"An administrator {(request.IsSuspended ? "suspended" : "reactivated")} your {(request.IsCustomerProfile ? "customer profile" : "account")}. Reason: {request.Reason.Trim()}",
+                "/account/profile", $"account-status:{targetUserId}:{now.Ticks}"), cancellationToken);
     }
 
     private async Task<User> GetAndValidateUserAsync(Guid userId, CancellationToken cancellationToken)

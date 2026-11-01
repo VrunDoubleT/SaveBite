@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -20,15 +21,17 @@ public sealed class TrustConfigService : ITrustConfigService
     private static readonly TimeSpan EffectiveFromTolerance = TimeSpan.FromMinutes(1);
 
     private readonly ITrustConfigRepository _repository;
+    private readonly INotificationQueue _notifications;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<TrustConfigService> _logger;
 
     public TrustConfigService(
         ITrustConfigRepository repository,
         TimeProvider timeProvider,
-        ILogger<TrustConfigService> logger)
+        ILogger<TrustConfigService> logger, INotificationQueue notifications)
     {
         _repository = repository;
+        _notifications = notifications;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -216,10 +219,12 @@ public sealed class TrustConfigService : ITrustConfigService
     public async Task<AdminTrustLevelResponse> UpdateLevelStatusAsync(
         Guid adminId, Guid levelId, UpdateTrustLevelStatusRequest request, CancellationToken cancellationToken = default)
     {
+        var notices = new List<(Guid UserId, Guid HistoryId, string Name)>();
         try
         {
-            return await _repository.ExecuteInTransactionAsync(async ct =>
+            var result = await _repository.ExecuteInTransactionAsync(async ct =>
             {
+                notices.Clear();
                 var level = await GetLevelAsync(levelId, ct);
                 var counts = await _repository.GetUserCountsByLevelAsync(ct);
 
@@ -288,9 +293,11 @@ public sealed class TrustConfigService : ITrustConfigService
                         userScore.TrustLevelId = targetLevel.Id;
                         userScore.UpdatedAt = now;
 
+                        var historyId = Guid.NewGuid();
+                        notices.Add((userScore.UserId, historyId, targetLevel.Name));
                         levelHistories.Add(new UserTrustLevelHistory
                         {
-                            Id = Guid.NewGuid(),
+                            Id = historyId,
                             UserId = userScore.UserId,
                             PreviousTrustLevelId = level.Id,
                             NewTrustLevelId = targetLevel.Id,
@@ -361,6 +368,11 @@ public sealed class TrustConfigService : ITrustConfigService
                 var updatedCounts = await _repository.GetUserCountsByLevelAsync(ct);
                 return ToLevelResponse(level, updatedCounts);
             }, lockLevelsAndScores: true, cancellationToken);
+            foreach (var notice in notices)
+                await _notifications.EnqueueAsync(NotificationTarget.User(notice.UserId), new CreateNotificationCommand(
+                    NotificationType.TrustLevelChanged, "Trust level updated", $"Your trust level is now {notice.Name} after an administrator updated the level configuration.",
+                    "/account/trust-score", $"trust-level:{notice.HistoryId}"), cancellationToken);
+            return result;
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {

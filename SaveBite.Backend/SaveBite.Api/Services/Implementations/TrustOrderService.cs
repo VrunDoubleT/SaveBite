@@ -8,12 +8,14 @@ public sealed class TrustOrderService : ITrustOrderService
 {
     private readonly ITrustOrderRepository _repository;
     private readonly TimeProvider _clock;
-    public TrustOrderService(ITrustOrderRepository repository, TimeProvider clock)
-    { _repository = repository; _clock = clock; }
+    private readonly ITrustNotificationService _notifications;
+    public TrustOrderService(ITrustOrderRepository repository, TimeProvider clock, ITrustNotificationService notifications)
+    { _repository = repository; _clock = clock; _notifications = notifications; }
 
     // Update score, progress, penalty snapshots, recovery and level history in one customer-scoped transaction.
-    public Task HandleAsync(Guid orderId, bool completed, CancellationToken ct = default)
-        => _repository.ExecuteAsync(orderId, async order =>
+    public async Task HandleAsync(Guid orderId, bool completed, CancellationToken ct = default)
+    {
+        await _repository.ExecuteAsync(orderId, async order =>
         {
             if (await _repository.IsProcessedAsync(order.Id, ct)) return;
             if (order.Status != (completed ? OrderStatus.Completed : OrderStatus.NoShow))
@@ -104,6 +106,8 @@ public sealed class TrustOrderService : ITrustOrderService
             score.UpdatedAt = now;
             _repository.Add(new TrustOrderProcessing { OrderId = order.Id, ProcessedAt = now, CreditedOrderValue = creditedValue });
         }, ct);
+        await _notifications.PublishForOrderAsync(orderId, ct);
+    }
 
     // Both independent recovery requirements must be met; a zero requirement is already satisfied.
     private static bool Recovered(NoShowPenalty p)

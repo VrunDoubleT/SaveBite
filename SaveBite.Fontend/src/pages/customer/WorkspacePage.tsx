@@ -1,3 +1,4 @@
+import { AssociatedShopImage } from "@/features/staff-shops/components/AssociatedShopImage";
 import { useEffect, useState } from "react";
 import { LogOut, Store, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -100,9 +101,7 @@ export function WorkspacePage() {
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                   {/* Store info */}
                   <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                      <Store size={24} />
-                    </div>
+                    <AssociatedShopImage shop={shop} />
 
                     <div>
                       <div className="flex flex-wrap items-center gap-2.5">

@@ -7,6 +7,9 @@ namespace SaveBite.Backend.Repositories.Interfaces;
 
 public interface IPlatformFeeStatementRepository
 {
+    Task<IReadOnlyList<PlatformFeeStatement>> GetUnpaidStatementsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<PlatformFeeStatement>> GetStatementsForPeriodAsync(int year, short month, CancellationToken ct = default);
+
     Task<PagedResult<PlatformFeeStatement>> GetShopStatementsAsync(Guid shopId, GetShopPlatformFeesRequest request, CancellationToken ct = default);
     Task<PagedResult<PlatformFeeStatement>> GetAdminStatementsAsync(GetAdminPlatformFeesRequest request, CancellationToken ct = default);
     Task<PlatformFeeStatement?> GetStatementDetailAsync(Guid statementId, CancellationToken ct = default);

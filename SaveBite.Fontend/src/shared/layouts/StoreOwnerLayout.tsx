@@ -1,8 +1,6 @@
-import { ShopRefundsBadge } from "@/features/refunds/components/ShopRefundsBadge";
 import { ShopOrderWorkspaceNotifications } from "@/features/shop-orders/components/ShopOrderWorkspaceNotifications";
 import {
   ClipboardList,
-  RotateCcw,
   CreditCard,
   Package,
   Settings2,

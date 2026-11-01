@@ -49,6 +49,15 @@ const STATUS_META: Record<
     noticeBody:
       "Your application cannot be edited while it is under review. You can cancel it if needed.",
   },
+  NeedsRevision: {
+    label: "Needs revision",
+    tone: "amber",
+    badge: "bg-amber-50 text-amber-800 ring-amber-200",
+    dot: "bg-amber-500",
+    notice: "border-amber-200 bg-amber-50 text-amber-900",
+    noticeTitle: "Please update your application",
+    noticeBody: "Review the administrator's note, update your details and submit again.",
+  },
   Approved: {
     label: "Approved",
     tone: "green",
@@ -559,7 +568,9 @@ export default function LatestShopApplication({
                   </button>
                 )}
 
-                {(application.status === "Cancelled" || application.status === "Rejected") && (
+                {(application.status === "Cancelled" ||
+                  application.status === "Rejected" ||
+                  application.status === "NeedsRevision") && (
                   <button type="button" onClick={handleEdit} className={primaryBtn}>
                     <Pencil className="h-4 w-4" />
                     Edit and resubmit

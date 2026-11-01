@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -17,6 +18,8 @@ namespace SaveBite.Backend.Services.Implementations;
 public class RefundService : IRefundService
 {
     private readonly IRefundRepository _refunds;
+    private readonly INotificationQueue _notifications;
+    private readonly ITrustNotificationService _trustNotifications;
     private readonly ICheckoutRepository _orders;
     private readonly IShopOrderRepository _shops;
     private readonly ITrustOrderRepository _trust;
@@ -27,8 +30,9 @@ public class RefundService : IRefundService
     private readonly ILogger<RefundService> _logger;
 
     public RefundService(IRefundRepository refunds, ICheckoutRepository orders, IShopOrderRepository shops,
-        ITrustOrderRepository trust, IEmailService email, TimeProvider clock, IConfiguration config, IRefundDeadlineScheduler deadlines, ILogger<RefundService> logger)
+        ITrustOrderRepository trust, IEmailService email, TimeProvider clock, IConfiguration config, IRefundDeadlineScheduler deadlines, ILogger<RefundService> logger, INotificationQueue notifications, ITrustNotificationService trustNotifications)
     {
+        _notifications = notifications; _trustNotifications = trustNotifications;
         _refunds = refunds; _orders = orders; _shops = shops; _trust = trust;
         _email = email; _clock = clock; _config = config; _deadlines = deadlines; _logger = logger;
     }
@@ -84,8 +88,9 @@ public class RefundService : IRefundService
     }
 
     // Create one item-based refund request within six hours of completion; never accept a client amount.
-    public Task<RefundResponse> RequestAsync(Guid userId, Guid orderId, CreateRefundRequest request, CancellationToken ct)
-        => _orders.WithOrderLockAsync(orderId, async () =>
+    public async Task<RefundResponse> RequestAsync(Guid userId, Guid orderId, CreateRefundRequest request, CancellationToken ct)
+    {
+        var result = await _orders.WithOrderLockAsync(orderId, async () =>
         {
             _ = await _orders.GetOrderAsync(orderId, userId, ct) ?? throw AppException.NotFound("Order not found.");
             var order = await _refunds.OrderAsync(orderId, ct) ?? throw AppException.NotFound();
@@ -128,6 +133,11 @@ public class RefundService : IRefundService
             await _orders.SaveAsync(ct);
             return Map(f);
         }, ct);
+        await NotifyRefundAsync(result.Id, true, ct);
+        return result;
+    }
+
+
 
     // Store an unconfirmed bank destination and send a new email code; this does not start owner review.
     public Task<RefundResponse> DestinationAsync(Guid userId, Guid refundId, RefundBankRequest request, CancellationToken ct)
@@ -336,7 +346,33 @@ public class RefundService : IRefundService
             try { if (!_deadlines.Delete(deleteJob)) _logger.LogWarning("Could not delete refund deadline job {JobId}.", deleteJob); }
             catch (Exception ex) { _logger.LogWarning(ex, "Could not delete refund deadline job {JobId}.", deleteJob); }
         }
+        await NotifyRefundAsync(id, false, ct);
+        if (result.Status is nameof(RefundStatus.Transferred) or nameof(RefundStatus.Completed))
+            await _trustNotifications.PublishForOrderAsync(result.OrderId, ct);
         return result;
+    }
+
+    private async Task NotifyRefundAsync(Guid id, bool requested, CancellationToken ct)
+    {
+        var refund = await _refunds.GetAsync(id, false, ct) ?? throw AppException.NotFound();
+        if (requested)
+        {
+            await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.Shop.OwnerUserId), new CreateNotificationCommand(
+                NotificationType.RefundRequestCreated, "New refund request",
+                $"{refund.Order.Customer.FullName} requested a refund for order {refund.Order.OrderCode}.",
+                $"/store-owner/orders/{refund.OrderId}", $"refund:{id}:requested:owner"), ct);
+            return;
+        }
+        var type = refund.Status switch {
+            RefundStatus.AwaitingTransfer => (NotificationType?)NotificationType.RefundApproved,
+            RefundStatus.Rejected => NotificationType.RefundRejected,
+            RefundStatus.Transferred or RefundStatus.Completed => NotificationType.RefundTransferred,
+            _ => null
+        };
+        if (type == null) return;
+        await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.CustomerId), new CreateNotificationCommand(
+            type.Value, "Refund status updated", $"Refund for order {refund.Order.OrderCode}: {refund.Status}. {refund.RejectReason}",
+            $"/account/refunds/{id}", $"refund:{id}:{type}"), ct);
     }
     private async Task<Refund> LoadAsync(Guid id, bool tracked, CancellationToken ct)
     {

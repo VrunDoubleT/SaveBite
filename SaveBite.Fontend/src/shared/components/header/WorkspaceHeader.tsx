@@ -1,3 +1,4 @@
+import { UserAvatar } from "@/shared/components/avatar/UserAvatar";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { useUiStore } from "@/shared/stores/uiStore";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
@@ -40,9 +41,11 @@ export function WorkspaceHeader({ subtitle, title }: WorkspaceHeaderProps) {
                   <p className="text-sm font-semibold text-neutral-800">{user.fullName}</p>
                   <p className="text-xs font-medium text-neutral-500">{user.email}</p>
                 </div>
-                <span className="flex size-9 items-center justify-center rounded-full bg-primary-50 text-sm font-bold text-primary-700">
-                  {user.fullName.charAt(0).toUpperCase()}
-                </span>
+                <UserAvatar
+                  key={user.avatarUrl}
+                  fullName={user.fullName}
+                  avatarUrl={user.avatarUrl}
+                />
               </div>
             </>
           )}

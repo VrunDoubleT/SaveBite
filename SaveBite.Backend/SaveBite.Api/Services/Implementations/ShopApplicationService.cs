@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using FluentValidation;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -13,6 +14,7 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class ShopApplicationService : IShopApplicationService
 {
     private readonly IShopApplicationRepository _repository;
+    private readonly INotificationQueue _notifications;
     private readonly ICloudinaryService _cloudinary;
     private readonly IValidator<CreateShopApplicationRequest> _createValidator;
     private readonly IValidator<ResubmitShopApplicationRequest> _resubmitValidator;
@@ -25,9 +27,11 @@ public sealed class ShopApplicationService : IShopApplicationService
         IValidator<CreateShopApplicationRequest> createValidator,
         IValidator<ResubmitShopApplicationRequest> resubmitValidator,
         IValidator<ShopApplicationDocumentsValidationRequest> documentsValidator,
-        IValidator<ShopApplicationLogoValidationRequest> logoValidator)
+        IValidator<ShopApplicationLogoValidationRequest> logoValidator,
+        INotificationQueue notifications)
     {
         _repository = repository;
+        _notifications = notifications;
         _cloudinary = cloudinary;
         _createValidator = createValidator;
         _resubmitValidator = resubmitValidator;
@@ -130,7 +134,7 @@ public sealed class ShopApplicationService : IShopApplicationService
             application.Documents.Where(d => d.IsCurrent).Select(d => d.DocumentType.ToString()),
             documentTypes);
 
-        if (application.Status is not (ShopApplicationStatus.Rejected or ShopApplicationStatus.Cancelled))
+        if (application.Status is not (ShopApplicationStatus.Rejected or ShopApplicationStatus.Cancelled or ShopApplicationStatus.NeedsRevision))
             throw AppException.Conflict("Only rejected or cancelled shop applications can be edited and resubmitted.");
 
         await _logoValidator.ValidateAndThrowAsync(
@@ -393,9 +397,14 @@ public sealed class ShopApplicationService : IShopApplicationService
                 throw AppException.BadRequest("A rejection reason is required.");
             nextStatus = ShopApplicationStatus.Rejected;
         }
+        else if (decision.Equals("NeedsRevision", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(request.Note)) throw AppException.BadRequest("A correction note is required.");
+            nextStatus = ShopApplicationStatus.NeedsRevision;
+        }
         else
         {
-            throw AppException.BadRequest("Decision must be Approved or Rejected.");
+            throw AppException.BadRequest("Decision must be Approved, Rejected or NeedsRevision.");
         }
         if (nextStatus == ShopApplicationStatus.Approved)
         {
@@ -428,6 +437,15 @@ public sealed class ShopApplicationService : IShopApplicationService
         else
             await _repository.SaveChangesAsync(cancellationToken);
 
+        var notificationType = nextStatus switch {
+            ShopApplicationStatus.Approved => NotificationType.ShopApplicationApproved,
+            ShopApplicationStatus.Rejected => NotificationType.ShopApplicationRejected,
+            _ => NotificationType.ShopApplicationNeedsRevision
+        };
+        await _notifications.EnqueueAsync(NotificationTarget.User(application.ApplicantUserId), new CreateNotificationCommand(
+            notificationType, "Shop application reviewed",
+            $"Your application for {application.Name} is now {nextStatus}. {request.Note?.Trim()}",
+            "/account/shop-application", $"shop-application:{application.Id}:revision:{application.RevisionNumber}:{nextStatus}"), cancellationToken);
         return Map(application);
     }
 }

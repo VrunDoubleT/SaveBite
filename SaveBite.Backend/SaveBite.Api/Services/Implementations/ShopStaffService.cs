@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.Common;
 using System.Net;
@@ -12,7 +13,8 @@ using SaveBite.Backend.Services.Interfaces;
 namespace SaveBite.Backend.Services.Implementations;
 
 public class ShopStaffService(
-    IShopStaffRepository staffRepository
+    IShopStaffRepository staffRepository,
+    INotificationQueue notifications
 ) : IShopStaffService
 {
     // Retrieve staff members for the owned shop.
@@ -113,6 +115,7 @@ public class ShopStaffService(
                ? null
                : request.StaffNickname.Trim();
 
+       var previousStatus = staff.Status;
        staff.Status = request.Status;
 
        await staffRepository.UpdateStaffAsync(
@@ -123,6 +126,11 @@ public class ShopStaffService(
        await staffRepository.SaveChangesAsync(
            cancellationToken
        );
+       if (previousStatus != staff.Status)
+           await notifications.EnqueueAsync(NotificationTarget.User(staff.UserId), new CreateNotificationCommand(
+               NotificationType.StaffStatusChanged, "Staff access updated",
+               $"Your staff access at {shop.Name} is now {staff.Status}.", "/account/workspace",
+               $"staff-status:{staff.Id}:{staff.Status}:{Guid.NewGuid()}"), cancellationToken);
    }
 
     // Remove staff members from the owned shop.
@@ -166,6 +174,10 @@ public class ShopStaffService(
         await staffRepository.SaveChangesAsync(
             cancellationToken
         );
+        await notifications.EnqueueAsync(NotificationTarget.User(staff.UserId), new CreateNotificationCommand(
+            NotificationType.StaffStatusChanged, "Staff membership removed",
+            $"Your staff membership at {shop.Name} has been removed.", "/account/workspace",
+            $"staff-removed:{staff.Id}:{Guid.NewGuid()}"), cancellationToken);
     }
 
     // Retrieve staff activity logs for the owned shop.
@@ -355,7 +367,9 @@ public class ShopStaffService(
             staff.ShopId,
             staff.Shop.Name,
             staff.Status,
-            staff.JoinedAt
+            staff.JoinedAt,
+            staff.Shop.LogoUrl,
+            staff.Shop.CoverImageUrl
         );
     }
 
@@ -429,6 +443,10 @@ public class ShopStaffService(
         await staffRepository.SaveChangesAsync(
             cancellationToken
         );
+        await notifications.EnqueueAsync(NotificationTarget.User(staff.Shop.OwnerUserId), new CreateNotificationCommand(
+            NotificationType.StaffLeftShop, "A staff member left your shop",
+            $"{staff.DisplayName} has left {staff.Shop.Name}.", "/store-owner/staff",
+            $"staff-left:{staff.Id}:{Guid.NewGuid()}"), cancellationToken);
     }
 
 

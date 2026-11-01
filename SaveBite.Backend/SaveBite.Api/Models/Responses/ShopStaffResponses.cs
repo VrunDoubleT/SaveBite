@@ -20,7 +20,9 @@ public sealed record AssociatedShopResponse(
     string ShopName,
     [property: JsonConverter(typeof(JsonStringEnumConverter))]
     ShopStaffStatus Status,
-    DateTime JoinedAt
+    DateTime JoinedAt,
+    string? ShopLogoUrl = null,
+    string? ShopCoverImageUrl = null
 );
 
 public sealed record StaffActivityLogResponse(
