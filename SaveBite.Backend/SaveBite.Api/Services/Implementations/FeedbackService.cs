@@ -3,7 +3,6 @@ using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Events;
 using SaveBite.Backend.Messaging.Interfaces;
-using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -21,6 +20,56 @@ public sealed class FeedbackService : IFeedbackService
     public FeedbackService(IFeedbackRepository feedbackRepo)
     {
         _feedbackRepo = feedbackRepo;
+    }
+
+    public async Task<PagedResult<FeedbackResponse>> ListAsync(int page, int pageSize, FeedbackStatus? status, string? search, CancellationToken ct = default)
+    {
+        var result = await _feedbackRepo.ListAsync(page, pageSize, status, search, ct);
+        var items = result.Items.Select(f => new FeedbackResponse
+        {
+            Id = f.Id, ProductId = f.ProductId, UserId = f.UserId,
+            CustomerName = f.User.FullName, CustomerPhone = f.User.Phone,
+            CustomerEmail = f.User.Email, ProductName = f.Product.Name,
+            ShopName = f.OrderItem.Order.Shop.Name, OrderItemId = f.OrderItemId,
+            Rating = f.Rating, Comment = f.Comment, Status = f.Status,
+            CurrentReason = f.ModerationLogs.OrderByDescending(l => l.CreatedAt).FirstOrDefault()?.Reason,
+            CreatedAt = f.CreatedAt, HiddenAt = f.HiddenAt
+        }).ToList();
+        return PagedResult<FeedbackResponse>.Create(items, result.Page, result.PageSize, result.TotalItems);
+    }
+
+    public Task<ModerationActionResponse> RemoveAsync(Guid adminId, Guid feedbackId, HideViolatingFeedbackRequest request, CancellationToken ct = default)
+        => ModerateAsync(adminId, feedbackId, false, request.Reason, ct);
+
+    public Task<ModerationActionResponse> RestoreAsync(Guid adminId, Guid feedbackId, RestoreFeedbackRequest request, CancellationToken ct = default)
+        => ModerateAsync(adminId, feedbackId, true, request.Reason, ct);
+
+    private async Task<ModerationActionResponse> ModerateAsync(Guid adminId, Guid feedbackId, bool restore, string? reason, CancellationToken ct)
+    {
+        var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct)
+            ?? throw AppException.NotFound("Feedback not found.");
+        if (restore ? feedback.Status != FeedbackStatus.HiddenByAdmin : feedback.Status != FeedbackStatus.Visible)
+            throw AppException.Conflict(restore ? "Only feedback hidden by an admin can be restored." : "Only visible feedback can be removed.");
+        if (!restore && string.IsNullOrWhiteSpace(reason))
+            throw AppException.BadRequest("A reason is required.");
+        var now = DateTime.UtcNow;
+        var newStatus = restore ? FeedbackStatus.Visible : FeedbackStatus.HiddenByAdmin;
+        feedback.ModerationLogs.Add(new ProductFeedbackModerationLog
+        {
+            Id = Guid.NewGuid(), ProductFeedbackId = feedbackId, AdminUserId = adminId,
+            Action = restore ? FeedbackModerationAction.Restore : FeedbackModerationAction.Hide,
+            PreviousStatus = feedback.Status, NewStatus = newStatus,
+            Reason = reason?.Trim() ?? string.Empty, CreatedAt = now
+        });
+        feedback.Status = newStatus;
+        feedback.HiddenAt = restore ? null : now;
+        feedback.UpdatedAt = now;
+        await _feedbackRepo.UpdateAsync(feedback, ct);
+        return new ModerationActionResponse
+        {
+            TargetId = feedbackId, Action = restore ? "FEEDBACK_RESTORED" : "FEEDBACK_HIDDEN",
+            Message = restore ? "Feedback restored." : "Feedback removed."
+        };
     }
 
     // Add Feedback

@@ -108,7 +108,6 @@ public sealed class ShopOrderRepository : IShopOrderRepository
     // Track a refund request without initiating a money transfer.
     public Task<OrderPlatformFee?> FeeAsync(Guid orderId, CancellationToken ct)
         => _db.Set<OrderPlatformFee>().Include(x => x.Adjustments).SingleOrDefaultAsync(x => x.OrderId == orderId, ct);
-    public void AddFeeAdjustment(PlatformFeeAdjustment adjustment) => _db.Set<PlatformFeeAdjustment>().Add(adjustment);
     public void AddRefundHistory(RefundStatusHistory history) => _db.Set<RefundStatusHistory>().Add(history);
     public void AddRefund(Refund refund) => _db.Set<Refund>().Add(refund);
     // Track a staff action with the operator identity captured at execution time.

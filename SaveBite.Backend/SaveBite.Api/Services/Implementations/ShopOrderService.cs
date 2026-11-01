@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.Caching.Interfaces;
 using SaveBite.Backend.Constants;

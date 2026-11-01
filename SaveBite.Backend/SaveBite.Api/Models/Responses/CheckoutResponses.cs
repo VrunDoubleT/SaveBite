@@ -78,7 +78,6 @@ public sealed record CheckoutOrderItemResponse
     public decimal Subtotal { get; init; }
     public string? ImageUrl { get; init; }
     public Guid? FlashDealId { get; init; }
-    public Guid OrderItemId { get; init; }
     // Visible feedback already written for this item, if any.
     public Guid? FeedbackId { get; init; }
     public int? Rating { get; init; }

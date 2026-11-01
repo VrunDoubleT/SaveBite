@@ -28,6 +28,8 @@ public sealed class UserAddressService : IUserAddressService
     {
         var label = string.IsNullOrWhiteSpace(request.Label) ? null : request.Label.Trim();
         var addressLine = request.AddressLine?.Trim();
+        if (string.IsNullOrWhiteSpace(addressLine))
+            throw AppException.BadRequest("Address line is required.");
         var ward = string.IsNullOrWhiteSpace(request.Ward) ? null : request.Ward.Trim();
         var district = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim();
         var city = string.IsNullOrWhiteSpace(request.City) ? null : request.City.Trim();
@@ -82,6 +84,8 @@ public sealed class UserAddressService : IUserAddressService
 
         var label = string.IsNullOrWhiteSpace(request.Label) ? null : request.Label.Trim();
         var addressLine = request.AddressLine?.Trim();
+        if (string.IsNullOrWhiteSpace(addressLine))
+            throw AppException.BadRequest("Address line is required.");
         var ward = string.IsNullOrWhiteSpace(request.Ward) ? null : request.Ward.Trim();
         var district = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim();
         var city = string.IsNullOrWhiteSpace(request.City) ? null : request.City.Trim();

@@ -15,11 +15,8 @@ public static class RabbitMqQueues
     public const string OrderPendingDeadLetterQueueName = "order_pending_dead_letter_queue";
     public const string EmailQueueName = "email_queue";
     public const string FlashDealQueueName = "flashdeal_queue";
-<<<<<<< HEAD
     public const string OrderPlatformFeeQueueName = "order_platform_fee_queue";
     public const string OrderPlatformFeeDeadLetterQueueName = "order_platform_fee_dead_letter_queue";
-=======
     public const string ModerationQueueName = "moderation_queue";
     public const string ModerationDeadLetterQueueName = "moderation_dead_letter_queue";
->>>>>>> origin/feature/iss-16-content-feedback-moderation
 }

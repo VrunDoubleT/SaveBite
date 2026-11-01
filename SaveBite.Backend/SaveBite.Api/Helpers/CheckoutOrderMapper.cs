@@ -67,7 +67,6 @@ public static class CheckoutOrderMapper
                 Subtotal = x.Subtotal ?? x.UnitPrice * x.Quantity,
                 ImageUrl = x.FlashDealVariant?.FlashDeal?.Product?.Images.OrderBy(image => image.Id).Select(image => image.ImageUrl).FirstOrDefault(),
                 FlashDealId = x.FlashDealVariant?.FlashDealId,
-                OrderItemId = x.Id,
                 FeedbackId = x.Feedback?.Status == FeedbackStatus.Visible ? x.Feedback.Id : null,
                 Rating = x.Feedback?.Status == FeedbackStatus.Visible ? x.Feedback.Rating : null,
                 // A deleted or hidden feedback still occupies the item, so it cannot be reviewed again.

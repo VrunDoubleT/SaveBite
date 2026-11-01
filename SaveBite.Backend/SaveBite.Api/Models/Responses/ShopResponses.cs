@@ -120,7 +120,6 @@ public sealed class ShopProfileDocumentResponse
     public string ContentType { get; set; } = string.Empty;
     public DateTime UploadedAt { get; set; }
 }
-<<<<<<< HEAD
 
 // Manage Shops.
 public class ShopOwnerResponse
@@ -180,5 +179,3 @@ public class ShopContentResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
-=======
->>>>>>> origin/feature/iss-4-store-information-feedback-management-view-side

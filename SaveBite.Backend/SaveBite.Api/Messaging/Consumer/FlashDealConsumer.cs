@@ -41,6 +41,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         var routingKey = message.EventType;
 
         await using var scope = _scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var dealRepository = scope.ServiceProvider.GetRequiredService<IFlashDealRepository>();
         var redisService = scope.ServiceProvider.GetRequiredService<IFlashDealRedisService>();
         var dealService = scope.ServiceProvider.GetRequiredService<IFlashDealService>();
@@ -49,7 +50,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         switch (routingKey)
         {
             case RabbitMqRoutingKeys.FlashDealOpened:
-                await HandleDealOpenedAsync(dealEvent.FlashDealId, dealRepository, redisService, dealService, notificationService, cancellationToken);
+                await HandleDealOpenedAsync(dealEvent.FlashDealId, db, dealRepository, redisService, dealService, notificationService, cancellationToken);
                 break;
 
             case RabbitMqRoutingKeys.FlashDealClosed:
@@ -65,6 +66,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
 
     private async Task HandleDealOpenedAsync(
         Guid flashDealId,
+        AppDbContext db,
         IFlashDealRepository dealRepository,
         IFlashDealRedisService redisService,
         IFlashDealService dealService,

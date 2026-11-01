@@ -1,7 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
-using Microsoft.EntityFrameworkCore;
-using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -27,6 +25,24 @@ public sealed class FeedbackRepository : IFeedbackRepository
         .Include(f => f.Reply).ThenInclude(r => r!.RepliedByUser)
         .Include(f => f.Images)
         .AsSplitQuery();
+
+    public async Task<PagedResult<ProductFeedback>> ListAsync(int page, int pageSize, FeedbackStatus? status, string? search, CancellationToken ct = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 50);
+        var query = FeedbackWithDetails.AsNoTracking().Include(f => f.ModerationLogs).AsQueryable();
+        if (status.HasValue) query = query.Where(f => f.Status == status.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(f => (f.Comment != null && f.Comment.Contains(term))
+                || f.User.FullName.Contains(term) || f.Product.Name.Contains(term));
+        }
+        var total = await query.CountAsync(ct);
+        var items = await query.OrderByDescending(f => f.CreatedAt).ThenByDescending(f => f.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return PagedResult<ProductFeedback>.Create(items, page, pageSize, total);
+    }
 
     public async Task<OrderItem?> GetOrderItemWithOrderAsync(Guid orderItemId, CancellationToken ct = default)
     {
