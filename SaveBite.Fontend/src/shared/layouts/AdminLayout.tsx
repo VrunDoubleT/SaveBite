@@ -1,21 +1,24 @@
 import {
   ClipboardCheck,
+  FileSearch,
   LayoutDashboard,
   Package,
   ShieldCheck,
   ShoppingBag,
+  Star,
   Store,
   Users,
   Tags,
+  Receipt,
+  MessageSquare,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
 
 const navigation = [
   {
-    to: APP_PATHS.ADMIN,
+    to: APP_PATHS.ADMIN_ANALYTICS,
     label: "Overview",
-    end: true,
     icon: LayoutDashboard,
   },
   {
@@ -52,6 +55,26 @@ const navigation = [
     to: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
     label: "Store Applications",
     icon: ClipboardCheck,
+  },
+  {
+    to: APP_PATHS.ADMIN_PLATFORM_FEE,
+    label: "Platform Fees",
+    icon: Receipt,
+  },
+  {
+    to: APP_PATHS.ADMIN_FEEDBACK,
+    label: "Feedback",
+    icon: MessageSquare,
+  },
+  {
+    to: APP_PATHS.ADMIN_REVIEWS,
+    label: "Feedbacks",
+    icon: Star,
+  },
+  {
+    to: APP_PATHS.ADMIN_AUDIT_LOGS,
+    label: "Audit Logs",
+    icon: FileSearch,
   },
 ] as const;
 

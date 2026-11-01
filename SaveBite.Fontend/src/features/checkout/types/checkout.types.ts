@@ -67,6 +67,7 @@ export interface CheckoutOrder {
   shopLogoUrl?: string;
   shopAddress?: string;
   createdAt?: string;
+  completedAt?: string;
   paymentMethod: CheckoutMethod;
   status: string;
   paymentStatus: string;
@@ -86,6 +87,7 @@ export interface CheckoutOrder {
   checkoutUrl?: string;
   policy?: CheckoutPolicy;
   items: {
+    orderItemId: string;
     flashDealVariantId: string;
     flashDealId?: string;
     imageUrl?: string;
@@ -94,6 +96,10 @@ export interface CheckoutOrder {
     unitPrice: number;
     quantity: number;
     subtotal: number;
+    orderItemId?: string;
+    feedbackId?: string | null;
+    rating?: number | null;
+    canReview?: boolean;
   }[];
   paymentMessage?: string;
 }

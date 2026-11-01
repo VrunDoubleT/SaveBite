@@ -1,6 +1,75 @@
 @SaveBite.Backend_HostAddress = http://localhost:5137
 
-GET {{SaveBite.Backend_HostAddress}}/weatherforecast/
+### 0. Đăng nhập với tài khoản Customer để lấy Bearer Token
+# Account test trong DbSeeder: customer@gmail.com / SaveBite@123 hoặc shop.locked@gmail.com / SaveBite@123
+# @name login
+POST {{SaveBite.Backend_HostAddress}}/api/auth/sessions
+Content-Type: application/json
+
+{
+  "email": "customer@gmail.com",
+  "password": "SaveBite@123"
+}
+
+### Lưu token từ kết quả đăng nhập (hoặc dán thủ công vào biến dưới)
+@authToken = {{login.response.body.data.accessToken}}
+
+
+### =========================================================================
+### UC-40: Gửi đánh giá cho món ăn (Add Feedback)
+### Điều kiện: Order phải ở trạng thái Completed và chưa từng được đánh giá
+### =========================================================================
+POST {{SaveBite.Backend_HostAddress}}/api/feedbacks
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "orderItemId": "00000000-0000-0000-0000-000000000201",
+  "rating": 5,
+  "comment": "Món ăn rất tươi ngon, đóng gói cẩn thận và giao đúng giờ!"
+}
+
+### Test validation: Rating không hợp lệ (ví dụ: rating = 6)
+POST {{SaveBite.Backend_HostAddress}}/api/feedbacks
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "orderItemId": "00000000-0000-0000-0000-000000000201",
+  "rating": 6,
+  "comment": "Test lỗi rating vượt quá 5 sao"
+}
+
+
+### =========================================================================
+### UC-41: Xem lịch sử đánh giá của tôi (View Feedback History)
+### Trả về danh sách feedback kèm phân trang, thông tin món và phản hồi của Shop
+### =========================================================================
+GET {{SaveBite.Backend_HostAddress}}/api/feedbacks/history?page=1&pageSize=10
+Authorization: Bearer {{authToken}}
 Accept: application/json
 
-###
+
+### =========================================================================
+### UC-42: Sửa đánh giá đã gửi (Edit Feedback)
+### Thay {feedbackId} bằng Id lấy được từ UC-40 hoặc UC-41
+### =========================================================================
+@feedbackId = 00000000-0000-0000-0000-000000000110
+
+PUT {{SaveBite.Backend_HostAddress}}/api/feedbacks/{{feedbackId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "rating": 4,
+  "comment": "Cập nhật lại đánh giá: Món ăn ngon nhưng hơi cay một chút."
+}
+
+
+### =========================================================================
+### UC-43: Xóa đánh giá (Delete Feedback - Soft Delete)
+### Chuyển trạng thái sang HiddenByCustomer và cập nhật hidden_at
+### =========================================================================
+DELETE {{SaveBite.Backend_HostAddress}}/api/feedbacks/{{feedbackId}}
+Authorization: Bearer {{authToken}}
+Accept: application/json

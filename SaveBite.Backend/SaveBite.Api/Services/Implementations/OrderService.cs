@@ -10,7 +10,7 @@ using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Services.Implementations;
 
-// Serve customer order history, details and cancellation through shared checkout workflows.
+// Read customer orders and delegate explicit cancellation commands to the payment workflow.
 public sealed class OrderService : IOrderService
 {
     private readonly ICheckoutRepository _repository;
@@ -66,9 +66,13 @@ public sealed class OrderService : IOrderService
     public async Task<IReadOnlyList<CheckoutOrderResponse>> ListAsync(Guid userId, CancellationToken ct = default)
         => (await _repository.GetOrdersAsync(userId, ct)).Select(x => CheckoutOrderMapper.Map(x, now: Now)).ToList();
 
-    // Reuse the existing ownership checks, payment reconciliation, and cancellation policy.
-    public Task<CheckoutOrderResponse> GetAsync(Guid userId, Guid orderId, CancellationToken ct = default)
-        => _payments.GetAsync(userId, orderId, ct);
+    // Read the customer's recorded order without locks, provider calls or state changes.
+    public async Task<CheckoutOrderResponse> GetAsync(Guid userId, Guid orderId, CancellationToken ct = default)
+    {
+        var order = await _repository.GetOrderAsync(orderId, userId, ct)
+            ?? throw AppException.NotFound("Order not found.");
+        return CheckoutOrderMapper.Map(order, now: Now);
+    }
 
     // Apply the shared customer cancellation policy and payment reconciliation workflow.
     public Task<CheckoutOrderResponse> CancelAsync(Guid userId, Guid orderId, CancellationToken ct = default)

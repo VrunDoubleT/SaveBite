@@ -10,6 +10,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
     {
         builder.ToTable("orders");
 
+        builder.Property(x => x.RefundedAmount).HasColumnName("refunded_amount").HasPrecision(12, 2).HasDefaultValue(0m);
+        builder.Property(x => x.IsPlatformFeeExempt).HasColumnName("is_platform_fee_exempt");
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

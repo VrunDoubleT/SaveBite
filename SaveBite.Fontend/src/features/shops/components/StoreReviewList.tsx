@@ -51,10 +51,14 @@ export function StoreReviewList({
   const totalItems = summary?.reviews?.totalItems ?? 0;
   const pageSize = summary?.reviews?.pageSize ?? 10;
 
+  const withPhotosCount = reviews.filter(
+    (r) => r.images && r.images.length > 0,
+  ).length;
+
   // Filter reviews client-side for image filter if needed
   const filteredReviews = reviews.filter((r) => {
     if (hasImagesOnly) {
-      return (r.images && r.images.length > 0) || Boolean(r.productImageUrl);
+      return Boolean(r.images && r.images.length > 0);
     }
     return true;
   });
@@ -116,7 +120,7 @@ export function StoreReviewList({
           }`}
         >
           <ImageIcon size={13} />
-          <span>With Photos ({totalReviews > 0 ? 1 : 0})</span>
+          <span>With Photos ({withPhotosCount})</span>
         </button>
       </div>
 
@@ -305,36 +309,22 @@ function ReviewItemCard({
       )}
 
       {/* Attached Photos */}
-      {((review.images && review.images.length > 0) || review.productImageUrl) && (
+      {review.images && review.images.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {review.images && review.images.length > 0 ? (
-            review.images.map((img, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => onSelectImage(img)}
-                className="group relative h-16 w-16 overflow-hidden rounded-xl border border-neutral-200 shadow-2xs transition hover:opacity-90"
-              >
-                <img
-                  src={img}
-                  alt={`Review photo ${idx + 1}`}
-                  className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
-                />
-              </button>
-            ))
-          ) : review.productImageUrl ? (
+          {review.images.map((img, idx) => (
             <button
+              key={idx}
               type="button"
-              onClick={() => onSelectImage(review.productImageUrl!)}
+              onClick={() => onSelectImage(img)}
               className="group relative h-16 w-16 overflow-hidden rounded-xl border border-neutral-200 shadow-2xs transition hover:opacity-90"
             >
               <img
-                src={review.productImageUrl}
-                alt="Product snapshot"
+                src={img}
+                alt={`Review photo ${idx + 1}`}
                 className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
               />
             </button>
-          ) : null}
+          ))}
         </div>
       )}
 

@@ -2,6 +2,7 @@ import {
   Briefcase,
   ClipboardList,
   CreditCard,
+  RotateCcw,
   MessageSquareText,
   ShieldCheck,
   Store,
@@ -50,6 +51,13 @@ export const ACCOUNT_NAV_GROUPS: readonly AccountNavGroup[] = [
         title: "Payments",
         description: "Track your payments and their related orders",
         icon: CreditCard,
+      },
+      {
+        to: APP_PATHS.ACCOUNT_REFUNDS,
+        label: "Refunds",
+        title: "Refunds",
+        description: "Manage refund requests and bank transfer details",
+        icon: RotateCcw,
       },
       {
         to: APP_PATHS.ACCOUNT_REVIEWS,

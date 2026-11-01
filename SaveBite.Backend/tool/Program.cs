@@ -18,19 +18,21 @@ internal class Program
         Console.ResetColor();
 
         // 1. Resolve configuration
-        var projectDir = Directory.GetCurrentDirectory();
-        var apiSettingsPath = Path.Combine(projectDir, "..", "SaveBite.Api", "appsettings.json");
-        if (!File.Exists(apiSettingsPath))
-        {
-            apiSettingsPath = Path.Combine(projectDir, "SaveBite.Api", "appsettings.json");
-        }
-
+        var apiSettingsPath = FindSettings("SaveBite.Api", "appsettings.json");
+        var toolSettingsPath = Path.Combine(AppContext.BaseDirectory, "toolsettings.json");
         var configBuilder = new ConfigurationBuilder();
-        if (File.Exists(apiSettingsPath))
-        {
-            configBuilder.AddJsonFile(Path.GetFullPath(apiSettingsPath), optional: true);
-        }
+        if (apiSettingsPath != null) configBuilder.AddJsonFile(apiSettingsPath, optional: true);
+        configBuilder.AddJsonFile(toolSettingsPath, optional: true);
         var config = configBuilder.Build();
+        var customLocation = args.Contains("--use-custom-location")
+            || string.Equals(config["Seed:UseCustomLocation"], "true", StringComparison.OrdinalIgnoreCase);
+        var latitude = double.Parse(config["Seed:Latitude"] ?? "10.016760913098414", System.Globalization.CultureInfo.InvariantCulture);
+        var longitude = double.Parse(config["Seed:Longitude"] ?? "105.34127364471898", System.Globalization.CultureInfo.InvariantCulture);
+        if (!double.IsFinite(latitude) || !double.IsFinite(longitude) || latitude is < -90 or > 90 || longitude is < -180 or > 180)
+            throw new ArgumentException("Invalid configured seed coordinates.");
+        Console.WriteLine(customLocation
+            ? $"[INFO] Custom seed location enabled: {latitude}, {longitude} (PostgreSQL + Redis)."
+            : "[INFO] Existing shop locations are preserved (default mode).");
 
         var postgresConn = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")
             ?? config.GetConnectionString("Postgres")
@@ -108,6 +110,9 @@ internal class Program
                 }
             }
 
+            // Seed is opt-in; the default remains the original PostgreSQL-to-Redis sync.
+            if (args.Contains("--seed-active")) await SeedActiveDealsAsync(conn);
+
             // Query active deals
             const string dealsSql = @"
                 SELECT 
@@ -174,6 +179,25 @@ internal class Program
             }
 
             Console.WriteLine($"[INFO] Tìm thấy {deals.Count} flash deals đang hoạt động trong PostgreSQL.");
+
+            // Apply an explicitly enabled location override to both sources so checkout and nearby search agree.
+            if (customLocation)
+            {
+                var shopIds = deals.Select(x => x.ShopId).Distinct().OrderBy(x => x).ToList();
+                await using var tx = await conn.BeginTransactionAsync();
+                for (var index = 0; index < shopIds.Count; index++)
+                {
+                    var id = shopIds[index];
+                    var lat = Math.Clamp(latitude + index * 0.0003, -90, 90);
+                    var lon = Math.Clamp(longitude + index * 0.0003, -180, 180);
+                    await using var update = new NpgsqlCommand("UPDATE shops SET latitude = @lat, longitude = @lon, updated_at = NOW() WHERE id = @id", conn, tx);
+                    update.Parameters.AddWithValue("lat", lat); update.Parameters.AddWithValue("lon", lon); update.Parameters.AddWithValue("id", id);
+                    await update.ExecuteNonQueryAsync();
+                    foreach (var deal in deals.Where(x => x.ShopId == id)) { deal.Latitude = lat; deal.Longitude = lon; }
+                }
+                await tx.CommitAsync();
+            }
+
 
             // Query product images
             var imagesByProduct = new Dictionary<Guid, List<string>>();
@@ -444,6 +468,68 @@ internal class Program
             Console.ResetColor();
         }
     }
+    // Resolve settings from the tool, backend or repository root regardless of the launch directory.
+    private static string? FindSettings(string directory, string filename)
+    {
+        foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+        {
+            for (var parent = new DirectoryInfo(start); parent != null; parent = parent.Parent)
+            {
+                foreach (var relative in new[] { Path.Combine(directory, filename), Path.Combine("SaveBite.Backend", directory, filename) })
+                {
+                    var candidate = Path.Combine(parent.FullName, relative);
+                    if (File.Exists(candidate)) return candidate;
+                }
+            }
+        }
+        return null;
+    }
+
+    // Add fresh test deals using existing active products; never reset sold or reserved inventory on old deals.
+    private static async Task SeedActiveDealsAsync(NpgsqlConnection conn)
+    {
+        var products = new List<(Guid ProductId, Guid ShopId)>();
+        const string candidates = """
+            WITH eligible AS (
+                SELECT p.id, p.shop_id, ROW_NUMBER() OVER (PARTITION BY p.shop_id ORDER BY p.created_at DESC, p.id) AS position
+                FROM "Products" p JOIN shops s ON s.id = p.shop_id
+                WHERE p.status = 'Active' AND p.deleted_at IS NULL AND s.status = 'Active'
+                  AND EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.is_active AND v.original_price > 0 AND v.deal_price > 0)
+            ), selected_shops AS (SELECT DISTINCT shop_id FROM eligible ORDER BY shop_id LIMIT 3)
+            SELECT id, shop_id FROM eligible WHERE position <= 3 AND shop_id IN (SELECT shop_id FROM selected_shops);
+            """;
+        await using (var command = new NpgsqlCommand(candidates, conn))
+        await using (var reader = await command.ExecuteReaderAsync())
+            while (await reader.ReadAsync()) products.Add((reader.GetGuid(0), reader.GetGuid(1)));
+        var created = 0;
+        await using var tx = await conn.BeginTransactionAsync();
+        foreach (var product in products)
+        {
+            await using var exists = new NpgsqlCommand("""
+                SELECT EXISTS(SELECT 1 FROM flash_deals d WHERE d.product_id = @product AND d.status = 'OnSale'
+                    AND d.sale_start_time <= NOW() AND d.order_end_time > NOW() + INTERVAL '20 minutes'
+                    AND EXISTS(SELECT 1 FROM flash_deal_variants v WHERE v.flash_deal_id = d.id AND v.status = 'Active'
+                        AND v.total_quantity > v.reserved_quantity + v.sold_quantity));
+                """, conn, tx);
+            exists.Parameters.AddWithValue("product", product.ProductId);
+            if ((bool)(await exists.ExecuteScalarAsync() ?? false)) continue;
+            var dealId = Guid.NewGuid();
+            await using var insert = new NpgsqlCommand("""
+                INSERT INTO flash_deals (id, shop_id, product_id, sale_start_time, order_end_time, shop_closing_time, status, created_at, updated_at)
+                VALUES (@id, @shop, @product, NOW() - INTERVAL '1 minute', NOW() + INTERVAL '119 minutes', NOW() + INTERVAL '119 minutes', 'OnSale', NOW(), NOW());
+                INSERT INTO flash_deal_variants (id, flash_deal_id, variant_id, original_price, deal_price, discount_percent,
+                    total_quantity, reserved_quantity, sold_quantity, status, created_at, updated_at)
+                SELECT gen_random_uuid(), @id, id, original_price, deal_price,
+                    ROUND((original_price - deal_price) / original_price * 100, 2), 200, 0, 0, 'Active', NOW(), NOW()
+                FROM product_variants WHERE product_id = @product AND is_active AND original_price > 0 AND deal_price > 0;
+                """, conn, tx);
+            insert.Parameters.AddWithValue("id", dealId); insert.Parameters.AddWithValue("shop", product.ShopId); insert.Parameters.AddWithValue("product", product.ProductId);
+            await insert.ExecuteNonQueryAsync(); created++;
+        }
+        await tx.CommitAsync();
+        Console.WriteLine($"[SEED] Created {created} fresh deals for {products.Select(x => x.ShopId).Distinct().Count()} existing shops; existing valid deals and inventory are preserved.");
+    }
+
 }
 
 public class DealData

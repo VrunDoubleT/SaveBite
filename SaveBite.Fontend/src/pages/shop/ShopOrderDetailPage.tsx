@@ -1,3 +1,4 @@
+import { ShopOrderRefunds } from "@/features/refunds/components/ShopOrderRefunds";
 import { paymentMethodLabel } from "@/features/payments/utils/paymentLabels";
 import { useShopOrderEventsStore } from "@/features/shop-orders/stores/shopOrderEventsStore";
 import { ConfirmationCountdown } from "@/features/shop-orders/components/ConfirmationCountdown";
@@ -28,7 +29,6 @@ function ShopOrderDetailPageContent() {
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
-  const [reference, setReference] = useState("");
   const [handover, setHandover] = useState(false);
   const [cashReceived, setCashReceived] = useState(false);
   const [now, setNow] = useState(Date.now);
@@ -410,84 +410,10 @@ function ShopOrderDetailPageContent() {
                   </p>
                 )}
               </section>
-              {data.refund && (
-                <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                  <h2 className="text-sm font-bold">
-                    Full refund due · {money(data.refund.amount)}
-                  </h2>
-                  <p className="mt-2 text-xs">
-                    {data.refund.status.replace(/([a-z])([A-Z])/g, "$1 $2")}
-                  </p>
-                  <p className="mt-2 text-xs text-neutral-600">{data.refund.reason}</p>
-                  {(data.refund.transferredAmount ?? 0) > 0 && (
-                    <p className="mt-2 text-xs font-semibold">
-                      Transferred: {money(data.refund.transferredAmount ?? 0)} · Refund balance:{" "}
-                      {money(
-                        Math.max(0, data.refund.amount - (data.refund.transferredAmount ?? 0)),
-                      )}
-                    </p>
-                  )}
-                  {data.refund.destinationConfirmedAt ? (
-                    <div className="mt-3 text-xs">
-                      <p className="font-semibold">Email-verified destination</p>
-                      <p className="mt-1">
-                        {data.refund.bankName} · {data.refund.accountNumber}
-                      </p>
-                      <p>{data.refund.accountHolder}</p>
-                    </div>
-                  ) : (
-                    <p className="mt-3 text-xs text-amber-900">
-                      Waiting for the customer to submit and email-verify their bank account.
-                    </p>
-                  )}
-                  {data.isOwner && data.refund.status === "AwaitingTransfer" && (
-                    <form
-                      className="mt-3 space-y-2"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        if (inFlight.current) return;
-                        inFlight.current = true;
-                        revision.current++;
-                        setBusy(true);
-                        setError("");
-                        void shopOrderApi
-                          .transfer(shopId, orderId, reference)
-                          .then((refund) => setData((old) => (old ? { ...old, refund } : old)))
-                          .catch((e) => setError(getApiErrorMessage(e)))
-                          .finally(() => {
-                            inFlight.current = false;
-                            setBusy(false);
-                          });
-                      }}
-                    >
-                      <label className="block text-xs font-semibold">
-                        Bank transfer reference
-                        <input
-                          required
-                          maxLength={150}
-                          value={reference}
-                          onChange={(e) => setReference(e.target.value)}
-                          className="mt-1 w-full rounded-lg border border-amber-200 bg-white p-2 text-sm"
-                        />
-                      </label>
-                      <p className="text-xs text-neutral-600">
-                        Transfer the outstanding refund balance to the verified account, then record
-                        the bank reference here.
-                      </p>
-                      <button disabled={busy || !reference.trim()} className={button}>
-                        Record completed transfer
-                      </button>
-                    </form>
-                  )}
-                  {data.refund.transferReference && (
-                    <p className="mt-3 break-all text-xs">
-                      Transfer reference: {data.refund.transferReference}
-                    </p>
-                  )}
-                </section>
-              )}
+
             </aside>
           </div>
+          {data.isOwner && <ShopOrderRefunds shopId={shopId} orderId={orderId} />}
         </>
       )}
     </div>

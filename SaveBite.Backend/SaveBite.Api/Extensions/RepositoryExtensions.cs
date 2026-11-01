@@ -1,5 +1,7 @@
 using SaveBite.Backend.Repositories.Implementations;
 using SaveBite.Backend.Repositories.Interfaces;
+using SaveBite.Backend.Services.Implementations;
+using SaveBite.Backend.Services.Interfaces;
 using FlashDealRepository = SaveBite.Backend.Repositories.Implementations.FlashDealRepository;
 
 namespace SaveBite.Backend.Extensions;
@@ -26,11 +28,24 @@ public static class RepositoryExtensions
         services.AddScoped<ITrustOrderRepository, TrustOrderRepository>();
         services.AddScoped<ITrustConfigRepository, TrustConfigRepository>();
 
+        services.AddScoped<IFeedbackRepository, FeedbackRepository>();
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<ICheckoutRepository, CheckoutRepository>();
         services.AddScoped<IPaymentHistoryRepository, PaymentHistoryRepository>();
         services.AddScoped<IOrderEventRepository, OrderEventRepository>();
         services.AddScoped<IShopOrderRepository, ShopOrderRepository>();
+        services.AddScoped<IPlatformFeeConfigService, PlatformFeeConfigService>();
+        services.AddScoped<IPlatformFeeStatementRepository, PlatformFeeStatementRepository>();
+        services.AddScoped<IPlatformFeeConfigRepository, PlatformFeeConfigRepository>();
+        services.AddScoped<IRefundRepository, RefundRepository>();
+        
+        services.AddScoped<IWarningRepository, WarningRepository>();
+        services.AddScoped<IFeedbackRepository, FeedbackRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IStoreAnalyticsRepository, StoreAnalyticsRepository>();
+        services.AddScoped<IPlatformAnalyticsRepository, PlatformAnalyticsRepository>();
         return services;
     }
 }

@@ -57,8 +57,44 @@ public class RabbitMqTopologyInitializer : IHostedService
             exclusive: false, autoDelete: false, cancellationToken: cancellationToken);
         await channel.QueueBindAsync(RabbitMqQueues.OrderNoShowQueueName, _options.ExchangeName,
             RabbitMqRoutingKeys.OrderNoShow, cancellationToken: cancellationToken);
-    }
+        // Bind platform-fee accrual on completed orders.
+        await channel.QueueDeclareAsync(RabbitMqQueues.OrderPlatformFeeQueueName, durable: true,
+            exclusive: false, autoDelete: false, arguments: new Dictionary<string, object?>
+            {
+                ["x-dead-letter-exchange"] = "",
+                ["x-dead-letter-routing-key"] = RabbitMqQueues.OrderPlatformFeeDeadLetterQueueName
+            }, cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(RabbitMqQueues.OrderPlatformFeeQueueName, _options.ExchangeName,
+            RabbitMqRoutingKeys.OrderCompleted, cancellationToken: cancellationToken);
 
+        // Declare moderation topology before publishing audit events.
+        await channel.QueueDeclareAsync(
+            queue: RabbitMqQueues.ModerationDeadLetterQueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            cancellationToken: cancellationToken);
+
+        await channel.QueueDeclareAsync(
+            queue: RabbitMqQueues.ModerationQueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: new Dictionary<string, object?>
+            {
+                ["x-dead-letter-exchange"] = "",
+                ["x-dead-letter-routing-key"] = RabbitMqQueues.ModerationDeadLetterQueueName
+            },
+            cancellationToken: cancellationToken);
+
+        await channel.QueueBindAsync(
+            queue: RabbitMqQueues.ModerationQueueName,
+            exchange: _options.ExchangeName,
+            routingKey: RabbitMqRoutingKeys.ModerationAudit,
+            cancellationToken: cancellationToken);
+
+    }
+    
     public Task StopAsync(
         CancellationToken cancellationToken)
         => Task.CompletedTask;

@@ -1,12 +1,17 @@
+import { ShopRefundsBadge } from "@/features/refunds/components/ShopRefundsBadge";
 import { ShopOrderWorkspaceNotifications } from "@/features/shop-orders/components/ShopOrderWorkspaceNotifications";
 import {
   ClipboardList,
+  RotateCcw,
   CreditCard,
   Package,
   Settings2,
+  ShieldAlert,
+  Star,
   Store,
   Users,
   Zap,
+  Receipt,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
@@ -29,11 +34,7 @@ const navigation = [
     label: "Orders",
     end: false,
     icon: ClipboardList,
-    badge: (
-      <ShopOrderWorkspaceNotifications
-        ordersPath={`${APP_PATHS.STORE_OWNER}/orders`}
-      />
-    ),
+    badge: <ShopOrderWorkspaceNotifications ordersPath={`${APP_PATHS.STORE_OWNER}/orders`} />,
   },
   {
     to: APP_PATHS.STORE_OWNER_STAFF,
@@ -54,10 +55,28 @@ const navigation = [
     icon: CreditCard,
   },
   {
+    to: APP_PATHS.STORE_OWNER_PLATFORM_FEES,
+    label: "Platform Fees",
+    end: false,
+    icon: Receipt,
+  },
+  {
+    to: APP_PATHS.STORE_OWNER_REVIEWS,
+    label: "Reviews",
+    end: false,
+    icon: Star,
+  },
+  {
     to: APP_PATHS.STORE_OWNER_PROFILE,
     label: "Shop Profile",
     end: false,
     icon: Settings2,
+  },
+  {
+    to: "/store-owner/warnings",
+    label: "Warning History",
+    end: false,
+    icon: ShieldAlert,
   },
 ] as const;
 

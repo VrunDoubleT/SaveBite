@@ -58,6 +58,7 @@ public static class CheckoutOrderMapper
             Policy = policy,
             Items = order.Items.Select(x => new CheckoutOrderItemResponse
             {
+                OrderItemId = x.Id,
                 FlashDealVariantId = x.FlashDealVariantId,
                 ProductName = x.ProductNameSnapshot,
                 VariantName = x.VariantNameSnapshot,
@@ -65,7 +66,12 @@ public static class CheckoutOrderMapper
                 Quantity = x.Quantity,
                 Subtotal = x.Subtotal ?? x.UnitPrice * x.Quantity,
                 ImageUrl = x.FlashDealVariant?.FlashDeal?.Product?.Images.OrderBy(image => image.Id).Select(image => image.ImageUrl).FirstOrDefault(),
-                FlashDealId = x.FlashDealVariant?.FlashDealId
+                FlashDealId = x.FlashDealVariant?.FlashDealId,
+                OrderItemId = x.Id,
+                FeedbackId = x.Feedback?.Status == FeedbackStatus.Visible ? x.Feedback.Id : null,
+                Rating = x.Feedback?.Status == FeedbackStatus.Visible ? x.Feedback.Rating : null,
+                // A deleted or hidden feedback still occupies the item, so it cannot be reviewed again.
+                CanReview = order.Status == OrderStatus.Completed && x.Feedback == null
             }).ToList(),
             PaymentMessage = message,
             CanCancel = cancellationReason == null,
@@ -75,6 +81,7 @@ public static class CheckoutOrderMapper
             ShopAddress = string.Join(", ", new[] { order.Shop.AddressLine, order.Shop.Ward, order.Shop.District, order.Shop.City }
                 .Where(value => !string.IsNullOrWhiteSpace(value))),
             CreatedAt = order.CreatedAt,
+            CompletedAt = order.CompletedAt,
             PaidAmount = paidAmount,
             OutstandingAmount = outstandingAmount
         };

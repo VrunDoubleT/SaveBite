@@ -9,6 +9,7 @@ public sealed class TrustOrderProcessingConfiguration : IEntityTypeConfiguration
     public void Configure(EntityTypeBuilder<TrustOrderProcessing> builder)
     {
         builder.ToTable("trust_order_processing");
+        builder.Property(x => x.CreditedOrderValue).HasColumnName("credited_order_value").HasPrecision(14, 2);
         builder.HasKey(x => x.OrderId);
         builder.Property(x => x.OrderId).HasColumnName("order_id");
         builder.Property(x => x.ProcessedAt).HasColumnName("processed_at");

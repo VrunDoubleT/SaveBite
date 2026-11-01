@@ -51,10 +51,9 @@ public sealed class CheckoutSimulationController : ControllerBase
         // Use the selected Remaining payment when paymentId is supplied; otherwise use the initial payment.
         var selected = paymentId.HasValue ? order.Payments.SingleOrDefault(x => x.Id == paymentId && x.PaymentType == PaymentType.Remaining) : CheckoutOrderMapper.RequiredPayment(order);
         EnsureSimulated(selected?.GatewayTransactionId);
-        var result = await _payments.GetAsync(UserId(), orderId, ct);
+        var result = CheckoutOrderMapper.Map(order, now: _clock.GetUtcNow().UtcDateTime);
         if (paymentId.HasValue)
         {
-            order = await _repository.GetOrderAsync(orderId, UserId(), ct) ?? throw AppException.NotFound();
             selected = order.Payments.Single(x => x.Id == paymentId);
             // Display the selected remaining-payment amount and its original hard pickup deadline.
             result = result with { RequiredOnlineAmount = selected.Amount, PaymentStatus = selected.Status.ToString(), PaymentExpiresAt = order.HardDeadlineAt };
@@ -124,7 +123,7 @@ public sealed class CheckoutSimulationController : ControllerBase
             ? await _payments.ReconcileOrderAsync(orderId, ct: ct)
             : request.Outcome == "cancelled" && !request.PaymentId.HasValue
                 ? await _payments.CancelAsync(userId.Value, orderId, ct)
-                : await _payments.GetAsync(userId.Value, orderId, ct);
+                : await _payments.ReconcileAsync(userId.Value, orderId, ct);
         return Ok(ApiResponse<CheckoutOrderResponse>.Ok(result));
     }
     // Return not found unless simulated payments are enabled in Development.

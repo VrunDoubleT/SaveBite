@@ -10,6 +10,7 @@ public class Refund
     public RefundType RefundType { get; set; }
     public RefundStatus Status { get; set; }
 
+    public ICollection<RefundItem> Items { get; set; } = new List<RefundItem>();
     public Guid InitiatedBy { get; set; }
 
     public string? Reason { get; set; }
@@ -35,6 +36,15 @@ public class Refund
     public DateTime? VerificationExpiresAt { get; set; }
     public DateTime? DestinationConfirmedAt { get; set; }
     public int VerificationAttempts { get; set; }
+
+    public string? ReceiverBankBin { get; set; }
+    public DateTime? VerificationIssuedAt { get; set; }
+    public DateTime? PendingVerificationAt { get; set; }
+    public DateTime? CustomerDetailsDeadlineAt { get; set; }
+    public string? DeadlineJobId { get; set; }
+    public DateTime? ReviewDeadlineAt { get; set; }
+    public DateTime? AccumulatedValueReclaimedAt { get; set; }
+    public ICollection<RefundStatusHistory> History { get; set; } = new List<RefundStatusHistory>();
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

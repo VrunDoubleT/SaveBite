@@ -61,6 +61,7 @@ public sealed class ProductRepository : IProductRepository
         => query.Include(x => x.Category).Include(x => x.Images)
             .Include(x => x.Attributes).ThenInclude(x => x.Values)
             .Include(x => x.Variants).ThenInclude(x => x.VariantValues)
+            .Include(x => x.Warnings.Where(w => w.ResolvedAt == null))
             .Include(x => x.ContentRevisions.OrderByDescending(r => r.RevisionNumber).Take(1))
             .AsSplitQuery();
 
@@ -112,7 +113,7 @@ public sealed class ProductRepository : IProductRepository
             .Where(fdv => fdv.VariantId == variantId &&
                           (fdv.FlashDeal.Status == FlashDealStatus.Pending || fdv.FlashDeal.Status == FlashDealStatus.OnSale))
             .Select(fdv => (decimal?)fdv.DealPrice)
-            .MaxAsync(ct); 
+            .MaxAsync(ct);
 
     public async Task SaveChangesAsync(CancellationToken ct)
     {
@@ -122,9 +123,100 @@ public sealed class ProductRepository : IProductRepository
             throw AppException.Conflict("The product changed during this request. Reload it and try again.");
         }
         catch (DbUpdateException exception) when (exception.InnerException is Npgsql.PostgresException
-            { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
+        { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
         {
             throw AppException.Conflict("One of the supplied identifiers already exists. Reload and try again.");
         }
     }
+
+    // Manage Products.
+    public async Task<(IReadOnlyList<Product> Items, int Total)> GetProductListAsync(string? keyword, int page, int pageSize, CancellationToken ct)
+    {
+        var query = _db.Products.AsNoTracking().Where(p => p.DeletedAt == null);
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var search = $"%{keyword.Trim()}%";
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Name, search) ||
+                EF.Functions.ILike(p.Shop.Name, search));
+        }
+
+        var total = await query.CountAsync(ct);
+        var offset = ((long)page - 1) * pageSize;
+        if (offset >= total) return (Array.Empty<Product>(), total);
+
+        var items = await query
+            .OrderByDescending(p => p.CreatedAt)
+            .ThenBy(p => p.Id)
+            .Skip((int)offset)
+            .Take(pageSize)
+            .Include(p => p.Shop)
+            .Include(p => p.Category)
+            .Include(p => p.Variants)
+            .Include(p => p.Images)
+            .Include(p => p.Warnings.Where(w => w.ResolvedAt == null))
+            .Include(p => p.ContentRevisions
+                .OrderByDescending(revision => revision.RevisionNumber)
+                .Take(1))
+            .AsSplitQuery()
+            .ToListAsync(ct);
+
+        return (items, total);
+    }
+
+    // Manage Products.
+    public async Task<Product?> GetProductContentAsync(Guid productId, CancellationToken ct)
+    {
+        return await _db.Products.AsNoTrackingWithIdentityResolution()
+            .Include(p => p.Shop).Include(p => p.Category).Include(p => p.Images)
+            .Include(p => p.Attributes).ThenInclude(a => a.Values)
+            .Include(p => p.Variants).ThenInclude(v => v.VariantValues)
+            .Include(p => p.Warnings)
+            .Include(p => p.ContentRevisions).ThenInclude(r => r.Category)
+            .Include(p => p.ContentRevisions).ThenInclude(r => r.SubmittedByUser)
+            .Include(p => p.ContentRevisions).ThenInclude(r => r.ReviewedByUser)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(p => p.Id == productId && p.DeletedAt == null, ct);
+    }
+
+    // Manage Products.
+    public async Task<Product?> GetProductForViolationRemovalAsync(Guid productId, CancellationToken ct)
+    {
+        return await _db.Products.FirstOrDefaultAsync(x => x.Id == productId, ct);
+    }
+
+    // Manage Products.
+    public async Task RemoveProductForViolationAndCancelDealsAsync(Product product, CancellationToken ct)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+        await _db.FlashDeals
+            .Where(x =>
+                x.ProductId == product.Id &&
+                x.Status != FlashDealStatus.Cancelled &&
+                x.Status != FlashDealStatus.Closed)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(
+                        x => x.Status,
+                        FlashDealStatus.Cancelled)
+                    .SetProperty(
+                        x => x.UpdatedAt,
+                        DateTime.UtcNow),
+                ct);
+
+        await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    // Manage Products.
+    public async Task<ProductContentRevision?> GetLatestRevisionForReviewAsync(Guid productId, CancellationToken ct)
+    {
+        return await _db.ProductContentRevisions.OrderByDescending(x => x.RevisionNumber)
+            .FirstOrDefaultAsync(x => x.ProductId == productId, ct);
+    }
+
+    // Manage Products.
+    public void AddContentRevision(ProductContentRevision revision) => _db.ProductContentRevisions.Add(revision);
 }

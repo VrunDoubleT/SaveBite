@@ -1,4 +1,4 @@
-namespace SaveBite.Backend.Models.Entities;
+namespace SaveBite.Backend.Models.Enums;
 
 public enum RefundType
 {

@@ -5,4 +5,5 @@ public sealed class TrustOrderProcessing
 {
     public Guid OrderId { get; set; }
     public DateTime ProcessedAt { get; set; }
+    public decimal CreditedOrderValue { get; set; }
 }

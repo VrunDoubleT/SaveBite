@@ -15,6 +15,9 @@ public static class HangfireExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddScoped<IRefundDeadlineScheduler, RefundDeadlineScheduler>();
+        services.AddScoped<RefundDeadlineJob>();
+        services.AddScoped<RefundDeadlineRecoveryJob>();
         services.AddScoped<ICheckoutPaymentExpirationScheduler, CheckoutPaymentExpirationScheduler>();
         services.AddScoped<IOrderEventDispatchScheduler, OrderEventDispatchScheduler>();
         services.AddScoped<IShopOrderConfirmationScheduler, ShopOrderConfirmationScheduler>();
@@ -26,6 +29,8 @@ public static class HangfireExtensions
         services.AddScoped<OrderEventDispatchJob>();
         services.AddScoped<ShopOrderConfirmationJob>();
         services.AddScoped<ShopOrderNoShowJob>();
+        services.AddScoped<PlatformFeeOverdueJob>();
+        services.AddScoped<PlatformFeeMonthlyStatementJob>();
 
         services.AddOptions<HangfireOptions>()
             .Bind(configuration.GetSection(HangfireOptions.SectionName))
@@ -70,13 +75,32 @@ public static class HangfireExtensions
 
     public static WebApplication UseBackgroundJobs(this WebApplication app)
     {
+        app.Services.GetRequiredService<IBackgroundJobClient>().Enqueue<RefundDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None));
         var options = app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value;
         if (app.Environment.IsDevelopment() && options.DashboardEnabled)
         {
             // Hangfire's default dashboard authorization only permits local requests.
             app.UseHangfireDashboard("/hangfire");
         }
+        using (var scope = app.Services.CreateScope())
+               {
+                   var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+                   // Monthly calculation: Runs on the 1st of every month at midnight (12:00 AM / 00:00) to calculate statements for previous month (BR-093, BR-192)
+                   recurringJobs.AddOrUpdate<PlatformFeeMonthlyStatementJob>(
+                       "platform-fee-monthly-statement-generation",
+                       job => job.ExecuteAsync(CancellationToken.None),
+                       Cron.Monthly(1, 0)); // 00:00 on day-of-month 1
 
+                   // Overdue check: Runs daily at midnight (12:00 AM / 00:00) to mark overdue statements and suspend shops (BR-095, BR-193)
+                   recurringJobs.AddOrUpdate<PlatformFeeOverdueJob>(
+                       "platform-fee-overdue-check",
+                       job => job.ExecuteAsync(CancellationToken.None),
+                       Cron.Daily(0)); // 00:00 every day
+               }
+
+
+        // Stop the legacy notification recovery schedule; notifications now publish directly to RabbitMQ.
+        app.Services.GetRequiredService<IRecurringJobManager>().RemoveIfExists("notification-outbox-recovery");
         return app;
     }
 }

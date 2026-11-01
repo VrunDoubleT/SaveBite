@@ -19,5 +19,13 @@ public interface IProductRepository
     void AddImages(IEnumerable<ProductImage> images);
     void RemoveImages(IEnumerable<ProductImage> images);
     Task<decimal?> GetMaxActiveFlashDealPriceForVariantAsync(Guid variantId, CancellationToken ct);
-    Task SaveChangesAsync(CancellationToken ct);    
+    Task SaveChangesAsync(CancellationToken ct);
+    
+    // Manage Products.
+    Task<(IReadOnlyList<Product> Items, int Total)> GetProductListAsync(string? keyword, int page, int pageSize, CancellationToken ct);
+    Task<Product?> GetProductContentAsync(Guid productId, CancellationToken ct);
+    Task<Product?> GetProductForViolationRemovalAsync(Guid productId, CancellationToken ct);
+    Task RemoveProductForViolationAndCancelDealsAsync(Product product, CancellationToken ct);
+    Task<ProductContentRevision?> GetLatestRevisionForReviewAsync(Guid productId, CancellationToken ct);
+    void AddContentRevision(ProductContentRevision revision);
 }

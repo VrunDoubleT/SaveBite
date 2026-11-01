@@ -127,4 +127,41 @@ public sealed class ShopsController : ControllerBase
 
         return id.Value;
     }
+    
+    // Manage Shops.
+    [HttpGet("admin")]
+    [AdminAccess]
+    public async Task<ActionResult<ApiResponse<PagedResult<ShopListResponse>>>> ViewShopsForAdmin(
+        [FromQuery] string? keyword,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _shopService.GetShopListAsync(keyword, page, pageSize, cancellationToken);
+        return Ok(ApiResponse<PagedResult<ShopListResponse>>.Ok(result, "Shop list retrieved successfully."));
+    }
+    
+    // Manage Shops.
+    [HttpGet("admin/{shopId:guid}")]
+    [AdminAccess]
+    public async Task<ActionResult<ApiResponse<ShopContentResponse>>> ViewShopContentForAdmin(Guid shopId, CancellationToken cancellationToken)
+    {
+        if (shopId == Guid.Empty)
+            throw AppException.BadRequest("Shop ID is invalid.");
+
+        var result = await _shopService.GetShopContentAsync(shopId, cancellationToken);
+        return Ok(ApiResponse<ShopContentResponse>.Ok(result, "Shop content retrieved successfully."));
+    }
+    
+    // Manage Shops.
+    [HttpPatch("admin/{shopId:guid}/status")]
+    [AdminAccess]
+    public async Task<ActionResult<ApiResponse<ModerationActionResponse>>> UpdateModerationStatus(Guid shopId, [FromBody] UpdateShopModerationStatusRequest request, CancellationToken cancellationToken)
+    {
+        if (shopId == Guid.Empty)
+            throw AppException.BadRequest("Shop ID is invalid.");
+
+        var result = await _shopService.UpdateShopStatusAsync(GetRequiredCurrentUserId(), shopId, request, cancellationToken);
+        return Ok(ApiResponse<ModerationActionResponse>.Ok(result, "Shop status updated successfully."));
+    }
 }

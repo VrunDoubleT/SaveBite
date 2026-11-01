@@ -1,12 +1,16 @@
 using Microsoft.Extensions.Options;
 using SaveBite.Backend.Caching.Interfaces;
+using SaveBite.Backend.Data;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Messaging.Configuration;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Consumer;
 using SaveBite.Backend.Messaging.Events;
 using SaveBite.Backend.Messaging.Models;
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
+using SaveBite.Backend.Services.Implementations;
 using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Messaging.Consumer.FlashDeal;
@@ -34,17 +38,18 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         CancellationToken cancellationToken)
     {
         var dealEvent = message.Data;
-        var routingKey = message.EventType; 
+        var routingKey = message.EventType;
 
         await using var scope = _scopeFactory.CreateAsyncScope();
         var dealRepository = scope.ServiceProvider.GetRequiredService<IFlashDealRepository>();
         var redisService = scope.ServiceProvider.GetRequiredService<IFlashDealRedisService>();
         var dealService = scope.ServiceProvider.GetRequiredService<IFlashDealService>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationQueue>();
 
         switch (routingKey)
         {
             case RabbitMqRoutingKeys.FlashDealOpened:
-                await HandleDealOpenedAsync(dealEvent.FlashDealId, dealRepository, redisService, dealService, cancellationToken);
+                await HandleDealOpenedAsync(dealEvent.FlashDealId, dealRepository, redisService, dealService, notificationService, cancellationToken);
                 break;
 
             case RabbitMqRoutingKeys.FlashDealClosed:
@@ -63,12 +68,15 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         IFlashDealRepository dealRepository,
         IFlashDealRedisService redisService,
         IFlashDealService dealService,
+        INotificationQueue notificationService,
         CancellationToken cancellationToken)
     {
         var deal = await dealRepository.GetActiveDealByIdAsync(flashDealId, cancellationToken);
         if (deal == null) return;
 
-        // Update DB to 'OnSale' if currently 'Pending'
+        if (await WarningDealPolicy.IsBlockedAsync(db, deal.ProductId, cancellationToken))
+            return;
+        // Update DB to 'OnSale'  if currently 'Pending'
         if (deal.Status == FlashDealStatus.Pending)
         {
             deal.Status = FlashDealStatus.OnSale;
@@ -80,6 +88,23 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         if (deal.Shop != null)
         {
             await redisService.SaveDealAsync(customerResponse, deal.Shop.Latitude, deal.Shop.Longitude);
+
+            try
+            {
+                await notificationService.EnqueueAsync(
+                    NotificationTarget.Customers(),
+                    new CreateNotificationCommand(
+                        NotificationType.FlashDealAvailable,
+                        $"New Flash Deal from {deal.Shop.Name}!",
+                        $"'{customerResponse.ProductName}' is now on sale. Order now before it runs out!",
+                        ActionUrl: NotificationActionUrls.FlashDeal(deal.Id),
+                        DeduplicationKey: $"flash-deal-opened:{deal.Id}"),
+                    cancellationToken);
+            }
+            catch
+            {
+                // Do not fail deal opening if notification dispatch encounters an issue.
+            }
         }
     }
 

@@ -14,4 +14,9 @@ public interface IShopService
     Task<ShopProfileResponse> GetOwnerShopProfileAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
     Task<ShopProfileResponse> UpdateBusinessInfoAsync(Guid ownerUserId, UpdateBusinessInfoRequest request, CancellationToken cancellationToken = default);
     Task<ShopProfileResponse> UpdateShopImagesAsync(Guid ownerUserId, UpdateShopImagesRequest request, CancellationToken cancellationToken = default);
+
+    // Manage Shops.
+    Task<PagedResult<ShopListResponse>> GetShopListAsync(string? keyword, int page, int pageSize, CancellationToken ct);
+    Task<ShopContentResponse> GetShopContentAsync(Guid shopId, CancellationToken ct = default);
+    Task<ModerationActionResponse> UpdateShopStatusAsync(Guid adminId, Guid shopId, UpdateShopModerationStatusRequest request, CancellationToken ct);
 }

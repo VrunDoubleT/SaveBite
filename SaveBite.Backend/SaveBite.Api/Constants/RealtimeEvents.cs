@@ -19,6 +19,7 @@ public static class RealtimeEvents
     // Keep order notification reasons stable across publishers and recipient filtering.
     public static class OrderReasons
     {
+        public const string RefundChanged = "refund-changed";
         public const string Pending = "pending";
         public const string Confirm = "confirm";
         public const string Reject = "reject";
@@ -30,4 +31,9 @@ public static class RealtimeEvents
         public const string PaymentSucceeded = "payment-succeeded";
         public const string NoShow = "no-show";
     }
+    
+    //notification
+    public const string NotificationReceived = "notification.received";
+    public const string NotificationRead = "notification.read";
+    public const string NotificationDeleted = "notification.deleted";
 }

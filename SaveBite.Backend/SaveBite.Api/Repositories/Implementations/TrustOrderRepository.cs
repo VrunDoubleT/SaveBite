@@ -19,7 +19,7 @@ public sealed class TrustOrderRepository : ITrustOrderRepository
         await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM users WHERE id = {userId.Value} FOR UPDATE", ct);
         await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM orders WHERE id = {orderId} FOR SHARE", ct);
         _db.ChangeTracker.Clear();
-        var order = await _db.Orders.Include(x => x.StatusHistories).SingleAsync(x => x.Id == orderId, ct);
+        var order = await _db.Orders.Include(x => x.StatusHistories).Include(x => x.Refunds).SingleAsync(x => x.Id == orderId, ct);
         await handle(order);
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

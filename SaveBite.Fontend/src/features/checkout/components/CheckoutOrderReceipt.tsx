@@ -1,13 +1,15 @@
-import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
+﻿import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
-import { CustomerRefundPanel } from "@/features/shop-orders/components/CustomerRefundPanel";
+import { CustomerOrderRefunds } from "@/features/refunds/components/CustomerOrderRefunds";
 import { OrderPickupDeadlines } from "./OrderPickupDeadlines";
 import { OrderPickupCode } from "./OrderPickupCode";
 import { OrderStatusPanel } from "./OrderStatusPanel";
 import { CancelOrderAction } from "./CancelOrderAction";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, CreditCard, Store, Package, MapPin, ShoppingBag } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, Store, Package, MapPin, ShoppingBag, Star } from "lucide-react";
+import { RateOrderModal } from "@/features/feedbacks/components/RateOrderModal";
+import { EditReviewModal } from "@/features/feedbacks/components/EditReviewModal";
 import { APP_PATHS } from "@/app/router/paths";
 import { orderApi } from "@/features/orders/api/orderApi";
 import { paymentApi } from "@/features/payments/api/paymentApi";
@@ -22,6 +24,13 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<CheckoutOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ratingItemId, setRatingItemId] = useState<string | null>(null);
+  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<{
+    feedbackId: string;
+    productName?: string;
+    variantName?: string;
+    imageUrl?: string | null;
+  } | null>(null);
   const [now, setNow] = useState(Date.now);
   const alive = useRef(true);
   const revision = useRef(0);
@@ -106,6 +115,22 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
   }
   return (
     <div className="w-full min-w-0 py-5 md:py-6">
+      <RateOrderModal
+        isOpen={ratingItemId !== null}
+        onClose={() => setRatingItemId(null)}
+        order={order}
+        focusOrderItemId={ratingItemId || undefined}
+        onSubmitted={() => void update(() => orderApi.order(orderId))}
+      />
+      <EditReviewModal
+        isOpen={Boolean(editingFeedbackTarget)}
+        onClose={() => setEditingFeedbackTarget(null)}
+        feedbackId={editingFeedbackTarget?.feedbackId ?? null}
+        initialProductName={editingFeedbackTarget?.productName}
+        initialVariantName={editingFeedbackTarget?.variantName}
+        initialImageUrl={editingFeedbackTarget?.imageUrl}
+        onUpdated={() => void update(() => orderApi.order(orderId))}
+      />
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <Link
           to={APP_PATHS.ACCOUNT_ORDERS}
@@ -162,9 +187,6 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
               {order.paymentMessage}
             </p>
           )}
-          {["Rejected", "Expired"].includes(order.status) && (
-            <CustomerRefundPanel key={`${order.id}:${order.status}`} orderId={order.id} />
-          )}
           <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
             <div className="min-w-0 space-y-4">
               <section
@@ -217,6 +239,42 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                             <span className="font-semibold text-neutral-800">{item.quantity}</span>{" "}
                             × {money(item.unitPrice)}
                           </p>
+                          {order.status === "Completed" && (
+                            <div className="mt-2">
+                              {item.canReview && item.orderItemId ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setRatingItemId(item.orderItemId ?? "")}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                                >
+                                  <Star size={13} className="fill-amber-400 text-amber-500" />
+                                  Rate this item
+                                </button>
+                              ) : item.rating ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (item.feedbackId) {
+                                      setEditingFeedbackTarget({
+                                        feedbackId: item.feedbackId,
+                                        productName: item.productName,
+                                        variantName: item.variantName,
+                                        imageUrl: item.imageUrl,
+                                      });
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer text-left"
+                                >
+                                  <CheckCircle2 size={13} />
+                                  Reviewed
+                                  <Star size={12} className="fill-amber-400 text-amber-400" />
+                                  {item.rating}/5 · Edit review
+                                </button>
+                              ) : null}
+                            </div>
+                          )}
+                          <p className="hidden">
+                          </p>
                         </div>
                         <p className="col-start-2 text-sm font-bold tabular-nums text-neutral-900 sm:col-start-auto sm:text-right">
                           {money(item.subtotal)}
@@ -242,12 +300,7 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                   GMT+7 · Pickup deadlines do not extend during payment.
                 </p>
               </section>
-              <CancelOrderAction
-                order={order}
-                now={now}
-                busy={busy}
-                onCancel={() => update(() => orderApi.cancel(orderId))}
-              />
+
             </div>
             <aside
               aria-label="Payment summary"
@@ -323,6 +376,17 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                 </div>
               )}
             </aside>
+          </div>
+          <div className="space-y-4">
+            {["Completed", "Rejected", "Expired"].includes(order.status) && (
+              <CustomerOrderRefunds key={`${order.id}:${order.status}`} order={order} />
+            )}
+            <CancelOrderAction
+              order={order}
+              now={now}
+              busy={busy}
+              onCancel={() => update(() => orderApi.cancel(orderId))}
+            />
           </div>
         </div>
       )}

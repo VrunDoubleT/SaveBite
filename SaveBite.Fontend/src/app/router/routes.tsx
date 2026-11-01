@@ -1,3 +1,7 @@
+import { CustomerRefundDetailPage } from "@/pages/customer/RefundDetailPage";
+import { ShopRefundDetailPage } from "@/pages/store-owner/RefundDetailPage";
+import { ShopRefundsPage } from "@/pages/store-owner/RefundsPage";
+import { RefundsPage } from "@/pages/customer/RefundsPage";
 import { PaymentsPage } from "@/pages/customer/PaymentsPage";
 import { PaymentDetailPage } from "@/pages/customer/PaymentDetailPage";
 import { Navigate, type RouteObject } from "react-router-dom";
@@ -39,12 +43,22 @@ import { OrderDetailPage } from "@/pages/customer/OrderDetailPage";
 import { OrdersPage } from "@/pages/customer/OrdersPage";
 import { ProfilePage } from "@/pages/customer/ProfilePage";
 
+import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
+import { AdminAuditLogsPage } from "@/pages/admin/AdminAuditLogsPage";
 import { CategoryManagementPage } from "@/pages/admin/CategoryManagementPage";
 import { UserManagementPage } from "@/pages/admin/UserManagementPage";
 import { TrustConfigurationPage } from "@/pages/admin/TrustConfigurationPage";
+import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
 
+import { StoreOwnerDashboardPage } from "@/pages/store-owner/StoreOwnerDashboardPage";
 import { StaffManagementPage } from "@/pages/store-owner/StaffManagementPage";
 import { StaffDetailPage } from "@/pages/store-owner/StaffDetailPage";
+import { PaymentSettingsPage } from "@/pages/store-owner/PaymentSettingsPage";
+import { ShopProfilePage } from "@/pages/store-owner/ShopProfilePage";
+import { StoreOwnerFlashDealsPage } from "@/pages/store-owner/StoreOwnerFlashDealsPage";
+import { StoreOwnerFlashDealDetailPage } from "@/pages/store-owner/StoreOwnerFlashDealDetailPage";
+import { StoreOwnerFlashDealFormPage } from "@/pages/store-owner/StoreOwnerFlashDealFormPage";
+
 import { StaffShopDetailPage } from "@/pages/staff/StaffShopDetailPage";
 import { StaffFlashDealsPage } from "@/pages/staff/StaffFlashDealsPage";
 import { StaffFlashDealDetailPage } from "@/pages/staff/StaffFlashDealDetailPage";
@@ -53,15 +67,21 @@ import { CustomerShopPage } from "@/pages/customer/CustomerShopPage";
 import { CustomerDealDetailPage } from "@/pages/customer/CustomerDealDetailPage";
 import { ComingSoonPage } from "@/pages/commons/ComingSoonPage";
 import { NotFoundPage } from "@/pages/commons/NotFoundPage";
-import { AdminShopApplicationsPage } from "@/pages/admin/AdminShopApplicationsPage";
-import { PaymentSettingsPage } from "@/pages/store-owner/PaymentSettingsPage";
-import { ShopProfilePage } from "@/pages/store-owner/ShopProfilePage";
+import { StoreOwnerReviewsPage } from "@/pages/store-owner/StoreOwnerReviewsPage";
+import { AdminReviewsPage } from "@/pages/admin/AdminReviewsPage";
 
 import { ShopOrdersPage } from "@/pages/shop/ShopOrdersPage";
 import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
-import { StoreOwnerFlashDealsPage } from "@/pages/store-owner/StoreOwnerFlashDealsPage";
-import { StoreOwnerFlashDealDetailPage } from "@/pages/store-owner/StoreOwnerFlashDealDetailPage";
-import { StoreOwnerFlashDealFormPage } from "@/pages/store-owner/StoreOwnerFlashDealFormPage";
+import { PlatformFeeManagementPage } from "@/pages/admin/PlatformFeeManagementPage";
+import { PlatformFeesPage } from "@/pages/store-owner/PlatformFeesPage";
+import { PlatformFeeDetailPage } from "@/pages/store-owner/PlatformFeeDetailPage";
+import { ShopManagementPage } from "@/pages/admin/ShopManagementPage";
+import { ShopContentManagementPage } from "@/pages/admin/ShopContentManagementPage";
+import { ProductManagementPage } from "@/pages/admin/ProductManagementPage";
+import { ProductContentManagementPage } from "@/pages/admin/ProductContentManagementPage";
+import { WarningHistoryPage } from "@/features/warnings/pages/WarningHistoryPage";
+import { FeedbackManagementPage } from "@/pages/admin/FeedbackManagementPage";
+
 
 export const routes: RouteObject[] = [
   {
@@ -150,6 +170,8 @@ export const routes: RouteObject[] = [
                     element: <OrdersPage />,
                   },
                   { path: "payments", element: <PaymentsPage /> },
+                  { path: "refunds", element: <RefundsPage /> },
+                  { path: "refunds/:refundId", element: <CustomerRefundDetailPage /> },
                   { path: "payments/:paymentId", element: <PaymentDetailPage /> },
                   {
                     path: "reviews",
@@ -197,13 +219,11 @@ export const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: (
-              <ComingSoonPage
-                title="Admin overview"
-                description="The admin dashboard is ready for API integration."
-                backTo={APP_PATHS.ADMIN}
-              />
-            ),
+            element: <Navigate to={`${APP_PATHS.ADMIN_ANALYTICS}/overview`} replace />,
+          },
+          {
+            path: `${APP_PATHS.ADMIN_ANALYTICS}/:tab?`,
+            element: <AdminDashboardPage />,
           },
           {
             path: APP_PATHS.ADMIN_USERS,
@@ -219,13 +239,11 @@ export const routes: RouteObject[] = [
           },
           {
             path: APP_PATHS.ADMIN_PRODUCTS,
-            element: (
-              <ComingSoonPage
-                title="Products"
-                description="Product management will appear here when its data source is ready."
-                backTo={APP_PATHS.ADMIN}
-              />
-            ),
+            element: <ProductManagementPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_PRODUCT_CONTENT,
+            element: <ProductContentManagementPage />,
           },
           {
             path: APP_PATHS.ADMIN_ORDERS,
@@ -239,17 +257,31 @@ export const routes: RouteObject[] = [
           },
           {
             path: APP_PATHS.ADMIN_STORES,
-            element: (
-              <ComingSoonPage
-                title="Stores"
-                description="The store management module is being prepared."
-                backTo={APP_PATHS.ADMIN}
-              />
-            ),
+            element: <ShopManagementPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_SHOP_CONTENT,
+            element: <ShopContentManagementPage />,
           },
           {
             path: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
             element: <AdminShopApplicationsPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_PLATFORM_FEE,
+            element: <PlatformFeeManagementPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_FEEDBACK,
+            element: <FeedbackManagementPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_REVIEWS,
+            element: <AdminReviewsPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_AUDIT_LOGS,
+            element: <AdminAuditLogsPage />,
           },
         ],
       },
@@ -299,7 +331,7 @@ export const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: <Navigate to={APP_PATHS.STORE_OWNER_PRODUCTS} replace />,
+            element: <StoreOwnerDashboardPage />,
           },
           {
             path: "products",
@@ -340,6 +372,8 @@ export const routes: RouteObject[] = [
           },
           { path: "orders", element: <ShopOrdersPage /> },
           { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
+          { path: "refunds", element: <ShopRefundsPage /> },
+          { path: "refunds/:refundId", element: <ShopRefundDetailPage /> },
           {
             path: "flash-deals",
             element: <StoreOwnerFlashDealsPage />,
@@ -364,7 +398,7 @@ export const routes: RouteObject[] = [
             path: APP_PATHS.STORE_OWNER_STAFF_INVITATIONS,
             element: <StoreOwnerStaffInvitationsPage />,
           },
-                    {
+          {
             path: APP_PATHS.STORE_OWNER_STAFF_DETAIL,
             element: <StaffDetailPage />,
           },
@@ -373,8 +407,24 @@ export const routes: RouteObject[] = [
             element: <PaymentSettingsPage />,
           },
           {
+            path: APP_PATHS.STORE_OWNER_PLATFORM_FEES,
+            element: <PlatformFeesPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_PLATFORM_FEE_DETAIL,
+            element: <PlatformFeeDetailPage />,
+          },
+          {
             path: APP_PATHS.STORE_OWNER_PROFILE,
             element: <ShopProfilePage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_WARNINGS,
+            element: <WarningHistoryPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_REVIEWS,
+            element: <StoreOwnerReviewsPage />,
           },
         ],
       },

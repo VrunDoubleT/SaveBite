@@ -9,6 +9,8 @@ public static class ServiceExtensions
         this IServiceCollection services)
     {
         services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<IRefundService, RefundService>();
+        services.AddScoped<IRefundImageService, RefundImageService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
@@ -28,12 +30,18 @@ public static class ServiceExtensions
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();
-
+        services.AddScoped<IFeedbackService, FeedbackService>();
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IPaymentHistoryService, PaymentHistoryService>();
         services.AddScoped<IOrderEventPublisher, OrderEventPublisher>();
         services.AddScoped<IShopOrderEventService, ShopOrderEventService>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<INotificationQueue, NotificationQueue>();
+
+        services.AddScoped<IAuditLogService, AuditLogService>();
+        services.AddScoped<IStoreAnalyticsService, StoreAnalyticsService>();
+        services.AddScoped<IPlatformAnalyticsService, PlatformAnalyticsService>();
 
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<ICheckoutService, CheckoutService>();
@@ -62,6 +70,11 @@ public static class ServiceExtensions
             client.Timeout = TimeSpan.FromSeconds(15);
         }).RemoveAllLoggers();
         services.AddScoped<ICartDealEventService, CartDealEventService>();
+        services.AddScoped<IPlatformFeeConfigService, PlatformFeeConfigService>();
+        services.AddScoped<IPlatformFeeStatementService, PlatformFeeStatementService>();
+        
+        services.AddScoped<IWarningService, WarningService>();
+        services.AddScoped<IFeedbackService, FeedbackService>();
 
         return services;
     }

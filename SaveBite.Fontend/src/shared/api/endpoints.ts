@@ -61,6 +61,9 @@ export const API_ENDPOINTS = {
     REVIEWS: (shopId: string) => `/shops/${shopId}/reviews`,
     PAYMENT_CONFIG: "/shops/me/payment-config",
     UPDATE_PAYMENT_CONFIG: "/shops/me/payment-config",
+    ADMIN_LIST: "/shops/admin",
+    ADMIN_CONTENT: (id: string) => `/shops/admin/${id}`,
+    MODERATION_STATUS: (shopId: string) => `/shops/admin/${encodeURIComponent(shopId)}/status`,
   },
   SHOP_APPLICATIONS: {
     BASE: "/shop-applications",
@@ -115,6 +118,11 @@ export const API_ENDPOINTS = {
     VARIANTS: (productId: string, variantId: string) =>
       `/products/${productId}/variants/${variantId}`,
     FLASH_DEALS: (productId: string) => `/products/${productId}/flash-deals`,
+    ADMIN_LIST: "/products/admin",
+    ADMIN_CONTENT: (id: string) => `/products/admin/${id}`,
+    APPROVE_CONTENT: (productId: string, revisionId: string) =>
+      `/products/admin/${encodeURIComponent(productId)}/content-revisions/${encodeURIComponent(revisionId)}/approve`,
+    VIOLATION: (productId: string) => `/products/admin/${encodeURIComponent(productId)}/violation`,
   },
   TRUST_SCORE: {
     ME: "/trust-score/me",
@@ -137,5 +145,70 @@ export const API_ENDPOINTS = {
     SCORE_RULE: (ruleId: string) => `/admin/trust/score-rules/${ruleId}`,
     EARNING_RULES: "/admin/trust/earning-rules",
     EARNING_RULE: (ruleId: string) => `/admin/trust/earning-rules/${ruleId}`,
+  },
+<<<<<<< HEAD
+  PLATFORM_FEES: {
+    ADMIN_CONFIG: "/admin/platform-fee-config",
+    ADMIN_CONFIGS: "/admin/platform-fee-configs",
+    ADMIN_CANCEL_SCHEDULED_CONFIG: (configId: string) =>
+      `/admin/platform-fee-configs/scheduled/${configId}`,
+    ADMIN_STATEMENTS: "/admin/platform-fee-statements",
+    ADMIN_PROCESS_OVERDUE: "/admin/platform-fee-statements/process-overdue",
+    ADMIN_GENERATE_MONTHLY: "/admin/platform-fee-statements/generate-monthly",
+    ADMIN_RECONCILIATION: (statementId: string) =>
+      `/admin/platform-fee-statements/${statementId}/reconciliation`,
+    SHOP_STATEMENTS: (shopId: string) => `/shops/${shopId}/platform-fees`,
+    SHOP_STATEMENT_DETAIL: (shopId: string, statementId: string) =>
+      `/shops/${shopId}/platform-fees/${statementId}`,
+    SHOP_PAYMENT_LINK: (shopId: string, statementId: string) =>
+      `/shops/${shopId}/platform-fees/${statementId}/payment-link`,
+    WEBHOOK: "/platform-fees/payos/webhook",
+  },
+  WARNINGS: {
+    BASE: "/warnings",
+    DETAIL: (warningId: string) => `/warnings/${encodeURIComponent(warningId)}`,
+    ISSUE_FOR_PRODUCT: (productId: string) =>
+      `/warnings/admin/products/${encodeURIComponent(productId)}`,
+  },
+  FEEDBACK: {
+    BASE: "/feedback",
+    REMOVE: (feedbackId: string) => `/feedback/${encodeURIComponent(feedbackId)}`,
+    RESTORE: (feedbackId: string) => `/feedback/${encodeURIComponent(feedbackId)}/restore`,
+  },
+  FEEDBACKS: {
+    BASE: "/feedbacks",
+    HISTORY: "/feedbacks/history",
+    SHOP: "/feedbacks/shop",
+    ADMIN: "/feedbacks/admin",
+    DETAIL: (id: string) => `/feedbacks/${id}`,
+    IMAGES: "/feedbacks/images",
+    REPLY: (id: string) => `/feedbacks/${id}/reply`,
+  },
+  NOTIFICATIONS: {
+    BASE: "/notifications",
+    MARK_ALL_READ: "/notifications/read-all",
+    MARK_READ: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}/read`,
+    DELETE: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}`,
+=======
+  STORE_ANALYTICS: {
+    DASHBOARD: "/shops/me/analytics",
+    REVENUE_OVERVIEW: "/shops/me/analytics/revenue-overview",
+    ORDERS: "/shops/me/analytics/orders",
+    FLASH_DEALS: "/shops/me/analytics/flash-deals",
+    PAYMENT_METHODS: "/shops/me/analytics/payment-methods",
+  },
+  ADMIN_ANALYTICS: {
+    DASHBOARD: "/admin/analytics",
+    PLATFORM_FEES: "/admin/analytics/platform-fees",
+    USERS: "/admin/analytics/users",
+    SHOPS: "/admin/analytics/shops",
+    REVENUE_ORDERS: "/admin/analytics/revenue-orders",
+    FLASH_DEALS: "/admin/analytics/flash-deals",
+    PAYMENTS_REFUNDS: "/admin/analytics/payments-refunds",
+  },
+  ADMIN_AUDIT_LOGS: {
+    BASE: "/admin/audit-logs",
+    DETAIL: (id: string) => `/admin/audit-logs/${id}`,
+>>>>>>> origin/feature/iss-18-store-dashboard-analytics
   },
 } as const;
