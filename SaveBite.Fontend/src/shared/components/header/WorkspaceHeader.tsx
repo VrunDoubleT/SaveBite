@@ -1,5 +1,6 @@
 import { useAuthStore } from "@/shared/stores/authStore";
 import { useUiStore } from "@/shared/stores/uiStore";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 
 interface WorkspaceHeaderProps {
   subtitle: string;
@@ -32,15 +33,18 @@ export function WorkspaceHeader({ subtitle, title }: WorkspaceHeaderProps) {
 
         <div className="flex items-center gap-3">
           {user && (
-            <div className="flex items-center gap-3">
-              <div className="hidden text-right sm:block">
-                <p className="text-sm font-semibold text-neutral-800">{user.fullName}</p>
-                <p className="text-xs font-medium text-neutral-500">{user.email}</p>
+            <>
+              <NotificationBell />
+              <div className="flex items-center gap-3">
+                <div className="hidden text-right sm:block">
+                  <p className="text-sm font-semibold text-neutral-800">{user.fullName}</p>
+                  <p className="text-xs font-medium text-neutral-500">{user.email}</p>
+                </div>
+                <span className="flex size-9 items-center justify-center rounded-full bg-primary-50 text-sm font-bold text-primary-700">
+                  {user.fullName.charAt(0).toUpperCase()}
+                </span>
               </div>
-              <span className="flex size-9 items-center justify-center rounded-full bg-primary-50 text-sm font-bold text-primary-700">
-                {user.fullName.charAt(0).toUpperCase()}
-              </span>
-            </div>
+            </>
           )}
         </div>
       </div>

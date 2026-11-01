@@ -2,6 +2,8 @@ namespace SaveBite.Backend.Messaging.Constants;
 
 public static class RabbitMqQueues
 {
+    public const string NotificationQueueName = "notification_queue";
+    public const string NotificationDeadLetterQueueName = "notification_dead_letter_queue";
     public const string UserTrustQueueName = "user_trust_queue";
     public const string UserTrustDeadLetterQueueName = "user_trust_dead_letter_queue";
     public const string CartFlashDealDeadLetterQueueName = "cart_flash_deal_dead_letter_queue";

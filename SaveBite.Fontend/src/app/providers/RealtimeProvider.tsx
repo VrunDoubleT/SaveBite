@@ -5,6 +5,8 @@ import { useEffect, useState, type PropsWithChildren } from "react";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { createRealtimeClient } from "@/shared/realtime/realtimeClient";
 import { subscribeCartEvents } from "@/features/cart/realtime/subscribeCartEvents";
+import { subscribeNotificationEvents } from "@/features/notifications/realtime/subscribeNotificationEvents";
+import { useNotificationStore } from "@/features/notifications/stores/notificationStore";
 
 // Own the connection at session level instead of starting a socket in each page or header.
 export function RealtimeProvider({ children }: PropsWithChildren) {
@@ -16,12 +18,15 @@ export function RealtimeProvider({ children }: PropsWithChildren) {
     if (!authenticated || !userId) return;
     const client = createRealtimeClient();
     const detach = subscriptions.attach(client);
-    const unsubscribe = customerActive ? subscribeCartEvents(client) : () => {};
+    const unsubscribeCart = customerActive ? subscribeCartEvents(client) : () => {};
+    const unsubscribeNotifications = subscribeNotificationEvents(client);
     void client.start();
     return () => {
-      unsubscribe();
+      unsubscribeNotifications();
+      unsubscribeCart();
       detach();
       useShopOrderEventsStore.getState().reset();
+      useNotificationStore.getState().reset();
       void client.stop().catch(() => {});
     };
   }, [authenticated, userId, customerActive, subscriptions]);

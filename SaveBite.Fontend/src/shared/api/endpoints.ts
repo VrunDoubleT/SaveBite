@@ -172,4 +172,15 @@ export const API_ENDPOINTS = {
     BASE: "/admin/audit-logs",
     DETAIL: (id: string) => `/admin/audit-logs/${id}`,
   },
+  FEEDBACKS: {
+    BASE: "/feedbacks",
+    HISTORY: "/feedbacks/history",
+    DETAIL: (id: string) => `/feedbacks/${id}`,
+  },
+  NOTIFICATIONS: {
+    BASE: "/notifications",
+    MARK_ALL_READ: "/notifications/read-all",
+    MARK_READ: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}/read`,
+    DELETE: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}`,
+  },
 } as const;

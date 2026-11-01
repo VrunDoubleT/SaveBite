@@ -30,16 +30,21 @@ public static class ServiceExtensions
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();
-
+        services.AddScoped<IFeedbackService, FeedbackService>();
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IPaymentHistoryService, PaymentHistoryService>();
         services.AddScoped<IOrderEventPublisher, OrderEventPublisher>();
         services.AddScoped<IShopOrderEventService, ShopOrderEventService>();
 
+
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IStoreAnalyticsService, StoreAnalyticsService>();
         services.AddScoped<IPlatformAnalyticsService, PlatformAnalyticsService>();
+
+
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<INotificationQueue, NotificationQueue>();
 
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<ICheckoutService, CheckoutService>();
