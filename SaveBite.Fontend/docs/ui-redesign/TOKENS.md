@@ -1,0 +1,56 @@
+# Theme và primitives
+
+Hoàn tất giai đoạn `ui-redesign-tokens`. Nguồn theme duy nhất: `src/index.css`.
+
+- Giữ nguyên 10 giá trị `primary-50` đến `primary-900` so với trước thay đổi.
+- Accent vàng ấm, secondary indigo, warning/info và các nền semantic khớp `ui-redesign-tokens/references/tokens.css`. Danger gốc vẫn giữ nguyên vì reference không đổi giá trị đó.
+- Bổ sung `danger-strong` và `info-strong` cho chữ/nút đạt contrast; không đổi các semantic token tham chiếu. Muted mới đạt 4.51:1 trên trắng; primary button dùng primary-700 đạt 6.29:1.
+- Inter được khai báo qua Google Fonts với display=swap; khi không có mạng dùng font hệ thống. Không cắt dấu tiếng Việt: body 14px, line-height 1.5; title 24/32, section 18/28, caption 12/16.
+- Nền trang bg-body, card bg-surface trắng, border-default, shadow-sm; control radius-md, card radius-lg, pill radius-full. Padding 16px mobile/24px desktop; customer max-width 1280px. Workspace dashboard giữ full width.
+- Focus rõ ràng, thời gian chuyển trạng thái 150ms, reduced-motion; Lucide stroke 1.75. Chart SVG đọc màu bằng CSS variables từ cùng theme, không giữ bản sao hex riêng.
+
+## Dùng components
+
+Import từ `@/shared/components/ui`:
+
+```tsx
+import { Button, Card, FormField, Input, PageHeader } from "@/shared/components/ui";
+
+<PageHeader title="Products" description="Manage your products" />
+<Card>
+  <FormField label="Product name" hint="Use a short name.">
+    {(field) => <Input {...field} name="name" />}
+  </FormField>
+  <Button loading={isSaving}>Save</Button>
+</Card>
+```
+
+Có sẵn Button (primary/secondary/ghost/danger, sm/md/lg, loading/disabled), IconButton (bắt buộc aria-label), Input, Textarea, Select, Checkbox, Switch, FormField, Badge, Card, PageHeader, DataTable, Tabs, Modal, Drawer, Skeleton, EmptyState, ErrorState và StatCard.
+
+Avatar, Pagination và Toast tái sử dụng component/store hiện có. `SharedModal` giữ API cũ, dùng chung Modal cho focus trap/Escape/backdrop/focus restore và scroll lock; children chỉ mount khi mở. Các analytics component hiện có vẫn dùng API cũ. Pagination giữ nguyên logic và props, đổi styling token và wrap controls trên mobile.
+
+`FormField` nối label, hint/error và aria-invalid qua render prop; với Checkbox/Switch cần label bao ngoài hoặc aria-label. DataTable yêu cầu caption/rowKey, có sticky header và normal/loading/empty/error; Tabs hỗ trợ ArrowLeft/Right/Home/End. Modal/Drawer dùng native dialog, cần browser hiện đại hỗ trợ showModal.
+
+Sidebar desktop thu gọn/mở rộng bằng state cục bộ trong WorkspaceLayout; mobile dùng drawer với Escape/focus trap và scroll lock. Giữ danh sách nav, badges, guards và auth/service logic. Các trang chức năng chưa được redesign.
+
+## Xem showcase
+
+Từ thư mục `SaveBite.Fontend`:
+
+```bash
+VITE_ENABLE_MOCK=true npm run dev
+```
+
+Mở `/__ui` trên URL Vite in ra. Route chỉ tồn tại khi **DEV và VITE_ENABLE_MOCK=true**, lazy loaded và bị loại khỏi production bundle. Cờ này ở giai đoạn hiện tại chỉ bật showcase; chưa giả lập session, HTTP hay realtime. Showcase dùng dữ liệu mẫu nội bộ, không cần backend nếu trình duyệt chưa có session lưu. Nếu có session cũ, AppProvider hiện tại vẫn thực hiện session bootstrap như trước.
+
+Chạy bình thường `npm run dev` không bật showcase. Không thêm `/__ui` vào điều hướng production.
+
+## Kiểm tra
+
+- `npm run build`: TypeScript + production build.
+- ESLint toàn bộ file TypeScript thay đổi và các primitives/showcase mới.
+- So sánh token với reference và với primary scale trước thay đổi; kiểm tra contrast các cặp chữ/nền mới.
+- Chromium/Playwright trên `/__ui`: desktop 1440px và mobile 390px, không tràn ngang; sidebar collapse/drawer, table normal/loading/empty/error, keyboard tabs, pagination, switch/toast, modal focus vòng kín/Escape/focus restore, reduced-motion, không có page error.
+- Production bundle không chứa `/__ui` hoặc nội dung showcase.
+
+Phạm vi kiểm tra trình duyệt là showcase. Chưa kiểm tra toàn bộ route có backend, bản đồ, thanh toán hoặc role thật. Các màu hardcoded và style cũ trong từng trang sẽ được chuyển dần sang primitive/token ở giai đoạn ui-redesign-page; chưa coi QA toàn app hoàn tất. Build vẫn có cảnh báo chunk lớn đã tồn tại trước thay đổi.

@@ -24,20 +24,20 @@
      ACCENT — Orange
      ========================================================= */
 
-  --color-accent-50: #fff6e9;
-  --color-accent-100: #ffe8c2;
-  --color-accent-300: #ffc873;
-  --color-accent-500: #ff9f1c;
-  --color-accent-700: #cc7a0f;
+  --color-accent-50: #fffbeb;
+  --color-accent-100: #fef3c7;
+  --color-accent-300: #fcd34d;
+  --color-accent-500: #f5a524;
+  --color-accent-700: #b45309;
 
   /* =========================================================
      SEMANTIC COLORS
      ========================================================= */
 
   --color-success: #22a866;
-  --color-warning: #ff9f1c;
+  --color-warning: #f5a524;
   --color-danger: #e5484d;
-  --color-info: #2f80ed;
+  --color-info: #3b82f6;
 
   /* =========================================================
      NEUTRAL
@@ -61,7 +61,7 @@
 
   --color-text-primary: #141a18;
   --color-text-secondary: #4e5b56;
-  --color-text-muted: #93a19b;
+  --color-text-muted: #6b7a74;
   --color-text-inverse: #ffffff;
   --color-text-link: #178a54;
 
@@ -111,8 +111,28 @@
   --shadow-none: none;
   --shadow-sm: 0 1px 2px rgba(20, 26, 24, 0.04);
   --shadow-md: 0 2px 8px rgba(20, 26, 24, 0.06);
-  --shadow-lg: 0 6px 16px rgba(20, 26, 24, 0.08);
+  --shadow-lg: 0 8px 24px rgba(20, 26, 24, 0.08);
   --shadow-focus: 0 0 0 3px rgba(67, 198, 127, 0.3);
+  /* Refreshed semantic and secondary tokens */
+  --color-secondary-50: #eef2ff;
+  --color-secondary-100: #e0e7ff;
+  --color-secondary-500: #5b6cf0;
+  --color-secondary-700: #3f4bc4;
+  --color-danger-soft: #fdecec;
+  --color-info-soft: #eaf2ff;
+
+  /* Accessible foregrounds; the reference semantic colors stay unchanged. */
+  --color-danger-strong: #b4232c;
+  --color-info-strong: #2456a6;
+  --text-page: 1.5rem;
+  --text-page--line-height: 2rem;
+  --text-section: 1.125rem;
+  --text-section--line-height: 1.75rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.25rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --ease-ui: cubic-bezier(0, 0, 0.2, 1);
 }
 
 /* =========================================================
@@ -141,6 +161,7 @@
     background: var(--color-bg-body);
     color: var(--color-text-primary);
 
+    font-size: var(--text-body);
     line-height: 1.5;
 
     -webkit-font-smoothing: antialiased;
@@ -172,7 +193,7 @@
 /* Keep the order filter scrollbar subtle without hiding horizontal navigation. */
 .order-status-scroll {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: var(--color-neutral-300) transparent;
 }
 
 .order-status-scroll::-webkit-scrollbar {
@@ -185,11 +206,11 @@
 
 .order-status-scroll::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background-color: #cbd5e1;
+  background-color: var(--color-neutral-300);
 }
 
 .order-status-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
+  background-color: var(--color-neutral-400);
 }
 
 .order-status-scroll::-webkit-scrollbar-button,
@@ -197,4 +218,37 @@
   display: none;
   width: 0;
   height: 0;
+}
+
+/* Shared interaction defaults also cover legacy pages while they migrate. */
+@layer base {
+  :where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-primary-700);
+    outline-offset: 3px;
+    box-shadow: var(--shadow-focus);
+  }
+  :where(button, a, input, textarea, select, summary) {
+    transition-duration: 150ms;
+    transition-timing-function: var(--ease-ui);
+  }
+  .lucide {
+    stroke-width: 1.75;
+  }
+  dialog::backdrop {
+    background: color-mix(in srgb, var(--color-neutral-900) 40%, transparent);
+  }
+  ::selection {
+    background: var(--color-primary-100);
+    color: var(--color-primary-900);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

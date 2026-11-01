@@ -8,7 +8,7 @@ export function CustomerHeader() {
 
   return (
     <header className="sticky top-0 z-20 h-16 border-b border-border-default bg-bg-surface">
-      <div className="mx-auto flex h-full w-full max-w-300 items-center justify-between px-4 md:px-8">
+      <div className="mx-auto flex h-full w-full max-w-320 items-center justify-between px-4 md:px-6">
         <AppLogo />
         {isAuthenticated ? <AuthenticatedHeaderActions /> : <GuestHeaderActions />}
       </div>
