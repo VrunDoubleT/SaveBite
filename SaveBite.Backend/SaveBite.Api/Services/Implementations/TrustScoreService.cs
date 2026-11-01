@@ -231,7 +231,17 @@ public sealed class TrustScoreService : ITrustScoreService
         => metrics.Count == 0 ? 100m : Math.Round(metrics.Average(metric => metric.Percent), 1);
 
     private static PenaltyItemResponse ToPenaltyItem(NoShowPenalty penalty)
-        => new(
+    {
+        var reason = penalty.TrustScoreHistories
+            .Where(h => h.EventType == TrustScoreEventType.NoShow && !string.IsNullOrWhiteSpace(h.Reason))
+            .OrderBy(h => h.CreatedAt)
+            .Select(h => h.Reason)
+            .FirstOrDefault()
+            ?? (penalty.Order?.OrderCode is { Length: > 0 } code
+                ? $"No-show #{penalty.OccurrenceNumber} in {penalty.PenaltyMonth:D2}/{penalty.PenaltyYear} on order {code}."
+                : $"No-show #{penalty.OccurrenceNumber} in {penalty.PenaltyMonth:D2}/{penalty.PenaltyYear}.");
+
+        return new PenaltyItemResponse(
             penalty.Id,
             penalty.OrderId,
             penalty.Order?.OrderCode,
@@ -245,5 +255,7 @@ public sealed class TrustScoreService : ITrustScoreService
             penalty.CompletedOnlineOrders,
             penalty.CompletedOnlineOrderValue,
             penalty.CreatedAt,
-            penalty.RecoveredAt);
+            penalty.RecoveredAt,
+            reason);
+    }
 }

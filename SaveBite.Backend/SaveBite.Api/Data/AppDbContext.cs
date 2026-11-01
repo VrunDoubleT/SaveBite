@@ -46,6 +46,7 @@ public class AppDbContext : DbContext
     public DbSet<UserLevelProgress> UserLevelProgresses => Set<UserLevelProgress>();
     public DbSet<UserTrustLevelHistory> UserTrustLevelHistories => Set<UserTrustLevelHistory>();
     public DbSet<UserTrustScore> UserTrustScores => Set<UserTrustScore>();
+    public DbSet<TrustLevelHistory> TrustLevelHistories => Set<TrustLevelHistory>();
     // Shops.
     public DbSet<Shop> Shops => Set<Shop>();
     public DbSet<ShopApplication> ShopApplications => Set<ShopApplication>();

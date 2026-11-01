@@ -54,4 +54,5 @@ public class User
     public ICollection<ProductFeedback> ProductFeedbacks { get; set; } = new List<ProductFeedback>();
     public ICollection<ProductFeedbackReply> ProductFeedbackReplies { get; set; } = new List<ProductFeedbackReply>();
     public ICollection<ProductFeedbackModerationLog> ModeratedProductFeedbacks { get; set; } = new List<ProductFeedbackModerationLog>();
+    public ICollection<TrustLevelHistory> ChangedTrustLevelHistories { get; set; } = new List<TrustLevelHistory>();
 }

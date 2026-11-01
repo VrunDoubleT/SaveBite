@@ -134,6 +134,68 @@ public static class DbSeeder
             }
         }
         await context.SaveChangesAsync();
+
+        // Ensure every seeded Trust Level has at least Version 1 in trust_level_histories.
+        var adminId = await context.Users
+            .Where(x => x.Email == MarkerEmail)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync();
+
+        var existingHistoryLevelIds = await context.TrustLevelHistories
+            .Select(h => h.TrustLevelId)
+            .Distinct()
+            .ToListAsync();
+        var existingSet = existingHistoryLevelIds.ToHashSet();
+
+        var allLevels = await context.TrustLevels
+            .Include(x => x.Requirement)
+            .Include(x => x.DepositPolicy)
+                .ThenInclude(p => p!.Ranges)
+            .ToListAsync();
+
+        foreach (var lv in allLevels.Where(l => !existingSet.Contains(l.Id)))
+        {
+            var snapshot = lv.DepositPolicy is null
+                ? null
+                : System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    lv.DepositPolicy.RequireFullOnlinePayment,
+                    lv.DepositPolicy.DepositFreeOrderAmount,
+                    lv.DepositPolicy.MaxDepositOrderAmount,
+                    Ranges = lv.DepositPolicy.Ranges
+                        .OrderBy(r => r.FromOrderAmount)
+                        .Select(r => new
+                        {
+                            r.FromOrderAmount,
+                            r.ToOrderAmount,
+                            r.DepositAmount
+                        })
+                        .ToList()
+                });
+
+            var userCount = await context.UserTrustScores.CountAsync(u => u.TrustLevelId == lv.Id);
+
+            context.TrustLevelHistories.Add(new TrustLevelHistory
+            {
+                Id = Guid.NewGuid(),
+                TrustLevelId = lv.Id,
+                VersionNo = 1,
+                ChangeType = TrustLevelChangeType.Created,
+                Name = lv.Name,
+                Description = lv.Description,
+                Rank = lv.Rank,
+                IsActive = lv.IsActive,
+                MinScore = lv.Requirement?.MinScore ?? 0,
+                MinCompletedOrders = lv.Requirement?.MinCompletedOrders ?? 0,
+                MinTotalOrderValue = lv.Requirement?.MinTotalOrderValue ?? 0m,
+                DepositPolicySnapshotJson = snapshot,
+                AffectedUserCount = userCount,
+                ChangedByUserId = adminId,
+                ChangedAt = lv.CreatedAt
+            });
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private static async Task EnsureCategoriesSeededAsync(AppDbContext context)
@@ -357,8 +419,8 @@ public static class DbSeeder
 
         await db.AddRangeAsync(
             new NoShowPenalty { Id = Id(97), UserId = Id(4), OrderId = Id(51), RecoveryRuleId = Id(96), PenaltyYear = now.AddDays(-8).Year, PenaltyMonth = now.AddDays(-8).Month, OccurrenceNumber = 1, ScoreDeducted = 20, RequiredOnlineOrders = 1, RequiredOnlineOrderValue = 30000m, CompletedOnlineOrders = 1, CompletedOnlineOrderValue = 35000m, PermanentOfflineLock = false, LockEndsAt = now.AddDays(-3), Status = NoShowPenaltyStatus.Recovered, CreatedAt = now.AddDays(-8).AddHours(1), RecoveredAt = now.AddDays(-3).AddMinutes(25) },
-            new TrustScoreHistory { Id = Id(103), UserId = Id(4), OrderId = Id(51), RuleId = Id(95), EventType = TrustScoreEventType.NoShow, ScoreBefore = 100, ScoreDelta = -20, ScoreAfter = 80, Reason = "Khong den nhan don hang.", CreatedAt = now.AddDays(-8).AddHours(1) },
-            new TrustScoreHistory { Id = Id(104), UserId = Id(4), OrderId = Id(52), RuleId = Id(94), EventType = TrustScoreEventType.OrderCompleted, ScoreBefore = 80, ScoreDelta = 5, ScoreAfter = 85, Reason = "Hoan thanh don online.", CreatedAt = now.AddDays(-3).AddMinutes(25) });
+            new TrustScoreHistory { Id = Id(103), UserId = Id(4), OrderId = Id(51), RuleId = Id(95), NoShowPenaltyId = Id(97), EventType = TrustScoreEventType.NoShow, ScoreBefore = 100, ScoreDelta = -20, ScoreAfter = 80, Reason = $"No-show #1 in {now.AddDays(-8):MM/yyyy} on order SB-SEED-0002.", CreatedAt = now.AddDays(-8).AddHours(1) },
+            new TrustScoreHistory { Id = Id(104), UserId = Id(4), OrderId = Id(52), RuleId = Id(94), EventType = TrustScoreEventType.OrderCompleted, ScoreBefore = 80, ScoreDelta = 5, ScoreAfter = 85, Reason = "Completed OnlinePayment order SB-SEED-0003.", CreatedAt = now.AddDays(-3).AddMinutes(25) });
         await db.SaveChangesAsync();
 
         await db.AddRangeAsync(

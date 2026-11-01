@@ -25,7 +25,7 @@ public sealed class GetPenaltiesRequest
 }
 
 // ---------------------------------------------------------------------
-// Admin-side requests (UC-130, UC-132, UC-134, UC-136, UC-138)
+// Admin-side requests (UC-130, UC-132, UC-134, UC-136, UC-138, UC-153 .. UC-156)
 // ---------------------------------------------------------------------
 
 public sealed class TrustLevelDepositRangeRequest
@@ -60,6 +60,44 @@ public sealed class UpdateTrustLevelRequirementRequest
     public decimal MinTotalOrderValue { get; set; }
 }
 
+// UC-153: Add New Level (Name + Requirement + Benefits/Deposit Policy in one transaction)
+public sealed class CreateTrustLevelRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public UpdateTrustLevelRequirementRequest Requirement { get; set; } = new();
+    public UpdateTrustLevelBenefitsRequest Benefits { get; set; } = new();
+}
+
+// UC-154: Update Level Information (Rename only)
+public sealed class UpdateTrustLevelInfoRequest
+{
+    public string Name { get; set; } = string.Empty;
+}
+
+// UC-155: Update Level Status (Deactivate / Reactivate)
+public sealed class UpdateTrustLevelStatusRequest
+{
+    public bool IsActive { get; set; }
+}
+
+// UC-156: Add New Penalty Rule
+public sealed class CreatePenaltyRuleRequest
+{
+    public int MinimumOccurrence { get; set; }
+    public int ScoreDeduction { get; set; }
+    public int RequiredOnlineOrders { get; set; }
+    public decimal RequiredOnlineOrderValue { get; set; }
+    public bool PermanentOfflineLock { get; set; }
+    public bool IsActive { get; set; } = true;
+
+    /// <summary>When the new rule takes effect. Defaults to now.</summary>
+    public DateTime? EffectiveFrom { get; set; }
+
+    /// <summary>Optional end time of the rule. Null means open-ended.</summary>
+    public DateTime? EffectiveTo { get; set; }
+}
+
+// UC-134: Update Penalty Rule
 public sealed class UpdatePenaltyRuleRequest
 {
     public int MinimumOccurrence { get; set; }
@@ -69,8 +107,11 @@ public sealed class UpdatePenaltyRuleRequest
     public bool PermanentOfflineLock { get; set; }
     public bool IsActive { get; set; } = true;
 
-    /// <summary>When the new version takes effect. Defaults to now.</summary>
+    /// <summary>When the rule takes effect.</summary>
     public DateTime? EffectiveFrom { get; set; }
+
+    /// <summary>Optional end time of the rule. Null means open-ended.</summary>
+    public DateTime? EffectiveTo { get; set; }
 }
 
 public sealed class UpdateTrustScoreRuleRequest

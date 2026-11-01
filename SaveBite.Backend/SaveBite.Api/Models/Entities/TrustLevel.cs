@@ -22,4 +22,5 @@ public class TrustLevel
     public ICollection<UserTrustScore> UserTrustScores { get; set; } = new List<UserTrustScore>();
     public ICollection<UserTrustLevelHistory> PreviousLevelHistories { get; set; } = new List<UserTrustLevelHistory>();
     public ICollection<UserTrustLevelHistory> NewLevelHistories { get; set; } = new List<UserTrustLevelHistory>();
+    public ICollection<TrustLevelHistory> Histories { get; set; } = new List<TrustLevelHistory>();
 }

@@ -81,6 +81,7 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
 
         var items = await query
             .Include(penalty => penalty.Order)
+            .Include(penalty => penalty.TrustScoreHistories)
             .OrderByDescending(penalty => penalty.CreatedAt)
             .ThenByDescending(penalty => penalty.Id)
             .Skip((request.Page - 1) * request.PageSize)
@@ -95,6 +96,7 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
         Guid userId, Guid penaltyId, CancellationToken cancellationToken = default)
         => _dbContext.NoShowPenalties.AsNoTracking()
             .Include(penalty => penalty.Order)
+            .Include(penalty => penalty.TrustScoreHistories)
             .Include(penalty => penalty.RecoveryOrders)
                 .ThenInclude(recovery => recovery.Order)
             .AsSplitQuery()

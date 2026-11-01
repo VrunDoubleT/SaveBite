@@ -107,14 +107,21 @@ public sealed class TrustOrderService : ITrustOrderService
         => p.CompletedOnlineOrders >= p.RequiredOnlineOrders && p.CompletedOnlineOrderValue >= p.RequiredOnlineOrderValue;
 
     // Save the actual clamped delta and immutable source order/rule links for audit and support.
-    private void ChangeScore(UserTrustScore score, Order order, int delta, Guid? ruleId, Guid? penaltyId, TrustScoreEventType type, DateTime at)
+    // Save the actual clamped delta and immutable source order/rule links for audit and support.
+    private void ChangeScore(UserTrustScore score, Order order, int delta, Guid? ruleId, Guid? penaltyId, TrustScoreEventType type, DateTime at, NoShowPenalty? penalty = null)
     {
         var before = score.CurrentScore;
         score.CurrentScore = checked((int)Math.Max(0L, (long)before + delta));
+        var reason = type == TrustScoreEventType.NoShow
+            ? (penalty != null
+                ? $"No-show #{penalty.OccurrenceNumber} in {penalty.PenaltyMonth:D2}/{penalty.PenaltyYear} on order {order.OrderCode}."
+                : $"No-show penalty on order {order.OrderCode}.")
+            : $"Completed {order.PaymentMethod} order {order.OrderCode}.";
+
         _repository.Add(new TrustScoreHistory { Id = Guid.NewGuid(), UserId = score.UserId, OrderId = order.Id,
             RuleId = ruleId, NoShowPenaltyId = penaltyId, EventType = type, ScoreBefore = before,
             ScoreDelta = score.CurrentScore - before, ScoreAfter = score.CurrentScore,
-            Reason = type == TrustScoreEventType.NoShow ? "NoShow penalty applied." : $"Completed {order.PaymentMethod} order.", CreatedAt = at });
+            Reason = reason, CreatedAt = at });
     }
     // Link level transitions to their source order and penalty without resetting earned totals.
     private void AddLevelHistory(UserTrustScore score, Guid? previous, Guid next, TrustLevelChangeReason reason, Order order, Guid? penaltyId, DateTime at)
