@@ -91,6 +91,7 @@ export function TrustPenaltiesPanel() {
                 <tr>
                   <th className="px-5 py-3 font-semibold">Date</th>
                   <th className="px-5 py-3 font-semibold">Order</th>
+                  <th className="px-5 py-3 font-semibold">Reason</th>
                   <th className="px-5 py-3 text-right font-semibold">Points</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 font-semibold">Recovery</th>
@@ -110,6 +111,9 @@ export function TrustPenaltiesPanel() {
                       <p className="text-xs text-text-secondary">
                         No-show #{penalty.occurrenceNumber} this month
                       </p>
+                    </td>
+                    <td className="max-w-[260px] px-5 py-3 text-xs text-text-secondary">
+                      {penalty.reason ?? "—"}
                     </td>
                     <td className="px-5 py-3 text-right font-semibold tabular-nums text-danger">
                       -{penalty.scoreDeducted}

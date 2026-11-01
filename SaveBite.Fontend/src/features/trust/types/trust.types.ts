@@ -116,6 +116,7 @@ export interface PenaltyItem {
   completedOnlineOrderValue: number;
   createdAt: string;
   recoveredAt?: string | null;
+  reason?: string | null;
 }
 
 export interface PenaltyRecoveryOrder {

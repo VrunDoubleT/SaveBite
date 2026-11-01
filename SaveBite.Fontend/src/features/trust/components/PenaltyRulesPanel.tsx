@@ -1,28 +1,43 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { SharedModal } from "@/shared/components/modal/BaseModal";
 import { getApiErrorMessage } from "@/shared/api";
 import { toast } from "@/shared/stores/toastStore";
 import { adminTrustApi } from "../api/adminTrustApi";
 import { useApiResource } from "../hooks/useApiResource";
-import type { PenaltyRule, UpdatePenaltyRulePayload } from "../types/adminTrust.types";
+import type {
+  CreatePenaltyRulePayload,
+  PenaltyRule,
+  UpdatePenaltyRulePayload,
+} from "../types/adminTrust.types";
 import { formatCurrency, formatDateTime } from "../utils/format";
-import { getRuleStatus, isEditableVersion } from "../utils/ruleStatus";
+import { getRuleStatus, isFutureRule } from "../utils/ruleStatus";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
 import { PenaltyRuleModal } from "./PenaltyRuleModal";
 import { RuleStatusBadge } from "./RuleStatusBadge";
 
-// UC-133 (view) and UC-134 (update) of the no-show penalty rules.
+// UC-133 (view), UC-134 (update), UC-156 (create), and delete future scheduled penalty rules.
 export function PenaltyRulesPanel() {
   const fetchRules = useCallback(() => adminTrustApi.getPenaltyRules(), []);
   const { data, error, reload } = useApiResource("admin-trust:penalty-rules", fetchRules);
 
-  const [now] = useState(() => Date.now());
-  const [showHistory, setShowHistory] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const [showHistory, setShowHistory] = useState(true);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<PenaltyRule | null>(null);
+  const [deletingRule, setDeletingRule] = useState<PenaltyRule | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const saveRule = async (ruleId: string, payload: UpdatePenaltyRulePayload) => {
+  const suggestedOccurrence = useMemo(() => {
+    if (!data || data.length === 0) return 1;
+    return Math.max(...data.map((r) => r.minimumOccurrence)) + 1;
+  }, [data]);
+
+  const createRule = async (payload: CreatePenaltyRulePayload) => {
     try {
-      await adminTrustApi.updatePenaltyRule(ruleId, payload);
-      toast.success("Penalty rule updated.");
+      await adminTrustApi.createPenaltyRule(payload);
+      toast.success("New penalty rule created.");
+      setNow(Date.now());
       reload();
       return null;
     } catch (caught) {
@@ -30,15 +45,36 @@ export function PenaltyRulesPanel() {
     }
   };
 
+  const saveRule = async (ruleId: string, payload: UpdatePenaltyRulePayload) => {
+    try {
+      await adminTrustApi.updatePenaltyRule(ruleId, payload);
+      toast.success("Penalty rule updated.");
+      setNow(Date.now());
+      reload();
+      return null;
+    } catch (caught) {
+      return getApiErrorMessage(caught);
+    }
+  };
+
+  const confirmDeleteRule = async () => {
+    if (!deletingRule) return;
+    setIsDeleting(true);
+    try {
+      await adminTrustApi.deletePenaltyRule(deletingRule.id);
+      toast.success("Future penalty rule deleted.");
+      setDeletingRule(null);
+      setNow(Date.now());
+      reload();
+    } catch (caught) {
+      toast.error(getApiErrorMessage(caught));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (error && !data) return <PanelError message={error} onRetry={reload} />;
   if (!data) return <PanelSkeleton rows={3} />;
-  if (data.length === 0)
-    return (
-      <PanelEmpty
-        title="No penalty rules"
-        description="No-show penalty rules have not been set up."
-      />
-    );
 
   const rows = data.filter((rule) => showHistory || getRuleStatus(rule, now) !== "replaced");
 
@@ -48,75 +84,188 @@ export function PenaltyRulesPanel() {
         <div>
           <h3 className="text-base font-bold text-text-primary">No-show penalty rules</h3>
           <p className="text-sm text-text-secondary">
-            Points deducted and what a customer must do to recover after a no-show.
+            Points deducted, recovery requirements, and effective schedules after a no-show.
           </p>
         </div>
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
-          <input
-            type="checkbox"
-            checked={showHistory}
-            onChange={(event) => setShowHistory(event.target.checked)}
-            className="size-4 rounded border-border-default text-primary-600 focus:ring-primary-500"
-          />
-          Show replaced versions
-        </label>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={showHistory}
+              onChange={(event) => setShowHistory(event.target.checked)}
+              className="size-4 rounded border-border-default text-primary-600 focus:ring-primary-500"
+            />
+            Show expired / replaced rules
+          </label>
+
+          <button
+            type="button"
+            onClick={() => setIsCreateOpen(true)}
+            className="inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+          >
+            <Plus className="size-4" />
+            Add penalty rule
+          </button>
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border-default bg-bg-surface">
-        <table className="min-w-full divide-y divide-border-default text-left text-sm">
-          <thead className="bg-neutral-50 text-text-secondary">
-            <tr>
-              <th className="px-5 py-3 font-semibold">From no-show #</th>
-              <th className="px-5 py-3 text-right font-semibold">Points deducted</th>
-              <th className="px-5 py-3 font-semibold">Recovery requirement</th>
-              <th className="px-5 py-3 font-semibold">Pay at shop</th>
-              <th className="px-5 py-3 font-semibold">Status</th>
-              <th className="px-5 py-3 font-semibold">Effective</th>
-              <th className="px-5 py-3 text-right font-semibold">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border-default text-text-primary">
-            {rows.map((rule) => {
-              const status = getRuleStatus(rule, now);
-              return (
-                <tr key={rule.id} className={status === "replaced" ? "text-text-muted" : ""}>
-                  <td className="px-5 py-3 font-semibold tabular-nums">{rule.minimumOccurrence}</td>
-                  <td className="px-5 py-3 text-right tabular-nums">-{rule.scoreDeduction}</td>
-                  <td className="px-5 py-3 text-xs">
-                    <p>{rule.requiredOnlineOrders} online orders</p>
-                    <p>{formatCurrency(rule.requiredOnlineOrderValue)}</p>
-                  </td>
-                  <td className="px-5 py-3 text-xs">
-                    {rule.permanentOfflineLock ? "Turned off permanently" : "Not affected"}
-                  </td>
-                  <td className="px-5 py-3">
-                    <RuleStatusBadge status={status} />
-                  </td>
-                  <td className="px-5 py-3 text-xs">
-                    <p>From {formatDateTime(rule.effectiveFrom)}</p>
-                    {rule.effectiveTo && <p>Until {formatDateTime(rule.effectiveTo)}</p>}
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    {isEditableVersion(rule) && (
-                      <button
-                        type="button"
-                        onClick={() => setEditingRule(rule)}
-                        className="rounded-md border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-neutral-50"
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {data.length === 0 ? (
+        <PanelEmpty
+          title="No penalty rules"
+          description="No-show penalty rules have not been set up."
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border-default bg-bg-surface">
+          <table className="min-w-full divide-y divide-border-default text-left text-sm">
+            <thead className="bg-neutral-50 text-text-secondary">
+              <tr>
+                <th className="px-5 py-3 font-semibold">From no-show #</th>
+                <th className="px-5 py-3 text-right font-semibold">Points deducted</th>
+                <th className="px-5 py-3 font-semibold">Recovery requirement</th>
+                <th className="px-5 py-3 font-semibold">Pay at shop</th>
+                <th className="px-5 py-3 font-semibold">Status</th>
+                <th className="px-5 py-3 font-semibold">Effective period</th>
+                <th className="px-5 py-3 text-right font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-default text-text-primary">
+              {rows.map((rule) => {
+                const status = getRuleStatus(rule, now);
+                const canDelete = isFutureRule(rule, now);
 
-      <PenaltyRuleModal rule={editingRule} onClose={() => setEditingRule(null)} onSave={saveRule} />
+                return (
+                  <tr
+                    key={rule.id}
+                    className={
+                      status === "replaced" || status === "disabled"
+                        ? "bg-neutral-100/80 text-text-muted"
+                        : ""
+                    }
+                  >
+                    <td className="px-5 py-3 font-semibold tabular-nums">
+                      #{rule.minimumOccurrence}
+                    </td>
+                    <td className="px-5 py-3 text-right font-semibold tabular-nums text-danger">
+                      -{rule.scoreDeduction}
+                    </td>
+                    <td className="px-5 py-3 text-xs">
+                      <p>{rule.requiredOnlineOrders} online orders</p>
+                      <p>{formatCurrency(rule.requiredOnlineOrderValue)}</p>
+                    </td>
+                    <td className="px-5 py-3 text-xs">
+                      {rule.permanentOfflineLock ? "Turned off permanently" : "Not affected"}
+                    </td>
+                    <td className="px-5 py-3">
+                      <RuleStatusBadge status={status} />
+                    </td>
+                    <td className="px-5 py-3 text-xs">
+                      <p>
+                        From: <span className="font-medium">{formatDateTime(rule.effectiveFrom)}</span>
+                      </p>
+                      <p className="text-text-secondary">
+                        Until:{" "}
+                        <span className="font-medium">
+                          {rule.effectiveTo ? formatDateTime(rule.effectiveTo) : "Indefinite"}
+                        </span>
+                      </p>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingRule(rule)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-neutral-50"
+                        >
+                          <Pencil className="size-3.5" />
+                          Edit
+                        </button>
+
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => setDeletingRule(rule)}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-red-50"
+                            title="Delete future scheduled rule"
+                          >
+                            <Trash2 className="size-3.5" />
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <PenaltyRuleModal
+        isOpen={isCreateOpen || editingRule !== null}
+        rule={editingRule}
+        existingRules={data}
+        suggestedOccurrence={suggestedOccurrence}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setEditingRule(null);
+        }}
+        onCreate={createRule}
+        onSave={saveRule}
+      />
+
+      <SharedModal
+        isOpen={deletingRule !== null}
+        onClose={() => {
+          if (!isDeleting) setDeletingRule(null);
+        }}
+        title="Delete scheduled penalty rule"
+        maxWidthClass="max-w-md"
+      >
+        {deletingRule && (
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Are you sure you want to delete the scheduled penalty rule for{" "}
+              <strong className="text-text-primary">
+                no-show #{deletingRule.minimumOccurrence}
+              </strong>
+              ?
+            </p>
+            <div className="rounded-lg border border-border-default bg-neutral-50 p-3 text-xs text-text-secondary space-y-1">
+              <p>
+                Points deducted: <strong className="text-danger">-{deletingRule.scoreDeduction}</strong>
+              </p>
+              <p>
+                Scheduled from: <strong>{formatDateTime(deletingRule.effectiveFrom)}</strong>
+              </p>
+              {deletingRule.effectiveTo && (
+                <p>
+                  Scheduled until: <strong>{formatDateTime(deletingRule.effectiveTo)}</strong>
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeletingRule(null)}
+                className="rounded-md border border-border-default bg-white px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => void confirmDeleteRule()}
+                className="rounded-md bg-danger px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {isDeleting ? "Deleting..." : "Delete rule"}
+              </button>
+            </div>
+          </div>
+        )}
+      </SharedModal>
     </section>
   );
 }

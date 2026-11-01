@@ -2,19 +2,62 @@ import { API_ENDPOINTS, httpClient } from "@/shared/api";
 import type { ApiResponse } from "@/shared/types";
 import type {
   AdminTrustLevel,
+  CreatePenaltyRulePayload,
+  CreateTrustLevelPayload,
   PenaltyRule,
+  TrustLevelHistoryItem,
   TrustScoreRule,
   UpdateLevelBenefitsPayload,
+  UpdateLevelInfoPayload,
   UpdateLevelRequirementPayload,
+  UpdateLevelStatusPayload,
   UpdatePenaltyRulePayload,
   UpdateScoreRulePayload,
 } from "../types/adminTrust.types";
 
 export const adminTrustApi = {
-  // UC-129 / UC-131
+  // UC-129 / UC-131 / UC-152
   async getLevels(): Promise<AdminTrustLevel[]> {
     const res = await httpClient.get<ApiResponse<AdminTrustLevel[]>>(
       API_ENDPOINTS.ADMIN_TRUST.LEVELS,
+    );
+    return res.data.data;
+  },
+
+  // UC-152: View Level History
+  async getLevelHistory(levelId: string): Promise<TrustLevelHistoryItem[]> {
+    const res = await httpClient.get<ApiResponse<TrustLevelHistoryItem[]>>(
+      API_ENDPOINTS.ADMIN_TRUST.LEVEL_HISTORY(levelId),
+    );
+    return res.data.data;
+  },
+
+  // UC-153: Add New Level
+  async createLevel(payload: CreateTrustLevelPayload): Promise<AdminTrustLevel> {
+    const res = await httpClient.post<ApiResponse<AdminTrustLevel>>(
+      API_ENDPOINTS.ADMIN_TRUST.LEVELS,
+      payload,
+    );
+    return res.data.data;
+  },
+
+  // UC-154: Update Level Information (Rename)
+  async updateLevelInfo(levelId: string, payload: UpdateLevelInfoPayload): Promise<AdminTrustLevel> {
+    const res = await httpClient.put<ApiResponse<AdminTrustLevel>>(
+      API_ENDPOINTS.ADMIN_TRUST.LEVEL_INFO(levelId),
+      payload,
+    );
+    return res.data.data;
+  },
+
+  // UC-155: Update Level Status (Deactivate / Reactivate)
+  async updateLevelStatus(
+    levelId: string,
+    payload: UpdateLevelStatusPayload,
+  ): Promise<AdminTrustLevel> {
+    const res = await httpClient.put<ApiResponse<AdminTrustLevel>>(
+      API_ENDPOINTS.ADMIN_TRUST.LEVEL_STATUS(levelId),
+      payload,
     );
     return res.data.data;
   },
@@ -45,6 +88,15 @@ export const adminTrustApi = {
     return res.data.data;
   },
 
+  // UC-156: Add New Penalty Rule
+  async createPenaltyRule(payload: CreatePenaltyRulePayload): Promise<PenaltyRule> {
+    const res = await httpClient.post<ApiResponse<PenaltyRule>>(
+      API_ENDPOINTS.ADMIN_TRUST.PENALTY_RULES,
+      payload,
+    );
+    return res.data.data;
+  },
+
   // UC-134
   async updatePenaltyRule(ruleId: string, payload: UpdatePenaltyRulePayload) {
     const res = await httpClient.put<ApiResponse<PenaltyRule>>(
@@ -52,6 +104,11 @@ export const adminTrustApi = {
       payload,
     );
     return res.data.data;
+  },
+
+  // Delete future scheduled penalty rule
+  async deletePenaltyRule(ruleId: string): Promise<void> {
+    await httpClient.delete(API_ENDPOINTS.ADMIN_TRUST.PENALTY_RULE(ruleId));
   },
 
   // UC-135

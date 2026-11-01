@@ -126,6 +126,9 @@ export const API_ENDPOINTS = {
   },
   ADMIN_TRUST: {
     LEVELS: "/admin/trust/levels",
+    LEVEL_HISTORY: (levelId: string) => `/admin/trust/levels/${levelId}/history`,
+    LEVEL_INFO: (levelId: string) => `/admin/trust/levels/${levelId}/info`,
+    LEVEL_STATUS: (levelId: string) => `/admin/trust/levels/${levelId}/status`,
     LEVEL_BENEFITS: (levelId: string) => `/admin/trust/levels/${levelId}/benefits`,
     LEVEL_REQUIREMENTS: (levelId: string) => `/admin/trust/levels/${levelId}/requirements`,
     PENALTY_RULES: "/admin/trust/penalty-rules",

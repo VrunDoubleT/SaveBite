@@ -29,7 +29,10 @@ export function PenaltyRecoveryModal({ penaltyId, onClose }: PenaltyRecoveryModa
               No-show{data.penalty.orderCode ? ` on order ${data.penalty.orderCode}` : ""} ·{" "}
               {formatDateTime(data.penalty.createdAt)}
             </p>
-            <p className="mt-1 text-sm text-text-primary">
+            {data.penalty.reason && (
+              <p className="mt-1 text-sm font-medium text-text-primary">{data.penalty.reason}</p>
+            )}
+            <p className="mt-1 text-sm text-text-secondary">
               {data.penalty.scoreDeducted} points deducted (occurrence #
               {data.penalty.occurrenceNumber} this month).
             </p>
