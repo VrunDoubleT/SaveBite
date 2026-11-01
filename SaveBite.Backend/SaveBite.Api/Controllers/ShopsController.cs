@@ -22,7 +22,7 @@ public sealed class ShopsController : ControllerBase
 
     [HttpGet]
     [GuestAccess]
-    public async Task<ActionResult<ApiResponse<PagedResult<NearbyShopResponse>>>> GetNearby(
+    public async Task<ActionResult<ApiResponse<NearbyShopsPagedResult>>> GetNearby(
         [FromQuery] NearbyShopsRequest request,
         CancellationToken cancellationToken)
     {
@@ -32,7 +32,7 @@ public sealed class ShopsController : ControllerBase
             ? null
             : $"No shops found within a {request.RadiusInKm} km radius of your location.";
 
-        return Ok(ApiResponse<PagedResult<NearbyShopResponse>>.Ok(result, message));
+        return Ok(ApiResponse<NearbyShopsPagedResult>.Ok(result, message));
     }
 
     [HttpGet("{id:guid}")]

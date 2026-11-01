@@ -23,6 +23,8 @@ export const shopApi = {
     totalPages: number;
     page: number;
     pageSize: number;
+    allStoresCount?: number;
+    flashDealsStoresCount?: number;
     message?: string;
   }> {
     const response = await httpClient.get<ApiResponse<NearbyShopsPagedResponse>>(
@@ -38,6 +40,8 @@ export const shopApi = {
       totalPages: data?.totalPages ?? 0,
       page: data?.page ?? 1,
       pageSize: data?.pageSize ?? 6,
+      allStoresCount: data?.allStoresCount,
+      flashDealsStoresCount: data?.flashDealsStoresCount,
       message: response.data.message,
     };
   },

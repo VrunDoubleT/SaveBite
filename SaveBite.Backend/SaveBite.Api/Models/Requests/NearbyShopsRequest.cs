@@ -7,8 +7,12 @@ public class NearbyShopsRequest
     public double RadiusInKm { get; set; } = 10.0;
     public string? Keyword { get; set; }
     public bool? OnlyOpen { get; set; } = false;
+    public bool? OnlyWithFlashDeals { get; set; } = false;
+    public bool? HasFlashDeals { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 6;
+
+    public bool IsFlashDealsOnly => (OnlyWithFlashDeals == true) || (HasFlashDeals == true);
 }
 
 public class StoreReviewsQueryRequest
