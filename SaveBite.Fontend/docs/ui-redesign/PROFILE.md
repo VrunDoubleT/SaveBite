@@ -41,3 +41,9 @@ Design-system searches for `account profile settings form` and `account settings
 - Read-only network checks distinguish the ordinary SignalR negotiate handshake from data mutations. Profile/address/password mutation request count was zero during UI verification.
 - Initial/empty/failed-read/server-write errors and suspended/long readonly data are implemented/reviewed but not forced with fabricated backend responses. Successful saves, uploads, password changes and address mutations were intentionally not exercised on the real account.
 - Screenshots reviewed: `/tmp/savebite-profile-before.png`, `/tmp/savebite-profile-{360,768,1280}.png` and edit/password/address form captures. These are local verification artifacts, not application seed data.
+
+## Profile refinement — email status and Login inputs
+
+- Moved the real status badge beside the identity email in a wrapping row.
+- Extracted the existing Login input recipe into shared `inputStyles.ts`, with no Login appearance change. Profile name/phone and all seven address inputs now opt into shared `Input variant="auth"`; password fields already use that recipe. Borders, normal font weight, white background and green focus border/shadow match Login, with no default dark browser outline. Default Input consumers retain their existing appearance.
+- Targeted ESLint and production build pass. Real authenticated browser checks at 360/768/1280px confirm badge placement, no horizontal overflow and computed normal/focus styles matching Login on profile and address fields. All forms were cancelled; no profile/address/password mutation requests were sent.

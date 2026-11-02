@@ -205,20 +205,21 @@ export function UserProfileCard() {
             >
               {user.fullName}
             </h2>
-            <p
-              title={user.email}
-              className="mt-1 line-clamp-2 text-body text-text-secondary [overflow-wrap:anywhere]"
-            >
-              {user.email}
-            </p>
-
-            <Badge
-              tone={user.customerStatus === "suspended" ? "danger" : "primary"}
-              className="mt-3"
-            >
-              <status.icon className="size-3" aria-hidden="true" />
-              {status.label}
-            </Badge>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <p
+                title={user.email}
+                className="min-w-0 line-clamp-2 text-body text-text-secondary [overflow-wrap:anywhere]"
+              >
+                {user.email}
+              </p>
+              <Badge
+                tone={user.customerStatus === "suspended" ? "danger" : "primary"}
+                className="shrink-0"
+              >
+                <status.icon className="size-3" aria-hidden="true" />
+                {status.label}
+              </Badge>
+            </div>
           </div>
         </div>
 

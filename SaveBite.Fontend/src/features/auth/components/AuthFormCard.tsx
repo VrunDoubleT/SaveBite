@@ -1,4 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react";
+import { authInputStyle } from "@/shared/components/ui/inputStyles";
 
 interface AuthFormCardProps extends PropsWithChildren {
   eyebrow: string;
@@ -21,8 +22,7 @@ export function AuthFormCard({ eyebrow, title, description, footer, children }: 
   );
 }
 
-export const authInputClass =
-  "mt-2 w-full rounded-md border border-border-default bg-white px-4 py-3 font-normal outline-none transition focus:border-border-focus focus:shadow-focus aria-invalid:border-danger aria-invalid:focus:shadow-none";
+export const authInputClass = `mt-2 ${authInputStyle}`;
 
 export const authSubmitClass =
   "w-full rounded-md bg-primary-600 px-5 py-3 font-bold text-white transition hover:bg-primary-700 focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-60";

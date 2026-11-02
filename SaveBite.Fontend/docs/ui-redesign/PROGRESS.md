@@ -25,7 +25,7 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront c
 | `/orders/:orderId` | todo | — | R14; OrderDetailPage; user, staff, storeOwner |
 | `/checkout` | done | ui(/checkout): redesign | R15; full shop/items/GPS/map/payment/policy/summary + receipt, cancellation, review/refund components; 360/768/1280px; xem CHECKOUT.md |
 | `/account` | todo | — | R16; Redirect regression |
-| `/account/profile` | done | ui(/account/profile): redesign | R17; identity/avatar, profile/password forms, complete addresses/GPS/map/default actions; real-backend read-only validation at 360/768/1280px; xem PROFILE.md |
+| `/account/profile` | done | ui(/account/profile): redesign | R17; identity/avatar, profile/password forms, complete addresses/GPS/map/default actions; real-backend read-only validation at 360/768/1280px; status beside email + inputs/focus matching Login; xem PROFILE.md |
 | `/account/orders` | todo | — | R18; OrdersPage; user, staff, storeOwner |
 | `/account/payments` | todo | — | R19; PaymentsPage; user, staff, storeOwner |
 | `/account/refunds` | todo | — | R20; RefundsPage; user, staff, storeOwner |

@@ -254,6 +254,7 @@ export function AddressForm({
           <div className="grid gap-4 md:grid-cols-2">
             <FormField label="Label" error={errors.label?.message}>
               <Input
+                variant="auth"
                 {...register("label")}
                 className="mt-1.5 min-h-11"
                 placeholder="Home, Work..."
@@ -263,6 +264,7 @@ export function AddressForm({
 
             <FormField label="Address line" required error={errors.addressLine?.message}>
               <Input
+                variant="auth"
                 {...register("addressLine")}
                 className="mt-1.5 min-h-11"
                 placeholder="House number, street name..."
@@ -272,6 +274,7 @@ export function AddressForm({
 
             <FormField label="Ward" error={errors.ward?.message}>
               <Input
+                variant="auth"
                 {...register("ward")}
                 className="mt-1.5 min-h-11"
                 aria-invalid={Boolean(errors.ward)}
@@ -280,6 +283,7 @@ export function AddressForm({
 
             <FormField label="District" error={errors.district?.message}>
               <Input
+                variant="auth"
                 {...register("district")}
                 className="mt-1.5 min-h-11"
                 aria-invalid={Boolean(errors.district)}
@@ -292,6 +296,7 @@ export function AddressForm({
               error={errors.city?.message}
             >
               <Input
+                variant="auth"
                 {...register("city")}
                 className="mt-1.5 min-h-11"
                 aria-invalid={Boolean(errors.city)}
@@ -309,6 +314,7 @@ export function AddressForm({
           <div className="grid gap-4 min-[480px]:grid-cols-2">
             <FormField label="Latitude" required error={errors.latitude?.message}>
               <Input
+                variant="auth"
                 {...register("latitude")}
                 type="number"
                 step="any"
@@ -321,6 +327,7 @@ export function AddressForm({
 
             <FormField label="Longitude" required error={errors.longitude?.message}>
               <Input
+                variant="auth"
                 {...register("longitude")}
                 type="number"
                 step="any"

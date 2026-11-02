@@ -67,6 +67,7 @@ export function EditProfileForm({
         <FormField label="Full name" error={errors.fullName?.message}>
           {(field) => (
             <Input
+              variant="auth"
               {...field}
               {...register("fullName")}
               required
@@ -84,6 +85,7 @@ export function EditProfileForm({
         >
           {(field) => (
             <Input
+              variant="auth"
               {...field}
               {...register("phone")}
               type="tel"

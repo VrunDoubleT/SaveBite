@@ -1,3 +1,4 @@
+import { authInputStyle } from "./inputStyles";
 import { Link, type LinkProps } from "react-router-dom";
 import { LoaderCircle } from "lucide-react";
 import { useId, type ComponentProps, type ReactNode } from "react";
@@ -69,8 +70,15 @@ export function IconButton({
 }
 const fieldClass =
   "w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-body text-text-primary placeholder:text-text-muted transition-colors focus:border-border-focus disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-text-muted aria-invalid:border-danger-strong";
-export function Input({ className = "", ...props }: ComponentProps<"input">) {
-  return <input {...props} className={`${fieldClass} min-h-10 ${className}`} />;
+export function Input({
+  variant = "default",
+  className = "",
+  ...props
+}: ComponentProps<"input"> & { variant?: "default" | "auth" }) {
+  const style = variant === "auth"
+    ? `${authInputStyle} disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-text-muted`
+    : fieldClass;
+  return <input {...props} className={`${style} min-h-10 ${className}`} />;
 }
 export function Textarea({ className = "", ...props }: ComponentProps<"textarea">) {
   return <textarea rows={4} {...props} className={`${fieldClass} resize-y ${className}`} />;
