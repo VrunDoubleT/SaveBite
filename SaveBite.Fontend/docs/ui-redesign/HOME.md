@@ -45,3 +45,8 @@ CustomerLayout lets only the Home route own its content width. Once location is 
 The existing GPS callback, loading/disabled status, real saved-address action and inline permission-error/retry guidance remain. No location/shop/deal/auth data is fabricated; hooks, services and DTOs are unchanged.
 
 Validation: targeted lint and production build pass. Real-browser guest checks at 360/768/1280/1920px verify full-width main content, centered entry content, no background pattern/overflow/application errors, visible CTA, keyboard activation and browser-native denied GPS permission/retry. At 1920px, header content remains 1280px wide and centered; the real login page also retains its original centered 1280px main container. Successful GPS/data loading and authenticated saved-address integration still require actual device permissions/backend/account access and retain the existing implementation. Local captures: `/tmp/savebite-location-centered-{360,768,1280,1920}.png` and the mobile denial capture.
+
+
+## Browsing location controls
+
+At the user’s request, the Browsing location header now shows only the current location information; its Use GPS and Saved address buttons were removed. The initial location-selection screen and the map section retain their existing location actions. Hook/service behavior is unchanged.

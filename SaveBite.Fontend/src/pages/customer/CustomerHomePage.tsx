@@ -155,7 +155,7 @@ export function CustomerHomePage() {
           aria-label="Browsing location"
           className="rounded-lg border border-border-default bg-bg-surface shadow-sm"
         >
-          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="p-4">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
                 <MapPin className="size-5" aria-hidden="true" />
@@ -176,29 +176,6 @@ export function CustomerHomePage() {
                   {locationAddress || locationLabel}
                 </p>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-              <Button
-                variant="secondary"
-                className="min-h-11 aria-pressed:border-primary-200 aria-pressed:bg-primary-50 aria-pressed:text-primary-700"
-                onClick={requestGpsLocation}
-                loading={isGpsLoading}
-                aria-pressed={locationMode === "gps"}
-              >
-                <Navigation className="size-4" aria-hidden="true" />
-                Use GPS
-              </Button>
-              {userDefaultAddress && (
-                <Button
-                  variant="secondary"
-                  className="min-h-11 aria-pressed:border-secondary-100 aria-pressed:bg-secondary-50 aria-pressed:text-secondary-700"
-                  onClick={selectSavedAddress}
-                  aria-pressed={locationMode === "saved_address"}
-                >
-                  <Home className="size-4" aria-hidden="true" />
-                  Saved address
-                </Button>
-              )}
             </div>
           </div>
           {gpsError && (
