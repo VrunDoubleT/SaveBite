@@ -1,14 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  ArrowRight,
-  ChevronRight,
-  ShoppingBag,
-  Store,
-  Package,
-  CircleAlert,
-  CheckCircle2,
-} from "lucide-react";
+import { ArrowRight, ShoppingBag, Store, Package, CircleAlert, CheckCircle2 } from "lucide-react";
 import {
   Badge,
   Button,
@@ -89,7 +81,9 @@ export function CartPage() {
                 </Link>
               </li>
               <li className="flex min-w-0 items-center gap-2">
-                <ChevronRight className="size-3 shrink-0 text-text-muted" aria-hidden="true" />
+                <span className="text-text-muted" aria-hidden="true">
+                  ›
+                </span>
                 <span aria-current="page" className="font-medium text-text-primary">
                   Cart
                 </span>

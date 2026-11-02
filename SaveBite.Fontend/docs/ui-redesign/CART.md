@@ -39,4 +39,4 @@ The existing approved UI and its API/DTO contracts are retained. Earlier visual 
 
 ## Cart copy and breadcrumb refinement
 
-Removed the repeated sentence beneath each shop's Checkout button at the user's request. The page-level one-shop checkout explanation and all checkout guards remain. Breadcrumb now uses All deals → Cart, matching the detail pages' compact back link and chevron, with aria-current on the current page.
+Removed the repeated sentence beneath each shop's Checkout button at the user's request. The page-level one-shop checkout explanation and all checkout guards remain. Breadcrumb now uses All deals → Cart, using a compact text link and a plain-text › separator instead of an icon, with aria-current on the current page.
