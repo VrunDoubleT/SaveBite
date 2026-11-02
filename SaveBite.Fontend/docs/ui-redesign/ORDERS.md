@@ -58,3 +58,9 @@ The request action now links to `/orders/:orderId/refund-request` within the exi
 Before uploading/submitting, the page rereads authoritative order/refunds and checks the same completion/deadline/balance/active/request rules. A busy guard prevents duplicate submission. Errors retain the form; success navigates to the returned refund ID’s existing detail route with a success toast. API endpoints/payloads and the one-request policy remain unchanged. Existing refund management stays on the receipt.
 
 Verification: targeted ESLint and production build pass. A real order became eligible during this run. Authenticated direct-route checks at 360/768/1280px confirm the actual eligible form, empty-selection validation, item selection/quantity, required reason/evidence feedback, draft typing, breadcrumb/title, no request modal or horizontal overflow, and Cancel returning to the actual order details. No upload or valid request was submitted; successful submission remains unverified. No artificial eligibility or API responses were introduced.
+
+## Refund placement and request-page alignment correction
+
+Per user feedback, the receipt Refunds section/action is back beneath Payment summary in the right column. The separate request route remains unchanged. Its title, context and form now align with the normal customer content frame rather than a narrower centered 4xl frame. Mobile quantity labels wrap and the sticky action footer stacks into full-width actions; desktop retains an inline footer.
+
+Targeted ESLint and production build pass. Real eligible-order checks at 360/768/1280px verify Refunds shares the payment-column wrapper, Request refund opens the standalone route, form/card aligns with the page heading, item selection/draft input fits without horizontal overflow, and Cancel returns to the actual order. No upload or valid refund submission performed.

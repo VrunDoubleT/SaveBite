@@ -96,7 +96,7 @@ function RefundRequestPage({ orderId }: { orderId: string }) {
   }
   const eligibility = result && refundEligibility(result.order, result.refunds, now);
   return (
-    <div className="mx-auto max-w-4xl space-y-6 py-6 sm:py-8">
+    <div className="min-w-0 w-full space-y-6 py-6 sm:py-8">
       <PageHeader
         title="Request a refund"
         description="Select the affected items and provide details for the shop to review."
@@ -155,7 +155,7 @@ function RefundRequestPage({ orderId }: { orderId: string }) {
       ) : (
         <>
           <Card className="flex flex-wrap items-center justify-between gap-3 !py-4">
-            <div>
+            <div className="min-w-0 [overflow-wrap:anywhere]">
               <p className="font-semibold text-text-primary">{result.order.shopName}</p>
               <p className="mt-1 text-caption text-text-secondary">
                 Order {result.order.orderCode}
@@ -167,7 +167,7 @@ function RefundRequestPage({ orderId }: { orderId: string }) {
               </p>
             )}
           </Card>
-          <Card>
+          <Card className="min-w-0">
             {submitError && (
               <p
                 role="alert"

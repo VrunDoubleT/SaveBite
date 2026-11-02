@@ -97,3 +97,5 @@ Account: giữ PageHeader chung (breadcrumb + tiêu đề/mô tả), chỉ bỏ 
 Refund follow-up: full-width management section and wide request modal with per-item selection/quantity/reason/evidence and sticky actions; lint/build pass, real section responsive checks pass. Current completed orders did not expose an eligible request, so request-form integration remains unverified; see ORDERS.md.
 
 `/orders/:orderId/refund-request`: dedicated authenticated request page replaces request modal; real eligibility/read/retry/back states and submission guard; targeted lint/build pass, real eligible form/validation/cancel checks at 360/768/1280px documented in ORDERS.md; no uploads or refund writes.
+
+Refund placement correction: receipt Refunds restored below Payment summary; standalone request page aligned to the customer frame, mobile footer/quantity wrapping fixed. Real eligible-order 360/768/1280px checks and lint/build pass; see ORDERS.md.

@@ -37,7 +37,7 @@ export function RefundRequestForm({
   return (
     <form
       noValidate
-      className="space-y-5"
+      className="min-w-0 space-y-5"
       aria-label="Refund request"
       onSubmit={(event) => {
         event.preventDefault();
@@ -162,7 +162,7 @@ export function RefundRequestForm({
               {!!quantity && (
                 <div className="space-y-4 border-t border-border-default p-4 sm:p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <label className="flex items-center gap-3 text-body font-medium text-text-secondary">
+                    <label className="flex flex-wrap items-center gap-3 text-body font-medium text-text-secondary">
                       Refund quantity
                       <Input
                         variant="auth"
@@ -253,7 +253,7 @@ export function RefundRequestForm({
           );
         })}
       </fieldset>
-      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border-default bg-bg-surface py-4">
+      <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-t border-border-default bg-bg-surface py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-caption text-text-secondary">
             Selected refund · {Object.values(selected).filter((quantity) => quantity > 0).length}{" "}
@@ -263,7 +263,7 @@ export function RefundRequestForm({
             {money(selectedAmount)}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 [&>button]:flex-1 sm:[&>button]:flex-none">
           <Button variant="secondary" disabled={busy} onClick={onClose} className="min-h-11">
             Cancel
           </Button>
