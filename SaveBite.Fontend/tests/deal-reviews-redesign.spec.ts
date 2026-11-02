@@ -92,7 +92,7 @@ test("reviews have independent loading, retry and empty states", async ({ page }
 
 test("shared store review component preserves shop-page integration", async ({ page }) => {
   await page.goto("/shops/00000000-0000-4000-8000-000000000001?role=user");
-  await page.getByRole("button", { name: /^Reviews/ }).click();
+  await page.getByRole("tab", { name: /^Reviews/ }).click();
   await expect(page.getByRole("button", { name: "All (12)", exact: true })).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(10);
   await page.getByRole("button", { name: "1 star (1)", exact: true }).click();

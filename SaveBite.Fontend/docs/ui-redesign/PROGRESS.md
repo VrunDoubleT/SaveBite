@@ -1,8 +1,8 @@
 # UI redesign progress
 
 Ngày audit: 2026-11-02 (Asia/Bangkok). Nhánh: ui-redesign (đã tồn tại).
-Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; đã tạo mock backend theo DTO thật, redesign trang `/` và flash deal detail.
-Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/` và flash deal detail (hai đường dẫn) đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
+Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; đã tạo mock backend theo DTO thật, redesign trang `/`, flash deal detail và storefront.
+Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail và storefront cùng các alias đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
 
 | Route/task | Status | Commit | Notes |
 |---|---|---|---|
@@ -10,8 +10,8 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/` và flash deal detail (hai đư�
 | Tokens | done | ui(tokens): theme and primitives | Giữ 10 primary greens; màu phụ theo reference; xem TOKENS.md |
 | Mock layer | done | chore(mock): frontend mock backend | MSW; typed DTO fixtures; session role/auth; realtime; search/filter/pagination; mutations + session persistence; xem MOCKS.md |
 | `/` | done | ui(/): redesign | R1; CustomerHomePage; discovery, filters, cards, collapsible map, location/error/loading/empty/partial states; refined subtle color accents; 360/768/1280px; xem HOME.md |
-| `/shops/:id` | todo | — | R2; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
-| `/shop-profile` | todo | — | R3; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
+| `/shops/:id` | done | ui(/shops/:id): redesign | R2; đầy đủ profile/info/tabs; DealGrid/DealCard dùng chung home; StoreReviewList dùng chung detail; retry/partial/empty; xem SHOP.md |
+| `/shop-profile` | done | ui(/shops/:id): redesign | R3; cùng component; route không có id vẫn giữ unavailable gate cũ, UI/regression đã kiểm tra; xem SHOP.md |
 | `/flash-deals/:id` | done | ui(/flash-deals/:id): redesign | R4; approved home accents; gallery 5 ảnh + 4 demo variants, title without green rule, variant/quantity/cart, pickup, full Customer reviews components, all states; 360/768/1280px; xem DEAL-DETAIL.md |
 | `/deals/:id` | done | ui(/flash-deals/:id): redesign | R5; alias cùng CustomerDealDetailPage; responsive/navigation regression passed; xem DEAL-DETAIL.md |
 | `/login` | todo | — | R6; LoginPage; guest, user, staff, storeOwner (admin redirected) |

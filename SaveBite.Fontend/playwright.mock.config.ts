@@ -6,6 +6,7 @@ export default defineConfig({
     "home-redesign.spec.ts",
     "deal-detail-redesign.spec.ts",
     "deal-reviews-redesign.spec.ts",
+    "shop-redesign.spec.ts",
   ],
   fullyParallel: false,
   timeout: 300000,
