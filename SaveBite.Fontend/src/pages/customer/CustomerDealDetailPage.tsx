@@ -539,12 +539,12 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
             <h1 className="text-page font-semibold text-text-primary [overflow-wrap:anywhere]">
               {deal.productName}
             </h1>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="flex min-w-0 flex-col items-start gap-1">
               <Link
                 to={`/shops/${deal.shopId}`}
-                className="inline-flex min-h-10 max-w-full items-center gap-2 text-body font-medium text-text-secondary hover:text-primary-700 hover:underline"
+                className="inline-flex min-h-8 max-w-full items-center gap-2 text-body font-medium text-text-secondary hover:text-primary-700 hover:underline"
               >
-                <Store className="size-4 shrink-0" aria-hidden="true" />
+                <Store className="size-4 shrink-0 text-primary-700" aria-hidden="true" />
                 <span className="truncate" title={deal.shopName}>
                   {deal.shopName}
                 </span>
@@ -553,7 +553,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
 
               <a
                 href="#reviews"
-                className="inline-flex min-h-10 max-w-full flex-wrap items-center gap-2 rounded-md bg-neutral-50 px-3 py-2 text-caption text-text-secondary transition-colors hover:bg-neutral-100 hover:text-text-primary"
+                className="inline-flex min-h-8 max-w-full flex-wrap items-center gap-2 rounded-md border border-accent-100 bg-accent-50 px-2 py-1 text-caption text-text-secondary transition-colors hover:bg-accent-100 hover:text-text-primary"
               >
                 <Star className="size-4 shrink-0 text-accent-700" aria-hidden="true" />
                 {reviewSummary && reviewSummary.totalReviews > 0 ? (

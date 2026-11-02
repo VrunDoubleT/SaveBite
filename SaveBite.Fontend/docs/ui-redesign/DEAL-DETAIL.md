@@ -55,6 +55,6 @@ Final restoration verification: the review suite has six passing checks. Detail/
 
 ## Purchase panel spacing refinement
 
-Grouped the store link and rating link under the product title. The rating is now a single neutral chip with dark score/secondary text and a restrained amber star. Reduced outer section spacing from six to four spacing units and tightened option/action separators so the panel reads as one connected purchase flow. All sections, data and interactions remain present; the lower review component is unchanged.
+The store link and rating link occupy separate compact rows directly under the product title. The store icon uses primary green; the rating uses a soft amber surface, dark score, secondary text and an amber star. Reduced outer section spacing from six to four spacing units and tightened option/action separators so the panel reads as one connected purchase flow. All sections, data and interactions remain present; the lower review component is unchanged.
 
 Targeted lint and production build passed, as did six existing detail/alias/review checks across 360/768/1280px. Reviewed `/tmp/savebite-panel-refined.png`.
