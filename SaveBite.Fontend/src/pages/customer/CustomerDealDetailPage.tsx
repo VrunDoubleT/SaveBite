@@ -521,9 +521,9 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
 
         <Card
           aria-label="Choose your deal"
-          className="min-w-0 space-y-6 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1 lg:row-span-3"
+          className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1 lg:row-span-3"
         >
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               {deal.categoryName && (
                 <Badge tone="info" className="max-w-full bg-secondary-50 text-secondary-700">
@@ -539,34 +539,38 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
             <h1 className="text-page font-semibold text-text-primary [overflow-wrap:anywhere]">
               {deal.productName}
             </h1>
-            <Link
-              to={`/shops/${deal.shopId}`}
-              className="inline-flex max-w-full items-center gap-2 text-body font-medium text-primary-700 hover:underline"
-            >
-              <Store className="size-4 shrink-0" aria-hidden="true" />
-              <span className="truncate" title={deal.shopName}>
-                {deal.shopName}
-              </span>
-              <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
-            </Link>
-          </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Link
+                to={`/shops/${deal.shopId}`}
+                className="inline-flex min-h-10 max-w-full items-center gap-2 text-body font-medium text-text-secondary hover:text-primary-700 hover:underline"
+              >
+                <Store className="size-4 shrink-0" aria-hidden="true" />
+                <span className="truncate" title={deal.shopName}>
+                  {deal.shopName}
+                </span>
+                <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+              </Link>
 
-          <a
-            href="#reviews"
-            className="inline-flex min-h-11 max-w-full flex-wrap items-center gap-2 text-body text-primary-700 hover:underline"
-          >
-            <Star className="size-4 shrink-0 text-accent-700" aria-hidden="true" />
-            {reviewSummary && reviewSummary.totalReviews > 0 ? (
-              <>
-                <strong className="tabular-nums">{reviewSummary.averageRating.toFixed(1)}</strong>
-                <span>Store rating · {reviewSummary.totalReviews} reviews</span>
-              </>
-            ) : (
-              <span>
-                {reviewSummary ? "No reviews yet · View reviews" : "Read customer reviews"}
-              </span>
-            )}
-          </a>
+              <a
+                href="#reviews"
+                className="inline-flex min-h-10 max-w-full flex-wrap items-center gap-2 rounded-md bg-neutral-50 px-3 py-2 text-caption text-text-secondary transition-colors hover:bg-neutral-100 hover:text-text-primary"
+              >
+                <Star className="size-4 shrink-0 text-accent-700" aria-hidden="true" />
+                {reviewSummary && reviewSummary.totalReviews > 0 ? (
+                  <>
+                    <strong className="tabular-nums text-text-primary">
+                      {reviewSummary.averageRating.toFixed(1)}
+                    </strong>
+                    <span>Store rating · {reviewSummary.totalReviews} reviews</span>
+                  </>
+                ) : (
+                  <span>
+                    {reviewSummary ? "No reviews yet · View reviews" : "Read customer reviews"}
+                  </span>
+                )}
+              </a>
+            </div>
+          </div>
 
           <div
             className={`flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 ${isOrderingWindowOpen ? "border-accent-100 bg-accent-50 text-accent-700" : "border-border-default bg-neutral-100 text-text-secondary"}`}
@@ -599,7 +603,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
           </div>
 
           {attributeGroups.length > 0 ? (
-            <div className="space-y-4 border-t border-border-default pt-5">
+            <div className="space-y-3 border-t border-border-default pt-4">
               {attributeGroups.map((group) => (
                 <fieldset key={group.name} className="min-w-0">
                   <legend className="mb-2 text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
@@ -622,7 +626,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
               ))}
             </div>
           ) : deal.variants.length > 1 ? (
-            <fieldset className="min-w-0 border-t border-border-default pt-5">
+            <fieldset className="min-w-0 border-t border-border-default pt-4">
               <legend className="mb-2 text-body font-semibold text-text-primary">Options</legend>
               <div className="flex flex-wrap gap-2">
                 {deal.variants.map((v) => (
@@ -662,7 +666,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
             </div>
           </div>
 
-          <div className="space-y-4 border-t border-border-default pt-5">
+          <div className="space-y-3 border-t border-border-default pt-4">
             <div className="flex items-center justify-between gap-3">
               <span className="text-body font-semibold text-text-primary">Quantity</span>
               <div

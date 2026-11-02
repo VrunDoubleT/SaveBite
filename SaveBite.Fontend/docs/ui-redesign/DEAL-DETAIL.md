@@ -52,3 +52,9 @@ Mock review data includes 12 typed reviews with all star ratings, photos, missin
 Verification: six review checks cover 360/768/1280px, modal keyboard/close/focus restore, star query/reset-to-page-one, page-scoped photos, pagination, loading/error/retry/empty, shared shop integration and existing-session preservation. Targeted lint and production build pass. Review captures: `/tmp/savebite-reviews-{360,768,1280}.png` (sticky site header hidden only during section capture).
 
 Final restoration verification: the review suite has six passing checks. Detail/alias responsive and request-error recovery checks passed again after restoring the rating link; remaining detail and linked-commerce checks passed in the broader run. First-load error-state verification allows mock-worker bootstrap to finish before asserting content. Production build and lint for every changed TypeScript file pass; the existing bundle-size advisory remains.
+
+## Purchase panel spacing refinement
+
+Grouped the store link and rating link under the product title. The rating is now a single neutral chip with dark score/secondary text and a restrained amber star. Reduced outer section spacing from six to four spacing units and tightened option/action separators so the panel reads as one connected purchase flow. All sections, data and interactions remain present; the lower review component is unchanged.
+
+Targeted lint and production build passed, as did six existing detail/alias/review checks across 360/768/1280px. Reviewed `/tmp/savebite-panel-refined.png`.
