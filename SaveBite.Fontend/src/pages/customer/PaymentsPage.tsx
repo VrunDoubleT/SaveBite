@@ -123,17 +123,17 @@ export function PaymentsPage() {
           aria-label={`Payment for order ${payment.orderCode}`}
           className="!p-0 overflow-hidden"
         >
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/40 p-3 sm:p-4">
             <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1">
               <MediaImage
                 src={payment.shopLogoUrl}
                 alt=""
                 fallbackIcon={Store}
                 showFallbackLabel={false}
-                className="size-12 shrink-0 rounded-md"
+                className="size-10 shrink-0 rounded-md"
               />
               <div className="min-w-0">
-                <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
+                <h2 className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
                   {payment.shopName}
                 </h2>
                 <p className="mt-1 text-caption text-text-secondary">Order {payment.orderCode}</p>
@@ -141,7 +141,7 @@ export function PaymentsPage() {
             </div>
             <PaymentStatusBadge status={payment.status} />
           </div>
-          <div className="space-y-4 p-4 sm:p-5">
+          <div className="space-y-3 p-3 sm:p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <p className="inline-flex items-center gap-2 text-body font-semibold text-text-primary">
                 <CreditCard size={17} aria-hidden="true" className="text-secondary-700" />
@@ -152,21 +152,23 @@ export function PaymentsPage() {
                 {payment.paidAt && <p>Paid {checkoutTime(payment.paidAt)}</p>}
               </div>
             </div>
-            <AmountSummary
-              amounts={[
-                { label: "Requested", amount: payment.amount },
-                { label: "Collected", amount: payment.collectedAmount, tone: "primary" },
-              ]}
-            />
-            <div className="flex justify-end border-t border-border-default pt-3">
-              <ButtonLink
-                to={`${APP_PATHS.ACCOUNT_PAYMENTS}/${encodeURIComponent(payment.id)}`}
-                variant="secondary"
-                className="min-h-11 w-full sm:w-auto"
-              >
-                View details
-                <ArrowRight size={16} aria-hidden="true" />
-              </ButtonLink>
+            <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <AmountSummary
+                amounts={[
+                  { label: "Requested", amount: payment.amount },
+                  { label: "Collected", amount: payment.collectedAmount, tone: "primary" },
+                ]}
+              />
+              <div className="flex justify-end">
+                <ButtonLink
+                  to={`${APP_PATHS.ACCOUNT_PAYMENTS}/${encodeURIComponent(payment.id)}`}
+                  variant="secondary"
+                  className="min-h-11 w-full sm:w-auto"
+                >
+                  View details
+                  <ArrowRight size={16} aria-hidden="true" />
+                </ButtonLink>
+              </div>
             </div>
           </div>
         </Card>

@@ -5,11 +5,11 @@ import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney"
 export function RefundItems({ refund }: { refund: Refund }) {
   if (!refund.items?.length) return null;
   return (
-    <section className="min-w-0 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
+    <section className="min-w-0 rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm sm:p-4">
       <h3 className="mb-2 text-body font-semibold">Items requested for refund</h3>
       <ul className="divide-y divide-border-default">
         {refund.items.map((item) => (
-          <li key={item.orderItemId} className="py-3 text-body">
+          <li key={item.orderItemId} className="py-2 text-body">
             <div className="flex flex-wrap justify-between gap-3">
               <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
                 {item.productName}

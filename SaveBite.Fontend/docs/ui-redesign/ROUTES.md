@@ -464,7 +464,7 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 - Tương tác source: `onApplicationChanged`, `onClick`.
 - Field đọc trong JSX — `src/features/shop-applications/components/LatestShopApplication.tsx`: `application.bankAccountHolder`, `application.bankAccountNumber`, `application.bankName`, `application.businessLicenseNo`, `application.coverImageUrl`, `application.description`, `application.logoUrl`, `application.name`, `application.status`, `status.badge`, `status.dot`, `status.label`, `status.notice`, `status.noticeBody`, `status.noticeTitle`, `step.label`, `step.state`, `steps.length`, `steps[i + 1].state`.
 - Field đọc trong JSX — `src/features/shop-applications/components/ShopApplicationHistory.tsx`: `application.closingTime`, `application.coverImageUrl`, `application.description`, `application.hasPayosConfiguration`, `application.id`, `application.logoUrl`, `application.name`, `application.openingTime`, `document.documentType`, `document.fileUrl`, `document.id`, `document.originalFileName`, `documents.length`, `entries.length`, `log.createdAt`, `log.fromStatus`, `log.note`, `log.revisionNumber`, `log.toStatus`, `pageEntries.length`.
-- Nhóm: list/workspace. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=true, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
+- UI compact đã redesign; real-backend read-only 360/768/1280px. Xem [ACCOUNT-BUSINESS.md](ACCOUNT-BUSINESS.md) cho full inventory, dữ liệu có sẵn và nhánh chưa kiểm chứng.
 
 ### R26. /account/shop-application/new
 
@@ -498,7 +498,7 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 - Tương tác source: `onClick`, `onError`, `onPageChange`.
 - Field đọc trong JSX — `src/pages/customer/WorkspacePage.tsx`: `shop.id`, `shop.joinedAt`, `shop.shopId`, `shop.shopName`, `shop.status`, `shopToLeave.shopId`, `shopToLeave.shopName`, `shops.length`.
 - Field đọc trong JSX — `src/features/staff-shops/components/AssociatedShopImage.tsx`: `shop.shopName`.
-- Nhóm: list/workspace. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=true, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
+- UI compact đã redesign; real-backend read-only 360/768/1280px. Xem [ACCOUNT-BUSINESS.md](ACCOUNT-BUSINESS.md) cho full inventory, dữ liệu có sẵn và nhánh chưa kiểm chứng.
 
 ### R29. /account/staff-invitations
 
@@ -509,7 +509,7 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 - Child component: `src/shared/components/pagination/index.ts`.
 - Tương tác source: `onClick`, `onError`, `onPageChange`.
 - Field đọc trong JSX — `src/pages/customer/StaffInvitationsPage.tsx`: `invitation.id`, `invitation.shopAddress`, `invitation.shopCoverImageUrl`, `invitation.shopId`, `invitation.shopLogoUrl`, `invitation.shopName`, `sortedInvitations.length`.
-- Nhóm: list/workspace. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=true, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
+- UI compact đã redesign; real-backend read-only 360/768/1280px. Xem [ACCOUNT-BUSINESS.md](ACCOUNT-BUSINESS.md) cho full inventory, dữ liệu có sẵn và nhánh chưa kiểm chứng.
 
 ### R30. /admin
 

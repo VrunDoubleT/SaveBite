@@ -1,9 +1,9 @@
 # UI redesign progress
 
 Ngày audit: 2026-11-02 (Asia/Bangkok). Nhánh: ui-redesign (đã tồn tại).
-Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; redesign trang `/`, flash deal detail, storefront, cart, checkout, profile, danh sách và chi tiết đơn hàng, thanh toán và hoàn tiền, reviews và Trust Score (4 tab).
+Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; redesign trang `/`, flash deal detail, storefront, cart, checkout, profile, danh sách và chi tiết đơn hàng, thanh toán và hoàn tiền, reviews, Trust Score (4 tab), shop application, workspace và staff invitations.
 Breadcrumb hiện bắt đầu bằng chữ, không có mũi tên quay lại ở đầu; giữ các dấu phân cách giữa cấp.
-Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart`, `/checkout`, `/account/profile`, `/account/orders` và `/orders/:orderId`, `/account/payments`, `/account/payments/:paymentId`, `/account/refunds`, `/account/refunds/:refundId`, `/account/reviews` và `/account/trust-score/:tab?` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
+Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart`, `/checkout`, `/account/profile`, `/account/orders` và `/orders/:orderId`, `/account/payments`, `/account/payments/:paymentId`, `/account/refunds`, `/account/refunds/:refundId`, `/account/reviews` và `/account/trust-score/:tab?`, `/account/shop-application`, `/account/workspace`, `/account/staff-invitations` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
 
 | Route/task | Status | Commit | Notes |
 |---|---|---|---|
@@ -33,11 +33,11 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront c
 | `/account/payments/:paymentId` | done | ui(account): redesign payments and refunds | R22; full content/states, shared FilterBar/AmountSummary; real-backend read-only 360/768/1280px; xem PAYMENTS-REFUNDS.md |
 | `/account/reviews` | done | ui(account): redesign reviews and trust score | R23; full review cards, shared inline/modal ReviewEditor, photos/replies, delete confirmation, real pagination/deep links; real-backend read-only 360/768/1280px; xem REVIEWS-TRUST.md |
 | `/account/trust-score/:tab?` | done | ui(account): redesign reviews and trust score | R24; Overview/Levels/History/Penalties, next-level metrics, policies, recovery modal; real-backend read-only 360/768/1280px; xem REVIEWS-TRUST.md |
-| `/account/shop-application` | todo | — | R25; ShopApplicationPage; user, staff, storeOwner |
+| `/account/shop-application` | done | ui(account): compact finance/trust and business pages | R25; complete compact page/states/children; real data read-only at 360/768/1280px; xem ACCOUNT-BUSINESS.md |
 | `/account/shop-application/new` | todo | — | R26; ShopApplicationFormPage; user, staff, storeOwner |
 | `/account/shop-application/edit/:applicationId` | todo | — | R27; ShopApplicationFormPage; user, staff, storeOwner |
-| `/account/workspace` | todo | — | R28; WorkspacePage; user, staff, storeOwner |
-| `/account/staff-invitations` | todo | — | R29; CustomerStaffInvitationsPage; user, staff, storeOwner |
+| `/account/workspace` | done | ui(account): compact finance/trust and business pages | R28; complete compact page/states/children; real data read-only at 360/768/1280px; xem ACCOUNT-BUSINESS.md |
+| `/account/staff-invitations` | done | ui(account): compact finance/trust and business pages | R29; complete compact page/states/children; real data read-only at 360/768/1280px; xem ACCOUNT-BUSINESS.md |
 | `/admin` | todo | — | R30; Redirect regression |
 | `/admin/analytics/:tab?` | todo | — | R31; AdminDashboardPage; admin |
 | `/admin/users` | todo | — | R32; UserManagementPage; admin |
@@ -103,3 +103,5 @@ Refund placement correction: receipt Refunds restored below Payment summary; sta
 Payments/Refunds: completed four requested routes and all existing child sections. Approved dropdown format is now shared FilterBar and persisted for contributors. Active refund mutation/form branches unavailable in current data remain integration-unverified; see PAYMENTS-REFUNDS.md.
 
 Reviews/Trust Score: complete requested pages and conditional children; inline/modal edit share one editor, membership hierarchy and approved dropdown filter format retained. Current account has no penalties; recovery/locked/highest-level branches reviewed but not forced. See REVIEWS-TRUST.md for checks and limits.
+
+Compact Account follow-up: reduced finance/trust card padding, image/number sizes and redundant spacing; business pages use compact cards, shared feedback and confirmations. Real backend read-only checks at 360/768/1280px pass; unavailable mutation branches recorded in ACCOUNT-BUSINESS.md. New/edit shop-application form routes remain todo.

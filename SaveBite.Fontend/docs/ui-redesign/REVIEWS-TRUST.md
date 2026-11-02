@@ -38,3 +38,5 @@ Benefits policy refinement: Pay at shop policy is now a two-column definition li
 Level-height refinement: desktop/tablet level cards share header, Benefits, policy and Requirements row tracks through CSS subgrid. Paired cards and policy panels have equal heights with aligned section starts; no fixed text-clipping heights. Mobile remains one natural-height column. Real 360/768/1280px checks pass; bounding-box assertions verify matching paired card/policy heights and aligned Requirements at 768/1280px. Targeted lint/build pass.
 
 Compact-height follow-up: reduced level-card header/section padding, icon size and policy-row padding; consolidated repeated deposit captions into one policy subtitle; removed padded requirement tiles in favor of compact lines. Shared row alignment remains, with all monetary thresholds/requirements visible and no fixed clipping heights. Targeted ESLint passes.
+
+Compact-density follow-up: reduced requested card/section padding and visual sizes; real responsive regression checks pass. See ACCOUNT-BUSINESS.md for current changes, including duplicate back-action removal on finance details and reduced Trust panel minimum height.

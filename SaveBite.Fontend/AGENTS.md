@@ -17,3 +17,5 @@ Read `docs/ui-redesign/WORKFLOW.md`, `TOKENS.md`, `ROUTES.md` and `PROGRESS.md` 
 `/__ui` is an optional DEV-only static component reference via VITE_ENABLE_UI_SHOWCASE=true. Its examples must never become application API data or bypass authentication. Backend-dependent pages use VITE_API_URL and the normal real login flow.
 
 Bộ lọc đã được duyệt: dùng shared `FilterBar` cho các trang tiếp theo có dropdown. Giữ nền trắng, border token, bo góc và shadow nhẹ; label bên trái, native dropdown căn phải, control cao tối thiểu 44px. Nhiều bộ lọc dùng các hàng trong cùng khung. Không tự đổi sang tabs/chips hoặc thêm nút Refresh.
+
+Ưu tiên mật độ gọn theo yêu cầu mới: card danh sách/nội dung thường dùng padding 12–16px, heading nội dung 14px, ảnh nhận diện 40–48px, số tiền 14–18px; tránh banner lớn hoặc card ít thông tin nhưng quá cao. Giữ nút/chạm tối thiểu 44px, đủ dữ liệu và text wrap; không ép chiều cao khiến mất nội dung.

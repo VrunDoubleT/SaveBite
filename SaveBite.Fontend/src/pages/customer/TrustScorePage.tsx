@@ -25,7 +25,7 @@ export function TrustScorePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Tabs
         appearance="cards"
         value={activeTab}
@@ -40,7 +40,7 @@ export function TrustScorePage() {
           ],
         }))}
       >
-        <div key={activeTab} className="trust-panel">
+        <div key={activeTab} className="trust-panel !min-h-0">
           {activeTab === "overview" && <TrustOverviewPanel />}
           {activeTab === "levels" && <TrustLevelsPanel />}
           {activeTab === "history" && <TrustHistoryPanel />}

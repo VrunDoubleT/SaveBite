@@ -10,10 +10,10 @@ export function AmountSummary({
       {amounts.map(({ label, amount, tone }) => (
         <div
           key={label}
-          className={`min-w-0 rounded-md p-3 ${tone === "primary" ? "bg-primary-50 text-primary-700" : tone === "warning" ? "bg-accent-50 text-accent-700" : "bg-neutral-50 text-text-primary"}`}
+          className={`min-w-0 rounded-md p-2.5 ${tone === "primary" ? "bg-primary-50 text-primary-700" : tone === "warning" ? "bg-accent-50 text-accent-700" : "bg-neutral-50 text-text-primary"}`}
         >
           <dt className="text-caption font-medium">{label}</dt>
-          <dd className="mt-1 break-words text-body font-bold tabular-nums sm:text-lg">
+          <dd className="mt-1 break-words text-body font-semibold tabular-nums">
             {formatCartMoney(amount)}
           </dd>
         </div>

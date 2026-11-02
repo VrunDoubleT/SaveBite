@@ -9,7 +9,7 @@ export function AssociatedShopImage({ shop }: { shop: AssociatedShop }) {
   );
 
   return (
-    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-emerald-50 text-emerald-600">
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary-50 text-primary-700">
       {imageUrl ? (
         <img
           src={imageUrl}
@@ -19,7 +19,7 @@ export function AssociatedShopImage({ shop }: { shop: AssociatedShop }) {
           className="h-full w-full object-cover"
         />
       ) : (
-        <Store size={28} aria-hidden="true" />
+        <Store size={22} aria-hidden="true" />
       )}
     </div>
   );

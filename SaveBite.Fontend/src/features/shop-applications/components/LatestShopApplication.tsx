@@ -1,21 +1,27 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  AlertCircle,
-  Building2,
   CalendarDays,
   Check,
-  CheckCircle2,
   Clock3,
   FileText,
   Hourglass,
   Landmark,
-  Loader2,
   MapPin,
   Pencil,
-  RotateCcw,
   Store,
   XCircle,
 } from "lucide-react";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  MediaImage,
+  Modal,
+  Skeleton,
+} from "@/shared/components/ui";
+import { getApiErrorMessage } from "@/shared/api";
 import { useNavigate } from "react-router-dom";
 
 import { shopApplicationApi } from "@/features/shop-applications/api/shopApplicationApi";
@@ -42,9 +48,9 @@ const STATUS_META: Record<
   Pending: {
     label: "Under review",
     tone: "amber",
-    badge: "bg-amber-50 text-amber-800 ring-amber-200",
-    dot: "bg-amber-500",
-    notice: "border-amber-200 bg-amber-50 text-amber-900",
+    badge: "bg-accent-50 text-accent-700 ring-accent-100",
+    dot: "bg-accent-500",
+    notice: "border-accent-100 bg-accent-50 text-accent-700",
     noticeTitle: "We're reviewing your application",
     noticeBody:
       "Your application cannot be edited while it is under review. You can cancel it if needed.",
@@ -52,36 +58,36 @@ const STATUS_META: Record<
   NeedsRevision: {
     label: "Needs revision",
     tone: "amber",
-    badge: "bg-amber-50 text-amber-800 ring-amber-200",
-    dot: "bg-amber-500",
-    notice: "border-amber-200 bg-amber-50 text-amber-900",
+    badge: "bg-accent-50 text-accent-700 ring-accent-100",
+    dot: "bg-accent-500",
+    notice: "border-accent-100 bg-accent-50 text-accent-700",
     noticeTitle: "Please update your application",
     noticeBody: "Review the administrator's note, update your details and submit again.",
   },
   Approved: {
     label: "Approved",
     tone: "green",
-    badge: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-    dot: "bg-emerald-500",
-    notice: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    badge: "bg-primary-50 text-primary-800 ring-primary-100",
+    dot: "bg-primary-500",
+    notice: "border-primary-100 bg-primary-50 text-primary-800",
     noticeTitle: "Your shop is approved",
     noticeBody: "You're now a SaveBite Store Owner and can start managing your shop.",
   },
   Rejected: {
     label: "Rejected",
     tone: "red",
-    badge: "bg-red-50 text-red-800 ring-red-200",
-    dot: "bg-red-500",
-    notice: "border-red-200 bg-red-50 text-red-900",
+    badge: "bg-danger-soft text-danger-strong ring-danger-soft",
+    dot: "bg-danger-soft0",
+    notice: "border-danger-soft bg-danger-soft text-danger-strong",
     noticeTitle: "Your application wasn't approved",
     noticeBody: "You can update your application details and submit it again.",
   },
   Cancelled: {
     label: "Cancelled",
     tone: "gray",
-    badge: "bg-slate-100 text-slate-700 ring-slate-200",
-    dot: "bg-slate-400",
-    notice: "border-slate-200 bg-slate-50 text-slate-700",
+    badge: "bg-neutral-100 text-text-secondary ring-border-default",
+    dot: "bg-neutral-400",
+    notice: "border-border-default bg-neutral-50 text-text-secondary",
     noticeTitle: "This application was Cancelled",
     noticeBody: "You can edit this application and submit it again.",
   },
@@ -135,15 +141,15 @@ function InfoRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-4 py-4">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+    <div className="flex items-start gap-3 py-2.5">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
         {icon}
       </div>
 
       <div className="min-w-0 flex-1">
-        <dt className="text-sm text-slate-500">{label}</dt>
+        <dt className="text-caption text-text-secondary">{label}</dt>
 
-        <dd className="mt-0.5 break-words text-sm font-medium text-slate-900">{children}</dd>
+        <dd className="mt-0.5 break-words text-sm font-medium text-text-primary">{children}</dd>
       </div>
     </div>
   );
@@ -168,36 +174,31 @@ function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
     },
   ];
   const circle = {
-    done: "bg-emerald-600 text-white",
-    active: "bg-white text-amber-600 ring-2 ring-amber-400",
-    error: "bg-red-500 text-white",
-    todo: "bg-white text-slate-300 ring-2 ring-slate-200",
+    done: "bg-primary-700 text-text-inverse",
+    active: "bg-bg-surface text-accent-700 ring-2 ring-accent-300",
+    error: "bg-danger-soft0 text-text-inverse",
+    todo: "bg-bg-surface text-text-muted ring-2 ring-border-default",
   };
 
   return (
-    <ol className="flex items-center" aria-label="Application progress">
-      {steps.map((step, i) => (
-        <li key={step.label} className="flex flex-1 items-center last:flex-none">
-          <div className="flex items-center gap-2.5">
-            <span
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${circle[step.state]}`}
-            >
-              {step.state === "done" && <Check className="h-4 w-4" />}
-              {step.state === "active" && <Hourglass className="h-3.5 w-3.5" />}
-              {step.state === "error" && <XCircle className="h-4 w-4" />}
-              {step.state === "todo" && <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />}
-            </span>
-            <span
-              className={`text-sm ${step.state === "todo" ? "text-slate-400" : "font-medium text-slate-800"}`}
-            >
-              {step.label}
-            </span>
-          </div>
-          {i < steps.length - 1 && (
-            <span
-              className={`mx-3 h-0.5 flex-1 rounded-full ${steps[i + 1].state === "todo" ? "bg-slate-200" : "bg-emerald-500"}`}
-            />
-          )}
+    <ol className="grid grid-cols-3 gap-2" aria-label="Application progress">
+      {steps.map((step) => (
+        <li key={step.label} className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+          <span
+            className={`flex size-7 items-center justify-center rounded-full ${circle[step.state]}`}
+            aria-hidden="true"
+          >
+            {step.state === "done" ? (
+              <Check size={15} />
+            ) : step.state === "active" ? (
+              <Hourglass size={15} />
+            ) : step.state === "error" ? (
+              <XCircle size={15} />
+            ) : (
+              <span className="size-1.5 rounded-full bg-neutral-300" />
+            )}
+          </span>
+          <span className="text-caption text-text-secondary">{step.label}</span>
         </li>
       ))}
     </ol>
@@ -207,23 +208,11 @@ function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
 /* Loading skeleton */
 function LoadingSkeleton() {
   return (
-    <div className="animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="h-44 bg-slate-100 sm:h-52" />
-
-      <div className="space-y-4 p-6 sm:p-8">
-        <div className="-mt-14 h-20 w-20 rounded-2xl bg-slate-200 ring-4 ring-white" />
-
-        <div className="h-6 w-56 rounded bg-slate-200" />
-
-        <div className="h-4 w-full max-w-md rounded bg-slate-100" />
-
-        <div className="space-y-3 pt-4">
-          <div className="h-12 rounded-lg bg-slate-100" />
-          <div className="h-12 rounded-lg bg-slate-100" />
-          <div className="h-12 rounded-lg bg-slate-100" />
-        </div>
-      </div>
-    </div>
+    <Card className="space-y-3 !p-4">
+      <Skeleton className="h-14 w-2/3" />
+      <Skeleton className="h-20" />
+      <Skeleton className="h-24" />
+    </Card>
   );
 }
 
@@ -244,9 +233,24 @@ export default function LatestShopApplication({
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [cancelling, setCancelling] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   useEffect(() => {
-    loadApplication();
+    let active = true;
+    void shopApplicationApi
+      .getMine()
+      .then((result) => {
+        if (active) setApplication(result);
+      })
+      .catch((e: unknown) => {
+        if (active) setLoadError(getApiErrorMessage(e));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function loadApplication() {
@@ -257,10 +261,8 @@ export default function LatestShopApplication({
       const result = await shopApplicationApi.getMine();
 
       setApplication(result);
-    } catch (err: any) {
-      setLoadError(
-        err?.response?.data?.message || err?.message || "Unable to load your shop application.",
-      );
+    } catch (err) {
+      setLoadError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -278,11 +280,10 @@ export default function LatestShopApplication({
       await shopApplicationApi.cancel(application.id);
 
       await loadApplication();
+      setConfirmCancel(false);
       onApplicationChanged?.();
-    } catch (err: any) {
-      setActionError(
-        err?.response?.data?.message || err?.message || "Unable to cancel the shop application.",
-      );
+    } catch (err) {
+      setActionError(getApiErrorMessage(err));
     } finally {
       setCancelling(false);
     }
@@ -312,275 +313,181 @@ export default function LatestShopApplication({
 
   const address = application ? formatAddress(application) : "";
 
-  const btnBase =
-    "inline-flex items-center justify-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
-
-  const primaryBtn = `${btnBase} border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 focus-visible:ring-emerald-500`;
-
-  const dangerBtn = `${btnBase} border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100 focus-visible:ring-red-500 disabled:hover:border-red-200 disabled:hover:bg-red-50`;
-
   return (
-    <div className="w-full min-w-0">
-      {/* Load error */}
+    <div className="min-w-0 space-y-3">
       {loadError && (
-        <div
-          role="alert"
-          className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800"
-        >
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
-
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold">Unable to load your application</p>
-
-            <p className="mt-1 break-words text-red-700">{loadError}</p>
-          </div>
-
-          <button
-            type="button"
-            onClick={loadApplication}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 font-medium text-red-700 transition hover:bg-red-100"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Try again
-          </button>
-        </div>
+        <ErrorState
+          title="Unable to load your application"
+          description={loadError}
+          onRetry={() => void loadApplication()}
+        />
       )}
-
-      {/* Empty state */}
-      {!application && !loadError && (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-center shadow-sm">
-          <div className="bg-gradient-to-b from-emerald-50 to-white px-6 pb-12 pt-14">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-emerald-100">
-              <Store className="h-8 w-8 text-emerald-600" />
-            </div>
-
-            <h2 className="mt-6 text-xl font-semibold text-slate-900">
-              Open your shop on SaveBite
-            </h2>
-
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-              You haven't submitted a shop application yet. Add your shop details to become a
-              SaveBite Store Owner.
-            </p>
-
-            <button type="button" onClick={handleStartApplication} className={`${primaryBtn} mt-7`}>
-              <Store className="h-4 w-4" />
+      {!loadError && !application && (
+        <EmptyState
+          icon={Store}
+          title="Register your shop"
+          description="Submit your business details and documents to become a SaveBite Store Owner."
+          action={
+            <Button onClick={handleStartApplication} className="min-h-11">
               Start application
-            </button>
-          </div>
-        </div>
+            </Button>
+          }
+        />
       )}
-
-      {/* Application */}
       {application && status && (
-        <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          {/* Cover */}
-          <div className="relative h-48 w-full overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 sm:h-60">
-            {application.coverImageUrl ? (
-              <>
-                <img
-                  src={application.coverImageUrl}
-                  alt={`${application.name} cover`}
-                  className="h-full w-full object-cover"
-                />
-
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-transparent" />
-              </>
-            ) : (
-              <>
-                <div
-                  className="absolute inset-0 opacity-30"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(circle, rgba(255,255,255,0.7) 1.5px, transparent 1.5px)",
-                    backgroundSize: "22px 22px",
-                  }}
-                />
-
-                <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/15 blur-2xl" />
-
-                <div className="absolute -bottom-20 left-10 h-56 w-56 rounded-full bg-teal-300/30 blur-2xl" />
-
-                <div className="relative flex h-full items-center justify-center">
-                  <div className="flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm">
-                    <Building2 className="h-4 w-4" />
-                    No cover image
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="px-5 pb-6 sm:px-8 sm:pb-8">
-            {/* Header */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              {/* min-w-0 + sm:flex-1: cho phép khối avatar + tên co lại để truncate hoạt động */}
-              <div className="flex min-w-0 items-end gap-4 sm:flex-1">
-                <div className="relative z-10 -mt-12 h-24 w-24 shrink-0 overflow-hidden rounded-3xl border-4 border-white bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-200 sm:-mt-16 sm:h-28 sm:w-28">
-                  {application.logoUrl ? (
-                    <img
-                      src={application.logoUrl}
-                      alt={`${application.name} logo`}
-                      className="h-full w-full rounded-[1.25rem] object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-gradient-to-br from-emerald-50 to-teal-100">
-                      <span className="text-3xl font-semibold text-emerald-700 sm:text-4xl">
-                        {application.name?.trim().charAt(0).toUpperCase() || (
-                          <Store className="h-10 w-10" />
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1 pb-1">
-                  <h1
-                    className="truncate text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl"
-                    title={application.name}
-                  >
-                    {application.name}
-                  </h1>
-
-                  <p className="mt-0.5 text-sm text-slate-500">
-                    Submitted {formatDate(application.createdAt)}
-                  </p>
-                </div>
+        <Card aria-label="Latest shop application" className="!p-0 overflow-hidden">
+          {application.coverImageUrl && (
+            <MediaImage
+              src={application.coverImageUrl}
+              alt={`${application.name} cover`}
+              className="h-20 w-full"
+              showFallbackLabel={false}
+            />
+          )}
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default bg-primary-50/40 p-3 sm:p-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <MediaImage
+                src={application.logoUrl ?? undefined}
+                alt={application.name}
+                fallbackIcon={Store}
+                showFallbackLabel={false}
+                className="size-12 shrink-0 rounded-md"
+              />
+              <div className="min-w-0">
+                <h2 className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
+                  {application.name}
+                </h2>
+                <p className="mt-1 text-caption text-text-secondary">
+                  Submitted {formatDate(application.createdAt)} · Revision{" "}
+                  {application.revisionNumber}
+                </p>
               </div>
-
-              <span
-                className={`inline-flex w-fit shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ring-1 ring-inset ${status.badge}`}
-              >
-                <span className={`h-2 w-2 rounded-full ${status.dot}`} />
-
-                {status.label}
-              </span>
             </div>
-
-            {/* Action error */}
+            <Badge
+              tone={
+                application.status === "Approved"
+                  ? "primary"
+                  : application.status === "Rejected"
+                    ? "danger"
+                    : application.status === "Cancelled"
+                      ? "neutral"
+                      : "warning"
+              }
+            >
+              {status.label}
+            </Badge>
+          </header>
+          <div className="space-y-3 p-3 sm:p-4">
             {actionError && (
-              <div
+              <p
                 role="alert"
-                className="mt-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                className="rounded-md bg-danger-soft p-3 text-body text-danger-strong"
               >
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-
-                <p className="min-w-0 break-words">{actionError}</p>
-              </div>
+                {actionError}
+              </p>
             )}
-
-            {/* Status notice + progress */}
-            <div className={`mt-6 rounded-xl border p-4 sm:p-5 ${status.notice}`}>
-              <div className="flex items-start gap-3">
-                {application.status === "Approved" ? (
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-                ) : application.status === "Pending" ? (
-                  <Hourglass className="mt-0.5 h-5 w-5 shrink-0" />
-                ) : (
-                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-                )}
-
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{status.noticeTitle}</p>
-
-                  <p className="mt-0.5 text-sm opacity-80">{status.noticeBody}</p>
-                </div>
-              </div>
-
+            <div className={`rounded-md border p-3 ${status.notice}`}>
+              <p className="text-body font-semibold">{status.noticeTitle}</p>
+              <p className="mt-1 text-caption">{status.noticeBody}</p>
               {application.status !== "Cancelled" && (
-                <div className="mt-5 rounded-lg bg-white/70 px-4 py-3.5">
+                <div className="mt-3 border-t border-current/10 pt-3">
                   <ReviewProgress status={application.status} />
                 </div>
               )}
             </div>
-
-            {/* Description */}
             {application.description && (
-              <p className="mt-6 text-sm leading-6 text-slate-600">{application.description}</p>
+              <p className="text-body text-text-secondary [overflow-wrap:anywhere]">
+                {application.description}
+              </p>
             )}
-
-            {/* Details */}
-            <dl className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
-              <InfoRow icon={<MapPin className="h-[18px] w-[18px]" />} label="Address">
+            <dl className="divide-y divide-border-default">
+              <InfoRow icon={<MapPin size={16} />} label="Address">
                 {address || "—"}
               </InfoRow>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-8 sm:divide-x-0">
-                <InfoRow icon={<Clock3 className="h-[18px] w-[18px]" />} label="Opening hours">
+              <div className="grid gap-x-5 sm:grid-cols-2">
+                <InfoRow icon={<Clock3 size={16} />} label="Opening hours">
                   {formatTime(application.openingTime)} – {formatTime(application.closingTime)}
                 </InfoRow>
-
-                <div className="border-t border-slate-100 sm:border-t-0">
-                  <InfoRow
-                    icon={<FileText className="h-[18px] w-[18px]" />}
-                    label="Business license"
-                  >
-                    {application.businessLicenseNo || "—"}
-                  </InfoRow>
-                </div>
+                <InfoRow icon={<FileText size={16} />} label="Business license">
+                  {application.businessLicenseNo || "—"}
+                </InfoRow>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-8">
-                <InfoRow icon={<Landmark className="h-[18px] w-[18px]" />} label="Bank account">
-                  <span>
-                    {application.bankName || "—"}
-
-                    {application.bankAccountNumber
-                      ? ` · ${maskAccountNumber(application.bankAccountNumber)}`
-                      : ""}
-                  </span>
-
+              <div className="grid gap-x-5 sm:grid-cols-2">
+                <InfoRow icon={<Landmark size={16} />} label="Bank account">
+                  {application.bankName || "—"}
+                  {application.bankAccountNumber
+                    ? ` · ${maskAccountNumber(application.bankAccountNumber)}`
+                    : ""}
                   {application.bankAccountHolder && (
-                    <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                    <span className="mt-0.5 block text-caption font-normal text-text-secondary">
                       {application.bankAccountHolder}
                     </span>
                   )}
                 </InfoRow>
-
-                <div className="border-t border-slate-100 sm:border-t-0">
-                  <InfoRow
-                    icon={<CalendarDays className="h-[18px] w-[18px]" />}
-                    label="Submitted on"
-                  >
-                    {formatDate(application.createdAt)}
-                  </InfoRow>
-                </div>
+                <InfoRow icon={<CalendarDays size={16} />} label="Submitted on">
+                  {formatDate(application.createdAt)}
+                </InfoRow>
               </div>
             </dl>
-
-            {/* Actions */}
             {application.status !== "Approved" && (
-              <div className="mt-2 flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex flex-wrap justify-end gap-2 border-t border-border-default pt-3">
                 {application.status === "Pending" && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     disabled={cancelling}
-                    onClick={handleCancel}
-                    className={dangerBtn}
+                    onClick={() => setConfirmCancel(true)}
+                    className="min-h-11 !text-danger-strong"
                   >
-                    {cancelling ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <XCircle className="h-4 w-4" />
-                    )}
-
-                    {cancelling ? "Cancelling..." : "Cancel application"}
-                  </button>
+                    Cancel application
+                  </Button>
                 )}
-
-                {(application.status === "Cancelled" ||
-                  application.status === "Rejected" ||
-                  application.status === "NeedsRevision") && (
-                  <button type="button" onClick={handleEdit} className={primaryBtn}>
-                    <Pencil className="h-4 w-4" />
+                {["Cancelled", "Rejected", "NeedsRevision"].includes(application.status) && (
+                  <Button onClick={handleEdit} className="min-h-11">
+                    <Pencil size={16} aria-hidden="true" />
                     Edit and resubmit
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
           </div>
-        </article>
+        </Card>
       )}
+      <Modal
+        isOpen={confirmCancel}
+        onClose={() => {
+          if (!cancelling) setConfirmCancel(false);
+        }}
+        closeOnClickOutside={!cancelling}
+        title="Cancel application?"
+      >
+        <p className="text-body text-text-secondary">
+          Cancel this pending shop application? It will no longer be under review. You can edit and
+          resubmit it later.
+        </p>
+        {actionError && (
+          <p role="alert" className="mt-3 text-body text-danger-strong">
+            {actionError}
+          </p>
+        )}
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button
+            variant="secondary"
+            disabled={cancelling}
+            onClick={() => setConfirmCancel(false)}
+            className="min-h-11"
+          >
+            Keep application
+          </Button>
+          <Button
+            variant="danger"
+            loading={cancelling}
+            onClick={() => void handleCancel()}
+            className="min-h-11"
+          >
+            Confirm cancellation
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

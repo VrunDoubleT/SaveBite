@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Store } from "lucide-react";
-import { APP_PATHS } from "@/app/router/paths";
-import { ButtonLink, Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
+import { Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
 import { getApiErrorMessage } from "@/shared/api";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
@@ -77,9 +76,6 @@ function RefundDetail({ refundId }: { refundId: string }) {
   }
   return (
     <div className="w-full min-w-0 space-y-4">
-      <ButtonLink to={APP_PATHS.ACCOUNT_REFUNDS} variant="ghost" className="min-h-11 !px-0">
-        All refunds
-      </ButtonLink>
       {error && (
         <ErrorState
           title="Couldn't load refund details"
@@ -98,7 +94,7 @@ function RefundDetail({ refundId }: { refundId: string }) {
         <>
           <Card
             aria-label="Refund details"
-            className="flex flex-wrap items-center justify-between gap-3 !bg-primary-50/40"
+            className="flex flex-wrap items-center justify-between gap-3 !bg-primary-50/40 !p-3 sm:!p-4"
           >
             <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1">
               <MediaImage
@@ -106,10 +102,10 @@ function RefundDetail({ refundId }: { refundId: string }) {
                 alt=""
                 fallbackIcon={Store}
                 showFallbackLabel={false}
-                className="size-12 shrink-0 rounded-md"
+                className="size-10 shrink-0 rounded-md"
               />
               <div className="min-w-0">
-                <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
+                <h2 className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
                   {refund.shopName}
                 </h2>
                 <p className="mt-1 text-caption text-text-secondary">

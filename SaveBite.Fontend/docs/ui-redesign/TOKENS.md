@@ -74,3 +74,5 @@ Thiết kế đầy đủ mọi section và component có trên trang, kể cả
 Theo yêu cầu người dùng, mọi breadcrumb bắt đầu bằng nhãn/link chữ, không có mũi tên quay lại ở đầu. Giữ dấu phân cách giữa các cấp và aria-current cho trang hiện tại. Nút Back độc lập ngoài breadcrumb giữ hành vi/icon riêng.
 
 Bộ lọc đã được duyệt: dùng shared `FilterBar` cho các trang tiếp theo có dropdown. Giữ nền trắng, border token, bo góc và shadow nhẹ; label bên trái, native dropdown căn phải, control cao tối thiểu 44px. Nhiều bộ lọc dùng các hàng trong cùng khung. Không tự đổi sang tabs/chips hoặc thêm nút Refresh.
+
+Ưu tiên mật độ gọn theo yêu cầu mới: card danh sách/nội dung thường dùng padding 12–16px, heading nội dung 14px, ảnh nhận diện 40–48px, số tiền 14–18px; tránh banner lớn hoặc card ít thông tin nhưng quá cao. Giữ nút/chạm tối thiểu 44px, đủ dữ liệu và text wrap; không ép chiều cao khiến mất nội dung.

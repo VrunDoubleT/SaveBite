@@ -22,7 +22,7 @@ const decisions: Record<string, string> = {
   VietQrGenerated: "Shop generated transfer QR",
   LegacySnapshot: "Imported refund record",
 };
-const card = "min-w-0 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5";
+const card = "min-w-0 rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm sm:p-4";
 const time = (value?: string) => (value ? `${checkoutTime(value)} · GMT+7` : "—");
 
 export function CustomerRefundDetailContent({
@@ -124,10 +124,10 @@ export function CustomerRefundDetailContent({
         : 0;
   const stopped = rejected || overdue || withdrawn;
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <section
         aria-label="Refund outcome"
-        className={`rounded-lg border p-4 text-left sm:p-5 ${tone}`}
+        className={`rounded-lg border p-3 text-left sm:p-4 ${tone}`}
       >
         <div className="flex items-start gap-3">
           {rejected ? (
@@ -208,7 +208,7 @@ export function CustomerRefundDetailContent({
         </ol>
       </section>
       <RefundItems refund={refund} />
-      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+      <div className="grid min-w-0 gap-3 xl:grid-cols-2">
         <section className={card}>
           <h2 className="mb-3 text-sm font-semibold">Refund amount</h2>
           <AmountSummary
@@ -241,7 +241,7 @@ export function CustomerRefundDetailContent({
         </section>
 
         <section className={`${card} xl:col-span-2`}>
-          <h2 className="text-section font-semibold text-text-primary">Refund destination</h2>
+          <h2 className="text-body font-semibold text-text-primary">Refund destination</h2>
           {refund.bankName ? (
             <dl className="mt-4 grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
               {[
@@ -273,19 +273,19 @@ export function CustomerRefundDetailContent({
         </section>
         {(refund.transferReference || refund.transferProofUrls.length > 0) && (
           <section className={`${card} xl:col-span-2`}>
-            <h2 className="text-section font-semibold text-text-primary">Transfer details</h2>
+            <h2 className="text-body font-semibold text-text-primary">Transfer details</h2>
             <p className="mt-3 break-all text-sm font-medium">{refund.transferReference}</p>
             <p className="mt-1 text-xs text-text-secondary">{time(refund.transferredAt)}</p>
             <EvidenceGallery urls={refund.transferProofUrls} label="Transfer proof" />
           </section>
         )}
         <section className={`${card} xl:col-span-2`}>
-          <h2 className="mb-4 text-section font-semibold text-text-primary">Processing history</h2>
+          <h2 className="mb-4 text-body font-semibold text-text-primary">Processing history</h2>
           <ol>
             {[...refund.history].reverse().map((entry) => (
               <li
                 key={entry.id}
-                className="relative border-l border-border-default pb-5 pl-5 last:pb-0"
+                className="relative border-l border-border-default pb-4 pl-4 last:pb-0"
               >
                 <span
                   className={`absolute -left-1.5 top-1 size-3 rounded-full ring-4 ring-bg-surface ${entry.decision === "Rejected" || entry.decision === "DeadlineExpired" ? "bg-danger-soft0" : entry.actorRole === "Customer" ? "bg-neutral-300" : "bg-primary-600"}`}

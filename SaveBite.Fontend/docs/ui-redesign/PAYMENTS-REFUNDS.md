@@ -36,3 +36,5 @@ Shared RefundItems, RefundDestinationForm, RefundBankSelect and evidence renderi
 Filter layout refinement: Refund type and Refund status share one horizontal row from tablet width via FilterBar inline mode. Small screens stack the groups; other filter bars keep their existing layout. Targeted ESLint passes.
 
 Refund count/action spacing: reduced the visible action row from 44px to 24px so spacing matches nearby metadata; the link keeps a 44px pointer target using an expanded pseudo-element. Targeted ESLint passes.
+
+Compact-density follow-up: reduced requested card/section padding and visual sizes; real responsive regression checks pass. See ACCOUNT-BUSINESS.md for current changes, including duplicate back-action removal on finance details and reduced Trust panel minimum height.

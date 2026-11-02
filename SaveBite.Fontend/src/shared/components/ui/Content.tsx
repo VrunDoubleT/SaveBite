@@ -280,7 +280,7 @@ export function Tabs({
             onClick={() => onChange(item.value)}
             className={
               appearance === "cards"
-                ? `min-w-0 rounded-lg border p-3 text-left transition-colors ${value === item.value ? "border-primary-200 bg-primary-50 text-primary-800" : "border-border-default bg-bg-surface text-text-secondary hover:bg-neutral-50"}`
+                ? `min-w-0 rounded-lg border px-3 py-2 text-left transition-colors ${value === item.value ? "border-primary-200 bg-primary-50 text-primary-800" : "border-border-default bg-bg-surface text-text-secondary hover:bg-neutral-50"}`
                 : `shrink-0 border-b-2 px-4 py-3 text-body font-medium transition-colors ${value === item.value ? "border-primary-700 text-primary-700" : "border-transparent text-text-secondary hover:bg-neutral-100"}`
             }
           >

@@ -55,9 +55,6 @@ function PaymentDetails({ paymentId }: { paymentId: string }) {
     order = data?.order;
   return (
     <div className="min-w-0 space-y-4">
-      <ButtonLink to={APP_PATHS.ACCOUNT_PAYMENTS} variant="ghost" className="!px-0 min-h-11">
-        All payments
-      </ButtonLink>
       {error && (
         <ErrorState
           title="Couldn't load payment details"
@@ -74,14 +71,14 @@ function PaymentDetails({ paymentId }: { paymentId: string }) {
       {payment && order && (
         <>
           <Card aria-label="Payment details" className="!p-0 overflow-hidden">
-            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
-              <h2 className="flex items-center gap-2 text-section font-semibold text-text-primary">
+            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default bg-primary-50/50 p-3 sm:p-4">
+              <h2 className="flex items-center gap-2 text-body font-semibold text-text-primary">
                 <CreditCard size={20} aria-hidden="true" className="text-primary-700" />
                 {paymentTypeLabel(payment.type)}
               </h2>
               <PaymentStatusBadge status={payment.status} />
             </header>
-            <div className="space-y-5 p-4 sm:p-5">
+            <div className="space-y-3 p-3 sm:p-4">
               <AmountSummary
                 amounts={[
                   { label: "Payment amount", amount: payment.amount },
@@ -108,17 +105,17 @@ function PaymentDetails({ paymentId }: { paymentId: string }) {
             </div>
           </Card>
           <Card aria-label="Related order" className="!p-0 overflow-hidden">
-            <header className="flex items-center gap-3 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
+            <header className="flex items-center gap-3 border-b border-border-default bg-primary-50/40 p-3 sm:p-4">
               <MediaImage
                 src={order.shopLogoUrl}
                 alt=""
                 fallbackIcon={Store}
                 showFallbackLabel={false}
-                className="size-12 shrink-0 rounded-md"
+                className="size-10 shrink-0 rounded-md"
               />
               <div className="min-w-0">
                 <p className="text-caption text-text-secondary">Related order · Pickup shop</p>
-                <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
+                <h2 className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
                   {order.shopName}
                 </h2>
                 {order.shopAddress && (
@@ -128,7 +125,7 @@ function PaymentDetails({ paymentId }: { paymentId: string }) {
                 )}
               </div>
             </header>
-            <div className="space-y-4 p-4 sm:p-5">
+            <div className="space-y-3 p-3 sm:p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <OrderPickupCode code={order.orderCode} compact showHint={false} />
                 <ButtonLink
