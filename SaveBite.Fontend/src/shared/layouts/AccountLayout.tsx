@@ -11,11 +11,20 @@ export function AccountLayout() {
     (item) => pathname === item.to || pathname.startsWith(`${item.to}/`),
   );
 
+  const isDetail =
+    current &&
+    pathname.startsWith(`${current.to}/`) &&
+    (current.to === APP_PATHS.ACCOUNT_PAYMENTS || current.to === APP_PATHS.ACCOUNT_REFUNDS);
+  const title = isDetail
+    ? current.to === APP_PATHS.ACCOUNT_PAYMENTS
+      ? "Payment details"
+      : "Refund details"
+    : (current?.title ?? "Account");
   return (
     <div className="space-y-6 py-6 sm:py-8">
       <PageHeader
-        title={current?.title ?? "Account"}
-        description={current?.description ?? "Manage your account"}
+        title={title}
+        description={isDetail ? undefined : (current?.description ?? "Manage your account")}
         breadcrumb={
           <ol className="flex flex-wrap items-center gap-2">
             <li>
@@ -30,10 +39,27 @@ export function AccountLayout() {
               <span aria-hidden="true" className="text-text-muted">
                 ›
               </span>
-              <span aria-current="page" className="font-medium text-text-primary">
-                {current?.title ?? "Account"}
-              </span>
+              {isDetail ? (
+                <Link
+                  to={current.to}
+                  className="inline-flex min-h-8 items-center font-medium hover:text-primary-700"
+                >
+                  {current.title}
+                </Link>
+              ) : (
+                <span aria-current="page" className="font-medium text-text-primary">
+                  {title}
+                </span>
+              )}
             </li>
+            {isDetail && (
+              <li className="flex items-center gap-2">
+                <span aria-hidden="true">›</span>
+                <span aria-current="page" className="font-medium text-text-primary">
+                  {title}
+                </span>
+              </li>
+            )}
           </ol>
         }
       />

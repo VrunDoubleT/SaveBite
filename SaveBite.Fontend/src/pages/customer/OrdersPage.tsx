@@ -12,7 +12,7 @@ import {
   EmptyState,
   ErrorState,
   MediaImage,
-  Select,
+  FilterBar,
   Skeleton,
 } from "@/shared/components/ui";
 import { OrderItems, type OrderReviewTarget } from "@/features/orders/components/OrderItems";
@@ -189,28 +189,19 @@ function CustomerOrders({
       : (counts[value] ?? 0);
   return (
     <div className="min-w-0 space-y-5">
-      <div
-        aria-label="Order filters"
-        className="flex flex-wrap items-center gap-3 rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm"
-      >
-        <label htmlFor="order-status-filter" className="text-body font-medium text-text-secondary">
-          Order status
-        </label>
-        <Select
-          id="order-status-filter"
-          aria-label="Filter by order status"
-          value={status}
-          onChange={(event) => onFilter(event.target.value)}
-          className="ml-auto min-h-11 !w-auto min-w-0 max-w-full sm:min-w-52"
-        >
-          {tabs.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-              {loading ? "" : ` (${countFor(value)})`}
-            </option>
-          ))}
-        </Select>
-      </div>
+      <FilterBar
+        filters={[
+          {
+            label: "Order status",
+            value: status,
+            options: tabs.map(([value, label]) => ({
+              value,
+              label: `${label}${loading ? "" : ` (${countFor(value)})`}`,
+            })),
+            onChange: onFilter,
+          },
+        ]}
+      />
       <div className="flex flex-wrap items-center justify-between gap-2 text-caption text-text-secondary">
         <p role="status">
           {loading

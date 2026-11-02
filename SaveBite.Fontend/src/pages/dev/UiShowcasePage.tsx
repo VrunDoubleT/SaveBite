@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Bell, Check, Plus, ShoppingBag } from "lucide-react";
 import {
+  AmountSummary,
+  FilterBar,
   Button,
   MediaImage,
   ButtonLink,
@@ -75,6 +77,28 @@ export function UiShowcasePage() {
             </Button>
           }
         />
+        <Card aria-label="Account filter and amount reference" className="space-y-4">
+          <h2 className="text-section font-semibold">Account filters and amounts</h2>
+          <FilterBar
+            filters={[
+              {
+                label: "Status",
+                value: tab,
+                options: [
+                  { value: "normal", label: "All records" },
+                  { value: "empty", label: "Empty state" },
+                ],
+                onChange: setTab,
+              },
+            ]}
+          />
+          <AmountSummary
+            amounts={[
+              { label: "Requested", amount: 50000 },
+              { label: "Collected", amount: 50000, tone: "primary" },
+            ]}
+          />
+        </Card>
         <Card aria-label="Theme colors">
           <h2 className="mb-4 text-section font-semibold">Color palette</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

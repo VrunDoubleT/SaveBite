@@ -1,3 +1,4 @@
+import { authInputStyle } from "@/shared/components/ui/inputStyles";
 import { useEffect, useState } from "react";
 import { banks, type Bank } from "../api/refundBanks";
 // Resolve the bank routing identifier internally; customers only choose a bank by name.
@@ -39,7 +40,7 @@ export function RefundBankSelect({
         value={value}
         disabled={disabled || items.length === 0}
         aria-invalid={!!validationError}
-        className={`mt-1 w-full rounded-lg border ${validationError ? "border-danger-soft" : "border-border-default"} bg-bg-surface px-3 py-2 text-body disabled:bg-neutral-50`}
+        className={`${authInputStyle} mt-2 min-h-11 disabled:bg-neutral-100`}
         onChange={(event) => {
           const bank = items.find((item) => item.bin === event.target.value);
           onChange(bank?.bin ?? "", bank?.name ?? "");

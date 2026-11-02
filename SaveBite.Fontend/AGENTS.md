@@ -15,3 +15,5 @@ Read `docs/ui-redesign/WORKFLOW.md`, `TOKENS.md`, `ROUTES.md` and `PROGRESS.md` 
 - Update PROGRESS.md and the page's documentation. Distinguish completed UI work, historical checks and current real-backend verification. Do not claim old preview tests prove live integration.
 
 `/__ui` is an optional DEV-only static component reference via VITE_ENABLE_UI_SHOWCASE=true. Its examples must never become application API data or bypass authentication. Backend-dependent pages use VITE_API_URL and the normal real login flow.
+
+Bộ lọc đã được duyệt: dùng shared `FilterBar` cho các trang tiếp theo có dropdown. Giữ nền trắng, border token, bo góc và shadow nhẹ; label bên trái, native dropdown căn phải, control cao tối thiểu 44px. Nhiều bộ lọc dùng các hàng trong cùng khung. Không tự đổi sang tabs/chips hoặc thêm nút Refresh.

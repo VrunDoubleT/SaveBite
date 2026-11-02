@@ -1,9 +1,9 @@
 # UI redesign progress
 
 Ngày audit: 2026-11-02 (Asia/Bangkok). Nhánh: ui-redesign (đã tồn tại).
-Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; redesign trang `/`, flash deal detail, storefront, cart, checkout, profile, danh sách và chi tiết đơn hàng.
+Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; redesign trang `/`, flash deal detail, storefront, cart, checkout, profile, danh sách và chi tiết đơn hàng, thanh toán và hoàn tiền.
 Breadcrumb hiện bắt đầu bằng chữ, không có mũi tên quay lại ở đầu; giữ các dấu phân cách giữa cấp.
-Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart`, `/checkout`, `/account/profile`, `/account/orders` và `/orders/:orderId` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
+Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart`, `/checkout`, `/account/profile`, `/account/orders` và `/orders/:orderId`, `/account/payments`, `/account/payments/:paymentId`, `/account/refunds`, `/account/refunds/:refundId` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
 
 | Route/task | Status | Commit | Notes |
 |---|---|---|---|
@@ -27,10 +27,10 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront c
 | `/account` | todo | — | R16; Redirect regression |
 | `/account/profile` | done | ui(/account/profile): redesign | R17; identity/avatar, profile/password forms, complete addresses/GPS/map/default actions; real-backend read-only validation at 360/768/1280px; status beside email + inputs/focus matching Login; xem PROFILE.md |
 | `/account/orders` | done | ui(/account/orders): redesign | R18; full status filters/counts, shared order items/amounts, cursor loading, empty/retry, reviews; real-backend read-only 360/768/1280px; xem ORDERS.md |
-| `/account/payments` | todo | — | R19; PaymentsPage; user, staff, storeOwner |
-| `/account/refunds` | todo | — | R20; RefundsPage; user, staff, storeOwner |
-| `/account/refunds/:refundId` | todo | — | R21; CustomerRefundDetailPage; user, staff, storeOwner |
-| `/account/payments/:paymentId` | todo | — | R22; PaymentDetailPage; user, staff, storeOwner |
+| `/account/payments` | done | ui(account): redesign payments and refunds | R19; full content/states, shared FilterBar/AmountSummary; real-backend read-only 360/768/1280px; xem PAYMENTS-REFUNDS.md |
+| `/account/refunds` | done | ui(account): redesign payments and refunds | R20; full content/states, shared FilterBar/AmountSummary; real-backend read-only 360/768/1280px; xem PAYMENTS-REFUNDS.md |
+| `/account/refunds/:refundId` | done | ui(account): redesign payments and refunds | R21; full content/states, shared FilterBar/AmountSummary; real-backend read-only 360/768/1280px; xem PAYMENTS-REFUNDS.md |
+| `/account/payments/:paymentId` | done | ui(account): redesign payments and refunds | R22; full content/states, shared FilterBar/AmountSummary; real-backend read-only 360/768/1280px; xem PAYMENTS-REFUNDS.md |
 | `/account/reviews` | todo | — | R23; ReviewsPage; user, staff, storeOwner |
 | `/account/trust-score/:tab?` | todo | — | R24; TrustScorePage; user, staff, storeOwner |
 | `/account/shop-application` | todo | — | R25; ShopApplicationPage; user, staff, storeOwner |
@@ -99,3 +99,5 @@ Refund follow-up: full-width management section and wide request modal with per-
 `/orders/:orderId/refund-request`: dedicated authenticated request page replaces request modal; real eligibility/read/retry/back states and submission guard; targeted lint/build pass, real eligible form/validation/cancel checks at 360/768/1280px documented in ORDERS.md; no uploads or refund writes.
 
 Refund placement correction: receipt Refunds restored below Payment summary; standalone request page aligned to the customer frame, mobile footer/quantity wrapping fixed. Real eligible-order 360/768/1280px checks and lint/build pass; see ORDERS.md.
+
+Payments/Refunds: completed four requested routes and all existing child sections. Approved dropdown format is now shared FilterBar and persisted for contributors. Active refund mutation/form branches unavailable in current data remain integration-unverified; see PAYMENTS-REFUNDS.md.

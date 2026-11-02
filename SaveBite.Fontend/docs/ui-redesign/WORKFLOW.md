@@ -38,3 +38,5 @@ interceptor, seeded data, auth/role/GPS/payment/realtime giả hoặc bypass gua
 Giữ API/DTO/route/logic. Kiểm tra build/lint/responsive và ghi rõ phần backend chưa
 kiểm chứng nếu thiếu truy cập/dữ liệu. Cập nhật PROGRESS.md sau khi xong.
 ```
+
+Bộ lọc đã được duyệt: dùng shared `FilterBar` cho các trang tiếp theo có dropdown. Giữ nền trắng, border token, bo góc và shadow nhẹ; label bên trái, native dropdown căn phải, control cao tối thiểu 44px. Nhiều bộ lọc dùng các hàng trong cùng khung. Không tự đổi sang tabs/chips hoặc thêm nút Refresh.

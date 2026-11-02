@@ -369,24 +369,28 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 - Tương tác source: `onChange`, `onClick`, `onPageChange`.
 - Field đọc trong JSX — `src/pages/customer/PaymentsPage.tsx`: `current.error`, `current?.error`, `data.page`, `data.pageSize`, `data.totalItems`, `data.totalPages`, `data?.items`, `data?.items.length`, `e.target`, `e.target.value`, `payment.id`, `payment.orderCode`, `payment.paidAt`, `payment.shopLogoUrl`, `payment.shopName`, `payment.status`.
 - Field đọc trong JSX — `src/features/payments/components/PaymentStatusBadge.tsx`: `colors.Cancelled`.
-- Nhóm: list/workspace. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=true, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
+- UI đã redesign đầy đủ nội dung/states với shared FilterBar/AmountSummary. Kiểm tra read-only backend thật ở 360/768/1280px; nhánh không có dữ liệu và thao tác ghi chưa kiểm chứng được ghi trong [PAYMENTS-REFUNDS.md](PAYMENTS-REFUNDS.md).
+
+- Shared UI additions: `FilterBar` (list filters), `AmountSummary` (existing financial amounts), token-based image/empty/error/skeleton states. API/DTO fields and conditional behavior remain unchanged; see page report for full inventory.
 
 ### R20. /account/refunds
 
 - Page: `src/pages/customer/RefundsPage.tsx`. Layout: CustomerLayout → AccountLayout. Quyền: user, staff, storeOwner.
-- Service được tham chiếu: Không có service HTTP được phát hiện. Xem bảng endpoint để đối chiếu method, URL và response generic.
+- Service được tham chiếu: `refundApi.page`. Xem bảng endpoint để đối chiếu method, URL và response generic.
 - DTO/type nguồn: `src/features/checkout/types/checkout.types.ts` (`CheckoutMethod`, `DepositRange`, `CheckoutPolicy`, `CheckoutContext`, `PickupEstimate`, `CheckoutRoute`, `CheckoutQuote`, `CheckoutGps`, `CheckoutOrder`, `OrderHistoryPage`); `src/features/refunds/types/refund.types.ts` (`Refund`, `RefundBank`, `RefundPage`, `RefundImage`, `RefundQr`); `src/shared/types/index.ts` ().
 - Hook/state/router: `useRealtimeSubscriptions`, `useSearchParams`.
 - Child component: `src/shared/components/pagination/index.ts`, `src/features/refunds/components/RefundStatusBadge.tsx`.
 - Tương tác source: `onChange`, `onClick`, `onError`, `onPageChange`; realtime `CUSTOMER_ORDERS_CHANGED`.
 - Field đọc trong JSX — `src/pages/customer/RefundsPage.tsx`: `current.data`, `current.data.page`, `current.data.pageSize`, `current.data.totalItems`, `current.data.totalPages`, `current.error`, `current?.data`, `current?.data?.items`, `current?.data?.items.length`, `current?.error`, `e.target`, `refund.id`, `refund.isOverdue`, `refund.orderCode`, `refund.shopLogoUrl`, `refund.shopName`, `refund.status`, `refund.type`.
 - Field đọc trong JSX — `src/features/refunds/components/RefundStatusBadge.tsx`: `colors.Withdrawn`.
-- Nhóm: list/workspace. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=true, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
+- UI đã redesign đầy đủ nội dung/states với shared FilterBar/AmountSummary. Kiểm tra read-only backend thật ở 360/768/1280px; nhánh không có dữ liệu và thao tác ghi chưa kiểm chứng được ghi trong [PAYMENTS-REFUNDS.md](PAYMENTS-REFUNDS.md).
+
+- Shared UI additions: `FilterBar` (list filters), `AmountSummary` (existing financial amounts), token-based image/empty/error/skeleton states. API/DTO fields and conditional behavior remain unchanged; see page report for full inventory.
 
 ### R21. /account/refunds/:refundId
 
 - Page: `src/pages/customer/RefundDetailPage.tsx`. Layout: CustomerLayout → AccountLayout. Quyền: user, staff, storeOwner.
-- Service được tham chiếu: `refundApi.confirm`, `refundApi.destination`, `refundApi.upload`, `refundApi.withdraw`. Xem bảng endpoint để đối chiếu method, URL và response generic.
+- Service được tham chiếu: `refundApi.detail`, `refundApi.confirm`, `refundApi.destination`, `refundApi.upload`, `refundApi.withdraw`. Xem bảng endpoint để đối chiếu method, URL và response generic.
 - DTO/type nguồn: `src/features/checkout/types/checkout.types.ts` (`CheckoutMethod`, `DepositRange`, `CheckoutPolicy`, `CheckoutContext`, `PickupEstimate`, `CheckoutRoute`, `CheckoutQuote`, `CheckoutGps`, `CheckoutOrder`, `OrderHistoryPage`); `src/features/refunds/types/refund.types.ts` (`Refund`, `RefundBank`, `RefundPage`, `RefundImage`, `RefundQr`); `src/shared/types/index.ts` ().
 - Hook/state/router: `useAuthStore.getState`, `useParams`, `useRealtimeSubscriptions`.
 - Child component: `src/features/refunds/components/CustomerRefundDetailContent.tsx`, `src/features/refunds/components/RefundItems.tsx`, `src/features/refunds/components/RefundEvidenceGallery.tsx`, `src/shared/components/modal/BaseModal.tsx`, `src/features/refunds/components/RefundDestinationForm.tsx`, `src/features/refunds/components/RefundBankSelect.tsx`, `src/features/refunds/components/RefundFileUpload.tsx`, `src/features/refunds/components/RefundStatusBadge.tsx`.
@@ -398,7 +402,9 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 - Field đọc trong JSX — `src/features/refunds/components/RefundBankSelect.tsx`: `bank.bin`, `bank.name`, `bank.shortName`, `bank?.bin`, `bank?.name`, `event.target`, `event.target.value`, `item.bin`, `items.length`.
 - Field đọc trong JSX — `src/features/refunds/components/RefundFileUpload.tsx`: `event.target`, `event.target.files`, `event.target.value`, `file.name`, `file.size`, `files.length`, `ref.current`, `selected.length`.
 - Field đọc trong JSX — `src/features/refunds/components/RefundStatusBadge.tsx`: `colors.Withdrawn`.
-- Nhóm: detail/tabs. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=true, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
+- UI đã redesign đầy đủ nội dung/states với shared FilterBar/AmountSummary. Kiểm tra read-only backend thật ở 360/768/1280px; nhánh không có dữ liệu và thao tác ghi chưa kiểm chứng được ghi trong [PAYMENTS-REFUNDS.md](PAYMENTS-REFUNDS.md).
+
+- Shared UI additions: `FilterBar` (list filters), `AmountSummary` (existing financial amounts), token-based image/empty/error/skeleton states. API/DTO fields and conditional behavior remain unchanged; see page report for full inventory.
 
 ### R22. /account/payments/:paymentId
 
@@ -411,7 +417,9 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 - Field đọc trong JSX — `src/pages/customer/PaymentDetailPage.tsx`: `item.flashDealVariantId`, `item.imageUrl`, `item.productName`, `item.quantity`, `item.variantName`, `order.id`, `order.items`, `order.orderCode`, `order.outstandingAmount`, `order.paidAmount`, `order.shopAddress`, `order.shopLogoUrl`, `order.shopName`, `order.status`, `order.totalAmount`, `payment.id`, `payment.paidAt`, `payment.status`.
 - Field đọc trong JSX — `src/features/payments/components/PaymentStatusBadge.tsx`: `colors.Cancelled`.
 - Field đọc trong JSX — `src/features/checkout/components/OrderPickupDeadlines.tsx`: `order.hardDeadlineAt`, `order.softDeadlineAt`.
-- Nhóm: detail/tabs. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=false, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
+- UI đã redesign đầy đủ nội dung/states với shared FilterBar/AmountSummary. Kiểm tra read-only backend thật ở 360/768/1280px; nhánh không có dữ liệu và thao tác ghi chưa kiểm chứng được ghi trong [PAYMENTS-REFUNDS.md](PAYMENTS-REFUNDS.md).
+
+- Shared UI additions: `FilterBar` (list filters), `AmountSummary` (existing financial amounts), token-based image/empty/error/skeleton states. API/DTO fields and conditional behavior remain unchanged; see page report for full inventory.
 
 ### R23. /account/reviews
 

@@ -27,3 +27,6 @@ export { Pagination } from "../pagination/Pagination";
 export { ToastViewport as Toast } from "../feedback/ToastViewport";
 
 export { MediaImage } from "./MediaImage";
+
+export { FilterBar } from "./FilterBar";
+export { AmountSummary } from "./AmountSummary";

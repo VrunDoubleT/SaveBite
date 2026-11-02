@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { RotateCcw, Store } from "lucide-react";
+import { ArrowRight, RotateCcw, Store } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { getApiErrorMessage } from "@/shared/api";
 import { Pagination } from "@/shared/components/pagination";
@@ -8,7 +8,16 @@ import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
 import { refundApi } from "@/features/refunds/api/refundApi";
 import { RefundStatusBadge } from "@/features/refunds/components/RefundStatusBadge";
-import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
+import {
+  AmountSummary,
+  ButtonLink,
+  Card,
+  EmptyState,
+  ErrorState,
+  FilterBar,
+  MediaImage,
+  Skeleton,
+} from "@/shared/components/ui";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import type { RefundPage } from "@/features/refunds/types/refund.types";
 const statuses: Record<string, string> = {
@@ -86,109 +95,140 @@ export function RefundsPage() {
   }
   return (
     <div className="min-w-0 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-neutral-500">
-          Manage your requests and refunds required after a shop cancellation.
+      <FilterBar
+        filters={[
+          {
+            label: "Refund type",
+            value: type,
+            options: [
+              { value: "All", label: "All refunds" },
+              { value: "CustomerRequest", label: "My requests" },
+              { value: "ShopCancellation", label: "Shop cancellations" },
+            ],
+            onChange: (value) => filter("type", value),
+          },
+          {
+            label: "Refund status",
+            value: status,
+            options: Object.entries(statuses).map(([value, label]) => ({ value, label })),
+            onChange: (value) => filter("status", value),
+          },
+        ]}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-2 text-caption text-text-secondary">
+        <p role="status">
+          {current?.data ? `${current.data.totalItems} refunds · GMT+7` : "Refund history · GMT+7"}
         </p>
         <Link
           to={APP_PATHS.ACCOUNT_ORDERS}
-          className="text-xs font-medium text-emerald-700 hover:underline"
+          className="inline-flex min-h-11 items-center font-semibold text-primary-700 hover:underline"
         >
-          Request a refund from order details
+          Request from order details
         </Link>
       </div>
-      <div className="flex flex-wrap gap-3">
-        <label className="text-xs font-medium text-neutral-600">
-          Refund type
-          <select
-            value={type}
-            onChange={(e) => filter("type", e.target.value)}
-            className="ml-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
-          >
-            <option value="All">All refunds</option>
-            <option value="CustomerRequest">My requests</option>
-            <option value="ShopCancellation">Shop cancellations</option>
-          </select>
-        </label>
-        <label className="text-xs font-medium text-neutral-600">
-          Status
-          <select
-            value={status}
-            onChange={(e) => filter("status", e.target.value)}
-            className="ml-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
-          >
-            {Object.entries(statuses).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
       {current?.error && (
-        <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          {current.error}
-          <button
-            type="button"
-            className="ml-3 underline"
-            onClick={() => setRevision((value) => value + 1)}
-          >
-            Retry
-          </button>
-        </p>
+        <ErrorState
+          title="Couldn't load refunds"
+          description={current.error}
+          onRetry={() => setRevision((value) => value + 1)}
+        />
       )}
       {!current && (
-        <p role="status" className="py-6 text-sm text-neutral-500">
-          Loading refunds…
-        </p>
-      )}
-      {current?.data?.items.length === 0 && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500">
-          <RotateCcw className="mx-auto mb-2" size={24} />
-          No refunds found.
+        <div role="status" aria-label="Loading refunds" className="space-y-4">
+          {[0, 1, 2].map((key) => (
+            <Card key={key} className="space-y-4">
+              <Skeleton className="h-12 w-2/3" />
+              <Skeleton className="h-20" />
+            </Card>
+          ))}
         </div>
       )}
+      {current?.data?.items.length === 0 && (
+        <EmptyState
+          icon={RotateCcw}
+          title="No refunds found"
+          description="Try another filter, or open an order to check refund eligibility."
+          action={
+            <ButtonLink to={APP_PATHS.ACCOUNT_ORDERS} variant="secondary">
+              View orders
+            </ButtonLink>
+          }
+        />
+      )}
       {current?.data?.items.map((refund) => (
-        <section key={refund.id} className="rounded-xl border border-neutral-200 bg-white p-4">
-          <header className="mb-3 flex flex-wrap items-start justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-3">
-              <RefundShopAvatar src={refund.shopLogoUrl} name={refund.shopName} />
+        <Card
+          key={refund.id}
+          aria-label={`Refund for order ${refund.orderCode}`}
+          className="!p-0 overflow-hidden"
+        >
+          <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
+            <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1">
+              <MediaImage
+                src={refund.shopLogoUrl}
+                alt=""
+                fallbackIcon={Store}
+                showFallbackLabel={false}
+                className="size-12 shrink-0 rounded-md"
+              />
               <div className="min-w-0">
-                <Link
-                  to={APP_PATHS.SHOP_DETAIL.replace(":id", refund.shopId)}
-                  className="break-words text-sm font-semibold hover:text-emerald-700 hover:underline focus-visible:underline"
-                >
-                  {refund.shopName}
-                </Link>
-                <p className="mt-1 text-xs text-neutral-500">
+                <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
+                  <Link
+                    to={APP_PATHS.SHOP_DETAIL.replace(":id", encodeURIComponent(refund.shopId))}
+                    className="hover:text-primary-700 hover:underline"
+                  >
+                    {refund.shopName}
+                  </Link>
+                </h2>
+                <p className="mt-1 text-caption text-text-secondary">
                   Order{" "}
                   <Link
-                    to={APP_PATHS.ORDER_DETAIL.replace(":orderId", refund.orderId)}
-                    className="font-medium text-emerald-700 hover:underline focus-visible:underline"
+                    to={APP_PATHS.ORDER_DETAIL.replace(
+                      ":orderId",
+                      encodeURIComponent(refund.orderId),
+                    )}
+                    className="font-semibold text-primary-700 hover:underline"
                   >
                     {refund.orderCode}
                   </Link>
                 </p>
               </div>
             </div>
-            <Link
-              to={APP_PATHS.REFUND_DETAIL.replace(":refundId", refund.id)}
-              className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-medium text-emerald-700"
-            >
-              View refund details
-            </Link>
-          </header>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 pt-3">
-            <div>
-              <p className="text-base font-bold text-neutral-900">{money(refund.amount)}</p>
-              <p className="mt-1 text-xs text-neutral-500">
-                {refund.type === "CustomerRequest" ? "Your request" : "Required shop refund"} ·{" "}
-                {checkoutTime(refund.createdAt)}
-              </p>
-            </div>
             <RefundStatusBadge status={refund.status} overdue={refund.isOverdue} />
+          </header>
+          <div className="space-y-4 p-4 sm:p-5">
+            <div className="flex flex-wrap justify-between gap-2 text-caption text-text-secondary">
+              <span className="font-medium">
+                {refund.type === "CustomerRequest" ? "Your request" : "Required shop refund"}
+              </span>
+              <time dateTime={refund.createdAt}>Requested {checkoutTime(refund.createdAt)}</time>
+            </div>
+            <AmountSummary
+              amounts={[
+                { label: "Requested amount", amount: refund.amount },
+                { label: "Transferred", amount: refund.transferredAmount, tone: "primary" },
+              ]}
+            />
+            {refund.status === "AwaitingCustomerDetails" && (
+              <p className="rounded-md bg-accent-50 p-3 text-caption text-accent-700">
+                Confirm your refund destination
+                {refund.customerDetailsDeadlineAt
+                  ? ` by ${checkoutTime(refund.customerDetailsDeadlineAt)} · GMT+7`
+                  : " to continue"}
+                .
+              </p>
+            )}
+            <div className="flex justify-end border-t border-border-default pt-3">
+              <ButtonLink
+                to={APP_PATHS.REFUND_DETAIL.replace(":refundId", encodeURIComponent(refund.id))}
+                variant="secondary"
+                className="min-h-11 w-full sm:w-auto"
+              >
+                View refund details
+                <ArrowRight size={16} aria-hidden="true" />
+              </ButtonLink>
+            </div>
           </div>
-        </section>
+        </Card>
       ))}
       {current?.data && current.data.totalPages > 0 && (
         <Pagination
@@ -208,24 +248,5 @@ export function RefundsPage() {
         />
       )}
     </div>
-  );
-}
-
-function RefundShopAvatar({ src, name }: { src?: string; name: string }) {
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  return (
-    <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-400">
-      {src && src !== failedSrc ? (
-        <img
-          src={src}
-          alt={`${name} logo`}
-          loading="lazy"
-          onError={() => setFailedSrc(src)}
-          className="size-full object-cover"
-        />
-      ) : (
-        <Store size={22} aria-hidden="true" />
-      )}
-    </span>
   );
 }

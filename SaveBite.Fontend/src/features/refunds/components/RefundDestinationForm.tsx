@@ -1,3 +1,4 @@
+import { Button, Input } from "@/shared/components/ui";
 import { useState } from "react";
 import { RefundBankSelect } from "./RefundBankSelect";
 import { refundBankName } from "../api/refundBanks";
@@ -31,7 +32,6 @@ export function RefundDestinationForm({
   }
   const disabled = busy;
   const qr = bank.receiverMethod === "QrImage";
-  const input = "mt-1 w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-body";
   return (
     <div className="mt-4 border-t border-border-default pt-4">
       {refund.customerDetailsDeadlineAt && (
@@ -43,20 +43,22 @@ export function RefundDestinationForm({
       <p className="text-caption text-text-secondary">
         Choose how to provide your refund destination. Confirm it using the code sent to your email.
       </p>
-      <div className="my-3 flex gap-2">
+      <div className="my-4 flex flex-wrap gap-2">
         {(["BankAccount", "QrImage"] as const).map((method) => (
-          <button
+          <Button
+            variant="secondary"
             type="button"
+            aria-pressed={bank.receiverMethod === method}
             key={method}
             disabled={disabled}
             onClick={() => {
               setBank({ ...bank, receiverMethod: method });
               setErrors({});
             }}
-            className={`rounded-lg border px-3 py-2 text-caption font-medium ${bank.receiverMethod === method ? "border-primary-300 bg-primary-50 text-primary-800" : "border-border-default text-text-secondary"}`}
+            className={`min-h-11 whitespace-normal ${bank.receiverMethod === method ? "!border-primary-200 !bg-primary-50 !text-primary-800" : ""}`}
           >
             {method === "BankAccount" ? "Enter bank details" : "Upload bank QR"}
-          </button>
+          </Button>
         ))}
       </div>
       <form
@@ -148,13 +150,14 @@ export function RefundDestinationForm({
             />
             <label className="text-caption font-medium">
               Account number
-              <input
+              <Input
+                variant="auth"
                 required
                 inputMode="numeric"
                 pattern="[0-9]{1,50}"
                 maxLength={50}
                 aria-invalid={!!errors.account}
-                className={`${input} ${errors.account ? "border-danger-soft" : ""}`}
+                className="mt-2 min-h-11"
                 value={bank.accountNumber}
                 disabled={disabled}
                 onChange={(event) => {
@@ -172,11 +175,12 @@ export function RefundDestinationForm({
         )}
         <label className="text-caption font-medium sm:col-span-2">
           Account holder
-          <input
+          <Input
+            variant="auth"
             required
             maxLength={150}
             aria-invalid={!!errors.holder}
-            className={`${input} ${errors.holder ? "border-danger-soft" : ""}`}
+            className="mt-2 min-h-11"
             value={bank.accountHolder}
             disabled={disabled}
             onChange={(event) => {
@@ -190,12 +194,14 @@ export function RefundDestinationForm({
             </p>
           )}
         </label>
-        <button
+        <Button
+          type="submit"
+          loading={busy}
           disabled={disabled}
-          className="justify-self-start rounded-lg bg-primary-700 px-3 py-2 text-caption font-semibold text-text-inverse disabled:opacity-50 sm:col-span-2"
+          className="min-h-11 justify-self-start whitespace-normal sm:col-span-2"
         >
           {refund.confirmationExpiresAt ? "Resend confirmation email" : "Send confirmation email"}
-        </button>
+        </Button>
       </form>
       {refund.confirmationExpiresAt && (
         <form
@@ -213,13 +219,14 @@ export function RefundDestinationForm({
         >
           <label className="text-caption font-medium">
             Email code
-            <input
+            <Input
+              variant="auth"
               required
               inputMode="numeric"
               pattern="[0-9]{6}"
               maxLength={6}
               aria-invalid={!!errors.code}
-              className={`${input} ${errors.code ? "border-danger-soft" : ""}`}
+              className="mt-2 min-h-11"
               value={code}
               disabled={disabled}
               onChange={(event) => {
@@ -233,12 +240,14 @@ export function RefundDestinationForm({
               </p>
             )}
           </label>
-          <button
+          <Button
+            type="submit"
+            loading={busy}
             disabled={disabled}
-            className="rounded-lg bg-primary-700 px-3 py-2 text-caption font-semibold text-text-inverse disabled:opacity-50"
+            className="min-h-11 whitespace-normal"
           >
             Confirm destination
-          </button>
+          </Button>
           <p className="w-full text-caption text-text-muted">
             Code expires {checkoutTime(refund.confirmationExpiresAt)} · GMT+7
           </p>

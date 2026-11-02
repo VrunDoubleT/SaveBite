@@ -1,3 +1,4 @@
+import { MediaImage } from "@/shared/components/ui";
 import { useEffect, useState } from "react";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
 
@@ -33,11 +34,11 @@ export function RefundEvidenceGallery({ urls, label }: { urls: string[]; label: 
             }}
             className="overflow-hidden rounded-lg border border-border-default focus-visible:outline-2 focus-visible:outline-primary-500"
           >
-            <img
+            <MediaImage
               src={url}
               alt={`${label} ${index + 1}`}
               loading="lazy"
-              className="size-20 object-cover sm:size-24"
+              className="size-20 sm:size-24"
             />
           </button>
         ))}
