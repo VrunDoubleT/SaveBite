@@ -181,9 +181,15 @@ function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
   };
 
   return (
-    <ol className="grid grid-cols-3 gap-2" aria-label="Application progress">
-      {steps.map((step) => (
-        <li key={step.label} className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+    <ol className="grid grid-cols-3" aria-label="Application progress">
+      {steps.map((step, index) => (
+        <li key={step.label} className="relative flex min-w-0 flex-col items-center gap-1.5 text-center">
+          {index < steps.length - 1 && (
+            <span
+              aria-hidden="true"
+              className={`absolute left-[calc(50%+1rem)] top-3.5 h-0.5 w-[calc(100%-2rem)] ${step.state === "done" ? "bg-primary-300" : "bg-neutral-300"}`}
+            />
+          )}
           <span
             className={`flex size-7 items-center justify-center rounded-full ${circle[step.state]}`}
             aria-hidden="true"
@@ -198,7 +204,7 @@ function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
               <span className="size-1.5 rounded-full bg-neutral-300" />
             )}
           </span>
-          <span className="text-caption text-text-secondary">{step.label}</span>
+          <span className="px-1 text-caption text-text-secondary">{step.label}</span>
         </li>
       ))}
     </ol>

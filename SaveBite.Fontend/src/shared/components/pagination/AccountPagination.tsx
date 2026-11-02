@@ -10,7 +10,7 @@ export function AccountPagination({
       {...props}
       size="md"
       showFirstLast
-      hideOnSinglePage={false}
+      hideOnSinglePage
       className={`[&]:gap-2 [&]:p-2.5 sm:[&]:px-3 [&_button]:min-h-9 [&_button]:min-w-9 [&_button[aria-label^='Page_']]:hidden sm:[&_button[aria-label^='Page_']]:inline-flex ${className}`}
     />
   );

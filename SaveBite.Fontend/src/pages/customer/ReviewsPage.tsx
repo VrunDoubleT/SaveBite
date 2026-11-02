@@ -125,7 +125,7 @@ export function ReviewsPage() {
         />
       )}
 
-      {totalItems > 0 && (
+      {totalPages > 1 && (
         <div className="pt-2">
           <Pagination
             className="w-full"
