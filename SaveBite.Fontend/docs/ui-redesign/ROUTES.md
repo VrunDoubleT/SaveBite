@@ -252,11 +252,11 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 - Service được tham chiếu: `cartApi.addItem`, `cartApi.getPage`, `cartApi.removeItem`, `cartApi.summary`, `cartApi.updateQuantity`. Xem bảng endpoint để đối chiếu method, URL và response generic.
 - DTO/type nguồn: `src/features/cart/types/cart.types.ts` (`CartItem`, `CartShop`, `Cart`, `CursorPagedResult`, `CartSummary`, `CartPage`, `CartMutationResponse`); `src/shared/types/index.ts` ().
 - Hook/state/router: `useAuthStore.getState`, `useAuthStore.subscribe`, `useCartStore`, `useCartStore.getState`, `useCartStore.getState().setPageActive`, `useCartStore.setState`, `useNavigate`, `useToastStore.getState`, `useToastStore.getState().removeToast`.
-- Child component: `src/features/cart/components/CartItemRow.tsx`.
+- Child component: `src/features/cart/components/CartItemRow.tsx` (shared read-only row với checkout); shared PageHeader/Card/Badge/MediaImage/Button/IconButton/Input/Skeleton/EmptyState/ErrorState.
 - Tương tác source: `onBlur`, `onChange`, `onClick`, `onKeyDown`, `onQuantity`, `onRemove`.
-- Field đọc trong JSX — `src/pages/customer/CartPage.tsx`: `cart.shops`, `cart?.shops`, `cart?.shops.length`, `item.id`, `shop.canCheckout`, `shop.items`, `shop.shopAddress`, `shop.shopId`, `shop.shopLogoUrl`, `shop.shopName`, `shop.totalQuantity`.
-- Field đọc trong JSX — `src/features/cart/components/CartItemRow.tsx`: `event.currentTarget`, `event.key`, `event.target`, `item.availableQuantity`, `item.canUpdateQuantity`, `item.flashDealId`, `item.imageUrl`, `item.isAvailable`, `item.originalPrice`, `item.productName`, `item.quantity`, `item.unavailableReason`, `item.unitPrice`, `item.variantName`.
-- Nhóm: list/workspace. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=true, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
+- Field đọc trong JSX — `src/pages/customer/CartPage.tsx`: `cart.shops`, `cart?.shops`, `cart?.shops.length`, `item.id`, `shop.canCheckout`, `shop.items`, `shop.shopAddress`, `shop.shopId`, `shop.shopLogoUrl`, `shop.shopName`, `shop.subtotal`, `shop.totalQuantity`.
+- Field đọc trong JSX — `src/features/cart/components/CartItemRow.tsx`: `event.currentTarget`, `event.key`, `event.target`, `item.availableQuantity`, `item.canUpdateQuantity`, `item.flashDealId`, `item.imageUrl`, `item.isAvailable`, `item.originalPrice`, `item.orderEndTime`, `item.subtotal`, `item.productName`, `item.quantity`, `item.unavailableReason`, `item.unitPrice`, `item.variantName`.
+- Redesign hoàn tất: grouped shop cards, editable items và subtotal/checkout theo từng shop. Giữ API/DTO, cartStore/realtime và guard cũ; thêm thông báo mutation thành công và manual load-more cùng cursor observer. Normal/loading/empty/error/retry/unavailable/partial-long data, số lượng nhập tay và checkout đã kiểm tra ở 360/768/1280px. Xem [CART.md](./CART.md).
 
 ### R13. /checkout/simulation
 
