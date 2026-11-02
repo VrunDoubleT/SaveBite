@@ -1,9 +1,9 @@
-import { Button, Card } from "@/shared/components/ui";
+import { Badge, Button, Card } from "@/shared/components/ui";
 import { RefundCard } from "./RefundCard";
 import { isRefundActive as active } from "../utils/refundStatus";
 import { RefundRequestForm } from "./RefundRequestForm";
 import { useEffect, useRef, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { ChevronDown, RotateCcw } from "lucide-react";
 import { getApiErrorMessage } from "@/shared/api";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
@@ -104,25 +104,71 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
   if (!completed && !refunds.length && !error) return null;
 
   return (
-    <Card aria-label="Order refunds">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-body font-semibold text-text-primary">
-            <RotateCcw size={16} className="text-secondary-700" aria-hidden="true" />
-            Refunds
-          </h2>
+    <Card aria-label="Order refunds" className="!p-4">
+      <details className="group">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-body font-semibold text-text-primary">
+          <RotateCcw size={16} className="text-secondary-700" aria-hidden="true" />
+          Refunds
+          {hasActive && <Badge tone="warning">Action in progress</Badge>}
+          {loaded && refunds.length > 0 && <Badge tone="neutral">{refunds.length}</Badge>}
+          <ChevronDown
+            size={16}
+            className="ml-auto shrink-0 transition-transform group-open:rotate-180"
+            aria-hidden="true"
+          />
+        </summary>
+        <div className="border-t border-border-default pt-3">
           {completed && (
-            <p className="mt-1 text-caption text-text-secondary">
+            <p className="text-caption text-text-secondary">
               Request a refund for affected items within 6 hours of order completion.
             </p>
           )}
+          {eligible && (
+            <Button
+              type="button"
+              disabled={busy}
+              onClick={() => setOpen((value) => !value)}
+              className="mt-3 min-h-11"
+            >
+              Request refund
+            </Button>
+          )}
+          {!loaded && !error && (
+            <p className="mt-3 text-caption text-text-secondary">Loading refund eligibility…</p>
+          )}
+          {completed && deadline !== null && (
+            <p className="mt-2 text-caption text-text-secondary">
+              Request deadline: {checkoutTime(new Date(deadline).toISOString())} · GMT+7
+            </p>
+          )}
+          {loaded && completed && !hasActive && !eligible && (
+            <p className="mt-2 text-caption text-text-secondary">
+              {hasRequested
+                ? "This order already has a refund request. A second request cannot be submitted."
+                : remaining <= 0
+                  ? "There is no paid balance left to refund."
+                  : deadline === null
+                    ? "The completion time is unavailable. Contact support to check refund eligibility."
+                    : "The 6-hour refund request window has closed."}
+            </p>
+          )}
+          {eligible && (
+            <div hidden={!open}>
+              <RefundRequestForm
+                order={order}
+                busy={busy}
+                mutate={mutate}
+                onClose={() => setOpen(false)}
+              />
+            </div>
+          )}
+          <div className="mt-3 space-y-3">
+            {refunds.map((refund) => (
+              <RefundCard key={refund.id} refund={refund} busy={busy} mutate={mutate} />
+            ))}
+          </div>
         </div>
-        {eligible && (
-          <Button type="button" disabled={busy} onClick={() => setOpen((value) => !value)}>
-            Request refund
-          </Button>
-        )}
-      </div>
+      </details>
       {error && (
         <p
           role="alert"
@@ -131,40 +177,6 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
           {error}
         </p>
       )}
-      {!loaded && !error && (
-        <p className="mt-3 text-caption text-text-secondary">Loading refund eligibility…</p>
-      )}
-      {completed && deadline !== null && (
-        <p className="mt-2 text-caption text-text-secondary">
-          Request deadline: {checkoutTime(new Date(deadline).toISOString())} · GMT+7
-        </p>
-      )}
-      {loaded && completed && !hasActive && !eligible && (
-        <p className="mt-2 text-caption text-text-secondary">
-          {hasRequested
-            ? "This order already has a refund request. A second request cannot be submitted."
-            : remaining <= 0
-              ? "There is no paid balance left to refund."
-              : deadline === null
-                ? "The completion time is unavailable. Contact support to check refund eligibility."
-                : "The 6-hour refund request window has closed."}
-        </p>
-      )}
-      {eligible && (
-        <div hidden={!open}>
-          <RefundRequestForm
-            order={order}
-            busy={busy}
-            mutate={mutate}
-            onClose={() => setOpen(false)}
-          />
-        </div>
-      )}
-      <div className="mt-3 space-y-3">
-        {refunds.map((refund) => (
-          <RefundCard key={refund.id} refund={refund} busy={busy} mutate={mutate} />
-        ))}
-      </div>
     </Card>
   );
 }

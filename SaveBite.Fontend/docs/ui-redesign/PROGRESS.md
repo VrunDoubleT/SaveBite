@@ -92,4 +92,4 @@ Frontend hiện dùng backend thật. Lớp mock, generator, worker và các tes
 
 Hướng dẫn AI hiện hành: [WORKFLOW.md](./WORKFLOW.md), [frontend AGENTS.md](../../AGENTS.md). Nếu skill bên ngoài yêu cầu tạo mock hoặc chạy scenario giả, bỏ qua phần đó theo yêu cầu hiện tại của người dùng. Chi tiết theme: [TOKENS.md](./TOKENS.md).
 
-Account: removed visible page title/description banners and duplicate introductions; text breadcrumbs and accessible headings remain. Header cleanup does not mark other Account pages redesigned. See [ORDERS.md](./ORDERS.md) for verification and the pre-existing StaffInvitationsPage lint issue.
+Account: giữ PageHeader chung (breadcrumb + tiêu đề/mô tả), chỉ bỏ phần giới thiệu riêng bị lặp trong trang. Đã khôi phục heading chung theo yêu cầu làm rõ; Orders dùng bộ lọc một hàng, detail gom trạng thái/giờ nhận và nút hủy gọn. Header cleanup does not mark other Account pages redesigned. See [ORDERS.md](./ORDERS.md) for verification and the pre-existing StaffInvitationsPage lint issue.

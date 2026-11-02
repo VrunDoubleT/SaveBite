@@ -15,7 +15,6 @@ import {
   Store,
 } from "lucide-react";
 import {
-  Badge,
   Button,
   ButtonLink,
   Card,
@@ -199,55 +198,34 @@ function CustomerOrders({
       : (counts[value] ?? 0);
   return (
     <div className="min-w-0 space-y-5">
-      <Card aria-label="Order filters" className="!p-4 space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <label className="min-w-0 flex-1 space-y-2 sm:max-w-xs">
-            <span className="block text-caption font-semibold text-text-secondary">
-              Order status
-            </span>
-            <Select
-              aria-label="Filter by order status"
-              value={status}
-              onChange={(event) => onFilter(event.target.value)}
-              className="min-h-11 bg-white"
-            >
-              {tabs.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                  {loading ? "" : ` (${countFor(value)})`}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <Button variant="secondary" onClick={onRefresh} disabled={loading} className="min-h-11">
-            <RefreshCw size={16} aria-hidden="true" />
-            Refresh
-          </Button>
-        </div>
-        <nav
-          aria-label="Quick order filters"
-          className="flex flex-wrap gap-2 border-t border-border-default pt-4"
+      <div aria-label="Order filters" className="flex flex-wrap items-center gap-3">
+        <label htmlFor="order-status-filter" className="text-body font-medium text-text-secondary">
+          Order status
+        </label>
+        <Select
+          id="order-status-filter"
+          aria-label="Filter by order status"
+          value={status}
+          onChange={(event) => onFilter(event.target.value)}
+          className="min-h-11 !w-auto min-w-0 max-w-full flex-1 sm:flex-none sm:min-w-52"
         >
-          {tabs
-            .filter(([value]) =>
-              ["All", "AwaitingPayment", "ReadyForPickup", "Completed"].includes(value),
-            )
-            .map(([value, label]) => (
-              <Button
-                key={value}
-                variant="ghost"
-                aria-pressed={status === value}
-                onClick={() => onFilter(value)}
-                className={`min-h-11 !px-3 ${status === value ? "!border-primary-100 !bg-primary-50 !text-primary-700 hover:!bg-primary-100" : "!border-border-default !bg-bg-surface text-text-secondary hover:!bg-neutral-50"}`}
-              >
-                {label}
-                <Badge tone={status === value ? "primary" : "neutral"} className="!px-2">
-                  {loading ? "…" : countFor(value)}
-                </Badge>
-              </Button>
-            ))}
-        </nav>
-      </Card>
+          {tabs.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+              {loading ? "" : ` (${countFor(value)})`}
+            </option>
+          ))}
+        </Select>
+        <Button
+          variant="secondary"
+          onClick={onRefresh}
+          disabled={loading}
+          className="min-h-11 sm:ml-auto"
+        >
+          <RefreshCw size={16} aria-hidden="true" />
+          Refresh
+        </Button>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-caption text-text-secondary">
         <p role="status">
           {loading

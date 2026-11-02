@@ -1,4 +1,4 @@
-import { Badge, Button, Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
+import { Button, Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
 import { CustomerOrderRefunds } from "@/features/refunds/components/CustomerOrderRefunds";
@@ -199,22 +199,6 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
       )}
       {order && (
         <div className="space-y-4">
-          <Card aria-label="Order overview" className="!p-0 overflow-hidden">
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border-default bg-primary-50/50 p-4 sm:p-6">
-              <OrderPickupCode code={order.orderCode} />
-              {order.createdAt && (
-                <Badge tone="neutral" className="!bg-bg-surface">
-                  <Clock3 size={14} aria-hidden="true" />
-                  <time dateTime={order.createdAt}>
-                    Placed {checkoutTime(order.createdAt)} · GMT+7
-                  </time>
-                </Badge>
-              )}
-            </div>
-            <div className="p-4 sm:p-6">
-              <OrderStatusPanel order={order} />
-            </div>
-          </Card>
           {order.paymentReviewRequired && (
             <p
               role="alert"
@@ -234,14 +218,40 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
           )}
           <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="min-w-0 space-y-4">
-              <Card aria-label="Pickup information" className="space-y-4">
-                <h2 className="mb-3 text-body font-semibold text-text-primary">
-                  Pickup information
-                </h2>
-                <OrderPickupDeadlines order={order} now={now} />
-                <p className="mt-3 text-caption leading-relaxed text-text-secondary">
-                  GMT+7 · Pickup deadlines do not extend during payment.
-                </p>
+              <Card aria-label="Pickup information" className="!p-0 overflow-hidden">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
+                  <OrderPickupCode code={order.orderCode} />
+                  <CancelOrderAction
+                    order={order}
+                    now={now}
+                    busy={busy}
+                    onCancel={() => update(() => orderApi.cancel(orderId))}
+                  />
+                  {order.createdAt && (
+                    <p className="flex w-full items-center gap-1.5 text-caption text-text-secondary">
+                      <Clock3 size={14} aria-hidden="true" />
+                      <time dateTime={order.createdAt}>
+                        Placed {checkoutTime(order.createdAt)} · GMT+7
+                      </time>
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-4 p-4 sm:p-5">
+                  <h2 className="text-body font-semibold text-text-primary">Pickup information</h2>
+                  <OrderStatusPanel order={order} compact />
+                  <OrderPickupDeadlines order={order} now={now} compact />
+                  <p className="text-caption text-text-secondary">
+                    GMT+7 · Pickup deadlines do not extend during payment.
+                  </p>
+                  <details className="group border-t border-border-default pt-2">
+                    <summary className="min-h-8 cursor-pointer text-caption font-medium text-text-secondary">
+                      About these statuses
+                    </summary>
+                    <div className="pt-3">
+                      <OrderStatusPanel order={order} />
+                    </div>
+                  </details>
+                </div>
               </Card>
               <Card aria-label="Shop and ordered products" className="!p-0 overflow-hidden">
                 <header className="flex items-center gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
@@ -289,96 +299,91 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                 </div>
               </Card>
             </div>
-            <aside
-              aria-label="Payment summary"
-              className="min-w-0 space-y-5 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
-            >
-              <h2 className="flex items-center gap-2 text-section font-bold text-text-primary">
-                <CreditCard aria-hidden="true" size={20} className="text-primary-600" />
-                Payment summary
-              </h2>
-              <OrderPaymentAmounts order={order} />
-              <dl className="space-y-3 border-t border-border-default pt-4 text-body">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-text-secondary">Method</dt>
-                  <dd className="min-w-0 max-w-[65%] break-words text-right font-semibold text-text-primary">
-                    {order.paymentMethod === "PayAtShop"
-                      ? "Online deposit + pay at shop"
-                      : "Full online payment"}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-text-secondary">
-                    {order.paymentStatus === "Succeeded"
-                      ? "Paid online"
-                      : "Required online payment"}
-                  </dt>
-                  <dd className="shrink-0 font-bold tabular-nums text-text-primary">
-                    {money(order.requiredOnlineAmount)}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4 border-t border-border-default pt-4">
-                  <dt className="font-semibold text-text-secondary">Remaining at shop</dt>
-                  <dd className="shrink-0 text-lg font-extrabold tabular-nums text-primary-700">
-                    {money(order.remainingAtShop)}
-                  </dd>
-                </div>
-              </dl>
-              {pending && (
-                <div className="space-y-3 border-t border-border-default pt-4">
-                  <p className="text-caption text-text-secondary">
-                    Payment deadline: {checkoutTime(order.paymentExpiresAt)}
-                  </p>
-                  <Button
-                    loading={busy}
-                    size="lg"
-                    type="button"
-                    disabled={busy || expired}
-                    onClick={() => void update(() => paymentApi.payment(orderId), true)}
-                    className="w-full whitespace-normal !px-3 py-3"
-                  >
-                    <CreditCard aria-hidden="true" size={18} className="shrink-0" />
-                    {busy
-                      ? "Checking…"
-                      : expired
-                        ? "Payment expired · Verifying"
-                        : `${order.paymentMethod === "PayAtShop" ? "Pay deposit" : "Pay online"} ${money(order.requiredOnlineAmount)}`}
-                  </Button>
-                </div>
+            <div className="min-w-0 space-y-4">
+              <aside
+                aria-label="Payment summary"
+                className="min-w-0 space-y-5 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
+              >
+                <h2 className="flex items-center gap-2 text-section font-bold text-text-primary">
+                  <CreditCard aria-hidden="true" size={20} className="text-primary-600" />
+                  Payment summary
+                </h2>
+                <OrderPaymentAmounts order={order} />
+                <dl className="space-y-3 border-t border-border-default pt-4 text-body">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-text-secondary">Method</dt>
+                    <dd className="min-w-0 max-w-[65%] break-words text-right font-semibold text-text-primary">
+                      {order.paymentMethod === "PayAtShop"
+                        ? "Online deposit + pay at shop"
+                        : "Full online payment"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-text-secondary">
+                      {order.paymentStatus === "Succeeded"
+                        ? "Paid online"
+                        : "Required online payment"}
+                    </dt>
+                    <dd className="shrink-0 font-bold tabular-nums text-text-primary">
+                      {money(order.requiredOnlineAmount)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4 border-t border-border-default pt-4">
+                    <dt className="font-semibold text-text-secondary">Remaining at shop</dt>
+                    <dd className="shrink-0 text-lg font-extrabold tabular-nums text-primary-700">
+                      {money(order.remainingAtShop)}
+                    </dd>
+                  </div>
+                </dl>
+                {pending && (
+                  <div className="space-y-3 border-t border-border-default pt-4">
+                    <p className="text-caption text-text-secondary">
+                      Payment deadline: {checkoutTime(order.paymentExpiresAt)}
+                    </p>
+                    <Button
+                      loading={busy}
+                      size="lg"
+                      type="button"
+                      disabled={busy || expired}
+                      onClick={() => void update(() => paymentApi.payment(orderId), true)}
+                      className="w-full whitespace-normal !px-3 py-3"
+                    >
+                      <CreditCard aria-hidden="true" size={18} className="shrink-0" />
+                      {busy
+                        ? "Checking…"
+                        : expired
+                          ? "Payment expired · Verifying"
+                          : `${order.paymentMethod === "PayAtShop" ? "Pay deposit" : "Pay online"} ${money(order.requiredOnlineAmount)}`}
+                    </Button>
+                  </div>
+                )}
+                {order.policy && (
+                  <div className="rounded-md bg-neutral-50 p-3">
+                    <p className="text-caption font-medium text-text-secondary">
+                      Your policy at checkout
+                    </p>
+                    <p className="mt-1 text-body font-semibold text-text-primary">
+                      {order.policy.levelRank ? `Level ${order.policy.levelRank} · ` : ""}
+                      {order.policy.levelName}
+                    </p>
+                    <p className="mt-2 text-caption leading-relaxed text-text-secondary">
+                      {order.paymentMethod === "OnlinePayment"
+                        ? "Full order amount is required online."
+                        : order.policy.appliedRange
+                          ? `Over ${money(order.policy.appliedRange.fromOrderAmount)} up to ${money(order.policy.appliedRange.toOrderAmount)} · Fixed deposit ${money(order.depositAmount)}.`
+                          : `No deposit required for orders up to ${money(order.policy.freeOrderAmount ?? 0)}.`}
+                    </p>
+                    <p className="mt-2 text-caption leading-relaxed text-text-secondary">
+                      Later level or policy changes do not affect the deposit recorded on this
+                      order.
+                    </p>
+                  </div>
+                )}
+              </aside>
+              {["Completed", "Rejected", "Expired"].includes(order.status) && (
+                <CustomerOrderRefunds key={`${order.id}:${order.status}`} order={order} />
               )}
-              {order.policy && (
-                <div className="rounded-md bg-neutral-50 p-3">
-                  <p className="text-caption font-medium text-text-secondary">
-                    Your policy at checkout
-                  </p>
-                  <p className="mt-1 text-body font-semibold text-text-primary">
-                    {order.policy.levelRank ? `Level ${order.policy.levelRank} · ` : ""}
-                    {order.policy.levelName}
-                  </p>
-                  <p className="mt-2 text-caption leading-relaxed text-text-secondary">
-                    {order.paymentMethod === "OnlinePayment"
-                      ? "Full order amount is required online."
-                      : order.policy.appliedRange
-                        ? `Over ${money(order.policy.appliedRange.fromOrderAmount)} up to ${money(order.policy.appliedRange.toOrderAmount)} · Fixed deposit ${money(order.depositAmount)}.`
-                        : `No deposit required for orders up to ${money(order.policy.freeOrderAmount ?? 0)}.`}
-                  </p>
-                  <p className="mt-2 text-caption leading-relaxed text-text-secondary">
-                    Later level or policy changes do not affect the deposit recorded on this order.
-                  </p>
-                </div>
-              )}
-            </aside>
-          </div>
-          <div className="space-y-4">
-            {["Completed", "Rejected", "Expired"].includes(order.status) && (
-              <CustomerOrderRefunds key={`${order.id}:${order.status}`} order={order} />
-            )}
-            <CancelOrderAction
-              order={order}
-              now={now}
-              busy={busy}
-              onCancel={() => update(() => orderApi.cancel(orderId))}
-            />
+            </div>
           </div>
         </div>
       )}
