@@ -40,3 +40,5 @@ Level-height refinement: desktop/tablet level cards share header, Benefits, poli
 Compact-height follow-up: reduced level-card header/section padding, icon size and policy-row padding; consolidated repeated deposit captions into one policy subtitle; removed padded requirement tiles in favor of compact lines. Shared row alignment remains, with all monetary thresholds/requirements visible and no fixed clipping heights. Targeted ESLint passes.
 
 Compact-density follow-up: reduced requested card/section padding and visual sizes; real responsive regression checks pass. See ACCOUNT-BUSINESS.md for current changes, including duplicate back-action removal on finance details and reduced Trust panel minimum height.
+
+Reviews pagination width correction: removed the centered flex wrapper that shrank the pager and explicitly set full width; compact shared control sizing retained. Targeted ESLint passes; no new real-browser check for this CSS-only correction.

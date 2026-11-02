@@ -107,3 +107,5 @@ Reviews/Trust Score: complete requested pages and conditional children; inline/m
 Compact Account follow-up: reduced finance/trust card padding, image/number sizes and redundant spacing; business pages use compact cards, shared feedback and confirmations. Real backend read-only checks at 360/768/1280px pass; unavailable mutation branches recorded in ACCOUNT-BUSINESS.md. New/edit shop-application form routes remain todo.
 
 Account pagination: reduced shared control minimum size from 44px to 36px and tightened wrapper padding/gap at user request; all four controls and pagination behavior retained.
+
+Reviews pagination width correction: removed the centered flex wrapper that shrank the pager and explicitly set full width; compact shared control sizing retained. Targeted ESLint passes; no new real-browser check for this CSS-only correction.

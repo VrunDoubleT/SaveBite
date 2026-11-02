@@ -126,8 +126,9 @@ export function ReviewsPage() {
       )}
 
       {totalItems > 0 && (
-        <div className="flex justify-center pt-2">
+        <div className="pt-2">
           <Pagination
+            className="w-full"
             currentPage={page}
             totalPages={totalPages}
             totalItems={totalItems}
