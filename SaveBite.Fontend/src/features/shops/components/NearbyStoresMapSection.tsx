@@ -57,12 +57,10 @@ export function NearbyStoresMapSection({
   locationLabel,
   locationAddress,
   locationVersion,
-  isGpsLoading,
   gpsError,
   onRequestGps,
   onSelectSavedAddress,
   onSelectDefaultLocation,
-  hasDefaultAddress,
   userDefaultAddressLabel,
 }: NearbyStoresMapSectionProps) {
   const [shops, setShops] = useState<NearbyShop[]>(() => cachedNearbyShops);
@@ -670,8 +668,6 @@ export function NearbyStoresMapSection({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-surface p-4">
         <div className="min-w-0 flex-1"><p className="text-caption text-text-secondary">Browsing location</p><p className="truncate font-medium text-text-primary" title={locationAddress || locationLabel}>{locationAddress || locationLabel}</p></div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" className="min-h-11" onClick={onRequestGps} loading={isGpsLoading}><Navigation className="size-4" aria-hidden="true" />GPS</Button>
-          {hasDefaultAddress && <Button variant="secondary" className="min-h-11" onClick={onSelectSavedAddress}><Home className="size-4" aria-hidden="true" />Saved address</Button>}
           <Button variant="secondary" className="min-h-11" onClick={handlePanToUserLocation}><MapPin className="size-4" aria-hidden="true" />My location</Button>
           <Button variant="secondary" className="min-h-11" loading={isLoading} onClick={() => {
             if (latitude != null && longitude != null) void fetchShops(latitude, longitude);

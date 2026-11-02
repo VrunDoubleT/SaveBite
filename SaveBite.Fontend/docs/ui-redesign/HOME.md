@@ -49,4 +49,6 @@ Validation: targeted lint and production build pass. Real-browser guest checks a
 
 ## Browsing location controls
 
-At the user’s request, the Browsing location header now shows only the current location information; its Use GPS and Saved address buttons were removed. The initial location-selection screen and the map section retain their existing location actions. Hook/service behavior is unchanged.
+Keep the Use GPS and Saved address controls in the upper location bar. At the user's request, remove only the duplicate GPS and Saved address buttons in the expanded NearbyStoresMapSection's lower Browsing location toolbar. The lower toolbar retains its location information, My location and Refresh map actions. Initial location selection and all location callbacks/service contracts remain unchanged.
+
+Validation for this toolbar correction: production build and Home ESLint pass. The map component retains its pre-existing 17 errors and two warnings, with no added rule/message categories compared with HEAD.
