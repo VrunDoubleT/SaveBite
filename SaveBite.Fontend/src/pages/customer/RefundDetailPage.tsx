@@ -83,12 +83,6 @@ function RefundDetail({ refundId }: { refundId: string }) {
         <ArrowLeft size={16} />
         My refunds
       </Link>
-      <header>
-        <h1 className="text-xl font-bold text-neutral-900">Refund details</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Follow your refund, confirmed destination and complete decision history.
-        </p>
-      </header>
       {error && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {error}

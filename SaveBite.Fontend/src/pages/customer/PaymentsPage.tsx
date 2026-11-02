@@ -43,7 +43,6 @@ export function PaymentsPage() {
   return (
     <div className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-neutral-500">Full payments, deposits and remaining payments, all in one place.</p>
         <label className="flex items-center gap-2 text-xs font-medium text-neutral-600">
           Payment status
           <select value={status} onChange={(e) => setParams((previous) => {

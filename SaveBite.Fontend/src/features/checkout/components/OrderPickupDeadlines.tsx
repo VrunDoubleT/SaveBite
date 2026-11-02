@@ -24,8 +24,8 @@ export function OrderPickupDeadlines({
   const urgent = active && Number.isFinite(hard) && minutes <= 10;
   if (compact)
     return (
-      <div className="grid grid-cols-2 gap-3 rounded-md bg-neutral-50 p-3 text-caption">
-        <div>
+      <div className="grid grid-cols-2 gap-2 text-caption">
+        <div className={`min-w-0 rounded-md p-3 ${active ? "bg-secondary-50" : "bg-neutral-50"}`}>
           <p className="text-text-secondary">Recommended arrival</p>
           <time
             dateTime={order.softDeadlineAt}
@@ -35,7 +35,7 @@ export function OrderPickupDeadlines({
           </time>
           <span className="mt-0.5 block text-caption text-text-muted">Soft deadline</span>
         </div>
-        <div className="border-l border-border-default pl-3">
+        <div className={`min-w-0 rounded-md p-3 ${urgent ? "bg-danger-soft" : active ? "bg-accent-50" : "bg-neutral-50"}`}>
           <p className={urgent ? "text-danger-strong" : "text-text-secondary"}>Latest pickup</p>
           <time
             dateTime={order.hardDeadlineAt}
@@ -71,7 +71,9 @@ export function OrderPickupDeadlines({
         <p className="mt-1 text-caption text-primary-800">
           {active && now >= soft
             ? "Recommended arrival time has passed."
-            : "Aim to arrive by this time."}
+            : active
+              ? "Aim to arrive by this time."
+              : "The recommended arrival recorded for this order."}
         </p>
       </div>
       <div

@@ -1,9 +1,14 @@
-export function OrderPickupCode({ code, compact = false }: { code: string; compact?: boolean }) {
+export function OrderPickupCode({
+  code,
+  compact = false,
+  showHint = true,
+}: {
+  code: string;
+  compact?: boolean;
+  showHint?: boolean;
+}) {
   return (
-    <section
-      aria-label="Order code"
-      className={compact ? "min-w-0" : "rounded-md border border-primary-200 bg-primary-50 p-5"}
-    >
+    <section aria-label="Order code" className="min-w-0">
       <p className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
         Order code
       </p>
@@ -12,7 +17,11 @@ export function OrderPickupCode({ code, compact = false }: { code: string; compa
       >
         {code}
       </p>
-      <p className="mt-1 text-caption text-text-secondary">Show this code to the shop at pickup.</p>
+      {showHint && (
+        <p className="mt-1 text-caption text-text-secondary">
+          Show this code to the shop at pickup.
+        </p>
+      )}
     </section>
   );
 }

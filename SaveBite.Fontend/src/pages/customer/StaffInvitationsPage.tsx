@@ -140,10 +140,7 @@ export function CustomerStaffInvitationsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
       <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900">Your invitations</h1>
-          <p className="mt-1 text-sm text-slate-500">Invitations expire after 3 days.</p>
-        </div>
+        <p className="text-sm text-text-secondary">Invitations expire after 3 days.</p>
         <button
           type="button"
           onClick={() => void loadInvitations()}

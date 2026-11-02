@@ -1,12 +1,4 @@
-import {
-  Badge,
-  Button,
-  Card,
-  ErrorState,
-  MediaImage,
-  PageHeader,
-  Skeleton,
-} from "@/shared/components/ui";
+import { Badge, Button, Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
 import { CustomerOrderRefunds } from "@/features/refunds/components/CustomerOrderRefunds";
@@ -16,15 +8,9 @@ import { OrderStatusPanel } from "./OrderStatusPanel";
 import { CancelOrderAction } from "./CancelOrderAction";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  CheckCircle2,
-  CreditCard,
-  Store,
-  Package,
-  MapPin,
-  ShoppingBag,
-  Star,
-} from "lucide-react";
+import { CreditCard, Clock3, Store, MapPin, ShoppingBag } from "lucide-react";
+import { OrderItems, type OrderReviewTarget } from "@/features/orders/components/OrderItems";
+import { OrderPaymentAmounts } from "@/features/orders/components/OrderPaymentAmounts";
 import { RateOrderModal } from "@/features/feedbacks/components/RateOrderModal";
 import { EditReviewModal } from "@/features/feedbacks/components/EditReviewModal";
 import { APP_PATHS } from "@/app/router/paths";
@@ -42,12 +28,9 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [ratingItemId, setRatingItemId] = useState<string | null>(null);
-  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<{
-    feedbackId: string;
-    productName?: string;
-    variantName?: string;
-    imageUrl?: string | null;
-  } | null>(null);
+  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<OrderReviewTarget | null>(
+    null,
+  );
   const [now, setNow] = useState(Date.now);
   const alive = useRef(true);
   const revision = useRef(0);
@@ -77,8 +60,10 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
           dirty = false;
           const current = ++revision.current;
           const next = await orderApi.order(orderId, controller.signal);
-          if (!controller.signal.aborted && alive.current && current === revision.current)
+          if (!controller.signal.aborted && alive.current && current === revision.current) {
             setOrder(next);
+            setError(null);
+          }
         }
       } catch (error) {
         if (!controller.signal.aborted && alive.current) setError(getApiErrorMessage(error));
@@ -163,24 +148,35 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
         initialImageUrl={editingFeedbackTarget?.imageUrl}
         onUpdated={() => void update(() => orderApi.order(orderId))}
       />
-      <div className="mb-6">
-        <PageHeader
-          title="Order details"
-          description="Your order, payment and pickup information in one place."
-          breadcrumb={
-            <Link
-              to={APP_PATHS.ACCOUNT_ORDERS}
-              className="inline-flex min-h-8 items-center gap-2 font-medium text-text-secondary hover:text-primary-700"
-            >
-              My orders
-            </Link>
-          }
-          actions={
-            order?.createdAt ? (
-              <Badge tone="info">Placed {checkoutTime(order.createdAt)} · GMT+7</Badge>
-            ) : undefined
-          }
-        />
+      <div className="mb-6 space-y-3">
+        <nav aria-label="Breadcrumb" className="text-caption text-text-secondary">
+          <ol className="flex flex-wrap items-center gap-2">
+            <li>
+              <Link
+                to={APP_PATHS.HOME}
+                className="inline-flex min-h-8 items-center font-medium hover:text-primary-700"
+              >
+                Home
+              </Link>
+            </li>
+            <li className="flex items-center gap-2">
+              <span aria-hidden="true">›</span>
+              <Link
+                to={APP_PATHS.ACCOUNT_ORDERS}
+                className="inline-flex min-h-8 items-center font-medium hover:text-primary-700"
+              >
+                My orders
+              </Link>
+            </li>
+            <li className="flex items-center gap-2">
+              <span aria-hidden="true">›</span>
+              <span aria-current="page" className="font-medium text-text-primary">
+                Order details
+              </span>
+            </li>
+          </ol>
+        </nav>
+        <h1 className="text-page font-semibold text-text-primary">Order details</h1>
       </div>
       {error && (
         <div className="mb-5">
@@ -195,7 +191,7 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
         <div role="status" aria-label="Verifying your order status" className="space-y-4">
           <span className="sr-only">Verifying your order status…</span>
           <Skeleton className="h-24" />
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <Skeleton className="h-96" />
             <Skeleton className="h-72" />
           </div>
@@ -203,12 +199,21 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
       )}
       {order && (
         <div className="space-y-4">
-          <Card
-            aria-label="Order overview"
-            className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-md border border-border-default bg-bg-surface px-4 py-3"
-          >
-            <OrderPickupCode code={order.orderCode} compact />
-            <OrderStatusPanel order={order} compact />
+          <Card aria-label="Order overview" className="!p-0 overflow-hidden">
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border-default bg-primary-50/50 p-4 sm:p-6">
+              <OrderPickupCode code={order.orderCode} />
+              {order.createdAt && (
+                <Badge tone="neutral" className="!bg-bg-surface">
+                  <Clock3 size={14} aria-hidden="true" />
+                  <time dateTime={order.createdAt}>
+                    Placed {checkoutTime(order.createdAt)} · GMT+7
+                  </time>
+                </Badge>
+              )}
+            </div>
+            <div className="p-4 sm:p-6">
+              <OrderStatusPanel order={order} />
+            </div>
           </Card>
           {order.paymentReviewRequired && (
             <p
@@ -227,11 +232,26 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
               {order.paymentMessage}
             </p>
           )}
-          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="min-w-0 space-y-4">
+              <Card aria-label="Pickup information" className="space-y-4">
+                <h2 className="mb-3 text-body font-semibold text-text-primary">
+                  Pickup information
+                </h2>
+                <OrderPickupDeadlines order={order} now={now} />
+                <p className="mt-3 text-caption leading-relaxed text-text-secondary">
+                  GMT+7 · Pickup deadlines do not extend during payment.
+                </p>
+              </Card>
               <Card aria-label="Shop and ordered products" className="!p-0 overflow-hidden">
                 <header className="flex items-center gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
-                  <OrderImage src={order.shopLogoUrl} alt={order.shopName} shop />
+                  <MediaImage
+                    src={order.shopLogoUrl}
+                    alt={order.shopName}
+                    fallbackIcon={Store}
+                    showFallbackLabel={false}
+                    className="size-12 shrink-0 rounded-md"
+                  />
                   <div className="min-w-0">
                     <p className="text-caption font-medium text-text-secondary">Pickup shop</p>
                     <h2 className="mt-0.5 break-words text-section font-bold text-text-primary">
@@ -255,80 +275,11 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                       {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
                     </span>
                   </div>
-                  <ul className="divide-y divide-border-default" aria-label="Ordered products">
-                    {order.items.map((item) => (
-                      <li
-                        key={item.flashDealVariantId}
-                        className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-2 py-4 sm:grid-cols-[64px_minmax(0,1fr)_auto] sm:gap-x-4"
-                      >
-                        <div className="row-span-2 sm:row-span-1">
-                          <OrderImage src={item.imageUrl} alt={item.productName} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="break-words text-body font-semibold text-text-primary">
-                            {item.productName}
-                          </p>
-                          {item.variantName && (
-                            <p className="mt-1 text-caption text-text-secondary">
-                              {item.variantName}
-                            </p>
-                          )}
-                          <p className="mt-1.5 text-caption text-text-secondary">
-                            Qty{" "}
-                            <span className="font-semibold text-text-primary">{item.quantity}</span>{" "}
-                            × {money(item.unitPrice)}
-                          </p>
-                          {order.status === "Completed" && (
-                            <div className="mt-2">
-                              {item.canReview && item.orderItemId ? (
-                                <Button
-                                  variant="secondary"
-                                  type="button"
-                                  onClick={() => setRatingItemId(item.orderItemId ?? "")}
-                                  className="inline-flex items-center gap-1.5 rounded-md border border-accent-300 bg-accent-50 px-2.5 py-1 text-caption font-semibold text-accent-700 hover:bg-accent-100"
-                                >
-                                  <Star
-                                    aria-hidden="true"
-                                    size={13}
-                                    className="fill-amber-400 text-accent-500"
-                                  />
-                                  Rate this item
-                                </Button>
-                              ) : item.rating ? (
-                                <Button
-                                  variant="secondary"
-                                  type="button"
-                                  onClick={() => {
-                                    if (item.feedbackId) {
-                                      setEditingFeedbackTarget({
-                                        feedbackId: item.feedbackId,
-                                        productName: item.productName,
-                                        variantName: item.variantName,
-                                        imageUrl: item.imageUrl,
-                                      });
-                                    }
-                                  }}
-                                  className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-0.5 text-caption font-semibold text-primary-700 hover:bg-primary-100 transition-colors cursor-pointer text-left"
-                                >
-                                  <CheckCircle2 aria-hidden="true" size={13} />
-                                  Reviewed
-                                  <Star
-                                    aria-hidden="true"
-                                    size={12}
-                                    className="fill-amber-400 text-accent-300"
-                                  />
-                                  {item.rating}/5 · Edit review
-                                </Button>
-                              ) : null}
-                            </div>
-                          )}
-                        </div>
-                        <p className="col-start-2 text-body font-bold tabular-nums text-text-primary sm:col-start-auto sm:text-right">
-                          {money(item.subtotal)}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
+                  <OrderItems
+                    items={order.items}
+                    onEditReview={setEditingFeedbackTarget}
+                    onRate={order.status === "Completed" ? setRatingItemId : undefined}
+                  />
                 </div>
                 <div className="flex items-center justify-between gap-4 border-t border-border-default bg-neutral-50/70 px-4 py-3 sm:px-5">
                   <p className="text-body font-semibold text-text-secondary">Order total</p>
@@ -337,25 +288,17 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                   </p>
                 </div>
               </Card>
-              <Card aria-label="Pickup information" className="space-y-3">
-                <h2 className="mb-3 text-body font-semibold text-text-primary">
-                  Pickup information
-                </h2>
-                <OrderPickupDeadlines order={order} now={now} compact />
-                <p className="mt-3 text-caption leading-relaxed text-text-secondary">
-                  GMT+7 · Pickup deadlines do not extend during payment.
-                </p>
-              </Card>
             </div>
             <aside
               aria-label="Payment summary"
-              className="min-w-0 space-y-3 rounded-md border border-border-default bg-bg-surface p-4 sm:p-5 lg:sticky lg:top-24"
+              className="min-w-0 space-y-5 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
             >
               <h2 className="flex items-center gap-2 text-section font-bold text-text-primary">
                 <CreditCard aria-hidden="true" size={20} className="text-primary-600" />
                 Payment summary
               </h2>
-              <dl className="space-y-3 text-caption">
+              <OrderPaymentAmounts order={order} />
+              <dl className="space-y-3 border-t border-border-default pt-4 text-body">
                 <div className="flex justify-between gap-4">
                   <dt className="text-text-secondary">Method</dt>
                   <dd className="min-w-0 max-w-[65%] break-words text-right font-semibold text-text-primary">
@@ -440,17 +383,5 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
         </div>
       )}
     </div>
-  );
-}
-
-function OrderImage({ src, alt, shop = false }: { src?: string; alt: string; shop?: boolean }) {
-  return (
-    <MediaImage
-      src={src}
-      alt={alt}
-      fallbackIcon={shop ? Store : Package}
-      showFallbackLabel={false}
-      className={`shrink-0 rounded-md ${shop ? "size-12" : "size-16"}`}
-    />
   );
 }

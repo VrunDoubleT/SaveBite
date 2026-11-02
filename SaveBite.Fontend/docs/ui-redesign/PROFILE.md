@@ -47,3 +47,5 @@ Design-system searches for `account profile settings form` and `account settings
 - Moved the real status badge beside the identity email in a wrapping row.
 - Extracted the existing Login input recipe into shared `inputStyles.ts`, with no Login appearance change. Profile name/phone and all seven address inputs now opt into shared `Input variant="auth"`; password fields already use that recipe. Borders, normal font weight, white background and green focus border/shadow match Login, with no default dark browser outline. Default Input consumers retain their existing appearance.
 - Targeted ESLint and production build pass. Real authenticated browser checks at 360/768/1280px confirm badge placement, no horizontal overflow and computed normal/focus styles matching Login on profile and address fields. All forms were cancelled; no profile/address/password mutation requests were sent.
+
+Account header follow-up: the shared visible title/description banner was subsequently removed at the user’s request; text breadcrumb and screen-reader page heading remain. See ORDERS.md for the cross-account regression.

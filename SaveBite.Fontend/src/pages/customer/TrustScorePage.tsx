@@ -23,13 +23,6 @@ export function TrustScorePage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h2 className="text-2xl font-bold text-text-primary">Trust Score &amp; Level</h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          Your Trust Score decides your level and the benefits you get when ordering.
-        </p>
-      </header>
-
       <TrustTabs
         tabs={CUSTOMER_TRUST_TABS}
         active={activeTab}

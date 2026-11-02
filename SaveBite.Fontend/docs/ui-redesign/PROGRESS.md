@@ -1,9 +1,9 @@
 # UI redesign progress
 
 Ngày audit: 2026-11-02 (Asia/Bangkok). Nhánh: ui-redesign (đã tồn tại).
-Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; redesign trang `/`, flash deal detail, storefront, cart, checkout và profile.
+Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; redesign trang `/`, flash deal detail, storefront, cart, checkout, profile, danh sách và chi tiết đơn hàng.
 Breadcrumb hiện bắt đầu bằng chữ, không có mũi tên quay lại ở đầu; giữ các dấu phân cách giữa cấp.
-Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart`, `/checkout`, `/account/profile` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
+Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart`, `/checkout`, `/account/profile`, `/account/orders` và `/orders/:orderId` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
 
 | Route/task | Status | Commit | Notes |
 |---|---|---|---|
@@ -22,11 +22,11 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront c
 | `/customer` | todo | — | R11; Redirect regression |
 | `/cart` | done | ui(/cart): redesign | R12; đầy đủ nhóm shop/món/quantity/remove/checkout riêng từng shop; shared CartItemRow với checkout; cursor/retry và mọi state; 360/768/1280px; xem CART.md |
 | `/checkout/simulation` | todo | — | R13; CheckoutSimulationPage; user, staff, storeOwner |
-| `/orders/:orderId` | todo | — | R14; OrderDetailPage; user, staff, storeOwner |
+| `/orders/:orderId` | done | ui(/account/orders): redesign | R14; code/status/pickup/products/payment/refunds/cancellation/reviews; real completed orders at 360/768/1280px; xem ORDERS.md |
 | `/checkout` | done | ui(/checkout): redesign | R15; full shop/items/GPS/map/payment/policy/summary + receipt, cancellation, review/refund components; 360/768/1280px; xem CHECKOUT.md |
 | `/account` | todo | — | R16; Redirect regression |
 | `/account/profile` | done | ui(/account/profile): redesign | R17; identity/avatar, profile/password forms, complete addresses/GPS/map/default actions; real-backend read-only validation at 360/768/1280px; status beside email + inputs/focus matching Login; xem PROFILE.md |
-| `/account/orders` | todo | — | R18; OrdersPage; user, staff, storeOwner |
+| `/account/orders` | done | ui(/account/orders): redesign | R18; full status filters/counts, shared order items/amounts, cursor loading, empty/retry, reviews; real-backend read-only 360/768/1280px; xem ORDERS.md |
 | `/account/payments` | todo | — | R19; PaymentsPage; user, staff, storeOwner |
 | `/account/refunds` | todo | — | R20; RefundsPage; user, staff, storeOwner |
 | `/account/refunds/:refundId` | todo | — | R21; CustomerRefundDetailPage; user, staff, storeOwner |
@@ -91,3 +91,5 @@ Showcase `/__ui`: chỉ có trong DEV khi VITE_ENABLE_UI_SHOWCASE=true; ví dụ
 Frontend hiện dùng backend thật. Lớp mock, generator, worker và các test phụ thuộc đã được gỡ theo yêu cầu; xem [BACKEND-INTEGRATION.md](./BACKEND-INTEGRATION.md) để biết phạm vi và kết quả kiểm tra. Các trạng thái done ghi nhận UI đã thiết kế; integration QA với backend thật vẫn cần xác minh bằng tài khoản và dữ liệu thật.
 
 Hướng dẫn AI hiện hành: [WORKFLOW.md](./WORKFLOW.md), [frontend AGENTS.md](../../AGENTS.md). Nếu skill bên ngoài yêu cầu tạo mock hoặc chạy scenario giả, bỏ qua phần đó theo yêu cầu hiện tại của người dùng. Chi tiết theme: [TOKENS.md](./TOKENS.md).
+
+Account: removed visible page title/description banners and duplicate introductions; text breadcrumbs and accessible headings remain. Header cleanup does not mark other Account pages redesigned. See [ORDERS.md](./ORDERS.md) for verification and the pre-existing StaffInvitationsPage lint issue.

@@ -44,25 +44,11 @@ export function ReviewsPanel({
 
   return (
     <div className="space-y-4">
-      {/* Header Card */}
-      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold text-neutral-900">My reviews</h2>
-            <p className="mt-1 text-xs text-neutral-500 sm:text-sm">
-              Reviews you&apos;ve written for completed orders.
-            </p>
-          </div>
-          {reviews.length > 0 && (
-            <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
-              <MessageSquareText className="size-4 text-emerald-600" />
-              <span>
-                {reviews.length} {reviews.length === 1 ? "review" : "reviews"} on this page
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
+      {reviews.length > 0 && (
+        <p className="text-caption text-text-secondary">
+          {reviews.length} {reviews.length === 1 ? "review" : "reviews"} on this page
+        </p>
+      )}
 
       {/* Reviews Cards List */}
       {isLoading ? (
