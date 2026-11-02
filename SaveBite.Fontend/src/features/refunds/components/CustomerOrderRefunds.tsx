@@ -1,7 +1,7 @@
-import { Badge, Button, Card, Modal } from "@/shared/components/ui";
+import { Badge, ButtonLink, Card } from "@/shared/components/ui";
 import { RefundCard } from "./RefundCard";
-import { isRefundActive as active } from "../utils/refundStatus";
-import { RefundRequestForm } from "./RefundRequestForm";
+import { refundEligibility } from "../utils/refundEligibility";
+import { APP_PATHS } from "@/app/router/paths";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, RotateCcw } from "lucide-react";
 import { getApiErrorMessage } from "@/shared/api";
@@ -17,7 +17,6 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
   const [now, setNow] = useState(Date.now);
   const operation = useRef(false);
   const revision = useRef(0);
@@ -76,7 +75,6 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
       if (!alive.current) return;
       setRefunds((items) => [changed, ...items.filter((item) => item.id !== changed.id)]);
       setLoaded(true);
-      setOpen(false);
     } catch (e) {
       if (alive.current) setError(getApiErrorMessage(e));
     } finally {
@@ -84,23 +82,14 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
       if (alive.current) setBusy(false);
     }
   }
-  const completed = order.status === "Completed";
-  const deadline = order.completedAt ? Date.parse(order.completedAt) + 6 * 60 * 60 * 1000 : null;
-  const remaining = Math.max(
-    0,
-    (order.paidAmount ?? 0) -
-      refunds.reduce((total, refund) => total + refund.transferredAmount, 0),
-  );
-  const hasActive = refunds.some(active);
-  const hasRequested = refunds.some((refund) => refund.type === "CustomerRequest");
-  const eligible =
-    loaded &&
-    completed &&
-    deadline !== null &&
-    now <= deadline &&
-    remaining > 0 &&
-    !hasActive &&
-    !hasRequested;
+  const {
+    completed,
+    deadline,
+    hasActive,
+    eligible: canRequest,
+    reason,
+  } = refundEligibility(order, refunds, now);
+  const eligible = loaded && canRequest;
   if (!completed && !refunds.length && !error) return null;
 
   return (
@@ -124,17 +113,12 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
             </p>
           )}
           {eligible && (
-            <Button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setError("");
-                setOpen(true);
-              }}
+            <ButtonLink
+              to={APP_PATHS.ORDER_REFUND_REQUEST.replace(":orderId", encodeURIComponent(order.id))}
               className="mt-3 min-h-11"
             >
               Request refund
-            </Button>
+            </ButtonLink>
           )}
           {!loaded && !error && (
             <p className="mt-3 text-caption text-text-secondary">Loading refund eligibility…</p>
@@ -145,15 +129,7 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
             </p>
           )}
           {loaded && completed && !hasActive && !eligible && (
-            <p className="mt-2 text-caption text-text-secondary">
-              {hasRequested
-                ? "This order already has a refund request. A second request cannot be submitted."
-                : remaining <= 0
-                  ? "There is no paid balance left to refund."
-                  : deadline === null
-                    ? "The completion time is unavailable. Contact support to check refund eligibility."
-                    : "The 6-hour refund request window has closed."}
-            </p>
+            <p className="mt-2 text-caption text-text-secondary">{reason}</p>
           )}
           <div className="mt-3 space-y-3">
             {refunds.map((refund) => (
@@ -162,31 +138,7 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
           </div>
         </div>
       </details>
-      <Modal
-        isOpen={open && eligible}
-        onClose={() => {
-          if (!busy) setOpen(false);
-        }}
-        closeOnClickOutside={!busy}
-        title="Request a refund"
-        maxWidthClass="max-w-4xl"
-      >
-        {error && (
-          <p
-            role="alert"
-            className="mb-4 rounded-md bg-danger-soft p-3 text-body text-danger-strong"
-          >
-            {error}
-          </p>
-        )}
-        <RefundRequestForm
-          order={order}
-          busy={busy}
-          mutate={mutate}
-          onClose={() => setOpen(false)}
-        />
-      </Modal>
-      {error && !(open && eligible) && (
+      {error && (
         <p
           role="alert"
           className="mt-3 rounded-lg bg-danger-soft p-3 text-caption text-danger-strong"

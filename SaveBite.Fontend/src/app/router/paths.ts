@@ -12,6 +12,7 @@ export const APP_PATHS = {
   CART: "/cart",
   CHECKOUT: "/checkout",
   ORDER_DETAIL: "/orders/:orderId",
+  ORDER_REFUND_REQUEST: "/orders/:orderId/refund-request",
   ACCOUNT: "/account",
   ACCOUNT_PROFILE: "/account/profile",
   ACCOUNT_ORDERS: "/account/orders",

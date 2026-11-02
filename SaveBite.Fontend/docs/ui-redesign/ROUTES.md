@@ -1344,3 +1344,10 @@ Inventory được tạo trong lượt audit ban đầu. Workflow hiện hành: 
 | Moderation/admin lists | Search/filter/pagination tùy module; category forms/status/delete; user status/detail/history; shop/product content moderation, warnings; review replies và feedback remove/restore; audit-log detail modal. |
 
 Các mục trong bảng là tổng hợp theo nhóm; endpoint và field đọc của từng route nằm ở R1–R75. Đây là audit tĩnh, không thay đổi validation, auth, API hoặc business logic.
+
+### Added route: /orders/:orderId/refund-request
+
+- Page: `src/pages/customer/OrderRefundRequestPage.tsx`; CustomerLayout and existing CUSTOMER_ROLES protection.
+- Reads `orderApi.order` and `refundApi.forOrder`; shared `refundEligibility` uses real completion time/status, paid amount, transferred amounts, refund type/status and current time.
+- Reuses RefundRequestForm/RefundFileUpload with existing real DTOs, per-item quantity/reason/evidence upload and `refundApi.request`. Successful request uses returned refund.id to navigate to REFUND_DETAIL.
+- All order item fields remain from CheckoutOrder. No new API or invented fields. See ORDERS.md for current verification limits.

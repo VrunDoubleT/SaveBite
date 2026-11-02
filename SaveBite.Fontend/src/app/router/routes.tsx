@@ -39,6 +39,7 @@ import { ShopApplicationFormPage } from "@/pages/customer/ShopApplicationFormPag
 import ShopApplicationPage from "@/pages/customer/ShopApplicationPage";
 import { TrustScorePage } from "@/pages/customer/TrustScorePage";
 import { ReviewsPage } from "@/pages/customer/ReviewsPage";
+import { OrderRefundRequestPage } from "@/pages/customer/OrderRefundRequestPage";
 import { OrderDetailPage } from "@/pages/customer/OrderDetailPage";
 import { OrdersPage } from "@/pages/customer/OrdersPage";
 import { ProfilePage } from "@/pages/customer/ProfilePage";
@@ -153,6 +154,10 @@ export const routes: RouteObject[] = [
               {
                 path: "/checkout/simulation",
                 element: <CheckoutSimulationPage />,
+              },
+              {
+                path: APP_PATHS.ORDER_REFUND_REQUEST,
+                element: <OrderRefundRequestPage />,
               },
               {
                 path: APP_PATHS.ORDER_DETAIL,

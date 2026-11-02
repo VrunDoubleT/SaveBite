@@ -253,7 +253,7 @@ export function RefundRequestForm({
           );
         })}
       </fieldset>
-      <div className="sticky -bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border-default bg-bg-surface py-4 sm:-bottom-6">
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border-default bg-bg-surface py-4">
         <div>
           <p className="text-caption text-text-secondary">
             Selected refund · {Object.values(selected).filter((quantity) => quantity > 0).length}{" "}
