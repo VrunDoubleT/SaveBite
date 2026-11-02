@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ChevronRight,
   Clock3,
   CreditCard,
   LocateFixed,
@@ -218,12 +219,22 @@ function CheckoutFlow({ shopId }: { shopId: string }) {
         title="Checkout"
         description="One shop, one order. Review your items, pickup time and payment before confirming."
         breadcrumb={
-          <Link
-            to={APP_PATHS.CART}
-            className="inline-flex min-h-8 items-center gap-2 font-medium text-text-secondary hover:text-primary-700"
-          >
-            Back to cart
-          </Link>
+          <ol className="flex min-w-0 flex-wrap items-center gap-2">
+            <li>
+              <Link
+                to={APP_PATHS.CART}
+                className="inline-flex min-h-8 items-center font-medium hover:text-primary-700"
+              >
+                Back to cart
+              </Link>
+            </li>
+            <li className="flex min-w-0 items-center gap-2">
+              <ChevronRight className="size-3 shrink-0 text-text-muted" aria-hidden="true" />
+              <span aria-current="page" className="font-medium text-text-primary">
+                Checkout
+              </span>
+            </li>
+          </ol>
         }
         actions={
           <Badge tone="primary">

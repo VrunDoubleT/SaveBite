@@ -4,7 +4,7 @@
 
 ## Complete page inventory
 
-- Shared PageHeader, back-to-cart navigation, pickup badge and the existing simulated-payment notice.
+- Shared PageHeader, Back to cart → Checkout breadcrumb (current page marked with aria-current), pickup badge and the existing simulated-payment notice.
 - Shop logo/fallback, linked name, address, actual item count and full read-only CartItemRow list. Edit items returns to cart.
 - GPS request/refresh, accuracy/error feedback, route map/legend/background fallback, distance/motorcycle ETA, soft/hard deadlines and capped-buffer explanation.
 - Pickup calculation rules remain available through a keyboard-accessible disclosure, including timezone and earliest deal end.
