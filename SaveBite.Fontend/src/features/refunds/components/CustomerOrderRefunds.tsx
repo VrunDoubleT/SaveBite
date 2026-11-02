@@ -1,4 +1,4 @@
-import { Badge, Button, Card } from "@/shared/components/ui";
+import { Badge, Button, Card, Modal } from "@/shared/components/ui";
 import { RefundCard } from "./RefundCard";
 import { isRefundActive as active } from "../utils/refundStatus";
 import { RefundRequestForm } from "./RefundRequestForm";
@@ -127,7 +127,10 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
             <Button
               type="button"
               disabled={busy}
-              onClick={() => setOpen((value) => !value)}
+              onClick={() => {
+                setError("");
+                setOpen(true);
+              }}
               className="mt-3 min-h-11"
             >
               Request refund
@@ -152,16 +155,6 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
                     : "The 6-hour refund request window has closed."}
             </p>
           )}
-          {eligible && (
-            <div hidden={!open}>
-              <RefundRequestForm
-                order={order}
-                busy={busy}
-                mutate={mutate}
-                onClose={() => setOpen(false)}
-              />
-            </div>
-          )}
           <div className="mt-3 space-y-3">
             {refunds.map((refund) => (
               <RefundCard key={refund.id} refund={refund} busy={busy} mutate={mutate} />
@@ -169,7 +162,31 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
           </div>
         </div>
       </details>
-      {error && (
+      <Modal
+        isOpen={open && eligible}
+        onClose={() => {
+          if (!busy) setOpen(false);
+        }}
+        closeOnClickOutside={!busy}
+        title="Request a refund"
+        maxWidthClass="max-w-4xl"
+      >
+        {error && (
+          <p
+            role="alert"
+            className="mb-4 rounded-md bg-danger-soft p-3 text-body text-danger-strong"
+          >
+            {error}
+          </p>
+        )}
+        <RefundRequestForm
+          order={order}
+          busy={busy}
+          mutate={mutate}
+          onClose={() => setOpen(false)}
+        />
+      </Modal>
+      {error && !(open && eligible) && (
         <p
           role="alert"
           className="mt-3 rounded-lg bg-danger-soft p-3 text-caption text-danger-strong"

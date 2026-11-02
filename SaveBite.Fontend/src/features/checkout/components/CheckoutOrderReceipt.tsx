@@ -380,11 +380,11 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                   </div>
                 )}
               </aside>
-              {["Completed", "Rejected", "Expired"].includes(order.status) && (
-                <CustomerOrderRefunds key={`${order.id}:${order.status}`} order={order} />
-              )}
             </div>
           </div>
+          {["Completed", "Rejected", "Expired"].includes(order.status) && (
+            <CustomerOrderRefunds key={`${order.id}:${order.status}`} order={order} />
+          )}
         </div>
       )}
     </div>
