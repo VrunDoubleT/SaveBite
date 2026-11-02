@@ -38,8 +38,8 @@ Các hàng dưới đây là route leaf/index khai báo thật, bao gồm alias 
 | 1 | `/` | `src/pages/customer/CustomerHomePage.tsx` | CustomerLayout | guest, user, staff, storeOwner (admin redirected) | `flashDealApi.getNearbyDeals`, `shopApi.getNearbyShops` |
 | 2 | `/shops/:id` | `src/pages/customer/CustomerShopPage.tsx` | CustomerLayout | guest, user, staff, storeOwner (admin redirected) | Không tìm thấy service HTTP trực tiếp trong dependency đọc được |
 | 3 | `/shop-profile` | `src/pages/customer/CustomerShopPage.tsx` | CustomerLayout | guest, user, staff, storeOwner (admin redirected) | Không tìm thấy service HTTP trực tiếp trong dependency đọc được |
-| 4 | `/flash-deals/:id` | `src/pages/customer/CustomerDealDetailPage.tsx` | CustomerLayout | guest, user, staff, storeOwner (admin redirected) | `cartApi.addItem`, `cartApi.getPage`, `cartApi.removeItem`, `cartApi.summary`, `cartApi.updateQuantity` |
-| 5 | `/deals/:id` | `src/pages/customer/CustomerDealDetailPage.tsx` | CustomerLayout | guest, user, staff, storeOwner (admin redirected) | `cartApi.addItem`, `cartApi.getPage`, `cartApi.removeItem`, `cartApi.summary`, `cartApi.updateQuantity` |
+| 4 | `/flash-deals/:id` | `src/pages/customer/CustomerDealDetailPage.tsx` | CustomerLayout | guest, user, staff, storeOwner (admin redirected) | `flashDealApi.getDealById`, `cartApi.addItem`, `cartApi.getPage`, `cartApi.removeItem`, `cartApi.summary`, `cartApi.updateQuantity` |
+| 5 | `/deals/:id` | `src/pages/customer/CustomerDealDetailPage.tsx` | CustomerLayout | guest, user, staff, storeOwner (admin redirected) | `flashDealApi.getDealById`, `cartApi.addItem`, `cartApi.getPage`, `cartApi.removeItem`, `cartApi.summary`, `cartApi.updateQuantity` |
 | 6 | `/login` | `src/pages/auth/LoginPage.tsx` | CustomerLayout | guest, user, staff, storeOwner (admin redirected) | `authApi.getMe`, `authApi.login` |
 | 7 | `/register` | `src/pages/auth/RegisterPage.tsx` | CustomerLayout | guest, user, staff, storeOwner (admin redirected) | `authApi.register` |
 | 8 | `/register/verify` | `src/pages/auth/OtpVerificationPage.tsx` | CustomerLayout | guest, user, staff, storeOwner (admin redirected) | `authApi.resetPassword`, `authApi.verifyRegistration` |
@@ -162,7 +162,7 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 ### R4. /flash-deals/:id
 
 - Page: `src/pages/customer/CustomerDealDetailPage.tsx`. Layout: CustomerLayout. Quyền: guest, user, staff, storeOwner (admin redirected).
-- Service được tham chiếu: `cartApi.addItem`, `cartApi.getPage`, `cartApi.removeItem`, `cartApi.summary`, `cartApi.updateQuantity`. Xem bảng endpoint để đối chiếu method, URL và response generic.
+- Service được tham chiếu: `flashDealApi.getDealById`, `cartApi.addItem`, `cartApi.getPage`, `cartApi.removeItem`, `cartApi.summary`, `cartApi.updateQuantity`. Xem bảng endpoint để đối chiếu method, URL và response generic.
 - DTO/type nguồn: `src/features/cart/types/cart.types.ts` (`CartItem`, `CartShop`, `Cart`, `CursorPagedResult`, `CartSummary`, `CartPage`, `CartMutationResponse`); `src/features/flash-deals/types/flashDeal.types.ts` (`DealAttributeGroup`, `FlashDealVariant`, `FlashDeal`, `CursorMode`, `FlashDealCursorParams`, `FlashDealCursorResult`, `DealFilterState`, `FlashDealStatusEnum`, `FlashDealVariantStatusEnum`, `ShopFlashDealListItem`, `ShopFlashDealVariantDetail`, `ShopFlashDealDetail`, `ShopEligibleProductVariant`, `ShopEligibleProduct`, `CreateFlashDealVariantPayload`, `CreateFlashDealPayload`, `UpdateFlashDealVariantPayload`, `UpdateFlashDealPayload`, `ShopFlashDealQueryParams`); `src/shared/types/index.ts` ().
 - Hook/state/router: `useAuthStore.getState`, `useAuthStore.subscribe`, `useCartStore`, `useCartStore.setState`, `useNavigate`, `useParams`, `useToastStore.getState`, `useToastStore.getState().removeToast`.
 - Child component: Inline trong page.
@@ -173,7 +173,7 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 ### R5. /deals/:id
 
 - Page: `src/pages/customer/CustomerDealDetailPage.tsx`. Layout: CustomerLayout. Quyền: guest, user, staff, storeOwner (admin redirected).
-- Service được tham chiếu: `cartApi.addItem`, `cartApi.getPage`, `cartApi.removeItem`, `cartApi.summary`, `cartApi.updateQuantity`. Xem bảng endpoint để đối chiếu method, URL và response generic.
+- Service được tham chiếu: `flashDealApi.getDealById`, `cartApi.addItem`, `cartApi.getPage`, `cartApi.removeItem`, `cartApi.summary`, `cartApi.updateQuantity`. Xem bảng endpoint để đối chiếu method, URL và response generic.
 - DTO/type nguồn: `src/features/cart/types/cart.types.ts` (`CartItem`, `CartShop`, `Cart`, `CursorPagedResult`, `CartSummary`, `CartPage`, `CartMutationResponse`); `src/features/flash-deals/types/flashDeal.types.ts` (`DealAttributeGroup`, `FlashDealVariant`, `FlashDeal`, `CursorMode`, `FlashDealCursorParams`, `FlashDealCursorResult`, `DealFilterState`, `FlashDealStatusEnum`, `FlashDealVariantStatusEnum`, `ShopFlashDealListItem`, `ShopFlashDealVariantDetail`, `ShopFlashDealDetail`, `ShopEligibleProductVariant`, `ShopEligibleProduct`, `CreateFlashDealVariantPayload`, `CreateFlashDealPayload`, `UpdateFlashDealVariantPayload`, `UpdateFlashDealPayload`, `ShopFlashDealQueryParams`); `src/shared/types/index.ts` ().
 - Hook/state/router: `useAuthStore.getState`, `useAuthStore.subscribe`, `useCartStore`, `useCartStore.setState`, `useNavigate`, `useParams`, `useToastStore.getState`, `useToastStore.getState().removeToast`.
 - Child component: Inline trong page.

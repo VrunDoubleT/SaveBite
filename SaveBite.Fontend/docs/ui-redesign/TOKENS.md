@@ -54,3 +54,12 @@ Chạy bình thường `npm run dev` không bật showcase. Không thêm `/__ui`
 - Production bundle không chứa `/__ui` hoặc nội dung showcase.
 
 Phạm vi kiểm tra trình duyệt là showcase. Chưa kiểm tra toàn bộ route có backend, bản đồ, thanh toán hoặc role thật. Các màu hardcoded và style cũ trong từng trang sẽ được chuyển dần sang primitive/token ở giai đoạn ui-redesign-page; chưa coi QA toàn app hoàn tất. Build vẫn có cảnh báo chunk lớn đã tồn tại trước thay đổi.
+
+## Style trang đã được duyệt
+
+Người dùng đã duyệt style trang chủ với điểm nhấn màu nhẹ; áp dụng tiếp cho flash deal detail và các trang redesign sau:
+
+- Nền trắng/sáng, Inter; giữ nguyên thang xanh lá. Tiêu đề có vạch xanh nhẹ, CTA chính xanh primary-700; icon/count/filter được chọn dùng nền primary-50.
+- Danh mục và thông tin nhận hàng dùng secondary-50/700; flash deal/thời hạn đang hoạt động dùng accent-50/100/700. Giữ phần lớn nội dung trung tính để các điểm nhấn rõ ràng.
+- Trạng thái luôn có chữ hoặc icon, không chỉ dựa vào màu. Không tạo rating, review count hay trạng thái mở cửa khi DTO không cung cấp.
+- `ButtonLink` dùng cho CTA điều hướng. `MediaImage` dự phòng ảnh thiếu/hỏng, giữ không gian theo class của caller; không dùng ảnh sản phẩm khác làm ảnh thay thế. Cả hai có ví dụ ở `/__ui`.

@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["mock-backend.spec.ts", "home-redesign.spec.ts"],
+  testMatch: ["mock-backend.spec.ts", "home-redesign.spec.ts", "deal-detail-redesign.spec.ts"],
   fullyParallel: false,
   timeout: 300000,
   workers: 1,

@@ -1,8 +1,8 @@
 # UI redesign progress
 
 Ngày audit: 2026-11-02 (Asia/Bangkok). Nhánh: ui-redesign (đã tồn tại).
-Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; đã tạo mock backend theo DTO thật và redesign trang đầu tiên `/`.
-Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
+Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; đã tạo mock backend theo DTO thật, redesign trang `/` và flash deal detail.
+Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/` và flash deal detail (hai đường dẫn) đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
 
 | Route/task | Status | Commit | Notes |
 |---|---|---|---|
@@ -12,8 +12,8 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/` đã hoàn tất; các route cò
 | `/` | done | ui(/): redesign | R1; CustomerHomePage; discovery, filters, cards, collapsible map, location/error/loading/empty/partial states; refined subtle color accents; 360/768/1280px; xem HOME.md |
 | `/shops/:id` | todo | — | R2; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
 | `/shop-profile` | todo | — | R3; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
-| `/flash-deals/:id` | todo | — | R4; CustomerDealDetailPage; guest, user, staff, storeOwner (admin redirected) |
-| `/deals/:id` | todo | — | R5; CustomerDealDetailPage; guest, user, staff, storeOwner (admin redirected) |
+| `/flash-deals/:id` | done | ui(/flash-deals/:id): redesign | R4; approved home accents; gallery, variant/quantity/cart, pickup, all states; 360/768/1280px; xem DEAL-DETAIL.md |
+| `/deals/:id` | done | ui(/flash-deals/:id): redesign | R5; alias cùng CustomerDealDetailPage; responsive/navigation regression passed; xem DEAL-DETAIL.md |
 | `/login` | todo | — | R6; LoginPage; guest, user, staff, storeOwner (admin redirected) |
 | `/register` | todo | — | R7; RegisterPage; guest, user, staff, storeOwner (admin redirected) |
 | `/register/verify` | todo | — | R8; OtpVerificationPage; guest, user, staff, storeOwner (admin redirected) |

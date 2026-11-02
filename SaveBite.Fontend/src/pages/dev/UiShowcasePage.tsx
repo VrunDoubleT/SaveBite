@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Bell, Check, Plus, ShoppingBag } from "lucide-react";
 import {
   Button,
+  MediaImage,
   ButtonLink,
   IconButton,
   Input,
@@ -81,6 +82,17 @@ export function UiShowcasePage() {
             <Swatch label="Accent · warm sun" className="bg-accent-500" />
             <Swatch label="Secondary · indigo" className="bg-secondary-500" />
             <Swatch label="Info · blue" className="bg-info" />
+          </div>
+        </Card>
+        <Card>
+          <h2 className="mb-4 text-section font-semibold">Product images</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MediaImage
+              src="/images/deals/banh-mi/bm-overview.jpg"
+              alt="Vegetable bánh mì"
+              className="aspect-[4/3] w-full rounded-md"
+            />
+            <MediaImage alt="Product without a photo" className="aspect-[4/3] w-full rounded-md" />
           </div>
         </Card>
         <Card>

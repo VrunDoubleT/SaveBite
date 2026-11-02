@@ -25,3 +25,5 @@ export { Modal, Drawer } from "./Overlays";
 export { UserAvatar as Avatar } from "../avatar/UserAvatar";
 export { Pagination } from "../pagination/Pagination";
 export { ToastViewport as Toast } from "../feedback/ToastViewport";
+
+export { MediaImage } from "./MediaImage";
