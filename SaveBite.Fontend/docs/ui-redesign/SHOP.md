@@ -43,3 +43,7 @@ Ran the design-system search for `storefront shop profile marketplace`, followed
 - Independent profile/deal/review failure and retry; profile recovery restores all resources. Slow loading, no deals, no reviews, closed store, broken cover/logo, missing optional metadata, long content, absent profile data and the legacy no-ID gate.
 - Shared review suite covers star/photo filters, paging, photo modal keyboard/focus restore and error/empty/loading states on both detail and storefront.
 - Screenshots reviewed: `/tmp/savebite-shop-{360,768,1280}.png`, review captures and state captures. Baseline: `/tmp/savebite-shop-before.png`. These are local verification artifacts.
+
+## Store identity alignment refinement
+
+The logo now sits directly beside the name/category block in a normal flex row, with a 12–16px token gap. Removed the absolute cover overlap and reserved top/left padding that created the empty space. The logo is 64px on mobile and 80px from tablet upward; name wrapping and the separate rating action remain responsive. Build/targeted lint and four layout/long-content storefront checks passed at 360/768/1280px.

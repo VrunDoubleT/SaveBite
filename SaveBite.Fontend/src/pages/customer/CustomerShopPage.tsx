@@ -284,37 +284,39 @@ function ShopContent({ shopId }: { shopId: string }) {
             {profile.isOpen ? "Open now" : "Closed"}
           </Badge>
         </div>
-        <div className="relative space-y-5 p-4 sm:p-6">
-          <MediaImage
-            src={profile.logoUrl ?? undefined}
-            alt={`${shopName} logo`}
-            fallbackIcon={Store}
-            showFallbackLabel={false}
-            className="absolute -top-10 left-4 size-20 rounded-lg border-4 border-bg-surface shadow-sm sm:left-6"
-          />
-          <div className="flex flex-col items-start justify-between gap-4 pt-10 sm:flex-row sm:pt-0 sm:pl-24">
-            <div className="min-w-0 space-y-2">
-              <h1 className="text-page font-semibold text-text-primary [overflow-wrap:anywhere]">
-                {shopName}
-              </h1>
-              <div className="flex flex-wrap gap-2">
-                {shopCategories.map((category) => (
-                  <Badge key={category} className="max-w-full bg-secondary-50 text-secondary-700">
-                    <span title={category} className="truncate">
-                      {category}
-                    </span>
+        <div className="space-y-5 p-4 sm:p-6">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <MediaImage
+                src={profile.logoUrl ?? undefined}
+                alt={`${shopName} logo`}
+                fallbackIcon={Store}
+                showFallbackLabel={false}
+                className="size-16 shrink-0 rounded-lg border border-border-default sm:size-20"
+              />
+              <div className="min-w-0 space-y-2">
+                <h1 className="text-page font-semibold text-text-primary [overflow-wrap:anywhere]">
+                  {shopName}
+                </h1>
+                <div className="flex flex-wrap gap-2">
+                  {shopCategories.map((category) => (
+                    <Badge key={category} className="max-w-full bg-secondary-50 text-secondary-700">
+                      <span title={category} className="truncate">
+                        {category}
+                      </span>
+                    </Badge>
+                  ))}
+                  <Badge tone={isDealsLoading ? "neutral" : "warning"}>
+                    {isDealsLoading ? (
+                      "Loading deals…"
+                    ) : (
+                      <>
+                        <Flame className="size-3" aria-hidden="true" />
+                        {deals.length} flash deals
+                      </>
+                    )}
                   </Badge>
-                ))}
-                <Badge tone={isDealsLoading ? "neutral" : "warning"}>
-                  {isDealsLoading ? (
-                    "Loading deals…"
-                  ) : (
-                    <>
-                      <Flame className="size-3" aria-hidden="true" />
-                      {deals.length} flash deals
-                    </>
-                  )}
-                </Badge>
+                </div>
               </div>
             </div>
             <a
