@@ -38,12 +38,12 @@ Sidebar desktop thu gọn/mở rộng bằng state cục bộ trong WorkspaceLay
 Từ thư mục `SaveBite.Fontend`:
 
 ```bash
-VITE_ENABLE_MOCK=true npm run dev
+VITE_ENABLE_UI_SHOWCASE=true npm run dev
 ```
 
-Mở `/__ui` trên URL Vite in ra. Route chỉ tồn tại khi **DEV và (VITE_ENABLE_MOCK=true hoặc VITE_USE_MOCK=true)**, lazy loaded và bị loại khỏi production bundle. VITE_ENABLE_MOCK chỉ bật showcase. VITE_USE_MOCK bật cả session, HTTP và realtime mô phỏng; xem [MOCKS.md](./MOCKS.md). Showcase dùng dữ liệu mẫu nội bộ, không cần backend nếu trình duyệt chưa có session lưu. Nếu chỉ bật VITE_ENABLE_MOCK và có session cũ, AppProvider vẫn thực hiện session bootstrap như trước.
+Mở `/__ui` trên URL Vite in ra. Route chỉ tồn tại khi **DEV và VITE_ENABLE_UI_SHOWCASE=true**, lazy loaded và bị loại khỏi production bundle. Đây là ví dụ tĩnh của primitives, không thay thế API, đăng nhập hoặc realtime. AppProvider vẫn dùng session thật. Không đưa dữ liệu mẫu của showcase vào các trang chức năng.
 
-Chạy bình thường `npm run dev` không bật showcase. Không thêm `/__ui` vào điều hướng production.
+Chạy app bằng `npm run dev` với VITE_API_URL trỏ backend thật. Theo [WORKFLOW.md](./WORKFLOW.md); bỏ hoàn toàn bước ui-redesign-mock và mọi yêu cầu mock trong skill bên ngoài.
 
 ## Kiểm tra
 

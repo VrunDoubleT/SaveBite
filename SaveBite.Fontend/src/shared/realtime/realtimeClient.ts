@@ -1,5 +1,9 @@
-import { createMockRealtimeClient } from "@/mocks/realtime";
-import { HubConnectionBuilder, HubConnectionState, HttpTransportType, LogLevel } from "@microsoft/signalr";
+import {
+  HubConnectionBuilder,
+  HubConnectionState,
+  HttpTransportType,
+  LogLevel,
+} from "@microsoft/signalr";
 import { API_URL, getRealtimeAccessToken } from "@/shared/api/httpClient";
 import type { RealtimeEvent } from "./realtime.types";
 
@@ -7,10 +11,15 @@ type Listener = (event: RealtimeEvent) => void;
 
 // One connection carries all feature events; feature code only subscribes to event names.
 export function createRealtimeClient() {
-  if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK === "true") return createMockRealtimeClient();
   const connection = new HubConnectionBuilder()
-    .withUrl(`${API_URL.replace(/\/$/, "")}/realtime`, { accessTokenFactory: getRealtimeAccessToken, transport: HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents })
-    .withAutomaticReconnect({ nextRetryDelayInMilliseconds: (context) => Math.min(30000, 1000 * 2 ** Math.min(context.previousRetryCount, 5)) })
+    .withUrl(`${API_URL.replace(/\/$/, "")}/realtime`, {
+      accessTokenFactory: getRealtimeAccessToken,
+      transport: HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents,
+    })
+    .withAutomaticReconnect({
+      nextRetryDelayInMilliseconds: (context) =>
+        Math.min(30000, 1000 * 2 ** Math.min(context.previousRetryCount, 5)),
+    })
     .configureLogging(LogLevel.Error)
     .build();
   const listeners = new Map<string, Set<Listener>>();
@@ -40,20 +49,32 @@ export function createRealtimeClient() {
       reconcile(reconnected);
     } catch {
       // Automatic reconnect does not retry an initial start failure.
-      if (!stopped) retry = setTimeout(() => { void start(); }, Math.min(30000, 1000 * 2 ** Math.min(failures++, 5)));
+      if (!stopped)
+        retry = setTimeout(
+          () => {
+            void start();
+          },
+          Math.min(30000, 1000 * 2 ** Math.min(failures++, 5)),
+        );
     }
   }
-  connection.onclose(() => { if (!stopped) void start(); });
+  connection.onclose(() => {
+    if (!stopped) void start();
+  });
   return {
     on(type: string, listener: Listener) {
       const handlers = listeners.get(type) ?? new Set<Listener>();
       handlers.add(listener);
       listeners.set(type, handlers);
-      return () => { handlers.delete(listener); };
+      return () => {
+        handlers.delete(listener);
+      };
     },
     onConnected(listener: (reconnected: boolean) => void) {
       connected.add(listener);
-      return () => { connected.delete(listener); };
+      return () => {
+        connected.delete(listener);
+      };
     },
     start,
     stop() {

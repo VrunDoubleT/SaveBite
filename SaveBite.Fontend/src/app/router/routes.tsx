@@ -82,10 +82,16 @@ import { ProductContentManagementPage } from "@/pages/admin/ProductContentManage
 import { WarningHistoryPage } from "@/features/warnings/pages/WarningHistoryPage";
 import { FeedbackManagementPage } from "@/pages/admin/FeedbackManagementPage";
 
-
 export const routes: RouteObject[] = [
-  ...(import.meta.env.DEV && (import.meta.env.VITE_ENABLE_MOCK === "true" || import.meta.env.VITE_USE_MOCK === "true")
-    ? [{ path: "/__ui", lazy: async () => ({ Component: (await import("@/pages/dev/UiShowcasePage")).UiShowcasePage }) }]
+  ...(import.meta.env.DEV && import.meta.env.VITE_ENABLE_UI_SHOWCASE === "true"
+    ? [
+        {
+          path: "/__ui",
+          lazy: async () => ({
+            Component: (await import("@/pages/dev/UiShowcasePage")).UiShowcasePage,
+          }),
+        },
+      ]
     : []),
   {
     element: <CustomerRoute />,

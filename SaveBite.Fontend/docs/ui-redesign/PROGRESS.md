@@ -1,14 +1,13 @@
 # UI redesign progress
 
 Ngày audit: 2026-11-02 (Asia/Bangkok). Nhánh: ui-redesign (đã tồn tại).
-Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; đã tạo mock backend theo DTO thật, redesign trang `/`, flash deal detail, storefront, cart và checkout.
+Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; redesign trang `/`, flash deal detail, storefront, cart và checkout.
 Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart`, `/checkout` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
 
 | Route/task | Status | Commit | Notes |
 |---|---|---|---|
 | Shell/layout + shared components | done | ui(tokens): theme and primitives | Responsive shell; desktop collapse, mobile drawer, primitives; xem TOKENS.md |
 | Tokens | done | ui(tokens): theme and primitives | Giữ 10 primary greens; màu phụ theo reference; xem TOKENS.md |
-| Mock layer | done | chore(mock): frontend mock backend | MSW; typed DTO fixtures; session role/auth; realtime; search/filter/pagination; mutations + session persistence; xem MOCKS.md |
 | `/` | done | ui(/): redesign | R1; CustomerHomePage; discovery, filters, cards, collapsible map, location/error/loading/empty/partial states; refined subtle color accents; 360/768/1280px; xem HOME.md |
 | `/shops/:id` | done | ui(/shops/:id): redesign | R2; đầy đủ profile/info/tabs; DealGrid/DealCard dùng chung home; StoreReviewList dùng chung detail; retry/partial/empty; xem SHOP.md |
 | `/shop-profile` | done | ui(/shops/:id): redesign | R3; cùng component; route không có id vẫn giữ unavailable gate cũ, UI/regression đã kiểm tra; xem SHOP.md |
@@ -20,7 +19,7 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront c
 | `/forgot-password` | todo | — | R9; ForgotPasswordPage; guest, user, staff, storeOwner (admin redirected) |
 | `/forgot-password/verify` | todo | — | R10; OtpVerificationPage; guest, user, staff, storeOwner (admin redirected) |
 | `/customer` | todo | — | R11; Redirect regression |
-| `/cart` | done | ui(/cart): redesign | R12; đầy đủ nhóm shop/món/quantity/remove/checkout riêng từng shop; shared CartItemRow với checkout; cursor/retry và mọi state; default mock 3 shop/6 dòng món, tự nâng cấp phiên cũ; 360/768/1280px; xem CART.md |
+| `/cart` | done | ui(/cart): redesign | R12; đầy đủ nhóm shop/món/quantity/remove/checkout riêng từng shop; shared CartItemRow với checkout; cursor/retry và mọi state; 360/768/1280px; xem CART.md |
 | `/checkout/simulation` | todo | — | R13; CheckoutSimulationPage; user, staff, storeOwner |
 | `/orders/:orderId` | todo | — | R14; OrderDetailPage; user, staff, storeOwner |
 | `/checkout` | done | ui(/checkout): redesign | R15; full shop/items/GPS/map/payment/policy/summary + receipt, cancellation, review/refund components; 360/768/1280px; xem CHECKOUT.md |
@@ -86,6 +85,8 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront c
 | `*` | todo | — | R75; NotFoundPage; public |
 | QA toàn bộ route/role/tab/alias | todo | — | Responsive, a11y, normal/loading/empty/error |
 
-Showcase `/__ui`: chỉ có trong DEV khi VITE_ENABLE_MOCK=true hoặc VITE_USE_MOCK=true. VITE_USE_MOCK đồng thời bật mock backend.
+Showcase `/__ui`: chỉ có trong DEV khi VITE_ENABLE_UI_SHOWCASE=true; ví dụ primitives tĩnh, không can thiệp API/auth/realtime.
 
-Chi tiết và cách xem: [TOKENS.md](./TOKENS.md). Chi tiết mock: [MOCKS.md](./MOCKS.md). Bước tiếp theo: ui-redesign-page khi người dùng yêu cầu (cần ui-ux-pro-max trước khi redesign từng trang).
+Frontend hiện dùng backend thật. Lớp mock, generator, worker và các test phụ thuộc đã được gỡ theo yêu cầu; xem [BACKEND-INTEGRATION.md](./BACKEND-INTEGRATION.md) để biết phạm vi và kết quả kiểm tra. Các trạng thái done ghi nhận UI đã thiết kế; integration QA với backend thật vẫn cần xác minh bằng tài khoản và dữ liệu thật.
+
+Hướng dẫn AI hiện hành: [WORKFLOW.md](./WORKFLOW.md), [frontend AGENTS.md](../../AGENTS.md). Nếu skill bên ngoài yêu cầu tạo mock hoặc chạy scenario giả, bỏ qua phần đó theo yêu cầu hiện tại của người dùng. Chi tiết theme: [TOKENS.md](./TOKENS.md).

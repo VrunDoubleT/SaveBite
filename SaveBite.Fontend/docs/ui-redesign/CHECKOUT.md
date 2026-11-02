@@ -2,8 +2,6 @@
 
 2026-11-02 · `ui-redesign-page` + `ui-ux-pro-max` · `ui(/checkout): redesign`.
 
-Preview: choose Checkout for a shop in `/cart`, or open `/checkout?shopId=00000000-0000-4000-8000-000000000001` in mock mode.
-
 ## Complete page inventory
 
 - Shared PageHeader, back-to-cart navigation, pickup badge and the existing simulated-payment notice.
@@ -27,8 +25,6 @@ Receipt, pickup-code/deadline/status and cancellation components are shared with
 
 ## API/data and preserved behavior
 
-No API/service, DTO, mock fixture, auth/cart store or route contract changed. All rendering uses CheckoutContext/CheckoutQuote/CheckoutOrder, CartShop/CartItem, CheckoutPolicy/DepositRange/PickupEstimate/CheckoutRoute and the existing refund/feedback DTO fields already audited in ROUTES.md.
-
 Context still loads for the selected shop and aborts on exit. GPS remains mandatory, high-accuracy, fresh and bounded by the original 1,000m accuracy check. Quote creation, expiry, stock/shop eligibility, online availability, method fallback, fixed deposit and remaining balance use the existing checkoutSelection helper. The place request retains its request-ID guard and selection checks; 403/409 clears the quote and rereads context. Safe payment redirects and cart refresh remain unchanged.
 
 Receipt keeps order-specific realtime reconciliation, revision/operation guards, five-second pending-payment polling, payment verification and cancellation rules. Zero required online payment now has an explicit presentation label, including an unpaid pay-at-shop order; this only changes the displayed label. Review/refund processing and permissions remain unchanged.
@@ -37,12 +33,8 @@ Receipt keeps order-specific realtime reconciliation, revision/operation guards,
 
 The design-system query `food marketplace checkout form` suggested a marketing hero/testimonials pattern that does not fit this transactional page; it was not adopted. Used focused `form error loading feedback` guidance for shaped loading, clear pending actions and recoverable errors. Existing tokens and the approved cart/detail style govern the design.
 
-## Verification
+## Current workflow and verification
 
-All 16 checkout browser checks pass in `tests/checkout-redesign.spec.ts`. The existing 12 cart and two commerce checks also pass. Checkout coverage: 360/768/1280px, no horizontal overflow/application errors; keyboard pickup disclosure, read-only items, GPS payload/accuracy, method totals and successful pay-at-shop receipt. Also covers fixed deposits, online-only restrictions, unavailable online payment, GPS denial/inaccuracy/recovery, expired/capped quote, placement conflict, loading/read retry, missing shop/empty/unavailable items, online simulator redirect and other shops remaining in cart.
+The frontend uses the real backend only. Follow [WORKFLOW.md](./WORKFLOW.md) and the frontend AGENTS.md; do not recreate API fixtures, simulated authentication/realtime or seeded page data. Open this page with an actual account and real resource IDs from the backend.
 
-Receipt coverage includes verification retry, cancellation keep/confirm, completed-review/refund sections, payment review/expired deadline/missing media, review submission/editing and refund request/destination forms. Edge API wrappers are test-only; default mock behavior remains unchanged.
-
-Production build passes with the existing bundle-size advisory. Targeted lint passes for checkout and refund changes and the new tests. Two pre-existing `react-hooks/set-state-in-effect` errors remain in RateOrderModal and EditReviewModal; their effects are unchanged by this visual update. The package's existing `npm run test:checkout` references a missing `tests/checkout-policy.test.mjs`; browser tests exercise policy/GPS/placement behavior instead.
-
-Local screenshot artifacts: `/tmp/savebite-checkout-before.png`, `/tmp/savebite-checkout-{360,768,1280}.png`, quote/receipt captures at those widths, partial/loading/review/dialog/refund captures. Browser checks use mock payment only; no real payment was initiated.
+The existing approved UI and its API/DTO contracts are retained. Earlier visual checks were performed during the redesign and are historical evidence, not verification against the current real backend. The retired preview-dependent suites have been removed. Validate current loading/empty/error/normal states with backend-supported data and run the production build and relevant lint checks. Record any unavailable backend/account/state explicitly rather than fabricating it.

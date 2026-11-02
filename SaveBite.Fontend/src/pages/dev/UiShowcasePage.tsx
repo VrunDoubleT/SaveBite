@@ -49,7 +49,7 @@ const navigation = [
   { to: "/", label: "Customer home", icon: Plus },
 ];
 
-/** Rendered exclusively when DEV && VITE_ENABLE_MOCK === "true". No backend fixtures are installed here. */
+/** Rendered exclusively when DEV && VITE_ENABLE_UI_SHOWCASE === "true". Static component examples only; API/auth/realtime are unchanged. */
 export function UiShowcasePage() {
   const [tab, setTab] = useState("normal");
   const [page, setPage] = useState(1);

@@ -10,14 +10,13 @@ Ngày: 2026-11-02 (Asia/Bangkok). Phạm vi: `SaveBite.Fontend`. Chỉ đọc so
 - npm (package-lock.json). Chạy: `cd SaveBite.Fontend && npm run dev`. Build: `npm run build`; lint: `npm run lint`. Có Playwright cho products và các test Node chuyên biệt. Audit không cần chạy build/test vì không đổi source.
 - Copy đang chủ yếu tiếng Anh, một số nội dung tiếng Việt; giữ nguyên ngôn ngữ từng màn hình.
 
-## API client và điểm tích hợp mock
+## API client và tích hợp backend thật
 
 - src/shared/api/httpClient.ts: Axios httpClient, baseURL `VITE_API_URL ?? "/api"`, timeout 15s, withCredentials, JSON; bearer lấy từ localStorage. refreshClient riêng, đồng bộ request renew token; retry 401 một lần, ngoại lệ login; phát auth:unauthorized khi hết phiên.
-- src/features/auth/api/authApi.ts: getMe chuẩn hóa role và customerStatus. AppProvider gọi initializeSession; authStore là Zustand. Mock cần phục vụ session/me/renewal đúng contract để guard hoạt động, giữ nguyên flow auth.
+- src/features/auth/api/authApi.ts: getMe chuẩn hóa role và customerStatus. AppProvider gọi initializeSession; authStore là Zustand. Session/me/renewal dùng backend thật, giữ nguyên flow auth.
 - src/shared/types/api.types.ts: ApiResponse<T> = { data, message?, success }; ApiErrorResponse = { message, errorCode?, errors?, statusCode? }. Không áp dụng một pagination chung: từng feature có DTO riêng (đặc biệt ShopOrderPage.page được validate).
 - src/shared/api/endpoints.ts chỉ là hằng URL; một số service dùng URL inline (refunds/payments/analytics...). Bảng service ở cuối liệt kê lời gọi HTTP thực tế trong source. URL function/template giữ nguyên biểu thức để thấy params, encodeURIComponent và nhánh runtime. Các đường dẫn tương đối được ghép với baseURL.
-- Đề xuất bước mock: ưu tiên intercept ở tầng network (MSW nếu bước sau được phép thêm dependency); nếu adapter Axios thì phải bao phủ cả httpClient và refreshClient, giữ envelope/errors/upload. Hiện chưa thiết lập mock mode trong audit này.
-- src/app/providers/RealtimeProvider.tsx quản lý SignalR theo phiên; src/shared/realtime/realtimeClient.ts nhận ReceiveEvent. Sự kiện: shop.orders.pending.changed, customer.orders.changed, shop.orders.changed, cart.changed, notification.received/read/deleted. HTTP mock riêng không mô phỏng được SignalR; cần transport/event fixture cho bước mock.
+- src/app/providers/RealtimeProvider.tsx quản lý SignalR theo phiên; src/shared/realtime/realtimeClient.ts nhận ReceiveEvent. Sự kiện: shop.orders.pending.changed, customer.orders.changed, shop.orders.changed, cart.changed, notification.received/read/deleted. Dùng transport SignalR thật; không thêm emitter hoặc transport giả.
 - Ngoại dịch vụ: VietMap route/style/reverse, OSM tiles, VietQR banks, ảnh remote. Cần fixture/fallback cho bản đồ/geolocation/bank/payment QR nếu muốn frontend xem được hoàn toàn offline. Không ghi giá trị key hoặc .env vào tài liệu.
 
 ## Quyền và layout
@@ -25,7 +24,7 @@ Ngày: 2026-11-02 (Asia/Bangkok). Phạm vi: `SaveBite.Fontend`. Chỉ đọc so
 - CustomerRoute: guest được xem public; admin đăng nhập được điều hướng về admin. Protected customer chấp nhận user/staff/storeOwner; thiếu phiên về login.
 - Admin: admin. Store owner: storeOwner. Staff: staff hoặc storeOwner; truy cập shop cụ thể vẫn phụ thuộc quyền backend và dữ liệu shop. Không suy diễn quyền từ sidebar.
 - CustomerLayout → CustomerHeader; AccountLayout lồng trong CustomerLayout → AccountSidebar. AdminLayout/StaffLayout/StoreOwnerLayout dùng WorkspaceLayout → WorkspaceHeader + WorkspaceSidebar. ProductsWorkspace bổ sung options/shop/categories qua Outlet context, cùng loading/error/no-shop gate.
-- API dùng chung ngoài bảng route: session auth/me, cart summary, notifications và pending-order badges qua header/layout/store. Phải mock các dữ liệu nền này cho từng role.
+- API dùng chung ngoài bảng route: session auth/me, cart summary, notifications và pending-order badges qua header/layout/store. Lấy các dữ liệu nền này từ backend theo phiên và role thật.
 
 ## Routes
 
@@ -1300,16 +1299,16 @@ Các method có thể có nhiều HTTP request/nhánh. “void / inferred” ngh
 - /checkout nhận context/query (bao gồm orderId cho receipt); /checkout/simulation dùng orderId/paymentId và mutation payment mô phỏng vào backend thật nếu bấm. Audit chỉ đọc, chưa chạy.
 - TrustScorePage có overview/levels/history/penalties; TrustConfigurationPage có levels/penalty-rules/score-rules/earning-rules. Tab thiếu/sai điều hướng về tab mặc định. Dashboard admin dùng :tab? theo config analytics.
 - /store-owner/products là parent workspace có index page; child new/:productId/:productId/flash-deals phải có ProductOptions.shop/categories trong context.
-- ShopOrdersPage, ShopOrderDetailPage và StoreOwnerReviewsPage dùng chung owner/staff nhưng context shopId và quyền khác nhau. Mock phải có cả hai role.
+- ShopOrdersPage, ShopOrderDetailPage và StoreOwnerReviewsPage dùng chung owner/staff nhưng context shopId và quyền khác nhau. Kiểm tra bằng tài khoản thật của cả hai role.
 - /admin/orders hiện chỉ ComingSoonPage, không tạo giả API orders admin. 404 là * ngoài guard/layout.
-- src/pages/staff/StaffShopsPage.tsx không được import trong routes.tsx; /staff hiện redirect về /. Không xem file tồn tại là một route đang hoạt động. Entry main.tsx import src/App.tsx; cần theo re-export sang src/app/App.tsx khi thay shell. StaffDetailPage lấy staff từ location.state, reload trực tiếp có thể báo Staff member not found dù activity-log endpoint vẫn được gọi; fixture phải kiểm tra cả navigation state và direct URL.
+- src/pages/staff/StaffShopsPage.tsx không được import trong routes.tsx; /staff hiện redirect về /. Không xem file tồn tại là một route đang hoạt động. Entry main.tsx import src/App.tsx; cần theo re-export sang src/app/App.tsx khi thay shell. StaffDetailPage lấy staff từ location.state, reload trực tiếp có thể báo Staff member not found dù activity-log endpoint vẫn được gọi; cần kiểm tra cả navigation state và direct URL.
 - Loading/empty/error trong tài liệu là phát hiện code, chưa có visual/a11y/responsive review. Không khẳng định tất cả màn hình đã đủ ba trạng thái.
 
 ## Proposed order
 
 1. Shell/layout: CustomerLayout, AccountLayout, WorkspaceLayout, role wrappers, headers/sidebar; session checking, toast, notifications/pending badges.
 2. Tokens + primitive dùng chung: giữ green scale hiện tại; hợp nhất button/input/card/table/badge/pagination/modal/empty/skeleton/page header dựa trên thành phần sẵn có.
-3. Mock: session/role, background header requests, HTTP response/error/pagination, upload, realtime, location/maps/banks; trạng thái normal/loading/empty/error. Không đổi public contract.
+3. Kết nối backend thật: xác minh cấu hình API, session/role, requests nền, upload, realtime và dịch vụ location/maps/banks. Dùng tài khoản/dữ liệu thật; không thêm lớp response hoặc transport giả.
 4. Auth (login/register/verify/reset) → public discovery/shop/deal → profile/address/workspace/invitations/shop applications.
 5. Customer cart/checkout/order/payment/refund/reviews/trust; bao phủ query receipt và simulation.
 6. Owner products (workspace/list/create/detail/history) → flash deals → shop settings/payment → staff/invitations.
@@ -1317,7 +1316,7 @@ Các method có thể có nhiều HTTP request/nhánh. “void / inferred” ngh
 8. Owner/admin dashboards → admin lists (categories/users/shops/products/applications/fees/feedback/reviews/audit) → moderation detail và trust settings.
 9. ComingSoon/404/redirect regression → QA toàn bộ route, tab, alias, responsive và a11y.
 
-Không bắt đầu tokens, mock hoặc redesign trong lượt audit. ui-ux-pro-max chưa có trong danh sách skill hiện tại; chỉ cần xử lý trước giai đoạn ui-redesign-page.
+Inventory được tạo trong lượt audit ban đầu. Workflow hiện hành: [WORKFLOW.md](./WORKFLOW.md); chỉ dùng backend thật khi tiếp tục redesign.
 
 ## Tương tác và dữ liệu điều hướng cần giữ
 
