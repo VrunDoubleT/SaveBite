@@ -99,6 +99,20 @@ export function UiShowcasePage() {
             ]}
           />
         </Card>
+        <Card aria-label="Membership tab reference">
+          <Tabs
+            appearance="cards"
+            label="Membership tab example"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { value: "normal", label: "Overview", description: "Current level" },
+              { value: "empty", label: "Benefits", description: "Level requirements" },
+            ]}
+          >
+            <p className="text-body text-text-secondary">Static tab layout reference.</p>
+          </Tabs>
+        </Card>
         <Card aria-label="Theme colors">
           <h2 className="mb-4 text-section font-semibold">Color palette</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

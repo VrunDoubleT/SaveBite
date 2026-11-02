@@ -1,9 +1,11 @@
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { TrustHistoryPanel } from "@/features/trust/components/TrustHistoryPanel";
 import { TrustLevelsPanel } from "@/features/trust/components/TrustLevelsPanel";
 import { TrustOverviewPanel } from "@/features/trust/components/TrustOverviewPanel";
 import { TrustPenaltiesPanel } from "@/features/trust/components/TrustPenaltiesPanel";
-import { TrustTabs } from "@/features/trust/components/TrustTabs";
+import { Tabs } from "@/shared/components/ui";
+import { Award, Gift, History, ShieldAlert } from "lucide-react";
+import "@/features/trust/styles/trust.css";
 import {
   CUSTOMER_TRUST_BASE_PATH,
   CUSTOMER_TRUST_TABS,
@@ -14,6 +16,7 @@ import {
 // Routes: /account/trust-score/:tab (overview | levels | history | penalties)
 export function TrustScorePage() {
   const { tab } = useParams();
+  const navigate = useNavigate();
   const activeTab = findTab(CUSTOMER_TRUST_TABS, tab);
 
   // /account/trust-score and unknown tabs open the first tab (replaces the history entry).
@@ -23,19 +26,27 @@ export function TrustScorePage() {
 
   return (
     <div className="space-y-6">
-      <TrustTabs
-        tabs={CUSTOMER_TRUST_TABS}
-        active={activeTab}
-        basePath={CUSTOMER_TRUST_BASE_PATH}
-        ariaLabel="Trust Score sections"
-      />
-
-      <div key={activeTab} role="tabpanel" className="trust-panel">
-        {activeTab === "overview" && <TrustOverviewPanel />}
-        {activeTab === "levels" && <TrustLevelsPanel />}
-        {activeTab === "history" && <TrustHistoryPanel />}
-        {activeTab === "penalties" && <TrustPenaltiesPanel />}
-      </div>
+      <Tabs
+        appearance="cards"
+        value={activeTab}
+        onChange={(value) => navigate(tabPath(CUSTOMER_TRUST_BASE_PATH, value))}
+        label="Trust Score sections"
+        items={CUSTOMER_TRUST_TABS.map((item, index) => ({
+          value: item.id,
+          label: item.label,
+          icon: [Award, Gift, History, ShieldAlert][index],
+          description: ["Your membership", "Compare benefits", "Your points", "Recovery progress"][
+            index
+          ],
+        }))}
+      >
+        <div key={activeTab} className="trust-panel">
+          {activeTab === "overview" && <TrustOverviewPanel />}
+          {activeTab === "levels" && <TrustLevelsPanel />}
+          {activeTab === "history" && <TrustHistoryPanel />}
+          {activeTab === "penalties" && <TrustPenaltiesPanel />}
+        </div>
+      </Tabs>
     </div>
   );
 }

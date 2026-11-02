@@ -230,8 +230,10 @@ export function Tabs({
   onChange,
   label,
   children,
+  appearance = "line",
 }: {
-  items: { value: string; label: string }[];
+  appearance?: "line" | "cards";
+  items: { value: string; label: string; icon?: LucideIcon; description?: string }[];
   value: string;
   onChange: (value: string) => void;
   label: string;
@@ -243,7 +245,11 @@ export function Tabs({
       <div
         role="tablist"
         aria-label={label}
-        className="flex gap-1 overflow-x-auto border-b border-border-default"
+        className={
+          appearance === "cards"
+            ? "grid grid-cols-2 gap-2 lg:grid-cols-4"
+            : "flex gap-1 overflow-x-auto border-b border-border-default"
+        }
         onKeyDown={(event) => {
           const index = items.findIndex((item) => item.value === value);
           const next =
@@ -272,9 +278,25 @@ export function Tabs({
             aria-selected={value === item.value}
             tabIndex={value === item.value ? 0 : -1}
             onClick={() => onChange(item.value)}
-            className={`shrink-0 border-b-2 px-4 py-3 text-body font-medium transition-colors ${value === item.value ? "border-primary-700 text-primary-700" : "border-transparent text-text-secondary hover:bg-neutral-100"}`}
+            className={
+              appearance === "cards"
+                ? `min-w-0 rounded-lg border p-3 text-left transition-colors ${value === item.value ? "border-primary-200 bg-primary-50 text-primary-800" : "border-border-default bg-bg-surface text-text-secondary hover:bg-neutral-50"}`
+                : `shrink-0 border-b-2 px-4 py-3 text-body font-medium transition-colors ${value === item.value ? "border-primary-700 text-primary-700" : "border-transparent text-text-secondary hover:bg-neutral-100"}`
+            }
           >
-            {item.label}
+            <span
+              className={
+                appearance === "cards"
+                  ? "flex min-h-6 items-start gap-2 text-body font-semibold"
+                  : undefined
+              }
+            >
+              {item.icon && <item.icon className="size-4 shrink-0" aria-hidden="true" />}
+              {item.label}
+            </span>
+            {appearance === "cards" && item.description && (
+              <span className="mt-1 block text-caption font-normal">{item.description}</span>
+            )}
           </button>
         ))}
       </div>

@@ -431,7 +431,9 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 - Tương tác source: `onChange`, `onClick`, `onClose`, `onDelete`, `onError`, `onMouseDown`, `onMouseEnter`, `onMouseLeave`, `onPageChange`, `onRequestDelete`, `onUpdate`.
 - Field đọc trong JSX — `src/features/feedbacks/components/ReviewsPanel.tsx`: `review.id`, `reviewToDelete?.productName`, `reviews.length`.
 - Field đọc trong JSX — `src/features/feedbacks/components/ReviewCard.tsx`: `comment.length`, `e.target`, `ev.currentTarget`, `ev.currentTarget.style`, `ev.currentTarget.style.display`, `fileInputRef.current`, `images.length`, `review.comment`, `review.createdAt`, `review.id`, `review.imageUrl`, `review.images`, `review.images.length`, `review.orderCode`, `review.orderId`, `review.productName`, `review.rating`, `review.reply`, `review.reply.content`, `review.reply.createdAt`, `review.reply.repliedByName`, `review.shopLogoUrl`, `review.shopName`, `review.variantName`.
-- Nhóm: list/workspace. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=true, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
+- UI đã redesign đầy đủ page/child/states, kiểm tra read-only backend thật ở 360/768/1280px. Xem [REVIEWS-TRUST.md](REVIEWS-TRUST.md) cho inventory, quy tắc giữ nguyên và nhánh chưa kiểm chứng.
+
+- Shared editor: `src/features/feedbacks/components/ReviewEditor.tsx` dùng cùng rating/comment/images/pending/error/cancel/save với inline ReviewCard và EditReviewModal; không đổi API/payload. ReviewCard đọc cùng các field từ FeedbackItem/reply như trước.
 
 ### R24. /account/trust-score/:tab?
 
@@ -448,7 +450,9 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 - Field đọc trong JSX — `src/features/trust/components/TrustPenaltiesPanel.tsx`: `data.items`, `data.items.length`, `data.page`, `data.total`, `data.totalPages`, `penalty.completedOnlineOrders`, `penalty.id`, `penalty.occurrenceNumber`, `penalty.orderCode`, `penalty.reason`, `penalty.requiredOnlineOrders`, `penalty.scoreDeducted`, `penalty.status`.
 - Field đọc trong JSX — `src/features/trust/components/PenaltyRecoveryModal.tsx`: `data.isRecovered`, `data.metrics`, `data.overallPercent`, `data.penalty`, `data.penalty.occurrenceNumber`, `data.penalty.orderCode`, `data.penalty.permanentOfflineLock`, `data.penalty.reason`, `data.penalty.scoreDeducted`, `data.recoveryOrders`, `data.recoveryOrders.length`, `metric.key`, `metric.percent`, `order.orderCode`, `order.orderId`.
 - Field đọc trong JSX — `src/features/trust/components/TrustTabs.tsx`: `tab.id`, `tab.label`.
-- Nhóm: detail/tabs. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=true, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
+- UI đã redesign đầy đủ page/child/states, kiểm tra read-only backend thật ở 360/768/1280px. Xem [REVIEWS-TRUST.md](REVIEWS-TRUST.md) cho inventory, quy tắc giữ nguyên và nhánh chưa kiểm chứng.
+
+- Trust Score dùng shared Tabs appearance=cards và FilterBar cho lịch sử/hình phạt; overview thêm hiển thị level.rank và metric.remaining từ DTO thật. Không đổi công thức/earning/recovery/deposit policy.
 
 ### R25. /account/shop-application
 

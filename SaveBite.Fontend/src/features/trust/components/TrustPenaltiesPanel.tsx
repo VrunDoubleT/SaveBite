@@ -1,32 +1,18 @@
 import { useCallback, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Pagination } from "@/shared/components/pagination";
 import { trustApi } from "../api/trustApi";
 import { useApiResource } from "../hooks/useApiResource";
 import { TRUST_PAGE_SIZE, useListParams } from "../hooks/useListParams";
 import type { PenaltyStatus } from "../types/trust.types";
 import { formatCurrency, formatDateTime } from "../utils/format";
-import { ListFilter } from "./ListFilter";
+import { Badge, Button, Card, FilterBar } from "@/shared/components/ui";
+import { APP_PATHS } from "@/app/router/paths";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
 import { PenaltyRecoveryModal } from "./PenaltyRecoveryModal";
 
 const STATUS_FILTERS = ["Recovering", "Recovered"] as const;
 const STATUS_OPTIONS = STATUS_FILTERS.map((value) => ({ value, label: value }));
-
-function PenaltyStatusBadge({ status }: { status: PenaltyStatus }) {
-  const recovered = status === "Recovered";
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-        recovered
-          ? "border-primary-100 bg-primary-50 text-primary-700"
-          : "border-accent-100 bg-accent-50 text-accent-700"
-      }`}
-    >
-      {recovered ? "Recovered" : "Recovering"}
-    </span>
-  );
-}
 
 // UC-48 (history) and UC-49 (recovery progress of one penalty).
 export function TrustPenaltiesPanel() {
@@ -61,16 +47,16 @@ export function TrustPenaltiesPanel() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-base font-bold text-text-primary">Penalty history</h3>
-        <ListFilter
-          label="Status"
-          allLabel="All penalties"
-          value={status}
-          options={STATUS_OPTIONS}
-          onChange={setFilter}
-        />
-      </div>
+      <FilterBar
+        filters={[
+          {
+            label: "Penalty status",
+            value: status ?? "All",
+            options: [{ value: "All", label: "All penalties" }, ...STATUS_OPTIONS],
+            onChange: (value) => setFilter(value === "All" ? null : (value as PenaltyStatus)),
+          },
+        ]}
+      />
 
       {error && !data ? (
         <PanelError message={error} onRetry={reload} />
@@ -84,66 +70,75 @@ export function TrustPenaltiesPanel() {
       ) : (
         <>
           <div
-            className={`overflow-x-auto rounded-xl border border-border-default bg-bg-surface ${isLoading ? "opacity-60" : ""}`}
+            role="region"
+            aria-label="Penalty history"
+            className={`space-y-4 ${isLoading ? "opacity-60" : ""}`}
           >
-            <table className="min-w-full divide-y divide-border-default text-left text-sm">
-              <thead className="bg-neutral-50 text-text-secondary">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Date</th>
-                  <th className="px-5 py-3 font-semibold">Order</th>
-                  <th className="px-5 py-3 font-semibold">Reason</th>
-                  <th className="px-5 py-3 text-right font-semibold">Points</th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
-                  <th className="px-5 py-3 font-semibold">Recovery</th>
-                  <th className="px-5 py-3 text-right font-semibold">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-default text-text-primary">
-                {data.items.map((penalty) => (
-                  <tr key={penalty.id}>
-                    <td className="whitespace-nowrap px-5 py-3 text-text-secondary">
+            {data.items.map((penalty) => (
+              <Card key={penalty.id} className="space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-body font-semibold text-text-primary">
+                      No-show #{penalty.occurrenceNumber} this month
+                    </h2>
+                    <p className="mt-1 text-caption text-text-secondary">
                       {formatDateTime(penalty.createdAt)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <p className="font-medium">{penalty.orderCode ?? "—"}</p>
-                      <p className="text-xs text-text-secondary">
-                        No-show #{penalty.occurrenceNumber} this month
-                      </p>
-                    </td>
-                    <td className="max-w-[260px] px-5 py-3 text-xs text-text-secondary">
-                      {penalty.reason ?? "—"}
-                    </td>
-                    <td className="px-5 py-3 text-right font-semibold tabular-nums text-danger">
-                      -{penalty.scoreDeducted}
-                    </td>
-                    <td className="px-5 py-3">
-                      <PenaltyStatusBadge status={penalty.status} />
-                    </td>
-                    <td className="px-5 py-3 text-xs text-text-secondary">
-                      <p>
-                        {penalty.completedOnlineOrders} / {penalty.requiredOnlineOrders} online
-                        orders
-                      </p>
-                      <p>
-                        {formatCurrency(penalty.completedOnlineOrderValue)} /{" "}
-                        {formatCurrency(penalty.requiredOnlineOrderValue)}
-                      </p>
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPenaltyId(penalty.id)}
-                        className="rounded-md border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-neutral-50"
-                      >
-                        View recovery
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </p>
+                  </div>
+                  <Badge tone={penalty.status === "Recovered" ? "primary" : "warning"}>
+                    {penalty.status}
+                  </Badge>
+                </div>
+                {penalty.reason && (
+                  <p className="text-body text-text-secondary [overflow-wrap:anywhere]">
+                    {penalty.reason}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-3 text-body">
+                  <Link
+                    to={APP_PATHS.ORDER_DETAIL.replace(
+                      ":orderId",
+                      encodeURIComponent(penalty.orderId),
+                    )}
+                    className="font-semibold text-primary-700 hover:underline"
+                  >
+                    Order {penalty.orderCode ?? "—"}
+                  </Link>
+                  <span className="font-semibold tabular-nums text-danger-strong">
+                    -{penalty.scoreDeducted} points
+                  </span>
+                </div>
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-md bg-neutral-50 p-3">
+                    <dt className="text-caption text-text-secondary">Recovery orders</dt>
+                    <dd className="mt-1 text-body font-semibold text-text-primary">
+                      {penalty.completedOnlineOrders} / {penalty.requiredOnlineOrders} online orders
+                    </dd>
+                  </div>
+                  <div className="rounded-md bg-secondary-50 p-3">
+                    <dt className="text-caption text-secondary-700">Recovery order value</dt>
+                    <dd className="mt-1 break-words text-body font-semibold text-secondary-700">
+                      {formatCurrency(penalty.completedOnlineOrderValue)} /{" "}
+                      {formatCurrency(penalty.requiredOnlineOrderValue)}
+                    </dd>
+                  </div>
+                </dl>
+                {penalty.permanentOfflineLock && (
+                  <p className="rounded-md bg-danger-soft p-3 text-caption text-danger-strong">
+                    Pay at shop is permanently unavailable for this account.
+                  </p>
+                )}
+                <div className="flex justify-end border-t border-border-default pt-3">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setSelectedPenaltyId(penalty.id)}
+                    className="min-h-11"
+                  >
+                    View recovery
+                  </Button>
+                </div>
+              </Card>
+            ))}
           </div>
 
           <Pagination
