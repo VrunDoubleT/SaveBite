@@ -1,9 +1,9 @@
 # UI redesign progress
 
 Ngày audit: 2026-11-02 (Asia/Bangkok). Nhánh: ui-redesign (đã tồn tại).
-Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; redesign trang `/`, flash deal detail, storefront, cart và checkout.
+Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; redesign trang `/`, flash deal detail, storefront, cart, checkout và profile.
 Breadcrumb hiện bắt đầu bằng chữ, không có mũi tên quay lại ở đầu; giữ các dấu phân cách giữa cấp.
-Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart`, `/checkout` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
+Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart`, `/checkout`, `/account/profile` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
 
 | Route/task | Status | Commit | Notes |
 |---|---|---|---|
@@ -25,7 +25,7 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront c
 | `/orders/:orderId` | todo | — | R14; OrderDetailPage; user, staff, storeOwner |
 | `/checkout` | done | ui(/checkout): redesign | R15; full shop/items/GPS/map/payment/policy/summary + receipt, cancellation, review/refund components; 360/768/1280px; xem CHECKOUT.md |
 | `/account` | todo | — | R16; Redirect regression |
-| `/account/profile` | todo | — | R17; ProfilePage; user, staff, storeOwner |
+| `/account/profile` | done | ui(/account/profile): redesign | R17; identity/avatar, profile/password forms, complete addresses/GPS/map/default actions; real-backend read-only validation at 360/768/1280px; xem PROFILE.md |
 | `/account/orders` | todo | — | R18; OrdersPage; user, staff, storeOwner |
 | `/account/payments` | todo | — | R19; PaymentsPage; user, staff, storeOwner |
 | `/account/refunds` | todo | — | R20; RefundsPage; user, staff, storeOwner |

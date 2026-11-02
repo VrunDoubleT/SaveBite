@@ -8,7 +8,8 @@ import {
   type UpdateUserProfileFormValues,
 } from "@/features/profiles/schemas/profile.schema";
 import { getApiErrorMessage, getApiValidationErrors } from "@/shared/api";
-import { Check, LoaderCircle, X } from "lucide-react";
+import { Button, FormField, Input } from "@/shared/components/ui";
+import { Check, X } from "lucide-react";
 
 interface EditProfileFormProps {
   user: AuthUser;
@@ -17,9 +18,6 @@ interface EditProfileFormProps {
   onSubmit: (input: UpdateUserProfileInput, avatarFile: File | null) => Promise<void>;
   onCancel: () => void;
 }
-
-const inputClass =
-  "mt-1 block w-full rounded-xl border border-border-default bg-bg-surface px-4 py-3 text-sm text-text-primary outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100";
 
 export function EditProfileForm({
   user,
@@ -37,111 +35,83 @@ export function EditProfileForm({
   } = useForm<UpdateUserProfileFormValues>({
     resolver: zodResolver(updateUserProfileSchema),
     mode: "onTouched",
-    defaultValues: {
-      fullName: user.fullName,
-      phone: user.phone ?? "",
-    },
+    defaultValues: { fullName: user.fullName, phone: user.phone ?? "" },
   });
-
   useEffect(() => {
-    reset({
-      fullName: user.fullName,
-      phone: user.phone ?? "",
-    });
+    reset({ fullName: user.fullName, phone: user.phone ?? "" });
   }, [reset, user.fullName, user.phone]);
-
   const submit = handleSubmit(async (values) => {
     try {
       await onSubmit(
-        {
-          fullName: values.fullName.trim(),
-          phone: values.phone.trim() || null,
-        },
+        { fullName: values.fullName.trim(), phone: values.phone.trim() || null },
         selectedAvatarFile,
       );
     } catch (error) {
       const apiErrors = getApiValidationErrors(error);
-
-      if (apiErrors.fullName) {
-        setError("fullName", {
-          message: apiErrors.fullName,
-        });
-      }
-
-      if (apiErrors.phone) {
-        setError("phone", {
-          message: apiErrors.phone,
-        });
-      }
-
-      setError("root.server", {
-        message: getApiErrorMessage(error),
-      });
+      if (apiErrors.fullName) setError("fullName", { message: apiErrors.fullName });
+      if (apiErrors.phone) setError("phone", { message: apiErrors.phone });
+      setError("root.server", { message: getApiErrorMessage(error) });
     }
   });
-
   return (
-    <form className="mt-6 space-y-5" onSubmit={submit} noValidate>
-      <label className="block text-sm font-semibold text-text-primary">
-        Full name
-        <input
-          {...register("fullName")}
-          autoComplete="name"
-          aria-invalid={Boolean(errors.fullName)}
-          className={inputClass}
-          placeholder="Your full name"
-        />
-        {errors.fullName?.message && (
-          <span className="mt-1 block text-xs text-danger">{errors.fullName.message}</span>
-        )}
-      </label>
-
-      <label className="block text-sm font-semibold text-text-primary">
-        Phone number
-        <input
-          {...register("phone")}
-          type="tel"
-          inputMode="numeric"
-          autoComplete="tel"
-          aria-invalid={Boolean(errors.phone)}
-          className={inputClass}
-          placeholder="Your phone number"
-        />
-        {errors.phone?.message && (
-          <span className="mt-1 block text-xs text-danger">{errors.phone.message}</span>
-        )}
-      </label>
-
+    <form className="space-y-5" onSubmit={submit} noValidate aria-labelledby="edit-profile-heading">
+      <div>
+        <h3 id="edit-profile-heading" className="text-section font-semibold text-text-primary">
+          Edit personal information
+        </h3>
+        <p className="mt-1 text-body text-text-secondary">
+          Update your name and phone number. Your email stays linked to this account.
+        </p>
+      </div>
+      <fieldset disabled={isSubmitting} className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <FormField label="Full name" error={errors.fullName?.message}>
+          {(field) => (
+            <Input
+              {...field}
+              {...register("fullName")}
+              required
+              autoComplete="name"
+              maxLength={150}
+              placeholder="Your full name"
+              className="min-h-11"
+            />
+          )}
+        </FormField>
+        <FormField
+          label="Phone number"
+          hint="Optional · 9 or 10 digits"
+          error={errors.phone?.message}
+        >
+          {(field) => (
+            <Input
+              {...field}
+              {...register("phone")}
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              placeholder="Your phone number"
+              className="min-h-11"
+            />
+          )}
+        </FormField>
+      </fieldset>
       {errors.root?.server?.message && (
-        <div className="rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
+        <div
+          role="alert"
+          className="rounded-md border border-danger-soft bg-danger-soft p-3 text-body text-danger-strong"
+        >
           {errors.root.server.message}
         </div>
       )}
-
-      <div className="flex flex-wrap justify-end gap-3 border-t border-border-default pt-5">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isSubmitting}
-          className="inline-flex items-center gap-2 rounded-full border border-border-default px-5 py-2.5 text-sm font-semibold text-text-secondary transition-colors hover:bg-bg-subtle disabled:cursor-not-allowed disabled:opacity-60"
-        >
+      <div className="flex flex-wrap justify-end gap-3 border-t border-border-default pt-4">
+        <Button variant="secondary" onClick={onCancel} disabled={isSubmitting} className="min-h-11">
           <X className="size-4" aria-hidden="true" />
           Cancel
-        </button>
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-5 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSubmitting ? (
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <Check className="size-4" aria-hidden="true" />
-          )}
-
-          {isSubmitting ? (selectedAvatarFile ? "Saving changes..." : "Saving...") : "Save changes"}
-        </button>
+        </Button>
+        <Button type="submit" disabled={isSubmitting} loading={isSubmitting} className="min-h-11">
+          <Check className="size-4" aria-hidden="true" />
+          {isSubmitting ? "Saving changes…" : "Save changes"}
+        </Button>
       </div>
     </form>
   );
