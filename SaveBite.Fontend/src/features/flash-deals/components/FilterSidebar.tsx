@@ -98,7 +98,9 @@ export function FilterSidebar({
     <Card aria-label="Deal filters" className="lg:sticky lg:top-24">
       <div className="flex items-center justify-between gap-2 border-b border-border-default pb-4">
         <h2 className="flex items-center gap-2 text-section font-semibold text-text-primary">
-          <Filter className="size-4 text-primary-700" aria-hidden="true" />
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
+            <Filter className="size-4" aria-hidden="true" />
+          </span>
           Filters
         </h2>
         <Button variant="ghost" className="min-h-11 px-2" onClick={clearAll}>
@@ -125,7 +127,7 @@ export function FilterSidebar({
             categoryList.map((cat) => (
               <label
                 key={cat}
-                className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-md px-2 text-body text-text-secondary transition-colors hover:bg-primary-50"
+                className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-md px-2 text-body text-text-secondary transition-colors hover:bg-primary-50 has-checked:bg-primary-50 has-checked:text-primary-700"
               >
                 <span className="flex min-w-0 items-center gap-3">
                   <Checkbox
@@ -136,7 +138,9 @@ export function FilterSidebar({
                     {cat}
                   </span>
                 </span>
-                {(categoryCounts[cat] ?? 0) > 0 && <Badge>{categoryCounts[cat]}</Badge>}
+                {(categoryCounts[cat] ?? 0) > 0 && (
+                  <Badge tone="primary">{categoryCounts[cat]}</Badge>
+                )}
               </label>
             ))
           )}
@@ -156,7 +160,7 @@ export function FilterSidebar({
             {group.options.map((option) => (
               <label
                 key={option}
-                className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 text-body text-text-secondary transition-colors hover:bg-primary-50"
+                className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 text-body text-text-secondary transition-colors hover:bg-primary-50 has-checked:bg-primary-50 has-checked:text-primary-700"
               >
                 <Checkbox
                   checked={filters[group.key].includes(option)}

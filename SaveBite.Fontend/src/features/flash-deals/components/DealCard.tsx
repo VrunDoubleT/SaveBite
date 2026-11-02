@@ -74,7 +74,10 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex flex-wrap items-center gap-2 text-caption text-text-secondary">
           {deal.categoryName && (
-            <span className="min-w-0 truncate" title={deal.categoryName}>
+            <span
+              className="min-w-0 truncate rounded-full bg-secondary-50 px-2 py-1 font-medium text-secondary-700"
+              title={deal.categoryName}
+            >
               {deal.categoryName}
             </span>
           )}
@@ -146,9 +149,9 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
         </div>
         <ButtonLink
           to={`/flash-deals/${deal.id}`}
-          variant="secondary"
+          variant={isDealSoldOut ? "secondary" : "primary"}
           aria-label={`View deal: ${deal.productName}`}
-          className="mt-1 min-h-11 text-primary-700 hover:border-primary-700 hover:bg-primary-50"
+          className="mt-1 min-h-11"
         >
           {isDealSoldOut ? "Sold out · View details" : "View deal"}
         </ButtonLink>

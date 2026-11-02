@@ -9,7 +9,7 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/` đã hoàn tất; các route cò
 | Shell/layout + shared components | done | ui(tokens): theme and primitives | Responsive shell; desktop collapse, mobile drawer, primitives; xem TOKENS.md |
 | Tokens | done | ui(tokens): theme and primitives | Giữ 10 primary greens; màu phụ theo reference; xem TOKENS.md |
 | Mock layer | done | chore(mock): frontend mock backend | MSW; typed DTO fixtures; session role/auth; realtime; search/filter/pagination; mutations + session persistence; xem MOCKS.md |
-| `/` | done | ui(/): redesign | R1; CustomerHomePage; discovery, filters, cards, collapsible map, location/error/loading/empty/partial states; 360/768/1280px; xem HOME.md |
+| `/` | done | ui(/): redesign | R1; CustomerHomePage; discovery, filters, cards, collapsible map, location/error/loading/empty/partial states; refined subtle color accents; 360/768/1280px; xem HOME.md |
 | `/shops/:id` | todo | — | R2; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
 | `/shop-profile` | todo | — | R3; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
 | `/flash-deals/:id` | todo | — | R4; CustomerDealDetailPage; guest, user, staff, storeOwner (admin redirected) |

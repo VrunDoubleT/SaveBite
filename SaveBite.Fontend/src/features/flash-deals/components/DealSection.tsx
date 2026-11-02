@@ -81,7 +81,9 @@ export function DealSection({
             id="flash-deals-heading"
             className="flex items-center gap-2 text-section font-semibold text-text-primary"
           >
-            <Flame className="size-5 text-accent-700" aria-hidden="true" />
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-100 text-accent-700">
+              <Flame className="size-5" aria-hidden="true" />
+            </span>
             Today's flash deals
           </h2>
           <p role="status" className="text-body text-text-secondary">

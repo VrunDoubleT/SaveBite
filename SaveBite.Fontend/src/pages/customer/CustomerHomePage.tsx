@@ -107,7 +107,7 @@ export function CustomerHomePage() {
 
   return (
     <div className="space-y-6 py-6 sm:space-y-8 sm:py-8">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 border-l-4 border-primary-300 pl-4">
         <PageHeader
           title="A little less waste. A lot more taste."
           description="Discover nearby flash deals. Find your next bite at a better price."
@@ -146,7 +146,7 @@ export function CustomerHomePage() {
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <Button
               variant="secondary"
-              className="min-h-11"
+              className="min-h-11 aria-pressed:border-primary-200 aria-pressed:bg-primary-50 aria-pressed:text-primary-700"
               onClick={requestGpsLocation}
               loading={isGpsLoading}
               aria-pressed={locationMode === "gps"}
@@ -157,7 +157,7 @@ export function CustomerHomePage() {
             {userDefaultAddress && (
               <Button
                 variant="secondary"
-                className="min-h-11"
+                className="min-h-11 aria-pressed:border-secondary-100 aria-pressed:bg-secondary-50 aria-pressed:text-secondary-700"
                 onClick={selectSavedAddress}
                 aria-pressed={locationMode === "saved_address"}
               >

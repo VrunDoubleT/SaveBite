@@ -33,3 +33,9 @@ Applied relevant general UX guidance and verified focused results from `search f
 - Screenshots were inspected in `/tmp/savebite-home-{360,768,1280}.png`, plus map/state captures. These are local verification artifacts, not production assets.
 
 Run locally: `npm run dev:mock -- --host 127.0.0.1 --port 4175`. Open `http://127.0.0.1:4175/`; `?mock=empty`, `?mock=error`, `?mock=slow`, and `?role=guest` exercise the alternate states.
+
+## Color accent refinement
+
+Added small token-based accents following user feedback: a soft green title rule and filter icon/counts, a warm amber flash-deal icon background, indigo category pills and selected saved-address control, green selected filters, and green View deal actions (sold-out actions stay neutral). Existing labels, checked states and aria-pressed remain available alongside color. Layout, API and data behavior stay unchanged.
+
+Verification: targeted ESLint and production build passed; the three existing discovery checks passed again at 360/768/1280px. Reviewed the updated desktop screenshot. The existing bundle-size advisory remains.
