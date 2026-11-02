@@ -132,7 +132,7 @@ Phương pháp: đọc AST TypeScript của route và dependency local (page →
 - Field đọc trong JSX — `src/features/shops/components/NearbyStoresMapSection.tsx`: `e.currentTarget`, `e.currentTarget.src`, `routeResult.distanceFormatted`, `routeResult.durationMinutes`, `routeResult.instructions`, `routeResult.instructions.length`, `selectedShop.address`, `selectedShop.averageRating`, `selectedShop.closingTime`, `selectedShop.coverImageUrl`, `selectedShop.distanceInKm`, `selectedShop.flashDealCount`, `selectedShop.id`, `selectedShop.isOpen`, `selectedShop.logoUrl`, `selectedShop.name`, `selectedShop.openingTime`, `selectedShop.totalReviews`.
 - Nhóm: list/workspace. Dấu hiệu trạng thái trong source (chưa xác minh bằng UI): loading=true, empty=true, error=true. Cần kiểm tra lại từng nhánh và skeleton khi redesign.
 
-- Initial no-location UI: dùng cùng Home PageHeader và shared Card; action chọn vị trí lên trước ở mobile, giải thích/GPS hai cột trên desktop. Giữ requestGpsLocation, saved-address callback, loading/error/retry thật; xem HOME.md.
+- Initial no-location UI: canvas full-width với minh họa/nội dung/action căn giữa theo NotFound, nền trơn; header giữ max-width 1280 căn giữa. Home sau chọn vị trí và các trang customer khác giữ container/gutters cũ. Giữ requestGpsLocation, saved-address callback, loading/error/retry thật; xem HOME.md.
 
 ### R2. /shops/:id
 
