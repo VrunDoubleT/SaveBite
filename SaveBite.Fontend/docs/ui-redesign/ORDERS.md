@@ -64,3 +64,5 @@ Verification: targeted ESLint and production build pass. A real order became eli
 Per user feedback, the receipt Refunds section/action is back beneath Payment summary in the right column. The separate request route remains unchanged. Its title, context and form now align with the normal customer content frame rather than a narrower centered 4xl frame. Mobile quantity labels wrap and the sticky action footer stacks into full-width actions; desktop retains an inline footer.
 
 Targeted ESLint and production build pass. Real eligible-order checks at 360/768/1280px verify Refunds shares the payment-column wrapper, Request refund opens the standalone route, form/card aligns with the page heading, item selection/draft input fits without horizontal overflow, and Cancel returns to the actual order. No upload or valid refund submission performed.
+
+Removed the manual Refresh button from the order-list filter row at user request. Existing realtime updates, read-error retry and refresh after review changes remain. Targeted ESLint passes.

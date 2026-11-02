@@ -9,7 +9,6 @@ import {
   ChevronDown,
   Clock3,
   MapPin,
-  RefreshCw,
   ShoppingBag,
   Star,
   Store,
@@ -216,15 +215,6 @@ function CustomerOrders({
             </option>
           ))}
         </Select>
-        <Button
-          variant="secondary"
-          onClick={onRefresh}
-          disabled={loading}
-          className="min-h-11 sm:ml-auto"
-        >
-          <RefreshCw size={16} aria-hidden="true" />
-          Refresh
-        </Button>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-caption text-text-secondary">
         <p role="status">
