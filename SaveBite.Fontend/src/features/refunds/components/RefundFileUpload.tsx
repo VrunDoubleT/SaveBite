@@ -50,16 +50,16 @@ export function RefundFileUpload({
         type="button"
         disabled={disabled || files.length >= max}
         onClick={() => ref.current?.click()}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 px-3 py-5 text-xs font-medium text-neutral-600 hover:border-emerald-400 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border-default bg-neutral-50 px-3 py-5 text-caption font-medium text-text-secondary hover:border-primary-400 disabled:opacity-50"
       >
         <Upload size={16} />
         {purpose === "destination-qr" ? "Choose your bank QR image" : "Choose evidence images"}
       </button>
-      <p className="text-[11px] text-neutral-400">
+      <p className="text-caption text-text-muted">
         PNG, JPEG or WebP · Up to 5 MB each · Uploaded only when you submit
       </p>
       {error && (
-        <p role="alert" className="text-xs text-red-700">
+        <p role="alert" className="text-caption text-danger-strong">
           {error}
         </p>
       )}
@@ -71,7 +71,7 @@ export function RefundFileUpload({
               type="button"
               aria-label="Remove image"
               disabled={disabled}
-              className="absolute -right-1 -top-1 rounded-full border bg-white p-0.5"
+              className="absolute -right-1 -top-1 rounded-full border bg-bg-surface p-0.5"
               onClick={() => {
                 onChange(files.filter((_, i) => i !== index));
               }}
@@ -98,7 +98,7 @@ function LocalImage({ file }: { file: File }) {
   );
   return (
     <a ref={attach} target="_blank" rel="noopener noreferrer">
-      <img alt={file.name} className="size-20 rounded-lg border border-neutral-200 object-cover" />
+      <img alt={file.name} className="size-20 rounded-lg border border-border-default object-cover" />
     </a>
   );
 }

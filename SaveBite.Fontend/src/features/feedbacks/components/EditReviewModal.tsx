@@ -153,17 +153,17 @@ export function EditReviewModal({
         maxWidthClass="max-w-xl"
       >
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-12 text-neutral-500">
-            <Loader2 className="size-8 animate-spin text-emerald-600" />
-            <p className="mt-3 text-xs sm:text-sm">Loading review...</p>
+          <div className="flex flex-col items-center justify-center py-12 text-text-secondary">
+            <Loader2 className="size-8 animate-spin text-primary-600" />
+            <p className="mt-3 text-caption sm:text-body">Loading review...</p>
           </div>
         ) : loadError ? (
-          <div className="py-8 text-center text-sm text-red-600">
+          <div className="py-8 text-center text-body text-danger-strong">
             <p>{loadError}</p>
             <button
               type="button"
               onClick={onClose}
-              className="mt-4 rounded-xl border border-neutral-200 px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+              className="mt-4 rounded-lg border border-border-default px-4 py-2 text-caption font-semibold text-text-secondary hover:bg-neutral-50"
             >
               Close
             </button>
@@ -172,9 +172,9 @@ export function EditReviewModal({
           <form onSubmit={handleSave} className="space-y-4">
             {/* Store header if available */}
             {feedback?.shopName && (
-              <div className="flex items-center gap-2.5 rounded-xl bg-neutral-50 px-3.5 py-2.5 text-xs text-neutral-600">
-                <Store className="size-4 shrink-0 text-emerald-700" />
-                <span className="font-semibold text-neutral-900">
+              <div className="flex items-center gap-2.5 rounded-lg bg-neutral-50 px-3.5 py-2.5 text-caption text-text-secondary">
+                <Store className="size-4 shrink-0 text-primary-700" />
+                <span className="font-semibold text-text-primary">
                   {feedback.shopName}
                 </span>
                 {feedback.orderCode && (
@@ -187,8 +187,8 @@ export function EditReviewModal({
             )}
 
             {/* Product item info */}
-            <div className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 shadow-2xs">
-              <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-neutral-100 text-neutral-400">
+            <div className="flex items-start gap-3 rounded-lg border border-border-default bg-bg-surface p-3.5 shadow-2xs">
+              <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-100 text-text-muted">
                 <Package size={22} />
                 {imageUrl && (
                   <img
@@ -202,16 +202,16 @@ export function EditReviewModal({
                 )}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-neutral-900">{productName}</p>
+                <p className="text-body font-semibold text-text-primary">{productName}</p>
                 {variantName && (
-                  <p className="text-xs text-neutral-500">{variantName}</p>
+                  <p className="text-caption text-text-secondary">{variantName}</p>
                 )}
               </div>
             </div>
 
             {/* Star Rating */}
-            <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
-              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-2">
+            <div className="rounded-lg border border-border-default bg-neutral-50/50 p-4">
+              <label className="block text-caption font-bold text-text-secondary uppercase tracking-wider mb-2">
                 Your Rating
               </label>
               <StarRatingInput value={rating} onChange={setRating} size="lg" />
@@ -222,11 +222,11 @@ export function EditReviewModal({
               <div className="flex items-center justify-between">
                 <label
                   htmlFor="edit-review-comment"
-                  className="block text-xs font-semibold text-neutral-700"
+                  className="block text-caption font-semibold text-text-secondary"
                 >
                   Your feedback
                 </label>
-                <span className="text-[11px] text-neutral-400">
+                <span className="text-caption text-text-muted">
                   {comment.length} / 1000
                 </span>
               </div>
@@ -236,14 +236,14 @@ export function EditReviewModal({
                 onChange={(e) => setComment(e.target.value.slice(0, 1000))}
                 rows={3}
                 placeholder="Share your thoughts about this product, freshness, flavor..."
-                className="mt-1.5 w-full rounded-xl border border-neutral-200 p-3 text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="mt-1.5 w-full rounded-lg border border-border-default p-3 text-caption text-text-primary placeholder:text-text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               />
             </div>
 
             {/* Image Upload */}
             <div>
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-semibold text-neutral-700">
+                <label className="block text-caption font-semibold text-text-secondary">
                   Attached Photos ({images.length}/5)
                 </label>
                 {images.length < 5 && (
@@ -251,7 +251,7 @@ export function EditReviewModal({
                     type="button"
                     disabled={isUploading}
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 text-caption font-semibold text-primary-600 hover:text-primary-700 disabled:opacity-50"
                   >
                     {isUploading ? (
                       <Loader2 className="size-3.5 animate-spin" />
@@ -276,7 +276,7 @@ export function EditReviewModal({
                   {images.map((imgUrl, idx) => (
                     <div
                       key={imgUrl}
-                      className="group relative size-16 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100"
+                      className="group relative size-16 overflow-hidden rounded-lg border border-border-default bg-neutral-100"
                     >
                       <button
                         type="button"
@@ -293,7 +293,7 @@ export function EditReviewModal({
                       <button
                         type="button"
                         onClick={() => handleRemoveImage(idx)}
-                        className="absolute right-1 top-1 rounded-full bg-neutral-900/70 p-1 text-white shadow-xs transition hover:bg-neutral-900"
+                        className="absolute right-1 top-1 rounded-full bg-neutral-900/70 p-1 text-text-inverse shadow-xs transition hover:bg-neutral-900"
                         title="Remove photo"
                       >
                         <Trash2 className="size-3" />
@@ -306,36 +306,36 @@ export function EditReviewModal({
 
             {/* Store reply (read-only) */}
             {feedback?.reply && (
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
-                  <MessageSquareQuote className="size-4 text-emerald-700" />
+              <div className="rounded-lg border border-primary-100 bg-primary-50/60 p-3.5">
+                <div className="flex items-center gap-2 text-caption font-bold text-primary-900">
+                  <MessageSquareQuote className="size-4 text-primary-700" />
                   <span>Store Response</span>
                   {feedback.reply.repliedByName && (
-                    <span className="text-[11px] font-normal text-emerald-800">
+                    <span className="text-caption font-normal text-primary-800">
                       ({feedback.reply.repliedByName})
                     </span>
                   )}
                 </div>
-                <p className="mt-1.5 whitespace-pre-wrap text-xs text-emerald-950">
+                <p className="mt-1.5 whitespace-pre-wrap text-caption text-primary-900">
                   {feedback.reply.content}
                 </p>
               </div>
             )}
 
             {/* Modal actions */}
-            <div className="flex items-center justify-end gap-2 border-t border-neutral-100 pt-3">
+            <div className="flex items-center justify-end gap-2 border-t border-border-default pt-3">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSaving}
-                className="rounded-xl border border-neutral-200 px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                className="rounded-lg border border-border-default px-4 py-2 text-caption font-semibold text-text-secondary hover:bg-neutral-50 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving || isUploading}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-caption font-semibold text-text-inverse shadow-xs hover:bg-primary-700 disabled:opacity-50"
               >
                 {isSaving && <Loader2 className="size-3.5 animate-spin" />}
                 Save changes
@@ -350,20 +350,20 @@ export function EditReviewModal({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-60 flex items-center justify-center bg-text-primary/80 p-4"
           onClick={() => setPreviewImage(null)}
         >
           <button
             type="button"
             onClick={() => setPreviewImage(null)}
-            className="absolute right-4 top-4 rounded-full bg-white/20 p-2 text-white hover:bg-white/30"
+            className="absolute right-4 top-4 rounded-full bg-bg-surface/20 p-2 text-text-inverse hover:bg-bg-surface/30"
           >
             <X className="size-5" />
           </button>
           <img
             src={previewImage}
             alt="Review enlarged view"
-            className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+            className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
         </div>

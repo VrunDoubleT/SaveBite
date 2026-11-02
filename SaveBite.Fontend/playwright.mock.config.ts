@@ -8,6 +8,7 @@ export default defineConfig({
     "deal-reviews-redesign.spec.ts",
     "shop-redesign.spec.ts",
     "cart-redesign.spec.ts",
+    "checkout-redesign.spec.ts",
   ],
   fullyParallel: false,
   timeout: 300000,

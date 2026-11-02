@@ -1,3 +1,4 @@
+import { Button, Card } from "@/shared/components/ui";
 import { RefundCard } from "./RefundCard";
 import { isRefundActive as active } from "../utils/refundStatus";
 import { RefundRequestForm } from "./RefundRequestForm";
@@ -10,9 +11,6 @@ import type { CheckoutOrder } from "@/features/checkout/types/checkout.types";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import { refundApi } from "../api/refundApi";
 import type { Refund } from "../types/refund.types";
-
-const button =
-  "rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50";
 
 export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
   const [refunds, setRefunds] = useState<Refund[]>([]);
@@ -106,48 +104,43 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
   if (!completed && !refunds.length && !error) return null;
 
   return (
-    <section
-      aria-label="Order refunds"
-      className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-5"
-    >
+    <Card aria-label="Order refunds">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
-            <RotateCcw size={16} />
+          <h2 className="flex items-center gap-2 text-body font-semibold text-text-primary">
+            <RotateCcw size={16} className="text-secondary-700" aria-hidden="true" />
             Refunds
           </h2>
           {completed && (
-            <p className="mt-1 text-xs text-neutral-500">
+            <p className="mt-1 text-caption text-text-secondary">
               Request a refund for affected items within 6 hours of order completion.
             </p>
           )}
         </div>
         {eligible && (
-          <button
-            type="button"
-            className={button}
-            disabled={busy}
-            onClick={() => setOpen((value) => !value)}
-          >
+          <Button type="button" disabled={busy} onClick={() => setOpen((value) => !value)}>
             Request refund
-          </button>
+          </Button>
         )}
       </div>
       {error && (
-        <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-xs text-red-700">
+        <p
+          role="alert"
+          className="mt-3 rounded-lg bg-danger-soft p-3 text-caption text-danger-strong"
+        >
           {error}
         </p>
       )}
       {!loaded && !error && (
-        <p className="mt-3 text-xs text-neutral-500">Loading refund eligibility…</p>
+        <p className="mt-3 text-caption text-text-secondary">Loading refund eligibility…</p>
       )}
       {completed && deadline !== null && (
-        <p className="mt-2 text-xs text-neutral-500">
+        <p className="mt-2 text-caption text-text-secondary">
           Request deadline: {checkoutTime(new Date(deadline).toISOString())} · GMT+7
         </p>
       )}
       {loaded && completed && !hasActive && !eligible && (
-        <p className="mt-2 text-xs text-neutral-600">
+        <p className="mt-2 text-caption text-text-secondary">
           {hasRequested
             ? "This order already has a refund request. A second request cannot be submitted."
             : remaining <= 0
@@ -172,6 +165,6 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
           <RefundCard key={refund.id} refund={refund} busy={busy} mutate={mutate} />
         ))}
       </div>
-    </section>
+    </Card>
   );
 }

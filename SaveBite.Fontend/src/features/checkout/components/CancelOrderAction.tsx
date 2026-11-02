@@ -1,3 +1,4 @@
+import { Button, Card } from "@/shared/components/ui";
 import { useState } from "react";
 import { XCircle } from "lucide-react";
 import type { CheckoutOrder } from "../types/checkout.types";
@@ -22,30 +23,31 @@ export function CancelOrderAction({
       ? "Cancellation is unavailable at or after the pickup deadline."
       : "Cancellation is unavailable for this order. Refresh your order details to check again.");
   return (
-    <section aria-label="Cancel order" className="rounded-xl border border-red-100 bg-white p-4">
+    <Card aria-label="Cancel order">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-neutral-900">Order cancellation</h3>
-          <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+          <h3 className="font-semibold text-text-primary">Order cancellation</h3>
+          <p className="mt-1 text-caption leading-relaxed text-text-secondary">
             {canCancel
               ? "Cancel before the pickup deadline. Payments and deposits are non-refundable."
               : reason}
           </p>
         </div>
-        <button
+        <Button
+          variant="secondary"
           type="button"
           disabled={busy || !canCancel}
           onClick={() => setConfirming(true)}
-          className="inline-flex min-h-10 w-full shrink-0 sm:w-auto items-center justify-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:text-neutral-400"
+          className="inline-flex min-h-10 w-full shrink-0 sm:w-auto items-center justify-center gap-2 rounded-md border border-danger-soft px-4 py-2 text-body font-semibold text-danger-strong hover:bg-danger-soft disabled:cursor-not-allowed disabled:border-border-default disabled:text-text-muted"
         >
-          <XCircle size={16} />
+          <XCircle aria-hidden="true" size={16} />
           Cancel order
-        </button>
+        </Button>
       </div>
       {confirming && canCancel && (
         <div
           role="alert"
-          className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-950"
+          className="mt-4 rounded-md border border-danger-soft bg-danger-soft p-4 text-body text-danger-strong"
         >
           <p className="font-bold">Cancel this order?</p>
           <p className="mt-2">
@@ -53,25 +55,27 @@ export function CancelOrderAction({
             while cancellation is being processed. This action cannot be undone.
           </p>
           <div className="mt-3 flex flex-wrap gap-3">
-            <button
+            <Button
+              variant="danger"
+              loading={busy}
               type="button"
               disabled={busy}
               onClick={() => void onCancel()}
-              className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
             >
               {busy ? "Cancelling…" : "Confirm cancellation"}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
               disabled={busy}
               onClick={() => setConfirming(false)}
-              className="rounded-lg border border-red-200 bg-white px-4 py-2"
+              className="rounded-md border border-danger-soft bg-bg-surface px-4 py-2"
             >
               Keep order
-            </button>
+            </Button>
           </div>
         </div>
       )}
-    </section>
+    </Card>
   );
 }

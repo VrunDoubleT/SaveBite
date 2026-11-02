@@ -31,16 +31,16 @@ export function RefundDestinationForm({
   }
   const disabled = busy;
   const qr = bank.receiverMethod === "QrImage";
-  const input = "mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm";
+  const input = "mt-1 w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-body";
   return (
-    <div className="mt-4 border-t border-neutral-100 pt-4">
+    <div className="mt-4 border-t border-border-default pt-4">
       {refund.customerDetailsDeadlineAt && (
-        <p className="mb-3 rounded-lg bg-amber-50 p-3 text-xs font-medium text-amber-900">
+        <p className="mb-3 rounded-lg bg-accent-50 p-3 text-caption font-medium text-accent-700">
           Confirm your refund destination by {checkoutTime(refund.customerDetailsDeadlineAt)} ·
           GMT+7. After this deadline, you lose eligibility for this refund.
         </p>
       )}
-      <p className="text-xs text-neutral-500">
+      <p className="text-caption text-text-secondary">
         Choose how to provide your refund destination. Confirm it using the code sent to your email.
       </p>
       <div className="my-3 flex gap-2">
@@ -53,7 +53,7 @@ export function RefundDestinationForm({
               setBank({ ...bank, receiverMethod: method });
               setErrors({});
             }}
-            className={`rounded-lg border px-3 py-2 text-xs font-medium ${bank.receiverMethod === method ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-500"}`}
+            className={`rounded-lg border px-3 py-2 text-caption font-medium ${bank.receiverMethod === method ? "border-primary-300 bg-primary-50 text-primary-800" : "border-border-default text-text-secondary"}`}
           >
             {method === "BankAccount" ? "Enter bank details" : "Upload bank QR"}
           </button>
@@ -119,17 +119,17 @@ export function RefundDestinationForm({
               }}
             />
             {errors.qr && (
-              <p role="alert" className="text-xs text-red-600">
+              <p role="alert" className="text-caption text-danger-strong">
                 {errors.qr}
               </p>
             )}
             {files.length > 0 && (
-              <p className="text-xs text-neutral-500">
+              <p className="text-caption text-text-secondary">
                 Bank details will be read from this QR when you submit.
               </p>
             )}
             {bank.accountNumber && (
-              <p className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800">
+              <p className="rounded-lg bg-primary-50 p-3 text-caption text-primary-800">
                 Account detected: {bank.bankName} · {bank.accountNumber}. Check the account holder
                 below.
               </p>
@@ -146,7 +146,7 @@ export function RefundDestinationForm({
                 clear("bank");
               }}
             />
-            <label className="text-xs font-medium">
+            <label className="text-caption font-medium">
               Account number
               <input
                 required
@@ -154,7 +154,7 @@ export function RefundDestinationForm({
                 pattern="[0-9]{1,50}"
                 maxLength={50}
                 aria-invalid={!!errors.account}
-                className={`${input} ${errors.account ? "border-red-500" : ""}`}
+                className={`${input} ${errors.account ? "border-danger-soft" : ""}`}
                 value={bank.accountNumber}
                 disabled={disabled}
                 onChange={(event) => {
@@ -163,20 +163,20 @@ export function RefundDestinationForm({
                 }}
               />
               {errors.account && (
-                <p role="alert" className="mt-1 text-xs text-red-600">
+                <p role="alert" className="mt-1 text-caption text-danger-strong">
                   {errors.account}
                 </p>
               )}
             </label>
           </>
         )}
-        <label className="text-xs font-medium sm:col-span-2">
+        <label className="text-caption font-medium sm:col-span-2">
           Account holder
           <input
             required
             maxLength={150}
             aria-invalid={!!errors.holder}
-            className={`${input} ${errors.holder ? "border-red-500" : ""}`}
+            className={`${input} ${errors.holder ? "border-danger-soft" : ""}`}
             value={bank.accountHolder}
             disabled={disabled}
             onChange={(event) => {
@@ -185,14 +185,14 @@ export function RefundDestinationForm({
             }}
           />
           {errors.holder && (
-            <p role="alert" className="mt-1 text-xs text-red-600">
+            <p role="alert" className="mt-1 text-caption text-danger-strong">
               {errors.holder}
             </p>
           )}
         </label>
         <button
           disabled={disabled}
-          className="justify-self-start rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 sm:col-span-2"
+          className="justify-self-start rounded-lg bg-primary-700 px-3 py-2 text-caption font-semibold text-text-inverse disabled:opacity-50 sm:col-span-2"
         >
           {refund.confirmationExpiresAt ? "Resend confirmation email" : "Send confirmation email"}
         </button>
@@ -200,7 +200,7 @@ export function RefundDestinationForm({
       {refund.confirmationExpiresAt && (
         <form
           noValidate
-          className="mt-4 flex flex-wrap items-end gap-2 border-t border-neutral-100 pt-4"
+          className="mt-4 flex flex-wrap items-end gap-2 border-t border-border-default pt-4"
           onSubmit={(event) => {
             event.preventDefault();
             if (!/^[0-9]{6}$/.test(code)) {
@@ -211,7 +211,7 @@ export function RefundDestinationForm({
             void mutate(() => refundApi.confirm(refund.id, code));
           }}
         >
-          <label className="text-xs font-medium">
+          <label className="text-caption font-medium">
             Email code
             <input
               required
@@ -219,7 +219,7 @@ export function RefundDestinationForm({
               pattern="[0-9]{6}"
               maxLength={6}
               aria-invalid={!!errors.code}
-              className={`${input} ${errors.code ? "border-red-500" : ""}`}
+              className={`${input} ${errors.code ? "border-danger-soft" : ""}`}
               value={code}
               disabled={disabled}
               onChange={(event) => {
@@ -228,18 +228,18 @@ export function RefundDestinationForm({
               }}
             />
             {errors.code && (
-              <p role="alert" className="mt-1 text-xs text-red-600">
+              <p role="alert" className="mt-1 text-caption text-danger-strong">
                 {errors.code}
               </p>
             )}
           </label>
           <button
             disabled={disabled}
-            className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+            className="rounded-lg bg-primary-700 px-3 py-2 text-caption font-semibold text-text-inverse disabled:opacity-50"
           >
             Confirm destination
           </button>
-          <p className="w-full text-xs text-neutral-400">
+          <p className="w-full text-caption text-text-muted">
             Code expires {checkoutTime(refund.confirmationExpiresAt)} · GMT+7
           </p>
         </form>

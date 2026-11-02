@@ -32,14 +32,14 @@ export function RefundBankSelect({
     };
   }, [attempt]);
   return (
-    <label className="block text-xs font-medium">
+    <label className="block text-caption font-medium">
       Bank
       <select
         required
         value={value}
         disabled={disabled || items.length === 0}
         aria-invalid={!!validationError}
-        className={`mt-1 w-full rounded-lg border ${validationError ? "border-red-500" : "border-neutral-200"} bg-white px-3 py-2 text-sm disabled:bg-neutral-50`}
+        className={`mt-1 w-full rounded-lg border ${validationError ? "border-danger-soft" : "border-border-default"} bg-bg-surface px-3 py-2 text-body disabled:bg-neutral-50`}
         onChange={(event) => {
           const bank = items.find((item) => item.bin === event.target.value);
           onChange(bank?.bin ?? "", bank?.name ?? "");
@@ -55,7 +55,7 @@ export function RefundBankSelect({
         ))}
       </select>
       {validationError && (
-        <p role="alert" className="mt-1 text-xs text-red-600">
+        <p role="alert" className="mt-1 text-caption text-danger-strong">
           {validationError}
         </p>
       )}
@@ -63,7 +63,7 @@ export function RefundBankSelect({
         <button
           type="button"
           disabled={disabled}
-          className="mt-1 text-xs text-emerald-700 underline"
+          className="mt-1 text-caption text-primary-700 underline"
           onClick={() => setAttempt((value) => value + 1)}
         >
           Retry bank list

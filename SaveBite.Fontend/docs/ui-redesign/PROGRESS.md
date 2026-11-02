@@ -1,8 +1,8 @@
 # UI redesign progress
 
 Ngày audit: 2026-11-02 (Asia/Bangkok). Nhánh: ui-redesign (đã tồn tại).
-Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; đã tạo mock backend theo DTO thật, redesign trang `/`, flash deal detail, storefront và cart.
-Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
+Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; đã tạo mock backend theo DTO thật, redesign trang `/`, flash deal detail, storefront, cart và checkout.
+Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront cùng các alias và `/cart`, `/checkout` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
 
 | Route/task | Status | Commit | Notes |
 |---|---|---|---|
@@ -23,7 +23,7 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront c
 | `/cart` | done | ui(/cart): redesign | R12; đầy đủ nhóm shop/món/quantity/remove/checkout riêng từng shop; shared CartItemRow với checkout; cursor/retry và mọi state; default mock 3 shop/6 dòng món, tự nâng cấp phiên cũ; 360/768/1280px; xem CART.md |
 | `/checkout/simulation` | todo | — | R13; CheckoutSimulationPage; user, staff, storeOwner |
 | `/orders/:orderId` | todo | — | R14; OrderDetailPage; user, staff, storeOwner |
-| `/checkout` | todo | — | R15; CheckoutPage; user, staff, storeOwner |
+| `/checkout` | done | ui(/checkout): redesign | R15; full shop/items/GPS/map/payment/policy/summary + receipt, cancellation, review/refund components; 360/768/1280px; xem CHECKOUT.md |
 | `/account` | todo | — | R16; Redirect regression |
 | `/account/profile` | todo | — | R17; ProfilePage; user, staff, storeOwner |
 | `/account/orders` | todo | — | R18; OrdersPage; user, staff, storeOwner |

@@ -21,7 +21,7 @@ export function RefundEvidenceGallery({ urls, label }: { urls: string[]; label: 
   if (!images.length) return null;
   return (
     <div className="mt-3">
-      <p className="mb-2 text-xs font-medium text-neutral-500">{label}</p>
+      <p className="mb-2 text-caption font-medium text-text-secondary">{label}</p>
       <div className="flex flex-wrap gap-2">
         {images.map((url, index) => (
           <button
@@ -31,7 +31,7 @@ export function RefundEvidenceGallery({ urls, label }: { urls: string[]; label: 
             onClick={() => {
               setSelected(url);
             }}
-            className="overflow-hidden rounded-lg border border-neutral-200 focus-visible:outline-2 focus-visible:outline-primary-500"
+            className="overflow-hidden rounded-lg border border-border-default focus-visible:outline-2 focus-visible:outline-primary-500"
           >
             <img
               src={url}
