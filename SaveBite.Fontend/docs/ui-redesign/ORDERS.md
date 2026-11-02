@@ -70,3 +70,5 @@ Removed the manual Refresh button from the order-list filter row at user request
 Order-filter visual refinement: replaced the native dropdown with one horizontally scrollable status strip. All 11 existing filters/counts remain; selected filter has a mint surface, green underline and contrasting count badge. aria-pressed, native button keyboard interaction and contained scrolling preserve accessibility without page overflow. Selected filter scrolls into view on mount. No Refresh button restored. Real 360/768/1280px checks cover status selection, genuine empty result and return to all orders; lint/build pass.
 
 User refinement: retained the white surface, rounded border and subtle shadow around Order filters; restored the compact native status dropdown with all existing status values/counts and URL filtering. Removed the horizontal filter strip. Targeted ESLint passes.
+
+Order filter alignment: status label stays left; dropdown uses margin-left:auto to align at the right edge of the existing filter surface. Targeted ESLint passes.

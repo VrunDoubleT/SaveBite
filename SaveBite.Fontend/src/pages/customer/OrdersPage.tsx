@@ -201,7 +201,7 @@ function CustomerOrders({
           aria-label="Filter by order status"
           value={status}
           onChange={(event) => onFilter(event.target.value)}
-          className="min-h-11 !w-auto min-w-0 max-w-full flex-1 sm:flex-none sm:min-w-52"
+          className="ml-auto min-h-11 !w-auto min-w-0 max-w-full sm:min-w-52"
         >
           {tabs.map(([value, label]) => (
             <option key={value} value={value}>
