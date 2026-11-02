@@ -106,7 +106,7 @@ export function AddressSection() {
   }
 
   return (
-    <Card aria-labelledby="addresses-heading">
+    <Card padding="compact" aria-labelledby="addresses-heading">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2
@@ -132,7 +132,7 @@ export function AddressSection() {
       </div>
 
       {isAdding && (
-        <div className="mt-6">
+        <div className="mt-4">
           <AddressForm
             isFirstAddress={addresses.length === 0}
             onSaved={handleCreated}
@@ -141,7 +141,7 @@ export function AddressSection() {
         </div>
       )}
 
-      <div className="mt-6">
+      <div className="mt-4">
         {isLoading && (
           <div role="status" aria-label="Loading addresses" className="space-y-3">
             <span className="sr-only">Loading addresses…</span>
@@ -232,7 +232,7 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
 
   return (
     <li
-      className={`flex min-w-0 gap-3 rounded-md border p-4 ${
+      className={`flex min-w-0 gap-3 rounded-md border p-3 ${
         address.isDefault
           ? "border-primary-200 bg-primary-50/50"
           : "border-border-default bg-bg-surface hover:border-primary-200"
@@ -266,7 +266,7 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
           {formatCoordinate(address.latitude)} · {formatCoordinate(address.longitude)}
         </p>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border-default pt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-default pt-3">
           {!address.isDefault && (
             <Button
               variant="secondary"

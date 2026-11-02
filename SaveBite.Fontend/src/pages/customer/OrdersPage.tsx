@@ -188,7 +188,7 @@ function CustomerOrders({
       ? Object.values(counts).reduce((sum, count) => sum + count, 0)
       : (counts[value] ?? 0);
   return (
-    <div className="min-w-0 space-y-5">
+    <div className="min-w-0 space-y-4">
       <FilterBar
         filters={[
           {
@@ -219,7 +219,7 @@ function CustomerOrders({
       {loading && (
         <div role="status" aria-label="Loading order cards" className="space-y-4">
           {[0, 1, 2].map((key) => (
-            <Card key={key} className="space-y-4">
+            <Card padding="compact" key={key} className="space-y-4">
               <Skeleton className="h-14 w-3/4" />
               <Skeleton className="h-8 w-2/3" />
               <Skeleton className="h-24" />
@@ -267,9 +267,10 @@ function CustomerOrders({
         const detailUrl = APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id));
         return (
           <Card
+            padding="none"
             key={order.id}
             aria-label={`Order ${order.orderCode}`}
-            className="!p-0 overflow-hidden"
+            className="overflow-hidden"
           >
             <header className="space-y-4 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
               <div className="flex items-start gap-3">
@@ -278,7 +279,7 @@ function CustomerOrders({
                   alt=""
                   fallbackIcon={Store}
                   showFallbackLabel={false}
-                  className="size-12 shrink-0 rounded-md"
+                  className="size-10 shrink-0 rounded-md"
                 />
                 <div className="min-w-0 flex-1">
                   <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">

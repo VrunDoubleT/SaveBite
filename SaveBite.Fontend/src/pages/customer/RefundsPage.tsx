@@ -137,7 +137,7 @@ export function RefundsPage() {
       {!current && (
         <div role="status" aria-label="Loading refunds" className="space-y-4">
           {[0, 1, 2].map((key) => (
-            <Card key={key} className="space-y-4">
+            <Card padding="compact" key={key} className="space-y-4">
               <Skeleton className="h-12 w-2/3" />
               <Skeleton className="h-20" />
             </Card>
@@ -158,11 +158,12 @@ export function RefundsPage() {
       )}
       {current?.data?.items.map((refund) => (
         <Card
+          padding="none"
           key={refund.id}
           aria-label={`Refund for order ${refund.orderCode}`}
-          className="!p-0 overflow-hidden"
+          className="overflow-hidden"
         >
-          <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/40 p-3 sm:p-4">
+          <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
             <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1">
               <MediaImage
                 src={refund.shopLogoUrl}
@@ -172,7 +173,7 @@ export function RefundsPage() {
                 className="size-10 shrink-0 rounded-md"
               />
               <div className="min-w-0">
-                <h2 className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
+                <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
                   <Link
                     to={APP_PATHS.SHOP_DETAIL.replace(":id", encodeURIComponent(refund.shopId))}
                     className="hover:text-primary-700 hover:underline"
@@ -196,7 +197,7 @@ export function RefundsPage() {
             </div>
             <RefundStatusBadge status={refund.status} overdue={refund.isOverdue} />
           </header>
-          <div className="space-y-3 p-3 sm:p-4">
+          <div className="space-y-3 p-4 sm:p-5">
             <div className="flex flex-wrap justify-between gap-2 text-caption text-text-secondary">
               <span className="font-medium">
                 {refund.type === "CustomerRequest" ? "Your request" : "Required shop refund"}

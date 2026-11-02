@@ -100,7 +100,7 @@ export function UiShowcasePage() {
             ]}
           />
         </Card>
-        <Card aria-label="Account pagination reference">
+        <Card padding="compact" aria-label="Account pagination reference">
           <AccountPagination
             currentPage={page}
             totalPages={3}

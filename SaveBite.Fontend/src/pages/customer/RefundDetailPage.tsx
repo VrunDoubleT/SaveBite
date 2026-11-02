@@ -93,8 +93,9 @@ function RefundDetail({ refundId }: { refundId: string }) {
       {refund && (
         <>
           <Card
+            padding="compact"
             aria-label="Refund details"
-            className="flex flex-wrap items-center justify-between gap-3 !bg-primary-50/40 !p-3 sm:!p-4"
+            className="flex flex-wrap items-center justify-between gap-3 !bg-primary-50/40"
           >
             <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1">
               <MediaImage
@@ -105,7 +106,7 @@ function RefundDetail({ refundId }: { refundId: string }) {
                 className="size-10 shrink-0 rounded-md"
               />
               <div className="min-w-0">
-                <h2 className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
+                <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
                   {refund.shopName}
                 </h2>
                 <p className="mt-1 text-caption text-text-secondary">

@@ -44,13 +44,13 @@ export function ReviewEditor({
     <>
       <form
         aria-label="Edit review"
-        className="space-y-5"
+        className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
           if (!busy) void onSave();
         }}
       >
-        <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-60">
+        <fieldset disabled={busy} className="min-w-0 space-y-4 disabled:opacity-60">
           <div className="rounded-md bg-accent-50/60 p-4">
             <p className="mb-3 text-body font-semibold text-text-primary">Your rating</p>
             <StarRatingInput value={rating} onChange={onRating} disabled={busy} size="lg" />

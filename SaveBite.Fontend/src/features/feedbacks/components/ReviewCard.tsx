@@ -117,7 +117,7 @@ export function ReviewCard({
             alt=""
             fallbackIcon={Store}
             showFallbackLabel={false}
-            className="size-11 shrink-0 rounded-md"
+            className="size-10 shrink-0 rounded-md"
           />
           <div className="min-w-0">
             <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
@@ -154,7 +154,7 @@ export function ReviewCard({
             alt={review.productName}
             fallbackIcon={Package}
             showFallbackLabel={false}
-            className="size-16 shrink-0 rounded-md"
+            className="size-12 shrink-0 rounded-md"
           />
           <div className="min-w-0">
             <h3 className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
@@ -225,14 +225,14 @@ export function ReviewCard({
                       src={url}
                       alt={`Review photo ${index + 1}`}
                       showFallbackLabel={false}
-                      className="size-20"
+                      className="size-16"
                     />
                   </button>
                 ))}
               </div>
             )}
             {review.reply && (
-              <section className="rounded-md border border-primary-100 bg-primary-50/50 p-4">
+              <section className="rounded-md border border-primary-100 bg-primary-50/50 p-3">
                 <p className="flex flex-wrap items-center gap-2 text-caption font-semibold text-primary-800">
                   <MessageSquareQuote size={16} aria-hidden="true" />
                   Response from shop{" "}

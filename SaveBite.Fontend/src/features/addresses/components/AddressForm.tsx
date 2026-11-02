@@ -248,7 +248,7 @@ export function AddressForm({
           <AddressLocationMap point={point} disabled={isSaving} onSelect={location.selectPoint} />
         )}
       </div>
-      <fieldset disabled={isBusy} className="mt-5 min-w-0 space-y-5 disabled:opacity-60">
+      <fieldset disabled={isBusy} className="mt-5 min-w-0 space-y-4 disabled:opacity-60">
         {/* ADDRESS DETAILS */}
         <FormSection title="Address details">
           <div className="grid gap-4 md:grid-cols-2">

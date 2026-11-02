@@ -123,7 +123,7 @@ export function CustomerStaffInvitationsPage() {
   };
 
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="min-w-0 space-y-4">
       <p className="text-caption text-text-secondary">Invitations expire after 3 days.</p>
       {error && (
         <ErrorState
@@ -149,18 +149,18 @@ export function CustomerStaffInvitationsPage() {
             pending = status === "Pending",
             processing = processingId === invitation.id;
           return (
-            <Card key={invitation.id} className="!p-3 sm:!p-4">
+            <Card padding="compact" key={invitation.id}>
               <div className="flex items-start gap-3">
                 <MediaImage
                   src={invitation.shopLogoUrl || invitation.shopCoverImageUrl || undefined}
                   alt={invitation.shopName}
                   fallbackIcon={Store}
                   showFallbackLabel={false}
-                  className="size-11 shrink-0 rounded-md"
+                  className="size-10 shrink-0 rounded-md"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <h2 className="min-w-0 text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
+                    <h2 className="min-w-0 text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
                       <Link
                         to={`/shops/${invitation.shopId}`}
                         className="inline-flex items-start gap-1 hover:text-primary-700"

@@ -70,9 +70,9 @@ export function UserProfileCard() {
 
   if (isInitializing)
     return (
-      <Card aria-label="Loading profile" role="status" className="space-y-4">
-        <div className="flex gap-4">
-          <Skeleton className="size-20 rounded-full" />
+      <Card padding="compact" aria-label="Loading profile" role="status" className="space-y-4">
+        <div className="flex gap-3">
+          <Skeleton className="size-14 rounded-full" />
           <div className="flex-1 space-y-3">
             <Skeleton className="h-6 w-40" />
             <Skeleton className="h-4 w-48" />
@@ -163,14 +163,14 @@ export function UserProfileCard() {
   }
 
   return (
-    <Card aria-labelledby="profile-heading" className="!p-0 overflow-hidden">
-      <div className="flex flex-col gap-4 border-b border-border-default bg-primary-50/50 p-4 sm:p-6 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 items-center gap-4">
+    <Card padding="none" aria-labelledby="profile-heading" className="overflow-hidden">
+      <div className="flex flex-col gap-4 border-b border-border-default bg-primary-50/50 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="relative shrink-0">
             <Avatar
               fullName={user.fullName}
               avatarUrl={displayedAvatarUrl}
-              className="!size-20 !text-2xl ring-4 ring-bg-surface"
+              className="!size-14 !text-lg ring-4 ring-bg-surface"
             />
 
             {isEditing && (
@@ -201,7 +201,7 @@ export function UserProfileCard() {
             <h2
               id="profile-heading"
               title={user.fullName}
-              className="line-clamp-2 text-page font-semibold text-text-primary [overflow-wrap:anywhere]"
+              className="line-clamp-2 text-section font-semibold text-text-primary [overflow-wrap:anywhere]"
             >
               {user.fullName}
             </h2>
@@ -251,7 +251,7 @@ export function UserProfileCard() {
         )}
       </div>
 
-      <div className="p-4 sm:p-6">
+      <div className="p-4 sm:p-5">
         {isEditing && (
           <div className="mb-5">
             <p className="text-caption text-text-secondary">
@@ -281,10 +281,12 @@ export function UserProfileCard() {
           />
         ) : (
           <div className="space-y-4">
-            <h3 className="text-section font-semibold text-text-primary">Personal information</h3>
-            <p className="mt-1 text-sm text-text-secondary">
-              These details come from your signed-in account.
-            </p>
+            <div>
+              <h3 className="text-section font-semibold text-text-primary">Personal information</h3>
+              <p className="mt-1 text-body text-text-secondary">
+                These details come from your signed-in account.
+              </p>
+            </div>
 
             <dl className="grid gap-3 sm:grid-cols-2">
               <ProfileField icon={UserRound} label="Full name" value={user.fullName} />
@@ -345,7 +347,7 @@ function ProfileField({
 
   return (
     <div
-      className={`group flex items-center gap-4 min-w-0 rounded-md border p-3 transition-colors ${toneClasses.container}`}
+      className={`group flex items-center gap-3 min-w-0 rounded-md border p-3 transition-colors ${toneClasses.container}`}
     >
       <span
         className={`flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors ${toneClasses.icon}`}

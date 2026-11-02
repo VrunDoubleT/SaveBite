@@ -24,14 +24,14 @@ export function OrderItems({
       {items.map((item) => (
         <li
           key={item.flashDealVariantId}
-          className="grid grid-cols-[56px_minmax(0,1fr)] gap-x-3 gap-y-2 py-4 sm:grid-cols-[64px_minmax(0,1fr)_auto] sm:gap-x-4"
+          className="grid grid-cols-[48px_minmax(0,1fr)] gap-x-3 gap-y-2 py-4 sm:grid-cols-[48px_minmax(0,1fr)_auto]"
         >
           <MediaImage
             src={item.imageUrl}
             alt={item.productName}
             fallbackIcon={Package}
             showFallbackLabel={false}
-            className="size-14 rounded-md sm:size-16"
+            className="size-12 rounded-md"
           />
           <div className="min-w-0">
             <p className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">

@@ -5,7 +5,7 @@ import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney"
 export function RefundItems({ refund }: { refund: Refund }) {
   if (!refund.items?.length) return null;
   return (
-    <section className="min-w-0 rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm sm:p-4">
+    <section className="min-w-0 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5">
       <h3 className="mb-2 text-body font-semibold">Items requested for refund</h3>
       <ul className="divide-y divide-border-default">
         {refund.items.map((item) => (

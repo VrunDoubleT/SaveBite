@@ -22,7 +22,7 @@ const decisions: Record<string, string> = {
   VietQrGenerated: "Shop generated transfer QR",
   LegacySnapshot: "Imported refund record",
 };
-const card = "min-w-0 rounded-lg border border-border-default bg-bg-surface p-3 shadow-sm sm:p-4";
+const card = "min-w-0 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5";
 const time = (value?: string) => (value ? `${checkoutTime(value)} · GMT+7` : "—");
 
 export function CustomerRefundDetailContent({
@@ -124,10 +124,10 @@ export function CustomerRefundDetailContent({
         : 0;
   const stopped = rejected || overdue || withdrawn;
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <section
         aria-label="Refund outcome"
-        className={`rounded-lg border p-3 text-left sm:p-4 ${tone}`}
+        className={`rounded-lg border p-4 text-left sm:p-5 ${tone}`}
       >
         <div className="flex items-start gap-3">
           {rejected ? (

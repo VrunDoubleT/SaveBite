@@ -69,17 +69,17 @@ export function TrustOverviewPanel() {
 
   return (
     <div className="space-y-4">
-      <Card aria-label="Your membership" className="!p-0 overflow-hidden">
-        <div className="flex flex-col gap-5 border-b border-border-default bg-primary-50/50 p-3 sm:p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-bg-surface text-primary-700">
-              <Award size={26} aria-hidden="true" />
+      <Card padding="none" aria-label="Your membership" className="overflow-hidden">
+        <div className="flex flex-col gap-4 border-b border-border-default bg-primary-50/50 p-4 sm:p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-bg-surface text-primary-700">
+              <Award size={22} aria-hidden="true" />
             </span>
             <div className="min-w-0">
               <p className="text-caption font-medium text-text-secondary">
                 Your current level · Level {data.level.rank}
               </p>
-              <h2 className="mt-1 text-2xl font-bold text-primary-800 [overflow-wrap:anywhere]">
+              <h2 className="mt-1 text-section font-bold text-primary-800 [overflow-wrap:anywhere]">
                 {data.level.name}
               </h2>
               {data.isHighestLevel && (
@@ -91,13 +91,13 @@ export function TrustOverviewPanel() {
           </div>
           <div className="rounded-md border border-primary-100 bg-bg-surface px-4 py-2 sm:text-right">
             <p className="text-caption font-medium text-text-secondary">Trust Score</p>
-            <p className="mt-1 text-3xl font-bold tabular-nums text-primary-700">
+            <p className="mt-1 text-2xl font-bold tabular-nums text-primary-700">
               {data.currentScore}
               <span className="ml-2 text-body font-normal text-text-secondary">points</span>
             </p>
           </div>
         </div>
-        <div className="space-y-4 p-3 sm:p-4">
+        <div className="space-y-4 p-4 sm:p-5">
           <div className={`flex items-start gap-3 rounded-md border p-3 ${standing.className}`}>
             <StandingIcon size={20} aria-hidden="true" className="mt-0.5 shrink-0" />
             <div>
@@ -142,7 +142,7 @@ export function TrustOverviewPanel() {
         </div>
       </Card>
       {/* Benefits of the current level */}
-      <Card className="!p-3 sm:!p-4">
+      <Card padding="compact">
         <h2 className="flex items-center gap-2 text-section font-semibold text-text-primary">
           <Gift size={20} className="text-secondary-700" aria-hidden="true" />
           {data.level.name} benefits
@@ -159,7 +159,7 @@ export function TrustOverviewPanel() {
       </Card>
 
       {/* UC-45: progress towards the next level */}
-      <Card className="!p-3 sm:!p-4">
+      <Card padding="compact">
         <h2 className="flex items-center gap-2 text-section font-semibold text-text-primary">
           <Award size={20} className="text-primary-700" aria-hidden="true" />
           Your next level

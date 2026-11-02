@@ -109,3 +109,5 @@ Compact Account follow-up: reduced finance/trust card padding, image/number size
 Account pagination: reduced shared control minimum size from 44px to 36px and tightened wrapper padding/gap at user request; all four controls and pagination behavior retained.
 
 Reviews pagination width correction: removed the centered flex wrapper that shrank the pager and explicitly set full width; compact shared control sizing retained. Targeted ESLint passes; no new real-browser check for this CSS-only correction.
+
+Account sizing consistency pass: aligned all Account route groups to Home/Cart proportions using shared Card padding variants, 16–20px main insets, 16px section gaps, consistent 18/14/12px heading/body/metadata and 40/48px list imagery. Profile identity and Trust highlights reduced; approved compact pagination retained. See [ACCOUNT-SIZING.md](./ACCOUNT-SIZING.md) for current verification and unavailable states.

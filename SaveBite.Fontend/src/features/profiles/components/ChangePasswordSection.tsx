@@ -62,8 +62,8 @@ export function ChangePasswordSection({ onClose }: { onClose: () => void }) {
       <p className="mt-2 text-body text-text-secondary">
         Enter your current password to set a new one.
       </p>
-      <form className="space-y-5" onSubmit={submit} noValidate>
-        <fieldset disabled={isSubmitting || isLoggingOut} className="space-y-5 disabled:opacity-60">
+      <form className="space-y-4" onSubmit={submit} noValidate>
+        <fieldset disabled={isSubmitting || isLoggingOut} className="space-y-4 disabled:opacity-60">
           <PasswordField
             {...register("currentPassword")}
             autoFocus
@@ -72,7 +72,7 @@ export function ChangePasswordSection({ onClose }: { onClose: () => void }) {
             aria-invalid={Boolean(errors.currentPassword)}
             error={errors.currentPassword?.message}
           />
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <PasswordField
               {...register("newPassword")}
               label="New password"

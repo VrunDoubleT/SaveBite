@@ -18,7 +18,7 @@ Read `docs/ui-redesign/WORKFLOW.md`, `TOKENS.md`, `ROUTES.md` and `PROGRESS.md` 
 
 Bộ lọc đã được duyệt: dùng shared `FilterBar` cho các trang tiếp theo có dropdown. Giữ nền trắng, border token, bo góc và shadow nhẹ; label bên trái, native dropdown căn phải, control cao tối thiểu 44px. Nhiều bộ lọc dùng các hàng trong cùng khung. Không tự đổi sang tabs/chips hoặc thêm nút Refresh.
 
-Ưu tiên mật độ gọn theo yêu cầu mới: card danh sách/nội dung thường dùng padding 12–16px, heading nội dung 14px, ảnh nhận diện 40–48px, số tiền 14–18px; tránh banner lớn hoặc card ít thông tin nhưng quá cao. Giữ nút/chạm tối thiểu 44px, đủ dữ liệu và text wrap; không ép chiều cao khiến mất nội dung.
+Kích thước Account theo Home/Cart: card chính dùng `Card padding="compact"` (16px mobile, 20px từ sm); card có header/body riêng dùng `padding="none"` và inset `p-4 sm:p-5`. Khoảng cách giữa các phần/card 16px, heading card/cửa hàng 18px (`text-section`), tên item/nội dung 14px (`text-body`), metadata 12px (`text-caption`). Icon/ảnh shop 40px, ảnh sản phẩm 48px; avatar Profile/shop application 56px. Panel lồng/bảng so sánh có thể dùng inset 12px. Nút/form/filter 44px; phân trang giữ 36px đã duyệt. Không ép cùng chiều cao với các card có lượng nội dung khác nhau; giữ text wrap và đầy đủ dữ liệu.
 
 Account pagination: dùng `AccountPagination` từ `@/shared/components/pagination` để thống nhất nút Đầu/Trước/Sau/Cuối, size và trạng thái disabled. Hiện khi danh sách có dữ liệu, kể cả chỉ 1 trang; ẩn khi rỗng. Không tạo totalPages giả cho API cursor (Orders vẫn dùng tải thêm).
 

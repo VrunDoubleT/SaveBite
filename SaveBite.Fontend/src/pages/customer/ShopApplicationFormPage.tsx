@@ -42,7 +42,7 @@ export function ShopApplicationFormPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-64 items-center justify-center rounded-2xl border border-border-default bg-bg-surface">
+      <div className="flex min-h-64 items-center justify-center rounded-lg border border-border-default bg-bg-surface">
         <LoaderCircle className="animate-spin text-primary-600" />
       </div>
     );
@@ -50,7 +50,7 @@ export function ShopApplicationFormPage() {
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-sm text-danger">
+      <div className="rounded-lg border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
         {error}
         <button type="button" onClick={goToApplication} className="ml-3 font-semibold underline">
           Go back

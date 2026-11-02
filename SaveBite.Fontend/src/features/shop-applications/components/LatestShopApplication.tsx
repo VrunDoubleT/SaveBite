@@ -208,7 +208,7 @@ function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
 /* Loading skeleton */
 function LoadingSkeleton() {
   return (
-    <Card className="space-y-3 !p-4">
+    <Card padding="compact" className="space-y-3">
       <Skeleton className="h-14 w-2/3" />
       <Skeleton className="h-20" />
       <Skeleton className="h-24" />
@@ -335,7 +335,7 @@ export default function LatestShopApplication({
         />
       )}
       {application && status && (
-        <Card aria-label="Latest shop application" className="!p-0 overflow-hidden">
+        <Card padding="none" aria-label="Latest shop application" className="overflow-hidden">
           {application.coverImageUrl && (
             <MediaImage
               src={application.coverImageUrl}

@@ -54,7 +54,7 @@ export function EditProfileForm({
     }
   });
   return (
-    <form className="space-y-5" onSubmit={submit} noValidate aria-labelledby="edit-profile-heading">
+    <form className="space-y-4" onSubmit={submit} noValidate aria-labelledby="edit-profile-heading">
       <div>
         <h3 id="edit-profile-heading" className="text-section font-semibold text-text-primary">
           Edit personal information

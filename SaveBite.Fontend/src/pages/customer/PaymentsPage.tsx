@@ -91,7 +91,7 @@ export function PaymentsPage() {
       {!current && (
         <div role="status" aria-label="Loading payments" className="space-y-4">
           {[0, 1, 2].map((key) => (
-            <Card key={key} className="space-y-4">
+            <Card padding="compact" key={key} className="space-y-4">
               <Skeleton className="h-12 w-2/3" />
               <Skeleton className="h-20" />
             </Card>
@@ -119,11 +119,12 @@ export function PaymentsPage() {
       )}
       {data?.items.map((payment) => (
         <Card
+          padding="none"
           key={payment.id}
           aria-label={`Payment for order ${payment.orderCode}`}
-          className="!p-0 overflow-hidden"
+          className="overflow-hidden"
         >
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/40 p-3 sm:p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
             <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1">
               <MediaImage
                 src={payment.shopLogoUrl}
@@ -133,7 +134,7 @@ export function PaymentsPage() {
                 className="size-10 shrink-0 rounded-md"
               />
               <div className="min-w-0">
-                <h2 className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
+                <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
                   {payment.shopName}
                 </h2>
                 <p className="mt-1 text-caption text-text-secondary">Order {payment.orderCode}</p>
@@ -141,7 +142,7 @@ export function PaymentsPage() {
             </div>
             <PaymentStatusBadge status={payment.status} />
           </div>
-          <div className="space-y-3 p-3 sm:p-4">
+          <div className="space-y-3 p-4 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <p className="inline-flex items-center gap-2 text-body font-semibold text-text-primary">
                 <CreditCard size={17} aria-hidden="true" className="text-secondary-700" />

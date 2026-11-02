@@ -107,7 +107,7 @@ export function ReviewsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4">
       {loadError && (
         <ErrorState
           title="Couldn't load reviews"

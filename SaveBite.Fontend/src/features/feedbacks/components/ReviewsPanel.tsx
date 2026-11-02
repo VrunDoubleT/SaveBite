@@ -51,7 +51,7 @@ export function ReviewsPanel({
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((item) => (
-            <Card key={item} className="space-y-4">
+            <Card padding="compact" key={item} className="space-y-4">
               <Skeleton className="h-12 w-2/3" />
               <Skeleton className="h-20" />
               <Skeleton className="h-10 w-1/3" />

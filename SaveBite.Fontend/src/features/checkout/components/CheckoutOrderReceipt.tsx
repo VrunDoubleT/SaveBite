@@ -218,9 +218,9 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
           )}
           <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="min-w-0 space-y-4">
-              <Card aria-label="Pickup information" className="!p-0 overflow-hidden">
+              <Card padding="none" aria-label="Pickup information" className="overflow-hidden">
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
-                  <OrderPickupCode code={order.orderCode} />
+                  <OrderPickupCode code={order.orderCode} compact />
                   <CancelOrderAction
                     order={order}
                     now={now}
@@ -253,14 +253,14 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                   </details>
                 </div>
               </Card>
-              <Card aria-label="Shop and ordered products" className="!p-0 overflow-hidden">
+              <Card padding="none" aria-label="Shop and ordered products" className="overflow-hidden">
                 <header className="flex items-center gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
                   <MediaImage
                     src={order.shopLogoUrl}
                     alt={order.shopName}
                     fallbackIcon={Store}
                     showFallbackLabel={false}
-                    className="size-12 shrink-0 rounded-md"
+                    className="size-10 shrink-0 rounded-md"
                   />
                   <div className="min-w-0">
                     <p className="text-caption font-medium text-text-secondary">Pickup shop</p>
@@ -293,7 +293,7 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                 </div>
                 <div className="flex items-center justify-between gap-4 border-t border-border-default bg-neutral-50/70 px-4 py-3 sm:px-5">
                   <p className="text-body font-semibold text-text-secondary">Order total</p>
-                  <p className="text-xl font-bold tabular-nums text-primary-700">
+                  <p className="text-section font-bold tabular-nums text-primary-700">
                     {money(order.totalAmount)}
                   </p>
                 </div>
@@ -302,7 +302,7 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
             <div className="min-w-0 space-y-4">
               <aside
                 aria-label="Payment summary"
-                className="min-w-0 space-y-5 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
+                className="min-w-0 space-y-4 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
               >
                 <h2 className="flex items-center gap-2 text-section font-bold text-text-primary">
                   <CreditCard aria-hidden="true" size={20} className="text-primary-600" />
@@ -342,11 +342,11 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                     </p>
                     <Button
                       loading={busy}
-                      size="lg"
+                      size="md"
                       type="button"
                       disabled={busy || expired}
                       onClick={() => void update(() => paymentApi.payment(orderId), true)}
-                      className="w-full whitespace-normal !px-3 py-3"
+                      className="min-h-11 w-full whitespace-normal !px-3 py-2"
                     >
                       <CreditCard aria-hidden="true" size={18} className="shrink-0" />
                       {busy

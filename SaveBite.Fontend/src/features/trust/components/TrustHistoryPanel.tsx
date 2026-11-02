@@ -74,10 +74,10 @@ export function TrustHistoryPanel() {
           <div
             role="region"
             aria-label="Score changes"
-            className={`space-y-3 ${isLoading ? "opacity-60" : ""}`}
+            className={`space-y-4 ${isLoading ? "opacity-60" : ""}`}
           >
             {data.items.map((item) => (
-              <Card key={item.id} className="space-y-2 !p-3 sm:!p-4">
+              <Card padding="compact" key={item.id} className="space-y-2">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="text-body font-semibold text-text-primary">

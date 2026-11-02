@@ -19,8 +19,9 @@ export function TrustLevelsPanel() {
     <div className="grid gap-4 md:grid-cols-2">
       {data.map((level) => (
         <Card
+          padding="none"
           key={level.id}
-          className={`!p-0 overflow-hidden md:row-span-4 md:grid md:grid-rows-subgrid md:gap-y-0 ${
+          className={`overflow-hidden md:row-span-4 md:grid md:grid-rows-subgrid md:gap-y-0 ${
             level.isCurrent
               ? "border-primary-300 bg-primary-50/40"
               : "border-border-default bg-bg-surface"

@@ -22,11 +22,20 @@ export function Badge({
     />
   );
 }
-export function Card({ className = "", ...props }: ComponentProps<"section">) {
+export function Card({
+  className = "",
+  padding = "default",
+  ...props
+}: ComponentProps<"section"> & { padding?: "default" | "compact" | "none" }) {
+  const paddingClass = {
+    default: "p-4 sm:p-6",
+    compact: "p-4 sm:p-5",
+    none: "p-0",
+  }[padding];
   return (
     <section
       {...props}
-      className={`rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-6 ${className}`}
+      className={`rounded-lg border border-border-default bg-bg-surface shadow-sm ${paddingClass} ${className}`}
     />
   );
 }

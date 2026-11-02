@@ -69,7 +69,7 @@ export function WorkspacePage() {
     }
   }
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="min-w-0 space-y-4">
       {error && (
         <ErrorState
           title="Couldn't load workspaces"
@@ -95,13 +95,14 @@ export function WorkspacePage() {
       ) : (
         paginatedShops.map((shop) => (
           <Card
+            padding="compact"
             key={shop.id}
-            className="flex flex-wrap items-center justify-between gap-3 !p-3 sm:!p-4"
+            className="flex flex-wrap items-center justify-between gap-3"
           >
             <div className="flex min-w-0 items-center gap-3">
               <AssociatedShopImage shop={shop} />
               <div className="min-w-0">
-                <h2 className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
+                <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
                   {shop.shopName}
                 </h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
