@@ -18,7 +18,7 @@ import type {
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 import { useAuthStore } from "@/shared/stores/authStore";
-import { Pagination, usePagination } from "@/shared/components/pagination";
+import { AccountPagination as Pagination, usePagination } from "@/shared/components/pagination";
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -228,7 +228,7 @@ export function CustomerStaffInvitationsPage() {
           );
         })
       )}
-      {totalPages > 1 && (
+      {totalItems > 0 && (
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
@@ -236,7 +236,6 @@ export function CustomerStaffInvitationsPage() {
           pageSize={5}
           itemLabel="invitations"
           onPageChange={setCurrentPage}
-          showFirstLast
         />
       )}
     </div>

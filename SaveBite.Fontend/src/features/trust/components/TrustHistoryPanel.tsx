@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { Pagination } from "@/shared/components/pagination";
+import { AccountPagination as Pagination } from "@/shared/components/pagination";
 import { trustApi } from "../api/trustApi";
 import { useApiResource } from "../hooks/useApiResource";
 import { TRUST_PAGE_SIZE, useListParams } from "../hooks/useListParams";
@@ -135,7 +135,6 @@ export function TrustHistoryPanel() {
             totalItems={data.total}
             pageSize={TRUST_PAGE_SIZE}
             itemLabel="changes"
-            hideOnSinglePage
           />
         </>
       )}

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, RotateCcw, Store } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { getApiErrorMessage } from "@/shared/api";
-import { Pagination } from "@/shared/components/pagination";
+import { AccountPagination as Pagination } from "@/shared/components/pagination";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
 import { refundApi } from "@/features/refunds/api/refundApi";
@@ -233,14 +233,13 @@ export function RefundsPage() {
           </div>
         </Card>
       ))}
-      {current?.data && current.data.totalPages > 0 && (
+      {current?.data && current.data.totalItems > 0 && (
         <Pagination
           currentPage={current.data.page}
           totalPages={current.data.totalPages}
           totalItems={current.data.totalItems}
           pageSize={current.data.pageSize}
           itemLabel="refunds"
-          size="sm"
           onPageChange={(value) =>
             setParams((old) => {
               const next = new URLSearchParams(old);

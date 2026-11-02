@@ -1,3 +1,4 @@
+import { AccountPagination } from "@/shared/components/pagination";
 import { useState } from "react";
 import { Bell, Check, Plus, ShoppingBag } from "lucide-react";
 import {
@@ -97,6 +98,16 @@ export function UiShowcasePage() {
               { label: "Requested", amount: 50000 },
               { label: "Collected", amount: 50000, tone: "primary" },
             ]}
+          />
+        </Card>
+        <Card aria-label="Account pagination reference">
+          <AccountPagination
+            currentPage={page}
+            totalPages={3}
+            totalItems={25}
+            pageSize={10}
+            itemLabel="records"
+            onPageChange={setPage}
           />
         </Card>
         <Card aria-label="Membership tab reference">

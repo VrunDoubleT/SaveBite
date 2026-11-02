@@ -15,7 +15,7 @@ import { staffApi } from "@/features/staff-shops/api/staffApi";
 import type { AssociatedShop } from "@/features/staff-shops/types/staff.types";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
-import { Pagination, usePagination } from "@/shared/components/pagination";
+import { AccountPagination as Pagination, usePagination } from "@/shared/components/pagination";
 
 export function WorkspacePage() {
   const navigate = useNavigate();
@@ -145,7 +145,7 @@ export function WorkspacePage() {
           </Card>
         ))
       )}
-      {totalPages > 1 && (
+      {totalItems > 0 && (
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}

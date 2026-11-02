@@ -4,8 +4,6 @@ import {
   Ban,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   ExternalLink,
   FileText,
@@ -15,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { AccountPagination } from "@/shared/components/pagination";
 import { getApiErrorMessage } from "@/shared/api";
 import { shopApplicationApi } from "../api/shopApplicationApi";
 import type {
@@ -553,41 +552,15 @@ function ApplicationHistoryContent() {
               })}
             </ol>
 
-            <nav
-              aria-label="Status history pages"
-              className="mt-4 flex flex-col gap-3 border-t border-border-default pt-4 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <p className="text-sm text-text-secondary">
-                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, entries.length)} of{" "}
-                {entries.length} status changes
-              </p>
-              <div className="flex items-center justify-between gap-2 sm:justify-end">
-                <button
-                  type="button"
-                  disabled={page <= 1}
-                  onClick={() => goToPage(page - 1)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-border-default min-h-11 px-3 py-2 text-sm font-medium text-text-secondary hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                  Previous
-                </button>
-                <span
-                  className="min-w-16 text-center text-sm tabular-nums text-text-secondary"
-                  aria-live="polite"
-                >
-                  {page} / {pageCount}
-                </span>
-                <button
-                  type="button"
-                  disabled={page >= pageCount}
-                  onClick={() => goToPage(page + 1)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-border-default min-h-11 px-3 py-2 text-sm font-medium text-text-secondary hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-            </nav>
+            <AccountPagination
+              className="mt-3"
+              currentPage={page}
+              totalPages={pageCount}
+              totalItems={entries.length}
+              pageSize={PAGE_SIZE}
+              itemLabel="status changes"
+              onPageChange={goToPage}
+            />
           </>
         )}
       </div>

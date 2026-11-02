@@ -17,7 +17,7 @@ import {
   Skeleton,
 } from "@/shared/components/ui";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
-import { Pagination } from "@/shared/components/pagination";
+import { AccountPagination as Pagination } from "@/shared/components/pagination";
 import { getApiErrorMessage } from "@/shared/api";
 import { useAuthStore } from "@/shared/stores/authStore";
 
@@ -173,14 +173,13 @@ export function PaymentsPage() {
           </div>
         </Card>
       ))}
-      {data && data.totalPages > 0 && (
+      {data && data.totalItems > 0 && (
         <Pagination
           currentPage={data.page}
           totalPages={data.totalPages}
           totalItems={data.totalItems}
           pageSize={data.pageSize}
           itemLabel="payments"
-          size="sm"
           onPageChange={(nextPage) =>
             setParams((previous) => {
               const next = new URLSearchParams(previous);

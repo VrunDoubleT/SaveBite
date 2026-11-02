@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { feedbackApi } from "@/features/feedbacks/api/feedbackApi";
 import type { FeedbackItem } from "@/features/feedbacks/types/feedback.types";
 import { ReviewsPanel } from "@/features/feedbacks/components/ReviewsPanel";
-import { Pagination } from "@/shared/components/pagination";
+import { AccountPagination as Pagination } from "@/shared/components/pagination";
 import { toast } from "@/shared/stores/toastStore";
 import { ErrorState } from "@/shared/components/ui";
 import { getApiErrorMessage } from "@/shared/api";
@@ -125,7 +125,7 @@ export function ReviewsPage() {
         />
       )}
 
-      {totalPages > 1 && (
+      {totalItems > 0 && (
         <div className="flex justify-center pt-2">
           <Pagination
             currentPage={page}
