@@ -5,7 +5,9 @@ export type FilterOption = { value: string; label: string };
 /** Approved account filter format: white surface, left label, right native dropdown. */
 export function FilterBar({
   filters,
+  inline = false,
 }: {
+  inline?: boolean;
   filters: {
     label: string;
     value: string;
@@ -15,7 +17,9 @@ export function FilterBar({
 }) {
   const id = useId();
   return (
-    <div className="divide-y divide-border-default rounded-lg border border-border-default bg-bg-surface shadow-sm">
+    <div
+      className={`rounded-lg border border-border-default bg-bg-surface shadow-sm ${inline ? "grid grid-cols-1 md:grid-cols-2" : "divide-y divide-border-default"}`}
+    >
       {filters.map((filter, index) => (
         <div key={filter.label} className="flex min-w-0 flex-wrap items-center gap-3 p-3">
           <label htmlFor={`${id}-${index}`} className="text-body font-medium text-text-secondary">

@@ -96,6 +96,7 @@ export function RefundsPage() {
   return (
     <div className="min-w-0 space-y-4">
       <FilterBar
+        inline
         filters={[
           {
             label: "Refund type",
