@@ -1,6 +1,6 @@
 import { Badge, Card } from "@/shared/components/ui";
 import { useCallback } from "react";
-import { Award, Check, Gift, Lock, Target } from "lucide-react";
+import { Award, Check, CreditCard, Gift, Lock, Target, WalletCards } from "lucide-react";
 import { trustApi } from "../api/trustApi";
 import { useApiResource } from "../hooks/useApiResource";
 import { formatCurrency } from "../utils/format";
@@ -67,32 +67,90 @@ export function TrustLevelsPanel() {
             )}
 
             {level.depositPolicy && (
-              <div className="mt-3 rounded-lg border border-border-default bg-neutral-50/80 p-3 text-xs text-text-secondary">
-                <p className="font-semibold text-text-primary">Pay at shop policy</p>
+              <section
+                aria-label={`Pay at shop policy for ${level.name}`}
+                className="mt-4 overflow-hidden rounded-md border border-border-default bg-bg-surface"
+              >
+                <div className="flex items-center gap-2 border-b border-border-default px-3 py-3">
+                  <WalletCards
+                    size={17}
+                    aria-hidden="true"
+                    className="shrink-0 text-secondary-700"
+                  />
+                  <h4 className="text-body font-semibold text-text-primary">Pay at shop policy</h4>
+                </div>
                 {level.depositPolicy.requireFullOnlinePayment ? (
-                  <p className="mt-1">100% online payment required for all orders.</p>
+                  <div className="flex items-start gap-3 p-4">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-secondary-50 text-secondary-700">
+                      <CreditCard size={18} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="text-body font-semibold text-text-primary">
+                        Pay online in full
+                      </p>
+                      <p className="mt-1 text-caption leading-relaxed text-text-secondary">
+                        All orders require 100% online payment at this level.
+                      </p>
+                    </div>
+                  </div>
                 ) : (
-                  <ul className="mt-1 space-y-1">
-                    <li>
-                      Orders up to {formatCurrency(level.depositPolicy.depositFreeOrderAmount ?? 0)}
-                      : <strong className="text-primary-700">No deposit required</strong>
-                    </li>
-                    {level.depositPolicy.ranges.map((range) => (
-                      <li key={range.id}>
-                        {formatCurrency(range.fromOrderAmount)} &ndash;{" "}
-                        {formatCurrency(range.toOrderAmount)}:{" "}
-                        <strong className="text-text-primary">
-                          {formatCurrency(range.depositAmount)} fixed deposit
-                        </strong>
-                      </li>
-                    ))}
-                    <li>
-                      Above {formatCurrency(level.depositPolicy.maxDepositOrderAmount ?? 0)}: 100%
-                      online payment
-                    </li>
-                  </ul>
+                  <>
+                    <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-3 bg-neutral-50 px-3 py-2 text-caption font-medium text-text-secondary">
+                      <p>Order value</p>
+                      <p className="text-right">Payment required</p>
+                    </div>
+                    <dl className="divide-y divide-border-default">
+                      <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-3 bg-primary-50/40 px-3 py-3">
+                        <dt className="min-w-0 text-caption text-text-secondary">
+                          Up to{" "}
+                          <span className="mt-1 block text-body font-semibold tabular-nums text-text-primary">
+                            {formatCurrency(level.depositPolicy.depositFreeOrderAmount ?? 0)}
+                          </span>
+                        </dt>
+                        <dd className="min-w-0 text-right text-body font-semibold text-primary-700">
+                          No deposit
+                          <span className="mt-1 block text-caption font-normal text-text-secondary">
+                            Pay at pickup
+                          </span>
+                        </dd>
+                      </div>
+                      {level.depositPolicy.ranges.map((range) => (
+                        <div
+                          key={range.id}
+                          className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-3 px-3 py-3"
+                        >
+                          <dt className="min-w-0 text-body font-medium tabular-nums text-text-primary [overflow-wrap:anywhere]">
+                            {formatCurrency(range.fromOrderAmount)}
+                            <span className="block text-caption font-normal text-text-muted">
+                              to {formatCurrency(range.toOrderAmount)}
+                            </span>
+                          </dt>
+                          <dd className="min-w-0 text-right text-body font-semibold tabular-nums text-primary-700 [overflow-wrap:anywhere]">
+                            {formatCurrency(range.depositAmount)}
+                            <span className="mt-1 block text-caption font-normal text-text-secondary">
+                              Fixed online deposit
+                            </span>
+                          </dd>
+                        </div>
+                      ))}
+                      <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-3 bg-neutral-50/60 px-3 py-3">
+                        <dt className="min-w-0 text-caption text-text-secondary">
+                          Above
+                          <span className="mt-1 block text-body font-semibold tabular-nums text-text-primary">
+                            {formatCurrency(level.depositPolicy.maxDepositOrderAmount ?? 0)}
+                          </span>
+                        </dt>
+                        <dd className="min-w-0 text-right text-body font-semibold text-text-primary">
+                          100% online
+                          <span className="mt-1 block text-caption font-normal text-text-secondary">
+                            Full payment
+                          </span>
+                        </dd>
+                      </div>
+                    </dl>
+                  </>
                 )}
-              </div>
+              </section>
             )}
           </div>
 
