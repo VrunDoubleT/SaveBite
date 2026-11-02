@@ -8,6 +8,8 @@ import {
   Map,
   ChevronDown,
   Leaf,
+  ShoppingBag,
+  ArrowRight,
 } from "lucide-react";
 import { Badge, Button, Card, ErrorState, PageHeader } from "@/shared/components/ui";
 import { useNearbyFlashDeals } from "@/features/flash-deals/hooks/useNearbyFlashDeals";
@@ -62,44 +64,145 @@ export function CustomerHomePage() {
     filters.price.length +
     (selectedShop ? 1 : 0);
 
+  const homeIntro = (
+    <div className="flex items-start justify-between gap-4 border-l-4 border-primary-300 pl-4">
+      <PageHeader
+        title="A little less waste. A lot more taste."
+        description="Discover nearby flash deals. Find your next bite at a better price."
+      />
+      <span className="hidden size-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 sm:flex">
+        <Leaf className="size-6" aria-hidden="true" />
+      </span>
+    </div>
+  );
+
   if (!isLocationReady) {
     return (
-      <div className="flex min-h-dvh items-center justify-center py-12">
-        <Card className="w-full max-w-xl text-center">
-          <span className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-primary-50 text-primary-700">
-            <MapPin className="size-8" aria-hidden="true" />
-          </span>
-          <PageHeader
-            title="Good food is closer than you think"
-            description="Choose your location to find flash deals and stores nearby."
-          />
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Button size="lg" onClick={requestGpsLocation} loading={isGpsLoading}>
-              <Navigation className="size-4" aria-hidden="true" />
-              {isGpsLoading ? "Finding your location…" : "Use my location"}
-            </Button>
-            {userDefaultAddress && (
-              <Button size="lg" variant="secondary" onClick={selectSavedAddress}>
-                <Home className="size-4" aria-hidden="true" />
-                Use saved address
-              </Button>
-            )}
-          </div>
-          {gpsError && (
-            <div
-              role="alert"
-              className="mt-6 rounded-md bg-accent-50 p-4 text-left text-accent-700"
+      <div className="space-y-6 py-6 sm:space-y-8 sm:py-8">
+        {homeIntro}
+        <Card aria-labelledby="location-welcome-heading" className="overflow-hidden !p-0">
+          <div className="grid lg:grid-cols-2">
+            <section
+              aria-labelledby="choose-location-heading"
+              className="flex min-w-0 flex-col justify-center border-b border-border-default bg-neutral-50/60 p-5 sm:p-6 lg:col-start-2 lg:row-start-1 lg:border-b-0 lg:border-l lg:p-8"
             >
-              <p className="flex items-start gap-2 font-medium">
-                <AlertCircle className="size-5 shrink-0" aria-hidden="true" />
-                {gpsError}
+              <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-primary-100 text-primary-700">
+                <Navigation className="size-6" aria-hidden="true" />
+              </span>
+              <h2
+                id="choose-location-heading"
+                className="text-section font-semibold text-text-primary"
+              >
+                Where should we look?
+              </h2>
+              <p className="mt-2 text-body leading-relaxed text-text-secondary">
+                Use your current location to find flash deals and stores nearby.
               </p>
-              <p className="mt-2 text-body">
-                Allow Location in your browser's site settings, then try again
-                {userDefaultAddress ? ", or use your saved address." : "."}
+              <div className="mt-5 space-y-3">
+                <Button
+                  size="lg"
+                  className="w-full whitespace-normal"
+                  onClick={requestGpsLocation}
+                  loading={isGpsLoading}
+                >
+                  <Navigation className="size-4 shrink-0" aria-hidden="true" />
+                  {isGpsLoading
+                    ? "Finding your location…"
+                    : gpsError
+                      ? "Try my location again"
+                      : "Use my location"}
+                  {!isGpsLoading && (
+                    <ArrowRight className="ml-auto size-4 shrink-0" aria-hidden="true" />
+                  )}
+                </Button>
+                {userDefaultAddress && (
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="w-full whitespace-normal"
+                    onClick={selectSavedAddress}
+                  >
+                    <Home className="size-4 shrink-0" aria-hidden="true" />
+                    Use saved address
+                  </Button>
+                )}
+              </div>
+              <p className="mt-3 text-caption leading-relaxed text-text-muted">
+                Allow location access in your browser to use GPS. You can change your browsing
+                location later.
+              </p>
+              {isGpsLoading && (
+                <p role="status" className="mt-3 text-caption text-primary-700">
+                  Waiting for your browser's location response…
+                </p>
+              )}
+              {gpsError && (
+                <div
+                  role="alert"
+                  className="mt-4 rounded-md border border-accent-100 bg-accent-50 p-4 text-body text-accent-700"
+                >
+                  <p className="flex items-start gap-2 font-medium">
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{gpsError}</span>
+                  </p>
+                  <p className="mt-2 leading-relaxed">
+                    Allow Location in your browser's site settings, then try again
+                    {userDefaultAddress ? ", or use your saved address." : "."}
+                  </p>
+                </div>
+              )}
+            </section>
+            <div className="space-y-6 p-5 sm:p-6 lg:col-start-1 lg:row-start-1 lg:p-8">
+              <Badge tone="info" className="bg-secondary-50 text-secondary-700">
+                <MapPin className="size-3" aria-hidden="true" />
+                Discover your neighborhood
+              </Badge>
+              <div className="space-y-3">
+                <h2
+                  id="location-welcome-heading"
+                  className="text-page font-semibold text-text-primary"
+                >
+                  Find your next bite nearby
+                </h2>
+                <p className="max-w-md text-body leading-relaxed text-text-secondary">
+                  Start with your location. Explore food from nearby stores, choose a flash deal and
+                  pick it up in person.
+                </p>
+              </div>
+              <ul className="space-y-4" aria-label="How nearby discovery works">
+                <li className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
+                    <MapPin className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-body font-semibold text-text-primary">
+                      Find stores around you
+                    </p>
+                    <p className="mt-1 text-body text-text-secondary">
+                      See nearby deals based on the location you choose.
+                    </p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-50 text-accent-700">
+                    <ShoppingBag className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-body font-semibold text-text-primary">
+                      Choose a deal. Pick it up.
+                    </p>
+                    <p className="mt-1 text-body text-text-secondary">
+                      Check each store's pickup details before ordering.
+                    </p>
+                  </div>
+                </li>
+              </ul>
+              <p className="flex items-center gap-2 border-t border-border-default pt-4 text-caption text-text-secondary">
+                <Leaf className="size-4 shrink-0 text-primary-700" aria-hidden="true" />A little
+                less waste, one bite at a time.
               </p>
             </div>
-          )}
+          </div>
         </Card>
       </div>
     );
@@ -107,15 +210,7 @@ export function CustomerHomePage() {
 
   return (
     <div className="space-y-6 py-6 sm:space-y-8 sm:py-8">
-      <div className="flex items-start justify-between gap-4 border-l-4 border-primary-300 pl-4">
-        <PageHeader
-          title="A little less waste. A lot more taste."
-          description="Discover nearby flash deals. Find your next bite at a better price."
-        />
-        <span className="hidden size-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 sm:flex">
-          <Leaf className="size-6" aria-hidden="true" />
-        </span>
-      </div>
+      {homeIntro}
 
       <section
         aria-label="Browsing location"

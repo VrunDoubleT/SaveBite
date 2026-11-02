@@ -34,3 +34,12 @@ Verification: targeted ESLint and production build passed; the three existing di
 The frontend uses the real backend only. Follow [WORKFLOW.md](./WORKFLOW.md) and the frontend AGENTS.md; do not recreate API fixtures, simulated authentication/realtime or seeded page data. Open this page with an actual account and real resource IDs from the backend.
 
 The existing approved UI and its API/DTO contracts are retained. Earlier visual checks were performed during the redesign and are historical evidence, not verification against the current real backend. The retired preview-dependent suites have been removed. Validate current loading/empty/error/normal states with backend-supported data and run the production build and relevant lint checks. Record any unavailable backend/account/state explicitly rather than fabricating it.
+
+
+## First-visit location entry
+
+The no-location state now uses the same PageHeader, page gutters, shared Card and small green/indigo/amber accents as the approved discovery UI. Removed the full-viewport centered prompt and its large empty space. Desktop pairs a short explanation with a location action panel; mobile/tablet show the action panel first so the GPS button is visible immediately.
+
+The existing GPS callback, loading/disabled state, real saved-address action and permission-error guidance remain. The action panel includes accessible pending status, inline native-GPS failure feedback and a clearly named retry button. The home introduction is reused before and after location readiness. No location, shop or deal data is invented; no auth/API/hook/DTO changes were made.
+
+Validation: targeted lint and production build pass. Real-browser guest checks at 360/768/1280px verify the initial CTA in the viewport, no horizontal overflow/application errors, keyboard GPS activation, browser-native denied permission and the enabled retry action. Coordinates, GPS responses and API data were not fabricated. Successful GPS/data loading and authenticated saved-address integration still require actual device permissions/backend/account access; those paths retain their existing hook implementation. Local captures: `/tmp/savebite-location-{360,768,1280}.png`, denial captures and `/tmp/savebite-location-before.png`.

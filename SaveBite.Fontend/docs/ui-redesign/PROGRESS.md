@@ -8,7 +8,7 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront c
 |---|---|---|---|
 | Shell/layout + shared components | done | ui(tokens): theme and primitives | Responsive shell; desktop collapse, mobile drawer, primitives; xem TOKENS.md |
 | Tokens | done | ui(tokens): theme and primitives | Giữ 10 primary greens; màu phụ theo reference; xem TOKENS.md |
-| `/` | done | ui(/): redesign | R1; CustomerHomePage; discovery, filters, cards, collapsible map, location/error/loading/empty/partial states; refined subtle color accents; 360/768/1280px; xem HOME.md |
+| `/` | done | ui(/): redesign | R1; CustomerHomePage; discovery, filters, cards, collapsible map, initial location entry refreshed with mobile-first GPS action and native denial/retry; location/error/loading/empty/partial states; refined subtle color accents; 360/768/1280px; xem HOME.md |
 | `/shops/:id` | done | ui(/shops/:id): redesign | R2; đầy đủ profile/info/tabs; DealGrid/DealCard dùng chung home; StoreReviewList dùng chung detail; retry/partial/empty; xem SHOP.md |
 | `/shop-profile` | done | ui(/shops/:id): redesign | R3; cùng component; route không có id vẫn giữ unavailable gate cũ, UI/regression đã kiểm tra; xem SHOP.md |
 | `/flash-deals/:id` | done | ui(/flash-deals/:id): redesign | R4; approved home accents; gallery 5 ảnh + 4 demo variants, title without green rule, variant/quantity/cart, pickup, full Customer reviews components, all states; 360/768/1280px; xem DEAL-DETAIL.md |
