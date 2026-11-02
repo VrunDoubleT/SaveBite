@@ -4,15 +4,7 @@ import { readCustomerOrderPages } from "@/features/orders/utils/readCustomerOrde
 import { OrderPickupCode } from "@/features/checkout/components/OrderPickupCode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  ArrowRight,
-  ChevronDown,
-  Clock3,
-  MapPin,
-  ShoppingBag,
-  Star,
-  Store,
-} from "lucide-react";
+import { ArrowRight, ChevronDown, Clock3, MapPin, ShoppingBag, Star, Store } from "lucide-react";
 import {
   Button,
   ButtonLink,
@@ -20,7 +12,6 @@ import {
   EmptyState,
   ErrorState,
   MediaImage,
-  Select,
   Skeleton,
 } from "@/shared/components/ui";
 import { OrderItems, type OrderReviewTarget } from "@/features/orders/components/OrderItems";
@@ -197,25 +188,52 @@ function CustomerOrders({
       : (counts[value] ?? 0);
   return (
     <div className="min-w-0 space-y-5">
-      <div aria-label="Order filters" className="flex flex-wrap items-center gap-3">
-        <label htmlFor="order-status-filter" className="text-body font-medium text-text-secondary">
-          Order status
-        </label>
-        <Select
-          id="order-status-filter"
-          aria-label="Filter by order status"
-          value={status}
-          onChange={(event) => onFilter(event.target.value)}
-          className="min-h-11 !w-auto min-w-0 max-w-full flex-1 sm:flex-none sm:min-w-52"
-        >
-          {tabs.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-              {loading ? "" : ` (${countFor(value)})`}
-            </option>
-          ))}
-        </Select>
-      </div>
+      <nav
+        aria-label="Filter orders by status"
+        className="relative min-w-0 rounded-lg border border-border-default bg-bg-surface px-2 shadow-sm"
+      >
+        <div className="order-status-scroll flex max-w-full gap-1 overflow-x-auto py-2">
+          {tabs.map(([value, label]) => {
+            const selected = status === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onFilter(value)}
+                ref={
+                  selected
+                    ? (node) => {
+                        if (node) {
+                          const container = node.parentElement;
+                          if (container)
+                            container.scrollLeft = Math.max(
+                              0,
+                              node.offsetLeft - container.offsetLeft - 8,
+                            );
+                        }
+                      }
+                    : undefined
+                }
+                className={`relative inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md px-3.5 text-body font-semibold transition-colors ${selected ? "bg-primary-50 text-primary-800" : "text-text-secondary hover:bg-neutral-50 hover:text-text-primary"}`}
+              >
+                {selected && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-3.5 bottom-0 h-0.5 rounded-full bg-primary-700"
+                  />
+                )}
+                {label}
+                <span
+                  className={`inline-flex min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-caption tabular-nums ${selected ? "bg-primary-700 text-text-inverse" : "bg-neutral-100 text-text-secondary"}`}
+                >
+                  {loading ? "…" : countFor(value)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
       <div className="flex flex-wrap items-center justify-between gap-2 text-caption text-text-secondary">
         <p role="status">
           {loading
