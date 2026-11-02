@@ -105,3 +105,5 @@ Payments/Refunds: completed four requested routes and all existing child section
 Reviews/Trust Score: complete requested pages and conditional children; inline/modal edit share one editor, membership hierarchy and approved dropdown filter format retained. Current account has no penalties; recovery/locked/highest-level branches reviewed but not forced. See REVIEWS-TRUST.md for checks and limits.
 
 Compact Account follow-up: reduced finance/trust card padding, image/number sizes and redundant spacing; business pages use compact cards, shared feedback and confirmations. Real backend read-only checks at 360/768/1280px pass; unavailable mutation branches recorded in ACCOUNT-BUSINESS.md. New/edit shop-application form routes remain todo.
+
+Account pagination: reduced shared control minimum size from 44px to 36px and tightened wrapper padding/gap at user request; all four controls and pagination behavior retained.

@@ -11,7 +11,7 @@ export function AccountPagination({
       size="md"
       showFirstLast
       hideOnSinglePage={false}
-      className={`[&_button]:min-h-11 [&_button]:min-w-11 [&_button[aria-label^='Page_']]:hidden sm:[&_button[aria-label^='Page_']]:inline-flex ${className}`}
+      className={`[&]:gap-2 [&]:p-2.5 sm:[&]:px-3 [&_button]:min-h-9 [&_button]:min-w-9 [&_button[aria-label^='Page_']]:hidden sm:[&_button[aria-label^='Page_']]:inline-flex ${className}`}
     />
   );
 }
