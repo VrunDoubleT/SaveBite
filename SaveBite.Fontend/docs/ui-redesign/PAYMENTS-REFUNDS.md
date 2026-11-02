@@ -34,3 +34,5 @@ Shared RefundItems, RefundDestinationForm, RefundBankSelect and evidence renderi
 - Current data does not expose an active refund destination form, new withdrawal confirmation or shop-transfer/declined/overdue variants. Those branches were reviewed in source; their live interactions and successful writes remain unverified. Multi-page pagination navigation is not asserted because available lists have only one page; controls and existing query logic are retained. Live event delivery is not forced.
 
 Filter layout refinement: Refund type and Refund status share one horizontal row from tablet width via FilterBar inline mode. Small screens stack the groups; other filter bars keep their existing layout. Targeted ESLint passes.
+
+Refund count/action spacing: reduced the visible action row from 44px to 24px so spacing matches nearby metadata; the link keeps a 44px pointer target using an expanded pseudo-element. Targeted ESLint passes.

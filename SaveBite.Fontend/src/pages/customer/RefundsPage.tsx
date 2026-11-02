@@ -122,7 +122,7 @@ export function RefundsPage() {
         </p>
         <Link
           to={APP_PATHS.ACCOUNT_ORDERS}
-          className="inline-flex min-h-11 items-center font-semibold text-primary-700 hover:underline"
+          className="relative inline-flex min-h-6 items-center font-semibold text-primary-700 after:absolute after:inset-x-0 after:-inset-y-2.5 hover:underline"
         >
           Request from order details
         </Link>
