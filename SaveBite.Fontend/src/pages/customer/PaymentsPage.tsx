@@ -153,25 +153,23 @@ export function PaymentsPage() {
                 {payment.paidAt && <p>Paid {checkoutTime(payment.paidAt)}</p>}
               </div>
             </div>
-            <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <AmountSummary
-                amounts={[
-                  { label: "Requested", amount: payment.amount },
-                  { label: "Collected", amount: payment.collectedAmount, tone: "primary" },
-                ]}
-              />
-              <div className="flex justify-end">
-                <ButtonLink
-                  to={`${APP_PATHS.ACCOUNT_PAYMENTS}/${encodeURIComponent(payment.id)}`}
-                  variant="secondary"
-                  className="min-h-11 w-full sm:w-auto"
-                >
-                  View details
-                  <ArrowRight size={16} aria-hidden="true" />
-                </ButtonLink>
-              </div>
-            </div>
+            <AmountSummary
+              amounts={[
+                { label: "Requested", amount: payment.amount },
+                { label: "Collected", amount: payment.collectedAmount, tone: "primary" },
+              ]}
+            />
           </div>
+          <footer className="flex justify-end border-t border-border-default px-4 py-3 sm:px-5">
+            <ButtonLink
+              to={`${APP_PATHS.ACCOUNT_PAYMENTS}/${encodeURIComponent(payment.id)}`}
+              variant="secondary"
+              className="min-h-11 w-full sm:w-auto"
+            >
+              View details
+              <ArrowRight size={16} aria-hidden="true" />
+            </ButtonLink>
+          </footer>
         </Card>
       ))}
       {data && data.totalItems > 0 && (

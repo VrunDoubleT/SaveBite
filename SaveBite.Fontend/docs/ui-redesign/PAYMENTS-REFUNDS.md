@@ -38,3 +38,5 @@ Filter layout refinement: Refund type and Refund status share one horizontal row
 Refund count/action spacing: reduced the visible action row from 44px to 24px so spacing matches nearby metadata; the link keeps a 44px pointer target using an expanded pseudo-element. Targeted ESLint passes.
 
 Compact-density follow-up: reduced requested card/section padding and visual sizes; real responsive regression checks pass. See ACCOUNT-BUSINESS.md for current changes, including duplicate back-action removal on finance details and reduced Trust panel minimum height.
+
+Finance layout refinement: inline Refund type/status filters use equal columns, aligned label/select widths and separators, adapting to actual container width. Payments/Refunds amounts now fill two equal columns; View details is in a separate bordered footer, right-aligned on desktop and full-width on mobile. API/filter/navigation behavior unchanged. Targeted ESLint and production build pass; read-only real-backend checks at 360/768/1024/1280px confirm equal select widths, footer below amounts and no horizontal overflow. Refund type filter change/restore checked; no business writes.

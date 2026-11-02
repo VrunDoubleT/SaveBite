@@ -204,24 +204,12 @@ export function RefundsPage() {
               </span>
               <time dateTime={refund.createdAt}>Requested {checkoutTime(refund.createdAt)}</time>
             </div>
-            <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <AmountSummary
-                amounts={[
-                  { label: "Requested amount", amount: refund.amount },
-                  { label: "Transferred", amount: refund.transferredAmount, tone: "primary" },
-                ]}
-              />
-              <div className="flex justify-end">
-                <ButtonLink
-                  to={APP_PATHS.REFUND_DETAIL.replace(":refundId", encodeURIComponent(refund.id))}
-                  variant="secondary"
-                  className="min-h-11 w-full sm:w-auto"
-                >
-                  View refund details
-                  <ArrowRight size={16} aria-hidden="true" />
-                </ButtonLink>
-              </div>
-            </div>
+            <AmountSummary
+              amounts={[
+                { label: "Requested amount", amount: refund.amount },
+                { label: "Transferred", amount: refund.transferredAmount, tone: "primary" },
+              ]}
+            />
             {refund.status === "AwaitingCustomerDetails" && (
               <p className="rounded-md bg-accent-50 p-3 text-caption text-accent-700">
                 Confirm your refund destination
@@ -232,6 +220,16 @@ export function RefundsPage() {
               </p>
             )}
           </div>
+          <footer className="flex justify-end border-t border-border-default px-4 py-3 sm:px-5">
+            <ButtonLink
+              to={APP_PATHS.REFUND_DETAIL.replace(":refundId", encodeURIComponent(refund.id))}
+              variant="secondary"
+              className="min-h-11 w-full sm:w-auto"
+            >
+              View refund details
+              <ArrowRight size={16} aria-hidden="true" />
+            </ButtonLink>
+          </footer>
         </Card>
       ))}
       {current?.data && current.data.totalItems > 0 && (

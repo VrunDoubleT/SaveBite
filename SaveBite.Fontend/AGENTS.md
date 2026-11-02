@@ -23,3 +23,5 @@ Kích thước Account theo Home/Cart: card chính dùng `Card padding="compact"
 Account pagination: dùng `AccountPagination` từ `@/shared/components/pagination` để thống nhất nút Đầu/Trước/Sau/Cuối, size và trạng thái disabled. Chỉ hiện khi có từ 2 trang trở lên; ẩn khi rỗng hoặc chỉ có 1 trang. Không tạo totalPages giả cho API cursor (Orders vẫn dùng tải thêm).
 
 Account pagination compact refinement: theo yêu cầu người dùng, nút cao/rộng tối thiểu 36px, khung padding 10px (ngang 12px từ sm), khoảng cách nội dung 8px; giữ đủ bốn nút và logic phân trang.
+
+Bộ lọc inline Account: chia hai cột bằng nhau khi khung nội dung rộng từ 640px, có đường phân cách; mỗi ô giữ label bên trái và select co giãn bên phải. Khung hẹp xếp hai hàng với select đồng chiều rộng, tránh wrap label/dropdown ngẫu nhiên.
