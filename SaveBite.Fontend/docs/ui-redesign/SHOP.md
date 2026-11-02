@@ -47,3 +47,5 @@ Ran the design-system search for `storefront shop profile marketplace`, followed
 ## Store identity alignment refinement
 
 The logo now sits directly beside the name/category block in a normal flex row, with a 12–16px token gap. Removed the absolute cover overlap and reserved top/left padding that created the empty space. The logo is 64px on mobile and 80px from tablet upward; name wrapping and the separate rating action remain responsive. Build/targeted lint and four layout/long-content storefront checks passed at 360/768/1280px.
+
+The More store info / Collapse info control is centered and uses a transparent, borderless appearance, including hover; its keyboard focus indication and expansion behavior remain intact.

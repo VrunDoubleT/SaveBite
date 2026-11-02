@@ -347,20 +347,22 @@ function ShopContent({ shopId }: { shopId: string }) {
               <span>Pickup at this store</span>
             </p>
           </div>
-          <Button
-            variant="secondary"
-            className="min-h-11"
-            aria-expanded={isStoreInfoExpanded}
-            aria-controls="store-info"
-            onClick={() => setIsStoreInfoExpanded((value) => !value)}
-          >
-            {isStoreInfoExpanded ? "Collapse info" : "More store info"}
-            {isStoreInfoExpanded ? (
-              <ChevronUp className="size-4" aria-hidden="true" />
-            ) : (
-              <ChevronDown className="size-4" aria-hidden="true" />
-            )}
-          </Button>
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              className="min-h-11 hover:!bg-transparent hover:text-primary-700"
+              aria-expanded={isStoreInfoExpanded}
+              aria-controls="store-info"
+              onClick={() => setIsStoreInfoExpanded((value) => !value)}
+            >
+              {isStoreInfoExpanded ? "Collapse info" : "More store info"}
+              {isStoreInfoExpanded ? (
+                <ChevronUp className="size-4" aria-hidden="true" />
+              ) : (
+                <ChevronDown className="size-4" aria-hidden="true" />
+              )}
+            </Button>
+          </div>
           {isStoreInfoExpanded && (
             <section
               id="store-info"
