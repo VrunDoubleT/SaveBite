@@ -4,7 +4,7 @@
 
 ## Complete component inventory
 
-- Page heading, continue exploring link, explanation of checkout per shop and in-store pickup badge.
+- Page heading, All deals → Cart breadcrumb, explanation of checkout per shop and in-store pickup badge.
 - Shop cards with logo/fallback, linked name, address and authoritative item count.
 - Every cart item: linked photo/name, variant, original/unit prices, item subtotal and actual order deadline.
 - Quantity decrement/increment and manual integer input, stock count, inline validation, busy/locked controls and remove action.
@@ -35,3 +35,8 @@ Ran design-system searches for `food marketplace shopping cart` and `ecommerce c
 The frontend uses the real backend only. Follow [WORKFLOW.md](./WORKFLOW.md) and the frontend AGENTS.md; do not recreate API fixtures, simulated authentication/realtime or seeded page data. Open this page with an actual account and real resource IDs from the backend.
 
 The existing approved UI and its API/DTO contracts are retained. Earlier visual checks were performed during the redesign and are historical evidence, not verification against the current real backend. The retired preview-dependent suites have been removed. Validate current loading/empty/error/normal states with backend-supported data and run the production build and relevant lint checks. Record any unavailable backend/account/state explicitly rather than fabricating it.
+
+
+## Cart copy and breadcrumb refinement
+
+Removed the repeated sentence beneath each shop's Checkout button at the user's request. The page-level one-shop checkout explanation and all checkout guards remain. Breadcrumb now uses All deals → Cart, matching the detail pages' compact back link and chevron, with aria-current on the current page.

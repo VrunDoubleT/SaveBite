@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
+  ChevronRight,
   ShoppingBag,
   Store,
   Package,
@@ -79,13 +80,23 @@ export function CartPage() {
           title="Your cart"
           description="Checkout with one shop at a time. Items from other shops stay in your cart."
           breadcrumb={
-            <Link
-              to={APP_PATHS.HOME}
-              className="inline-flex min-h-8 items-center gap-2 font-medium text-text-secondary hover:text-primary-700"
-            >
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              Continue exploring
-            </Link>
+            <ol className="flex min-w-0 flex-wrap items-center gap-2">
+              <li>
+                <Link
+                  to={APP_PATHS.HOME}
+                  className="inline-flex min-h-8 items-center gap-1 font-medium hover:text-primary-700"
+                >
+                  <ArrowLeft className="size-3" aria-hidden="true" />
+                  All deals
+                </Link>
+              </li>
+              <li className="flex min-w-0 items-center gap-2">
+                <ChevronRight className="size-3 shrink-0 text-text-muted" aria-hidden="true" />
+                <span aria-current="page" className="font-medium text-text-primary">
+                  Cart
+                </span>
+              </li>
+            </ol>
           }
         />
         <span className="hidden size-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 sm:flex">
@@ -243,9 +254,6 @@ export function CartPage() {
                     Checkout
                     <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
                   </Button>
-                  <p className="text-caption leading-relaxed text-text-secondary">
-                    This checkout includes only items from this shop.
-                  </p>
                 </aside>
               </div>
             </Card>
