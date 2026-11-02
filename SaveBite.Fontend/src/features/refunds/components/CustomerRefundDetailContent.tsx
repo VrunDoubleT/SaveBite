@@ -370,7 +370,7 @@ export function CustomerRefundDetailContent({
         Refund ID: {refund.id}
       </p>
       <ButtonLink
-        variant="secondary"
+        variant="primary"
         to={APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(refund.orderId))}
         className="min-h-11"
       >

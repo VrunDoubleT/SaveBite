@@ -122,7 +122,7 @@ export function WorkspacePage() {
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
               <Button
-                variant="secondary"
+                variant="primary"
                 onClick={() => navigate(`/staff/shops/${shop.shopId}`)}
                 disabled={leavingShopId === shop.shopId}
                 className="min-h-11"

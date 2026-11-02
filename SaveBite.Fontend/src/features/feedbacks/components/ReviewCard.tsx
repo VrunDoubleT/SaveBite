@@ -249,7 +249,7 @@ export function ReviewCard({
               </section>
             )}
             <div className="flex flex-wrap justify-end gap-2 border-t border-border-default pt-4">
-              <Button variant="secondary" ref={editButton} onClick={startEdit} className="min-h-11">
+              <Button variant="primary" ref={editButton} onClick={startEdit} className="min-h-11">
                 <Pencil size={16} aria-hidden="true" />
                 Edit review
               </Button>

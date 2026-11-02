@@ -111,7 +111,7 @@ export function PaymentsPage() {
           title="No payments found"
           description="Try a different status, or view your orders for payment information."
           action={
-            <ButtonLink to={APP_PATHS.ACCOUNT_ORDERS} variant="secondary">
+            <ButtonLink to={APP_PATHS.ACCOUNT_ORDERS} variant="primary">
               View orders
             </ButtonLink>
           }
@@ -163,7 +163,7 @@ export function PaymentsPage() {
           <footer className="flex justify-end border-t border-border-default px-4 py-3 sm:px-5">
             <ButtonLink
               to={`${APP_PATHS.ACCOUNT_PAYMENTS}/${encodeURIComponent(payment.id)}`}
-              variant="secondary"
+              variant="primary"
               className="min-h-11 w-full sm:w-auto"
             >
               View details

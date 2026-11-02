@@ -130,7 +130,7 @@ export function TrustPenaltiesPanel() {
                 )}
                 <div className="flex justify-end border-t border-border-default pt-3">
                   <Button
-                    variant="secondary"
+                    variant="primary"
                     onClick={() => setSelectedPenaltyId(penalty.id)}
                     className="min-h-11"
                   >

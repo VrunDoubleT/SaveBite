@@ -24,4 +24,6 @@ Account pagination: dùng `AccountPagination` từ `@/shared/components/paginati
 
 Account pagination compact refinement: theo yêu cầu người dùng, nút cao/rộng tối thiểu 36px, khung padding 10px (ngang 12px từ sm), khoảng cách nội dung 8px; giữ đủ bốn nút và logic phân trang.
 
-Bộ lọc inline Account: chia hai cột bằng nhau khi khung nội dung rộng từ 640px, có đường phân cách; mỗi ô giữ label bên trái và select co giãn bên phải. Khung hẹp xếp hai hàng với select đồng chiều rộng, tránh wrap label/dropdown ngẫu nhiên.
+Bộ lọc inline Account: chia hai cột bằng nhau khi khung nội dung rộng từ 640px, không có đường phân cách; mỗi ô giữ label bên trái và select co giãn bên phải. Khung hẹp xếp hai hàng với select đồng chiều rộng, tránh wrap label/dropdown ngẫu nhiên.
+
+Màu nút Account: hành động chính của card/trang và nút điều hướng đích chính (View details/View order/View refund/Open workspace/View recovery/Edit review) dùng shared variant primary xanh lá. Save/Submit/Accept/Add cũng primary. Cancel/Back/Keep request/Change password/Load more/upload và hành động phụ dùng secondary trung tính; xóa/hủy/rời shop/withdraw dùng danger hoặc outline/ghost đỏ. Nút đánh giá sao giữ accent đã duyệt. Không dùng secondary cho cùng CTA chính mà trang tương đương đang dùng primary.

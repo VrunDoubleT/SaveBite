@@ -167,7 +167,7 @@ export function AddressSection() {
             description="Save a location to find nearby deals more easily."
             icon={MapPin}
             action={
-              <Button variant="secondary" onClick={openAddForm}>
+              <Button variant="primary" onClick={openAddForm}>
                 <Plus className="size-4" aria-hidden="true" />
                 Add an address
               </Button>

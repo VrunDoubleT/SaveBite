@@ -130,7 +130,7 @@ function PaymentDetails({ paymentId }: { paymentId: string }) {
                 <OrderPickupCode code={order.orderCode} compact showHint={false} />
                 <ButtonLink
                   to={APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id))}
-                  variant="secondary"
+                  variant="primary"
                   className="min-h-11"
                 >
                   View order details

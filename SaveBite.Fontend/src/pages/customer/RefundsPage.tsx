@@ -150,7 +150,7 @@ export function RefundsPage() {
           title="No refunds found"
           description="Try another filter, or open an order to check refund eligibility."
           action={
-            <ButtonLink to={APP_PATHS.ACCOUNT_ORDERS} variant="secondary">
+            <ButtonLink to={APP_PATHS.ACCOUNT_ORDERS} variant="primary">
               View orders
             </ButtonLink>
           }
@@ -223,7 +223,7 @@ export function RefundsPage() {
           <footer className="flex justify-end border-t border-border-default px-4 py-3 sm:px-5">
             <ButtonLink
               to={APP_PATHS.REFUND_DETAIL.replace(":refundId", encodeURIComponent(refund.id))}
-              variant="secondary"
+              variant="primary"
               className="min-h-11 w-full sm:w-auto"
             >
               View refund details
