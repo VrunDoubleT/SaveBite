@@ -1,3 +1,4 @@
+import { Link, type LinkProps } from "react-router-dom";
 import { LoaderCircle } from "lucide-react";
 import { useId, type ComponentProps, type ReactNode } from "react";
 
@@ -39,6 +40,20 @@ export function Button({
       {loading && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
       {children}
     </button>
+  );
+}
+/** Navigation action with the same appearance and focus treatment as Button. */
+export function ButtonLink({
+  variant = "primary",
+  size = "md",
+  className = "",
+  ...props
+}: LinkProps & { variant?: keyof typeof variants; size?: keyof typeof sizes }) {
+  return (
+    <Link
+      {...props}
+      className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-md border font-semibold transition-colors ${variants[variant]} ${sizes[size]} ${className}`}
+    />
   );
 }
 export function IconButton({

@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
-import { Flame, Loader2, RefreshCw, Sparkles, Search, X, MapPin } from "lucide-react";
+import { Flame, RefreshCw, Sparkles, Search, X } from "lucide-react";
 import { DealGrid } from "@/features/flash-deals/components/DealGrid";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
+
+import { Badge, Button, IconButton, Input } from "@/shared/components/ui";
 
 interface DealSectionProps {
   deals: FlashDeal[];
@@ -61,7 +63,7 @@ export function DealSection({
         root: null,
         rootMargin: "80px",
         threshold: 0.1,
-      }
+      },
     );
 
     observer.observe(target);
@@ -72,171 +74,112 @@ export function DealSection({
   }, [hasOlder, isLoadingOlder, isLoading, onLoadOlder]);
 
   return (
-    <section className="flex-1">
-      {/* Header Bar */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-              <Flame size={18} />
-            </span>
-            <h2 className="text-2xl font-bold tracking-tight text-neutral-900">
-              Today's Flash Deals
-            </h2>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs sm:text-sm text-neutral-500">
-            <span>
-              {isLoading
-                ? "Searching for deals near you..."
-                : `${deals.length} active deals available near you`}
-            </span>
+    <section aria-labelledby="flash-deals-heading" className="min-w-0 space-y-5">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
+          <h2
+            id="flash-deals-heading"
+            className="flex items-center gap-2 text-section font-semibold text-text-primary"
+          >
+            <Flame className="size-5 text-accent-700" aria-hidden="true" />
+            Today's flash deals
+          </h2>
+          <p role="status" className="text-body text-text-secondary">
+            {isLoading ? "Finding deals near you…" : `${deals.length} deals loaded`}
             {locationAddress && (
-              <>
-                <span className="text-neutral-300">•</span>
-                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200/90 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
-                  <MapPin size={11} className="text-emerald-600 shrink-0" />
-                  <span>Synced with map:</span>
-                  <strong className="max-w-[200px] truncate text-neutral-800 sm:max-w-[280px]">
-                    {locationAddress}
-                  </strong>
-                  <span className="text-[10px] font-bold text-emerald-700">
-                    ({locationMode === "saved_address" ? "Home" : "GPS"})
-                  </span>
-                </span>
-              </>
+              <span className="sr-only">
+                {" "}
+                near {locationAddress} (
+                {locationMode === "saved_address"
+                  ? "saved address"
+                  : locationMode === "default"
+                    ? "default location"
+                    : "GPS"}
+                )
+              </span>
             )}
-          </div>
+          </p>
         </div>
-
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          aria-label="Refresh deals"
+          className="min-h-11"
           onClick={onRefresh}
-          disabled={isLoading}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:opacity-50 cursor-pointer"
+          loading={isLoading}
         >
-          <RefreshCw size={13} className={isLoading ? "animate-spin text-emerald-600" : ""} />
-          Refresh
-        </button>
-      </div>
-
-      {/* Flash Deals Search Bar */}
-      <div className="mb-5">
-        <div className="relative flex items-center">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" size={17} />
-          <input
-            type="text"
+          {!isLoading && <RefreshCw className="size-4" aria-hidden="true" />}
+          <span className="hidden sm:inline">Refresh</span>
+        </Button>
+      </header>
+      <div>
+        <label htmlFor="flash-deal-search" className="sr-only">
+          Search flash deals
+        </label>
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-4 top-4 size-5 text-text-muted"
+            aria-hidden="true"
+          />
+          <Input
+            id="flash-deal-search"
+            type="search"
             value={searchKeyword}
-            onChange={(e) => onSearchChange?.(e.target.value)}
-            placeholder="Search flash deals by food name, shop, or description..."
-            className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-10 pr-10 text-sm text-neutral-800 placeholder-neutral-400 shadow-2xs transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            onChange={(event) => onSearchChange?.(event.target.value)}
+            placeholder="Search food, stores, or a favorite bite"
+            className="min-h-12 pl-12 pr-12 [&::-webkit-search-cancel-button]:appearance-none"
           />
           {searchKeyword && (
-            <button
-              type="button"
+            <IconButton
+              aria-label="Clear search"
               onClick={onClearSearch}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 cursor-pointer"
-              title="Clear search"
+              className="absolute right-1 top-1"
             >
-              <X size={15} />
-            </button>
+              <X className="size-4" aria-hidden="true" />
+            </IconButton>
           )}
         </div>
         {searchKeyword && (
-          <div className="mt-2 flex items-center justify-between px-1 text-xs text-neutral-500">
-            <span>
-              Searching for: <strong className="text-emerald-700">"{searchKeyword}"</strong> ({deals.length} result{deals.length === 1 ? "" : "s"})
-            </span>
-            <button
-              type="button"
-              onClick={onClearSearch}
-              className="font-medium text-emerald-600 hover:text-emerald-800 hover:underline cursor-pointer"
-            >
-              Clear search
-            </button>
-          </div>
+          <p className="mt-2 break-words text-caption text-text-secondary">
+            Results for <strong className="text-text-primary">“{searchKeyword}”</strong>
+          </p>
         )}
       </div>
-
-      {/* Cursor 2: New Deals notification badge */}
       {newDealsCount > 0 && onApplyNewDeals && (
-        <div className="mb-5 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-2.5 shadow-2xs animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-2 text-xs font-medium text-emerald-800">
-            <Sparkles size={16} className="text-emerald-600 animate-pulse" />
-            <span>
-              <strong>{newDealsCount}</strong> new flash deals just dropped!
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={onApplyNewDeals}
-            className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-2xs transition hover:bg-emerald-700 cursor-pointer"
-          >
-            Update now
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 p-4">
+          <p role="status" className="flex items-center gap-2 text-body text-primary-700">
+            <Sparkles className="size-4 shrink-0" aria-hidden="true" />
+            <Badge tone="primary">{newDealsCount} new deals</Badge>Ready to discover
+          </p>
+          <Button onClick={onApplyNewDeals}>Show new deals</Button>
         </div>
       )}
-
-      {/* Deals Grid */}
       <DealGrid
         deals={deals}
         isLoading={isLoading}
         emptyMessage={
           searchKeyword
-            ? `No flash deals match "${searchKeyword}". Try adjusting your search query or filters.`
+            ? `Nothing matches “${searchKeyword}”. Try another food or store, or clear your filters.`
             : emptyMessage
         }
         onRefresh={onRefresh}
         onClearSearch={searchKeyword ? onClearSearch : undefined}
       />
-
-      {/* Skeleton placeholders while loading older deals via infinite scroll */}
-      {isLoadingOlder && (
-        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs"
-            >
-              <div className="relative aspect-[4/3] w-full bg-neutral-100 animate-pulse">
-                <div className="absolute top-3 left-3 h-5 w-12 rounded-full bg-neutral-200" />
-                <div className="absolute top-3 right-3 h-5 w-20 rounded-full bg-neutral-200" />
-              </div>
-              <div className="flex flex-1 flex-col gap-2.5 p-4 animate-pulse">
-                <div className="h-4 w-16 rounded bg-neutral-100" />
-                <div className="space-y-1.5 mt-0.5">
-                  <div className="h-4 w-4/5 rounded bg-neutral-200/90" />
-                  <div className="h-3.5 w-3/5 rounded bg-neutral-100" />
-                </div>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <div className="h-5 w-24 rounded bg-neutral-200/90" />
-                  <div className="h-3.5 w-14 rounded bg-neutral-100" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Cursor 1: Infinite Scroll when reaching bottom of page */}
       {!isLoading && deals.length > 0 && (
-        <div className="mt-4 flex flex-col items-center justify-center">
+        <div className="flex justify-center border-t border-border-default pt-5">
           {hasOlder ? (
-            <div ref={observerRef} className="py-4 flex flex-col items-center gap-2">
-              {isLoadingOlder ? (
-                <div className="flex items-center gap-2.5 rounded-full border border-emerald-200 bg-emerald-50/80 px-4 py-2 text-xs font-semibold text-emerald-800 shadow-2xs">
-                  <Loader2 size={15} className="animate-spin text-emerald-600" />
-                  <span>Loading next flash deals...</span>
-                </div>
-              ) : (
-                <div className="h-6 flex items-center gap-1.5 text-xs text-neutral-400">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  <span>Scroll down to load more</span>
-                </div>
-              )}
+            <div ref={observerRef}>
+              <Button
+                variant="secondary"
+                className="min-h-11"
+                loading={isLoadingOlder}
+                onClick={onLoadOlder}
+              >
+                {isLoadingOlder ? "Loading more deals…" : "Load more deals"}
+              </Button>
             </div>
           ) : (
-            <p className="py-4 text-xs text-neutral-400">
-              All available flash deals loaded ({deals.length} deals).
+            <p className="text-caption text-text-secondary">
+              You're all caught up. {deals.length} deals loaded.
             </p>
           )}
         </div>

@@ -1,15 +1,15 @@
 # UI redesign progress
 
 Ngày audit: 2026-11-02 (Asia/Bangkok). Nhánh: ui-redesign (đã tồn tại).
-Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; chưa redesign từng trang, đã tạo mock backend theo DTO thật.
-Chi tiết: [ROUTES.md](./ROUTES.md). Mọi route chức năng giữ trạng thái todo; redirect cần regression, không có page riêng.
+Audit và bước tokens/primitives đã hoàn tất. Đã cập nhật theme, shared shell và UI reference; đã tạo mock backend theo DTO thật và redesign trang đầu tiên `/`.
+Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/` đã hoàn tất; các route còn lại giữ trạng thái todo. Redirect cần regression, không có page riêng.
 
 | Route/task | Status | Commit | Notes |
 |---|---|---|---|
 | Shell/layout + shared components | done | ui(tokens): theme and primitives | Responsive shell; desktop collapse, mobile drawer, primitives; xem TOKENS.md |
 | Tokens | done | ui(tokens): theme and primitives | Giữ 10 primary greens; màu phụ theo reference; xem TOKENS.md |
 | Mock layer | done | chore(mock): frontend mock backend | MSW; typed DTO fixtures; session role/auth; realtime; search/filter/pagination; mutations + session persistence; xem MOCKS.md |
-| `/` | todo | — | R1; CustomerHomePage; guest, user, staff, storeOwner (admin redirected) |
+| `/` | done | ui(/): redesign | R1; CustomerHomePage; discovery, filters, cards, collapsible map, location/error/loading/empty/partial states; 360/768/1280px; xem HOME.md |
 | `/shops/:id` | todo | — | R2; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
 | `/shop-profile` | todo | — | R3; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
 | `/flash-deals/:id` | todo | — | R4; CustomerDealDetailPage; guest, user, staff, storeOwner (admin redirected) |

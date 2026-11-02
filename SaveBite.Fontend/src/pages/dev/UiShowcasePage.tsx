@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Bell, Check, Plus, ShoppingBag } from "lucide-react";
 import {
   Button,
+  ButtonLink,
   IconButton,
   Input,
   Textarea,
@@ -86,6 +87,9 @@ export function UiShowcasePage() {
           <h2 className="mb-4 text-section font-semibold">Buttons</h2>
           <div className="flex flex-wrap items-center gap-3">
             <Button>Primary</Button>
+            <ButtonLink to="/" variant="secondary">
+              Browse deals
+            </ButtonLink>
             <Button variant="secondary">Secondary</Button>
             <Button variant="ghost">Ghost</Button>
             <Button variant="danger">Delete</Button>

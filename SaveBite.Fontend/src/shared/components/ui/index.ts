@@ -1,5 +1,6 @@
 export {
   Button,
+  ButtonLink,
   IconButton,
   Input,
   Textarea,
