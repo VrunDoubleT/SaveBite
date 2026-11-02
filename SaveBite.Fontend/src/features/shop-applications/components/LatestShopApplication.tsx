@@ -141,7 +141,7 @@ function InfoRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3 py-2.5">
+    <div className="flex items-start gap-3 py-3">
       <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
         {icon}
       </div>
@@ -340,21 +340,21 @@ export default function LatestShopApplication({
             <MediaImage
               src={application.coverImageUrl}
               alt={`${application.name} cover`}
-              className="h-20 w-full"
+              className="h-28 w-full sm:h-32"
               showFallbackLabel={false}
             />
           )}
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default bg-primary-50/40 p-3 sm:p-4">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
             <div className="flex min-w-0 items-center gap-3">
               <MediaImage
                 src={application.logoUrl ?? undefined}
                 alt={application.name}
                 fallbackIcon={Store}
                 showFallbackLabel={false}
-                className="size-12 shrink-0 rounded-md"
+                className="size-14 shrink-0 rounded-md"
               />
               <div className="min-w-0">
-                <h2 className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
+                <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
                   {application.name}
                 </h2>
                 <p className="mt-1 text-caption text-text-secondary">
@@ -377,7 +377,7 @@ export default function LatestShopApplication({
               {status.label}
             </Badge>
           </header>
-          <div className="space-y-3 p-3 sm:p-4">
+          <div className="space-y-4 p-4 sm:p-5">
             {actionError && (
               <p
                 role="alert"
@@ -386,11 +386,11 @@ export default function LatestShopApplication({
                 {actionError}
               </p>
             )}
-            <div className={`rounded-md border p-3 ${status.notice}`}>
+            <div className={`rounded-md border p-4 ${status.notice}`}>
               <p className="text-body font-semibold">{status.noticeTitle}</p>
-              <p className="mt-1 text-caption">{status.noticeBody}</p>
+              <p className="mt-1 text-body">{status.noticeBody}</p>
               {application.status !== "Cancelled" && (
-                <div className="mt-3 border-t border-current/10 pt-3">
+                <div className="mt-4 border-t border-current/10 pt-4">
                   <ReviewProgress status={application.status} />
                 </div>
               )}
@@ -404,7 +404,7 @@ export default function LatestShopApplication({
               <InfoRow icon={<MapPin size={16} />} label="Address">
                 {address || "—"}
               </InfoRow>
-              <div className="grid gap-x-5 sm:grid-cols-2">
+              <div className="grid gap-x-6 sm:grid-cols-2">
                 <InfoRow icon={<Clock3 size={16} />} label="Opening hours">
                   {formatTime(application.openingTime)} – {formatTime(application.closingTime)}
                 </InfoRow>
@@ -412,7 +412,7 @@ export default function LatestShopApplication({
                   {application.businessLicenseNo || "—"}
                 </InfoRow>
               </div>
-              <div className="grid gap-x-5 sm:grid-cols-2">
+              <div className="grid gap-x-6 sm:grid-cols-2">
                 <InfoRow icon={<Landmark size={16} />} label="Bank account">
                   {application.bankName || "—"}
                   {application.bankAccountNumber

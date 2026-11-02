@@ -382,12 +382,15 @@ function ApplicationHistoryContent() {
       className="overflow-hidden rounded-lg border border-border-default bg-bg-surface"
       aria-labelledby="application-history-title"
     >
-      <header className="flex items-start gap-3.5 border-b border-border-default px-3 py-3 sm:px-4">
+      <header className="flex items-start gap-3.5 border-b border-border-default p-4 sm:p-5">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-700 text-text-inverse">
           <History className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 id="application-history-title" className="text-body font-semibold text-text-primary">
+          <h2
+            id="application-history-title"
+            className="text-section font-semibold text-text-primary"
+          >
             Application status history
           </h2>
           <p className="mt-0.5 max-w-prose text-caption text-text-secondary">
@@ -402,7 +405,7 @@ function ApplicationHistoryContent() {
         )}
       </header>
 
-      <div className="px-3 py-3 sm:px-4">
+      <div className="p-4 sm:p-5">
         {loading && <HistorySkeleton />}
 
         {!loading && error && (
@@ -459,7 +462,7 @@ function ApplicationHistoryContent() {
                     </div>
 
                     <div className={`min-w-0 flex-1 ${isLast ? "" : "pb-4"}`}>
-                      <div className="rounded-md border border-border-default p-3 sm:p-4">
+                      <div className="rounded-md border border-border-default p-4 sm:p-5">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
                           <p className="min-w-0 truncate text-body font-semibold text-text-primary">
                             {application.name}

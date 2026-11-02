@@ -7,7 +7,7 @@ export default function ShopApplicationPage() {
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   return (
-    <div className="min-w-0 w-full space-y-4">
+    <div className="min-w-0 w-full space-y-5">
       <LatestShopApplication
         onApplicationChanged={() => setHistoryRefreshKey((current) => current + 1)}
       />
