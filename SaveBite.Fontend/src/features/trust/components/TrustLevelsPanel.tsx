@@ -16,11 +16,11 @@ export function TrustLevelsPanel() {
     return <PanelEmpty title="No levels yet" description="Trust levels have not been set up." />;
 
   return (
-    <div className="grid items-start gap-4 md:grid-cols-2">
+    <div className="grid gap-4 md:grid-cols-2">
       {data.map((level) => (
         <Card
           key={level.id}
-          className={`!p-0 overflow-hidden ${
+          className={`!p-0 overflow-hidden md:row-span-4 md:grid md:grid-rows-subgrid md:gap-y-0 ${
             level.isCurrent
               ? "border-primary-300 bg-primary-50/40"
               : "border-border-default bg-bg-surface"
@@ -65,11 +65,12 @@ export function TrustLevelsPanel() {
             ) : (
               <p className="mt-1 text-sm italic text-text-muted">No benefits listed.</p>
             )}
-
+          </div>
+          <div className="min-w-0 px-4 pb-4 sm:px-5 sm:pb-5">
             {level.depositPolicy && (
               <section
                 aria-label={`Pay at shop policy for ${level.name}`}
-                className="mt-4 overflow-hidden rounded-md border border-border-default bg-bg-surface"
+                className="h-full overflow-hidden rounded-md border border-border-default bg-bg-surface"
               >
                 <div className="flex items-center gap-2 border-b border-border-default px-3 py-3">
                   <WalletCards
