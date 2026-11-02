@@ -13,6 +13,7 @@ import {
   Plus,
   Package,
   Leaf,
+  Star,
 } from "lucide-react";
 import {
   Badge,
@@ -27,6 +28,8 @@ import {
   Skeleton,
 } from "@/shared/components/ui";
 import { isAxiosError } from "axios";
+import type { StoreReviewsSummary } from "@/features/shops/types/shop.types";
+import { DealStoreReviews } from "@/features/shops/components/DealStoreReviews";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import type { FlashDeal, FlashDealVariant } from "@/features/flash-deals/types/flashDeal.types";
 
@@ -65,6 +68,7 @@ export function CustomerDealDetailPage() {
 function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }) {
   const navigate = useNavigate();
   const [deal, setDeal] = useState<FlashDeal | null>(null);
+  const [reviewSummary, setReviewSummary] = useState<StoreReviewsSummary | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<FlashDealVariant | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
   const [activeImgUrl, setActiveImgUrl] = useState<string | null>(null);
@@ -547,6 +551,23 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
             </Link>
           </div>
 
+          <a
+            href="#reviews"
+            className="inline-flex min-h-11 max-w-full flex-wrap items-center gap-2 text-body text-primary-700 hover:underline"
+          >
+            <Star className="size-4 shrink-0 text-accent-700" aria-hidden="true" />
+            {reviewSummary && reviewSummary.totalReviews > 0 ? (
+              <>
+                <strong className="tabular-nums">{reviewSummary.averageRating.toFixed(1)}</strong>
+                <span>Store rating · {reviewSummary.totalReviews} reviews</span>
+              </>
+            ) : (
+              <span>
+                {reviewSummary ? "No reviews yet · View reviews" : "Read customer reviews"}
+              </span>
+            )}
+          </a>
+
           <div
             className={`flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 ${isOrderingWindowOpen ? "border-accent-100 bg-accent-50 text-accent-700" : "border-border-default bg-neutral-100 text-text-secondary"}`}
           >
@@ -772,6 +793,11 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
           </ButtonLink>
         </Card>
       </div>
+      <DealStoreReviews
+        shopId={deal.shopId}
+        shopName={deal.shopName}
+        onSummary={setReviewSummary}
+      />
     </div>
   );
 }

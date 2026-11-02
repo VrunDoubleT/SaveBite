@@ -63,3 +63,7 @@ Người dùng đã duyệt style trang chủ với điểm nhấn màu nhẹ; �
 - Danh mục và thông tin nhận hàng dùng secondary-50/700; flash deal/thời hạn đang hoạt động dùng accent-50/100/700. Giữ phần lớn nội dung trung tính để các điểm nhấn rõ ràng.
 - Trạng thái luôn có chữ hoặc icon, không chỉ dựa vào màu. Không tạo rating, review count hay trạng thái mở cửa khi DTO không cung cấp.
 - `ButtonLink` dùng cho CTA điều hướng. `MediaImage` dự phòng ảnh thiếu/hỏng, giữ không gian theo class của caller; không dùng ảnh sản phẩm khác làm ảnh thay thế. Cả hai có ví dụ ở `/__ui`.
+
+## Phạm vi bắt buộc khi redesign từng trang
+
+Thiết kế đầy đủ mọi section và component có trên trang, kể cả phần phụ, nội dung đang placeholder, empty/loading/error, modal, bộ lọc và phân trang. Trước khi làm phải kiểm kê; sau khi làm đối chiếu lại để không bỏ sót. Không tự xoá component vì DTO chưa có dữ liệu: giữ trạng thái trung thực hoặc dùng nguồn API hiện có với phạm vi được ghi rõ. Flash deal detail bao gồm cả Customer reviews ở cuối trang.

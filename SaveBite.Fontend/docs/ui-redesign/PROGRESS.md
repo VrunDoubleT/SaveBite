@@ -12,7 +12,7 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/` và flash deal detail (hai đư�
 | `/` | done | ui(/): redesign | R1; CustomerHomePage; discovery, filters, cards, collapsible map, location/error/loading/empty/partial states; refined subtle color accents; 360/768/1280px; xem HOME.md |
 | `/shops/:id` | todo | — | R2; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
 | `/shop-profile` | todo | — | R3; CustomerShopPage; guest, user, staff, storeOwner (admin redirected) |
-| `/flash-deals/:id` | done | ui(/flash-deals/:id): redesign | R4; approved home accents; gallery 5 ảnh + 4 demo variants, title without green rule, variant/quantity/cart, pickup, all states; 360/768/1280px; xem DEAL-DETAIL.md |
+| `/flash-deals/:id` | done | ui(/flash-deals/:id): redesign | R4; approved home accents; gallery 5 ảnh + 4 demo variants, title without green rule, variant/quantity/cart, pickup, full Customer reviews components, all states; 360/768/1280px; xem DEAL-DETAIL.md |
 | `/deals/:id` | done | ui(/flash-deals/:id): redesign | R5; alias cùng CustomerDealDetailPage; responsive/navigation regression passed; xem DEAL-DETAIL.md |
 | `/login` | todo | — | R6; LoginPage; guest, user, staff, storeOwner (admin redirected) |
 | `/register` | todo | — | R7; RegisterPage; guest, user, staff, storeOwner (admin redirected) |

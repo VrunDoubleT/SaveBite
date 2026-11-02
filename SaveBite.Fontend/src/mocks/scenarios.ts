@@ -6,10 +6,12 @@ export function emptyLists(value: Json): Json {
   if (Array.isArray(value)) return [];
   if (!object(value)) return value;
   for (const [key, item] of Object.entries(value)) {
-    if (Array.isArray(item)) value[key] = [];
+    if (key === "ratingBreakdown" && object(item))
+      value[key] = Object.fromEntries(Object.keys(item).map((rating) => [rating, 0]));
+    else if (Array.isArray(item)) value[key] = [];
     else if (object(item)) value[key] = emptyLists(item);
     else if (
-      /^(totalItems|totalPages|total|unreadCount|newDealsCount|totalQuantity|totalFlashDeals)$/.test(
+      /^(totalItems|totalPages|total|unreadCount|newDealsCount|totalQuantity|totalFlashDeals|totalReviews|averageRating)$/.test(
         key,
       )
     )

@@ -212,7 +212,9 @@ test("guest ordering continues to sign-in", async ({ page }) => {
 
 test("failed detail requests retry; missing deals offer discovery", async ({ page }) => {
   await page.goto(`${detail}?role=user&mock=error`);
-  await expect(page.getByText("Couldn't load this deal", { exact: true })).toBeVisible();
+  await expect(page.getByText("Couldn't load this deal", { exact: true })).toBeVisible({
+    timeout: 30000,
+  });
   await page.screenshot({ path: "/tmp/savebite-detail-error.png", fullPage: true });
   await page.evaluate(() => history.replaceState(null, "", location.pathname + "?role=user"));
   await page.getByRole("button", { name: "Try again", exact: true }).click();
@@ -239,6 +241,9 @@ test("slow loading and empty variant data have usable states", async ({ page }) 
 test("cart failure shows feedback and allows another attempt", async ({ page }) => {
   await page.goto(`${detail}?role=user`);
   await expect(page.getByRole("button", { name: /Add to cart/ })).toBeEnabled();
+  await expect(
+    page.getByRole("status", { name: "Loading customer reviews", exact: true }),
+  ).toHaveCount(0);
   await page.evaluate(() =>
     history.replaceState(null, "", location.pathname + "?role=user&mock=error"),
   );

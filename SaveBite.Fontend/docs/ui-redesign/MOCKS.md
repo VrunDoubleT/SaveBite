@@ -45,3 +45,7 @@ Các route chức năng tiếp tục `todo` trong PROGRESS.md vì chưa bắt đ
 Deal `00000000-0000-4000-8000-000000000002` includes five local bánh mì photos and four combinations of Size (Thường/Lớn) and Độ cay (Không cay/Cay vừa). Prices, available quantities, variant images and the linked Product attributes/value IDs are consistent. Open `/flash-deals/00000000-0000-4000-8000-000000000002` in mock mode and select thumbnails or options.
 
 A `mediaSeedVersion` marker lives only in the internal mock core. Older sessions upgrade this featured product/deal's photos/options once while retaining cart, orders, other products and deal status/timestamps. Reload the page to load the upgraded seed; clearing storage is unnecessary.
+
+## Customer review preview
+
+The existing store-review endpoint now has 12 typed local demo reviews, all five star levels, photo/no-photo entries and store replies. Average, total and breakdown derive from those records. Rating filtering and pagination use the existing query contract; photo filtering is page-scoped in the UI. The mock database carries an internal review-seed version and upgrades only review data/profile rating aggregates for older sessions. Empty mode clears review totals and breakdowns as well as items. No new backend endpoint or review-write capability was introduced.

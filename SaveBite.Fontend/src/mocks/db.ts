@@ -1,3 +1,4 @@
+import { makeStoreReviewsResponse } from "./factories/store-reviews";
 import { responses } from "./factories";
 import { registry } from "./handlers/registry";
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
@@ -11,6 +12,7 @@ const storageKey = "savebite-mock-db-v1";
 export interface Database {
   responses: Record<string, Json>;
   revision: number;
+  reviewsSeedVersion?: number;
 }
 function json(value: unknown): Json {
   return JSON.parse(JSON.stringify(value)) as Json;
@@ -55,6 +57,16 @@ function expand(value: Json): void {
   }
   Object.values(value).forEach(expand);
 }
+function seedStoreReviews(target: Record<string, Json>) {
+  const response = makeStoreReviewsResponse();
+  target["shops-shopApi_getStoreReviews_2"] = json(response);
+  const profile = target["shops-shopApi_getShopProfile_1"];
+  if (object(profile) && object(profile.data)) {
+    profile.data.averageRating = response.data.averageRating;
+    profile.data.totalReviews = response.data.totalReviews;
+    profile.data.ratingBreakdown = json(response.data.ratingBreakdown);
+  }
+}
 function seed(): Database {
   const data = json(responses);
   if (!object(data)) throw new Error("Invalid mock seed");
@@ -65,13 +77,25 @@ function seed(): Database {
   }
   const application = data["shop-applications-shopApplicationApi_getMine_0"];
   if (object(application) && object(application.data)) application.data.status = "NeedsRevision";
-  return { responses: data, revision: 0 };
+  seedStoreReviews(data);
+  return { responses: data, revision: 0, reviewsSeedVersion: 1 };
 }
 export function loadDatabase(): Database {
   try {
     const value: unknown = JSON.parse(sessionStorage.getItem(storageKey) || "null");
-    if (object(value) && object(value.responses) && typeof value.revision === "number")
-      return { responses: value.responses, revision: value.revision };
+    if (object(value) && object(value.responses) && typeof value.revision === "number") {
+      const loaded: Database = {
+        responses: value.responses,
+        revision: value.revision,
+        reviewsSeedVersion: Number(value.reviewsSeedVersion) || 0,
+      };
+      if (loaded.reviewsSeedVersion !== 1) {
+        seedStoreReviews(loaded.responses);
+        loaded.reviewsSeedVersion = 1;
+        sessionStorage.setItem(storageKey, JSON.stringify(loaded));
+      }
+      return loaded;
+    }
   } catch {
     /* Seed again when a preview session is invalid. */
   }
