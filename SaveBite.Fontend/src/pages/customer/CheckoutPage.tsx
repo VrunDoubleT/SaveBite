@@ -222,7 +222,6 @@ function CheckoutFlow({ shopId }: { shopId: string }) {
             to={APP_PATHS.CART}
             className="inline-flex min-h-8 items-center gap-2 font-medium text-text-secondary hover:text-primary-700"
           >
-            <ArrowLeft className="size-4" aria-hidden="true" />
             Back to cart
           </Link>
         }

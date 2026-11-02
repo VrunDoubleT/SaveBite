@@ -67,3 +67,8 @@ Người dùng đã duyệt style trang chủ với điểm nhấn màu nhẹ; �
 ## Phạm vi bắt buộc khi redesign từng trang
 
 Thiết kế đầy đủ mọi section và component có trên trang, kể cả phần phụ, nội dung đang placeholder, empty/loading/error, modal, bộ lọc và phân trang. Trước khi làm phải kiểm kê; sau khi làm đối chiếu lại để không bỏ sót. Không tự xoá component vì DTO chưa có dữ liệu: giữ trạng thái trung thực hoặc dùng nguồn API hiện có với phạm vi được ghi rõ. Flash deal detail bao gồm cả Customer reviews ở cuối trang.
+
+
+## Breadcrumb
+
+Theo yêu cầu người dùng, mọi breadcrumb bắt đầu bằng nhãn/link chữ, không có mũi tên quay lại ở đầu. Giữ dấu phân cách giữa các cấp và aria-current cho trang hiện tại. Nút Back độc lập ngoài breadcrumb giữ hành vi/icon riêng.

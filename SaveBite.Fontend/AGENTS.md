@@ -9,6 +9,7 @@ Read `docs/ui-redesign/WORKFLOW.md`, `TOKENS.md`, `ROUTES.md` and `PROGRESS.md` 
 - Preserve the approved style: white/light surfaces, the existing green primary scale and small secondary accents. The broad peach/teal/lavender experiment was rejected and reverted in 7db29e8. Use Home, deal detail, shop, cart and checkout as references.
 - Preserve real API/DTO/route/auth/checkout/realtime contracts. Do not weaken validation/guards or fabricate missing fields to make a design look populated.
 - Redesign every section and child component, including dialogs, filters, pagination and normal/loading/empty/error/partial states. Reuse shared primitives and tokens.
+- Breadcrumbs start with text links, without a leading back arrow. Keep separators between levels and aria-current for the current page; standalone Back actions are separate.
 - Work on one requested route at a time; verify 360/768/1280px, accessibility, build and lint appropriate to the change. Real integration checks require backend, real accounts and actual resource IDs; report missing access/data instead of substituting fake responses.
 - Do not submit real payments, orders or other irreversible actions merely to verify presentation without explicit authorization.
 - Update PROGRESS.md and the page's documentation. Distinguish completed UI work, historical checks and current real-backend verification. Do not claim old preview tests prove live integration.

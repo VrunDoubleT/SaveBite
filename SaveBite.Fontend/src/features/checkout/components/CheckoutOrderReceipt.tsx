@@ -17,7 +17,6 @@ import { CancelOrderAction } from "./CancelOrderAction";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowLeft,
   CheckCircle2,
   CreditCard,
   Store,
@@ -173,7 +172,6 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
               to={APP_PATHS.ACCOUNT_ORDERS}
               className="inline-flex min-h-8 items-center gap-2 font-medium text-text-secondary hover:text-primary-700"
             >
-              <ArrowLeft className="size-4" aria-hidden="true" />
               My orders
             </Link>
           }

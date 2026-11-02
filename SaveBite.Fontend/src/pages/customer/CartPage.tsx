@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   ArrowRight,
   ChevronRight,
   ShoppingBag,
@@ -86,7 +85,6 @@ export function CartPage() {
                   to={APP_PATHS.HOME}
                   className="inline-flex min-h-8 items-center gap-1 font-medium hover:text-primary-700"
                 >
-                  <ArrowLeft className="size-3" aria-hidden="true" />
                   All deals
                 </Link>
               </li>

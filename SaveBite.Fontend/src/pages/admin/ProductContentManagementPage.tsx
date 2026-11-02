@@ -183,7 +183,6 @@ export function ProductContentManagementPage() {
             to={APP_PATHS.ADMIN_PRODUCTS}
             className="inline-flex items-center gap-1.5 rounded-md font-medium transition-colors hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
           >
-            <ArrowLeft className="size-4" aria-hidden="true" />
             Product Management
           </Link>
           <ChevronRight className="size-4 text-text-muted" aria-hidden="true" />

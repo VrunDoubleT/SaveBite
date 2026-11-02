@@ -251,7 +251,6 @@ function ShopContent({ shopId }: { shopId: string }) {
           to="/"
           className="inline-flex min-h-8 shrink-0 items-center gap-1 font-medium hover:text-primary-700"
         >
-          <ArrowLeft className="size-3" aria-hidden="true" />
           All deals
         </Link>
         <span aria-hidden="true">/</span>

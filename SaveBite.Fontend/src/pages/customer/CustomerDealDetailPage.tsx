@@ -439,7 +439,6 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
           to="/"
           className="inline-flex min-h-8 items-center gap-1 font-medium hover:text-primary-700"
         >
-          <ArrowLeft className="size-3" aria-hidden="true" />
           All deals
         </Link>
         <ChevronRight className="size-3 shrink-0 text-text-muted" aria-hidden="true" />
