@@ -39,3 +39,9 @@ Hoàn tất bước `ui-redesign-mock` ngày 2026-11-02. Hướng dẫn chạy v
 - npm install đã khai báo thêm Recharts vì source dashboard vốn import thư viện này nhưng package.json còn thiếu; không thêm UI library mới cho redesign. Cảnh báo bundle chunk lớn vẫn có như trước.
 
 Các route chức năng tiếp tục `todo` trong PROGRESS.md vì chưa bắt đầu bước redesign từng trang.
+
+## Interactive detail gallery
+
+Deal `00000000-0000-4000-8000-000000000002` includes five local bánh mì photos and four combinations of Size (Thường/Lớn) and Độ cay (Không cay/Cay vừa). Prices, available quantities, variant images and the linked Product attributes/value IDs are consistent. Open `/flash-deals/00000000-0000-4000-8000-000000000002` in mock mode and select thumbnails or options.
+
+A `mediaSeedVersion` marker lives only in the internal mock core. Older sessions upgrade this featured product/deal's photos/options once while retaining cart, orders, other products and deal status/timestamps. Reload the page to load the upgraded seed; clearing storage is unnecessary.

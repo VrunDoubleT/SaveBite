@@ -519,7 +519,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
           aria-label="Choose your deal"
           className="min-w-0 space-y-6 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1 lg:row-span-3"
         >
-          <div className="space-y-3 border-l-4 border-primary-300 pl-4">
+          <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               {deal.categoryName && (
                 <Badge tone="info" className="max-w-full bg-secondary-50 text-secondary-700">

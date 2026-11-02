@@ -19,6 +19,19 @@ const names = [
   "Hộp rau tươi Đà Lạt",
   "Combo bánh mì và sữa hạt nguyên chất – phần ăn gia đình đặc biệt",
 ];
+const demoImages = [
+  "/images/deals/banh-mi/bm-overview.jpg",
+  "/images/deals/banh-mi/bm-thuong-khong-cay.jpg",
+  "/images/deals/banh-mi/bm-thuong-cay-vua.jpg",
+  "/images/deals/banh-mi/bm-lon-khong-cay.jpg",
+  "/images/deals/banh-mi/bm-lon-cay-vua.jpg",
+];
+const demoOptions = [
+  { size: "Thường", spice: "Không cay", extra: 0, original: 50000, stock: 12, sold: 8 },
+  { size: "Thường", spice: "Cay vừa", extra: 2000, original: 50000, stock: 7, sold: 5 },
+  { size: "Lớn", spice: "Không cay", extra: 9000, original: 65000, stock: 9, sold: 3 },
+  { size: "Lớn", spice: "Cay vừa", extra: 11000, original: 65000, stock: 4, sold: 6 },
+];
 export function makeProducts(): Product[] {
   return Array.from({ length: 18 }, (_, n) => ({
     ...structuredClone(productSeed.data),
@@ -41,7 +54,42 @@ export function makeProducts(): Product[] {
     images: [
       { id: uid(n), url: "/images/deals/banh-mi/bm-overview.jpg", source: "product" as const },
     ],
-  }));
+  })).map((product, n) => {
+    if (n !== 1) return product;
+    return {
+      ...product,
+      images: demoImages.map((url, i) => ({ id: uid(300 + i), url, source: "product" as const })),
+      attributes: [
+        {
+          id: uid(200),
+          name: "Size",
+          values: [
+            { id: uid(201), value: "Thường" },
+            { id: uid(202), value: "Lớn" },
+          ],
+        },
+        {
+          id: uid(205),
+          name: "Độ cay",
+          values: [
+            { id: uid(203), value: "Không cay" },
+            { id: uid(204), value: "Cay vừa" },
+          ],
+        },
+      ],
+      variants: demoOptions.map((option, i) => ({
+        id: i === 0 ? product.id : uid(100 + i),
+        sku: `BM-2-${i + 1}`,
+        originalPrice: option.original,
+        dealPrice: 26000 + option.extra,
+        isActive: true,
+        valueIds: [
+          uid(option.size === "Thường" ? 201 : 202),
+          uid(option.spice === "Không cay" ? 203 : 204),
+        ],
+      })),
+    };
+  });
 }
 export function makeDeals(products: Product[]): FlashDeal[] {
   return products.map((p, n) => ({
@@ -55,25 +103,40 @@ export function makeDeals(products: Product[]): FlashDeal[] {
     saleStartTime: past,
     orderEndTime: future,
     shopClosingTime: future,
-    minDealPrice: p.variants[0].dealPrice,
-    maxOriginalPrice: 50000,
-    maxDiscountPercent: 50,
+    productImageUrl: p.images[0]?.url,
+    productImageUrls: p.images.map((image) => image.url),
+    minDealPrice: Math.min(...p.variants.map((variant) => variant.dealPrice)),
+    maxOriginalPrice: Math.max(...p.variants.map((variant) => variant.originalPrice)),
+    maxDiscountPercent: Math.max(
+      ...p.variants.map((variant) =>
+        Math.round((1 - variant.dealPrice / variant.originalPrice) * 100),
+      ),
+    ),
     isPurchasable: n % 6 === 1,
-    variants: [
-      {
-        id: p.id,
-        variantId: p.id,
-        variantName: "Tiêu chuẩn",
-        originalPrice: 50000,
-        dealPrice: p.variants[0].dealPrice,
-        discountPercent: 50,
-        totalQuantity: 30,
-        soldQuantity: 5,
-        availableQuantity: 25,
-        status: 0,
-        isPurchasable: true,
-      },
-    ],
+    attributeGroups:
+      n === 1
+        ? p.attributes.map((attribute) => ({
+            name: attribute.name,
+            values: attribute.values.map((value) => value.value),
+          }))
+        : dealSeed.data.attributeGroups,
+    variants: p.variants.map((variant, i) => ({
+      id: variant.id,
+      variantId: variant.id,
+      sku: variant.sku,
+      variantName: n === 1 ? `${demoOptions[i].size} · ${demoOptions[i].spice}` : "Tiêu chuẩn",
+      imageUrl: n === 1 ? demoImages[i + 1] : p.images[0]?.url,
+      attributes:
+        n === 1 ? { Size: demoOptions[i].size, "Độ cay": demoOptions[i].spice } : undefined,
+      originalPrice: variant.originalPrice,
+      dealPrice: variant.dealPrice,
+      discountPercent: Math.round((1 - variant.dealPrice / variant.originalPrice) * 100),
+      totalQuantity: n === 1 ? demoOptions[i].stock + demoOptions[i].sold : 30,
+      soldQuantity: n === 1 ? demoOptions[i].sold : 5,
+      availableQuantity: n === 1 ? demoOptions[i].stock : 25,
+      status: 0,
+      isPurchasable: true,
+    })),
   }));
 }
 export function makeCart(deals: FlashDeal[]): Cart {

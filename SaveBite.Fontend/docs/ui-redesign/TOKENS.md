@@ -59,7 +59,7 @@ Phạm vi kiểm tra trình duyệt là showcase. Chưa kiểm tra toàn bộ ro
 
 Người dùng đã duyệt style trang chủ với điểm nhấn màu nhẹ; áp dụng tiếp cho flash deal detail và các trang redesign sau:
 
-- Nền trắng/sáng, Inter; giữ nguyên thang xanh lá. Tiêu đề có vạch xanh nhẹ, CTA chính xanh primary-700; icon/count/filter được chọn dùng nền primary-50.
+- Nền trắng/sáng, Inter; giữ nguyên thang xanh lá. Phần giới thiệu trang chủ có vạch xanh nhẹ; tiêu đề sản phẩm detail không có vạch màu. CTA chính xanh primary-700; icon/count/filter được chọn dùng nền primary-50.
 - Danh mục và thông tin nhận hàng dùng secondary-50/700; flash deal/thời hạn đang hoạt động dùng accent-50/100/700. Giữ phần lớn nội dung trung tính để các điểm nhấn rõ ràng.
 - Trạng thái luôn có chữ hoặc icon, không chỉ dựa vào màu. Không tạo rating, review count hay trạng thái mở cửa khi DTO không cung cấp.
 - `ButtonLink` dùng cho CTA điều hướng. `MediaImage` dự phòng ảnh thiếu/hỏng, giữ không gian theo class của caller; không dùng ảnh sản phẩm khác làm ảnh thay thế. Cả hai có ví dụ ở `/__ui`.

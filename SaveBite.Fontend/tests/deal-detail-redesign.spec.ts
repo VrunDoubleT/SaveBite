@@ -280,3 +280,73 @@ test("long text, missing metadata and broken photos fit on mobile", async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "/tmp/savebite-detail-partial.png", fullPage: true });
 });
+
+test("normal seeded gallery has five selectable photos linked to size and spice", async ({
+  page,
+}) => {
+  await page.goto(`${detail}?role=user`);
+  await expect(page.getByRole("heading", { level: 1, name: "Túi bánh cuối ngày" })).toBeVisible({
+    timeout: 30000,
+  });
+  const gallery = page.getByRole("region", { name: "Product gallery" });
+  const buy = page.getByRole("region", { name: "Choose your deal" });
+  const photos = gallery.getByRole("button", { name: /View product photo/ });
+  await expect(photos).toHaveCount(5);
+  await buy.getByRole("button", { name: "Lớn", exact: true }).click();
+  await buy.getByRole("button", { name: "Cay vừa", exact: true }).click();
+  await expect(
+    buy.getByRole("button", { name: "Add to cart · 37.000đ", exact: true }),
+  ).toBeEnabled();
+  await expect(gallery.locator("img").first()).toHaveAttribute(
+    "src",
+    "/images/deals/banh-mi/bm-lon-cay-vua.jpg",
+  );
+  const files = [
+    "bm-overview.jpg",
+    "bm-thuong-khong-cay.jpg",
+    "bm-thuong-cay-vua.jpg",
+    "bm-lon-khong-cay.jpg",
+    "bm-lon-cay-vua.jpg",
+  ];
+  for (const [index, file] of files.entries()) {
+    await photos.nth(index).click();
+    await expect(photos.nth(index)).toHaveAttribute("aria-pressed", "true");
+    await expect(gallery.locator("img").first()).toHaveAttribute(
+      "src",
+      `/images/deals/banh-mi/${file}`,
+    );
+  }
+  await page.setViewportSize({ width: 360, height: 1000 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "/tmp/savebite-detail-gallery-360.png", fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  await page.screenshot({ path: "/tmp/savebite-detail-gallery-1280.png", fullPage: true });
+});
+
+test("older mock sessions receive gallery data without losing unrelated edits or cart", async ({
+  page,
+}) => {
+  await page.goto(`${detail}?role=user`);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const cart = await page.evaluate(() => {
+    const key = "savebite-mock-core-v1";
+    const saved = JSON.parse(sessionStorage.getItem(key) || "null");
+    delete saved.mediaSeedVersion;
+    saved.deals[1].productImageUrls = [saved.deals[1].productImageUrl];
+    saved.deals[1].variants = saved.deals[1].variants.slice(0, 1);
+    saved.products[0].name = "Giữ thay đổi phiên mock";
+    sessionStorage.setItem(key, JSON.stringify(saved));
+    return JSON.stringify(saved.cart);
+  });
+  await page.reload();
+  await expect(page.getByRole("button", { name: /View product photo/ })).toHaveCount(5);
+  const preserved = await page.evaluate(async () => {
+    const { core } = await import("/src/mocks/coreState.ts");
+    return {
+      name: core.products[0].name,
+      cart: JSON.stringify(core.cart),
+      variants: core.deals[1].variants.length,
+    };
+  });
+  expect(preserved).toEqual({ name: "Giữ thay đổi phiên mock", cart, variants: 4 });
+});
