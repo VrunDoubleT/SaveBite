@@ -8,6 +8,7 @@ function seedCore() {
     products,
     deals,
     mediaSeedVersion: 1,
+    cartSeedVersion: 1,
     cart: makeCart(deals),
     orders: makeOrders(),
     refunds: makeRefunds(),
@@ -43,6 +44,25 @@ function migrateMediaSeed(saved: Core): Core {
   return saved;
 }
 
+/** Add multi-shop samples once without replacing edited cart rows or other session data. */
+function migrateCartSeed(saved: Core): Core {
+  if (saved.cartSeedVersion === 1) return saved;
+  const fresh = seedCore();
+  for (const product of fresh.products.slice(18)) {
+    if (!saved.products.some((item) => item.id === product.id)) saved.products.push(product);
+  }
+  for (const deal of fresh.deals.slice(18)) {
+    if (!saved.deals.some((item) => item.id === deal.id)) saved.deals.push(deal);
+  }
+  for (const shop of fresh.cart.shops.slice(1)) {
+    if (!saved.cart.shops.some((item) => item.shopId === shop.shopId)) saved.cart.shops.push(shop);
+  }
+  saved.cart.totalQuantity = saved.cart.shops.reduce((sum, shop) => sum + shop.totalQuantity, 0);
+  saved.cartSeedVersion = 1;
+  sessionStorage.setItem("savebite-mock-core-v1", JSON.stringify(saved));
+  return saved;
+}
+
 function load(): Core {
   try {
     const value: unknown = JSON.parse(sessionStorage.getItem("savebite-mock-core-v1") || "null");
@@ -54,7 +74,7 @@ function load(): Core {
       Array.isArray(value.refunds) &&
       object(value.cart)
     )
-      return migrateMediaSeed(value as unknown as Core);
+      return migrateCartSeed(migrateMediaSeed(value as unknown as Core));
   } catch {
     /* Invalid session seeds again. */
   }

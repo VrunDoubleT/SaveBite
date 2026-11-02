@@ -20,7 +20,7 @@ Chi tiết: [ROUTES.md](./ROUTES.md). Trang `/`, flash deal detail, storefront c
 | `/forgot-password` | todo | — | R9; ForgotPasswordPage; guest, user, staff, storeOwner (admin redirected) |
 | `/forgot-password/verify` | todo | — | R10; OtpVerificationPage; guest, user, staff, storeOwner (admin redirected) |
 | `/customer` | todo | — | R11; Redirect regression |
-| `/cart` | done | ui(/cart): redesign | R12; đầy đủ nhóm shop/món/quantity/remove/checkout riêng từng shop; shared CartItemRow với checkout; cursor/retry và mọi state; 360/768/1280px; xem CART.md |
+| `/cart` | done | ui(/cart): redesign | R12; đầy đủ nhóm shop/món/quantity/remove/checkout riêng từng shop; shared CartItemRow với checkout; cursor/retry và mọi state; default mock 3 shop/6 dòng món, tự nâng cấp phiên cũ; 360/768/1280px; xem CART.md |
 | `/checkout/simulation` | todo | — | R13; CheckoutSimulationPage; user, staff, storeOwner |
 | `/orders/:orderId` | todo | — | R14; OrderDetailPage; user, staff, storeOwner |
 | `/checkout` | todo | — | R15; CheckoutPage; user, staff, storeOwner |

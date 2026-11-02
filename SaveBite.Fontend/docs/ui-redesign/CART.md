@@ -43,5 +43,10 @@ Ran design-system searches for `food marketplace shopping cart` and `ecommerce c
 - Initial loading, empty/discovery, read and mutation failures/retry, final item removal/page activity cleanup and guest auth guard pass.
 - Seven-shop fixture verifies cursor loading, failed next-page recovery and final loaded state. Broken media, long metadata and large prices fit mobile.
 - Existing commerce regression checks cover persistence, checkout/fulfillment/payment/refund/review projections.
-- Multi-shop/edge fixtures live only in tests; the normal mock cart seed is unchanged.
+- At the initial redesign, multi-shop/edge fixtures lived only in tests. The subsequent requested mock update below adds a default multi-shop seed.
 - Screenshots inspected: `/tmp/savebite-cart-{360,768,1280}.png` and state captures. Baseline: `/tmp/savebite-cart-before.png`. These are local verification artifacts.
+
+
+## Default multi-shop mock update
+
+The requested mock follow-up adds three default shop groups with two item rows per shop. See [MOCKS.md](./MOCKS.md#multi-shop-cart-preview) for totals, linked catalog records and one-time upgrade of older sessions. Existing cart/checkout UI and real services remain unchanged. Added browser checks cover default group totals, second-shop checkout/removal/add-back and migration/persistence; cart, commerce and storefront regression checks pass.

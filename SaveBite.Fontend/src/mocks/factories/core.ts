@@ -12,6 +12,7 @@ import { response2 as dealSeed } from "./flash-deals-flashDealApi";
 import { response2 as orderSeed } from "./checkout-checkoutApi";
 import { response0 as refundSeed } from "./refunds-refundApi";
 import { past, future, person } from "./values";
+import { response0 as shopSeed } from "./shops-shopApi";
 const uid = (n: number) => `00000000-0000-4000-8000-${String(n + 1).padStart(12, "0")}`;
 const names = [
   "Bánh mì rau củ",
@@ -33,7 +34,7 @@ const demoOptions = [
   { size: "Lớn", spice: "Cay vừa", extra: 11000, original: 65000, stock: 4, sold: 6 },
 ];
 export function makeProducts(): Product[] {
-  return Array.from({ length: 18 }, (_, n) => ({
+  const products: Product[] = Array.from({ length: 18 }, (_, n) => ({
     ...structuredClone(productSeed.data),
     id: uid(n),
     shopId: uid(0),
@@ -90,6 +91,30 @@ export function makeProducts(): Product[] {
       })),
     };
   });
+  const additionalNames = [
+    "Túi bánh ngọt An Nhiên",
+    "Bánh mì nguyên cám",
+    "Giỏ rau củ Đà Lạt",
+    "Hộp salad rau xanh",
+  ];
+  return products.concat(
+    additionalNames.map((name, n) => ({
+      ...structuredClone(products[0]),
+      id: uid(1000 + n),
+      shopId: uid(n < 2 ? 1 : 2),
+      name,
+      variants: [
+        {
+          ...structuredClone(products[0].variants[0]),
+          id: uid(1100 + n),
+          sku: `CART-${n + 1}`,
+          originalPrice: 60000 + n * 5000,
+          dealPrice: 30000 + n * 4000,
+        },
+      ],
+      images: [{ id: uid(1200 + n), url: demoImages[n + 1], source: "product" as const }],
+    })),
+  );
 }
 export function makeDeals(products: Product[]): FlashDeal[] {
   return products.map((p, n) => ({
@@ -97,9 +122,9 @@ export function makeDeals(products: Product[]): FlashDeal[] {
     id: p.id,
     productId: p.id,
     productName: p.name,
-    shopId: uid(0),
-    shopName: "Bếp Xanh Sài Gòn",
-    status: n % 6,
+    shopId: p.shopId,
+    shopName: shopSeed.data.items.find((shop) => shop.id === p.shopId)?.name ?? "Bếp Xanh Sài Gòn",
+    status: n >= 18 ? 1 : n % 6,
     saleStartTime: past,
     orderEndTime: future,
     shopClosingTime: future,
@@ -112,7 +137,7 @@ export function makeDeals(products: Product[]): FlashDeal[] {
         Math.round((1 - variant.dealPrice / variant.originalPrice) * 100),
       ),
     ),
-    isPurchasable: n % 6 === 1,
+    isPurchasable: n >= 18 || n % 6 === 1,
     attributeGroups:
       n === 1
         ? p.attributes.map((attribute) => ({
@@ -169,7 +194,47 @@ export function makeCart(deals: FlashDeal[]): Cart {
     subtotal: 53000,
     canCheckout: true,
   };
-  return { shops: [shop], totalQuantity: 2 };
+  const others: CartShop[] = shopSeed.data.items.slice(1).map((store, n) => {
+    const items = deals
+      .filter((deal) => deal.shopId === store.id)
+      .slice(0, 2)
+      .map((deal, i) => {
+        const variant = deal.variants[0];
+        const quantity = n === 0 ? (i === 0 ? 2 : 1) : i === 0 ? 1 : 3;
+        return {
+          id: deal.id,
+          flashDealId: deal.id,
+          flashDealVariantId: variant.id,
+          productId: deal.productId,
+          productName: deal.productName,
+          variantName: variant.variantName ?? "Tiêu chuẩn",
+          imageUrl: variant.imageUrl ?? deal.productImageUrl ?? null,
+          originalPrice: variant.originalPrice,
+          unitPrice: variant.dealPrice,
+          quantity,
+          availableQuantity: variant.availableQuantity,
+          subtotal: quantity * variant.dealPrice,
+          orderEndTime: deal.orderEndTime,
+          canUpdateQuantity: true,
+          isAvailable: true,
+          unavailableReason: null,
+        };
+      });
+    return {
+      shopId: store.id,
+      shopName: store.name,
+      shopLogoUrl: store.logoUrl ?? null,
+      shopAddress: store.address,
+      latitude: store.latitude,
+      longitude: store.longitude,
+      items,
+      totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+      subtotal: items.reduce((sum, item) => sum + item.subtotal, 0),
+      canCheckout: true,
+    };
+  });
+  const shops = [shop, ...others];
+  return { shops, totalQuantity: shops.reduce((sum, store) => sum + store.totalQuantity, 0) };
 }
 export const orderStatuses = [
   "AwaitingPayment",
@@ -284,7 +349,7 @@ export function checkoutContext(shop: CartShop): CheckoutContext {
 export function checkoutQuote(shop: CartShop): CheckoutQuote {
   return {
     ...checkoutContext(shop),
-    id: uid(0),
+    id: shop.shopId,
     createdAt: past,
     expiresAt: future,
     pickup: {

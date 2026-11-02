@@ -292,3 +292,113 @@ test("empty scenario offers discovery and guests still require sign-in", async (
   await page.goto("/cart?role=guest");
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test("default mock cart has three linked shops and checkout removes only the quoted shop", async ({
+  page,
+}) => {
+  await page.goto("/cart?role=user");
+  await expect(page.getByRole("region", { name: /^Cart from / })).toHaveCount(3, {
+    timeout: 30000,
+  });
+  for (const name of [firstShop, secondShop, "Góc Rau Đà Lạt"]) {
+    await expect(
+      page.getByRole("region", { name: `Cart from ${name}`, exact: true }).getByRole("spinbutton"),
+    ).toHaveCount(2);
+  }
+  await page.screenshot({ path: "/tmp/savebite-cart-multishop.png", fullPage: true });
+  const result = await page.evaluate(async () => {
+    const { httpClient: api } = await import("/src/shared/api/httpClient.ts");
+    const { core } = await import("/src/mocks/coreState.ts");
+    const { cartApi } = await import("/src/features/cart/api/cartApi.ts");
+    const stores = (await cartApi.getPage()).page.items;
+    const selected = stores[1];
+    const linked = stores.flatMap((shop) =>
+      shop.items.map(
+        (item) => core.deals.find((deal) => deal.id === item.flashDealId)?.shopId === shop.shopId,
+      ),
+    );
+    const quote = await api.post("/checkout/quotes", { shopId: selected.shopId });
+    const placed = await api.post("/checkout/orders", {
+      quoteId: quote.data.data.id,
+      paymentMethod: "PayAtShop",
+      requestId: "multishop-demo",
+    });
+    const remaining = (await cartApi.getPage()).page.items.map((shop) => shop.shopId);
+    const added = await cartApi.addItem(selected.items[0].flashDealVariantId, 2);
+    return {
+      counts: stores.map((shop) => shop.totalQuantity),
+      totals: stores.map((shop) => shop.subtotal),
+      linked,
+      placedShop: placed.data.data.shopId,
+      placedTotal: placed.data.data.totalAmount,
+      selectedId: selected.shopId,
+      remaining,
+      expectedRemaining: [stores[0].shopId, stores[2].shopId],
+      firstPreserved:
+        JSON.stringify(added.shops.find((shop) => shop.shopId === stores[0].shopId)) ===
+        JSON.stringify(stores[0]),
+      addedBack: added.shops.find((shop) => shop.shopId === selected.shopId)?.items[0].quantity,
+    };
+  });
+  expect(result.counts).toEqual([2, 3, 4]);
+  expect(result.totals).toEqual([53000, 94000, 164000]);
+  expect(result.linked.every(Boolean)).toBe(true);
+  expect(result.placedShop).toBe(result.selectedId);
+  expect(result.placedTotal).toBe(94000);
+  expect(result.remaining).toEqual(result.expectedRemaining);
+  expect(result.firstPreserved).toBe(true);
+  expect(result.addedBack).toBe(2);
+  await page.reload();
+  await expect(page.getByRole("region", { name: /^Cart from / })).toHaveCount(3);
+});
+
+test("older mock sessions gain extra shops once while retaining edited rows and subsequent removals", async ({
+  page,
+}) => {
+  await seedCart(page, 1);
+  await page.evaluate(async () => {
+    const { core, saveCore } = await import("/src/mocks/coreState.ts");
+    core.cart.shops[0].items[0].quantity = 4;
+    core.cart.shops[0].items[0].subtotal = 104000;
+    core.cart.shops[0].totalQuantity = 5;
+    core.cart.shops[0].subtotal = 131000;
+    core.cart.totalQuantity = 5;
+    saveCore();
+    const saved = JSON.parse(sessionStorage.getItem("savebite-mock-core-v1")!);
+    delete saved.cartSeedVersion;
+    saved.products = saved.products.slice(0, 18);
+    saved.deals = saved.deals.slice(0, 18);
+    sessionStorage.setItem("savebite-mock-core-v1", JSON.stringify(saved));
+  });
+  await page.goto("/cart?role=user");
+  await expect(page.getByRole("region", { name: /^Cart from / })).toHaveCount(3);
+  await expect(
+    page.getByRole("spinbutton", { name: `Quantity of ${firstProduct}`, exact: true }),
+  ).toHaveValue("4");
+  const upgraded = await page.evaluate(async () => {
+    const { core, saveCore } = await import("/src/mocks/coreState.ts");
+    const result = {
+      total: core.cart.totalQuantity,
+      firstSubtotal: core.cart.shops[0].subtotal,
+      version: core.cartSeedVersion,
+      products: core.products.length,
+      deals: core.deals.length,
+    };
+    core.cart.shops = core.cart.shops.slice(0, 1);
+    core.cart.totalQuantity = 5;
+    saveCore();
+    return result;
+  });
+  expect(upgraded).toEqual({
+    total: 12,
+    firstSubtotal: 131000,
+    version: 1,
+    products: 22,
+    deals: 22,
+  });
+  await page.reload();
+  await expect(page.getByRole("region", { name: /^Cart from / })).toHaveCount(1);
+  await expect(
+    page.getByRole("spinbutton", { name: `Quantity of ${firstProduct}`, exact: true }),
+  ).toHaveValue("4");
+});

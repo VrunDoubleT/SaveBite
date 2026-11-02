@@ -49,3 +49,14 @@ A `mediaSeedVersion` marker lives only in the internal mock core. Older sessions
 ## Customer review preview
 
 The existing store-review endpoint now has 12 typed local demo reviews, all five star levels, photo/no-photo entries and store replies. Average, total and breakdown derive from those records. Rating filtering and pagination use the existing query contract; photo filtering is page-scoped in the UI. The mock database carries an internal review-seed version and upgrades only review data/profile rating aggregates for older sessions. Empty mode clears review totals and breakdowns as well as items. No new backend endpoint or review-write capability was introduced.
+
+
+## Multi-shop cart preview
+
+Default `/cart` now has three shops and six item rows (nine units): Bếp Xanh Sài Gòn — 53.000đ, Tiệm Bánh An Nhiên — 94.000đ, Góc Rau Đà Lạt — 164.000đ. Each new shop has two linked local-media products/deals with its own IDs, prices and quantities. The original 18-product store catalog remains intact; four samples extend the catalog to 22 products/deals. Store deal lists now filter by the requested shop ID.
+
+Internal `cartSeedVersion` upgrades an older mock session once, adding the new catalog records and missing shop groups without replacing edited cart rows, existing products/deals or orders. Reload `/cart` to see the extra shops. Later removals/checkout persist without re-seeding those groups on reload. Mock reset still restores the complete seed.
+
+Mock add-to-cart groups by the deal's shop, and quote IDs identify the selected shop so place-order removes only that group. This fixes the previous single-shop assumptions in the mock handler; real APIs, services, types and page code are unchanged.
+
+Verification covers default totals and deal/shop links, checkout of the second shop, add-back into the correct group, session persistence and one-time migration preserving edited rows. Cart/commerce/storefront regression checks, targeted lint and build pass.

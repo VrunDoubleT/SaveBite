@@ -187,10 +187,10 @@ export function commerce(
   if (path === "/cart/items" && method === "POST") {
     const deal = core.deals.find((d) => d.variants.some((v) => v.id === input.flashDealVariantId));
     if (!deal) return { data: { message: "Flash deal not found" }, status: 404 };
-    let shop = core.cart.shops[0];
+    let shop = core.cart.shops.find((item) => item.shopId === deal.shopId);
     if (!shop) {
       const context = checkoutContext({
-        shopId: id(0),
+        shopId: deal.shopId,
         shopName: deal.shopName,
         shopLogoUrl: null,
         shopAddress: deal.shopAddress,
@@ -261,7 +261,7 @@ export function commerce(
     return { data: path.endsWith("quotes") ? checkoutQuote(shop) : checkoutContext(shop) };
   }
   if (path === "/checkout/orders" && method === "POST") {
-    const shop = core.cart.shops[0];
+    const shop = core.cart.shops.find((item) => item.shopId === input.quoteId);
     if (!shop) return { data: { message: "Cart is empty" }, status: 409 };
     const order: CheckoutOrder = {
       id: id(core.orders.length + 1),
@@ -297,7 +297,7 @@ export function commerce(
     };
     order.checkoutUrl = `/checkout/simulation?orderId=${order.id}`;
     core.orders.unshift(order);
-    core.cart.shops.shift();
+    core.cart.shops = core.cart.shops.filter((item) => item.shopId !== shop.shopId);
     recalc();
     changed(order.id);
     return { data: order };
@@ -568,7 +568,8 @@ export function commerce(
         newDealsCount: 0,
       },
     };
-  if (/^\/shops\/[^/]+\/flash-deals$/.test(path)) return { data: core.deals };
+  if (/^\/shops\/[^/]+\/flash-deals$/.test(path))
+    return { data: core.deals.filter((deal) => deal.shopId === path.split("/")[2]) };
   if (path === "/flash-deals/shop")
     return {
       data: {
