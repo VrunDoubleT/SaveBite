@@ -19,5 +19,6 @@ public sealed class OrderEventOutboxConfiguration : IEntityTypeConfiguration<Ord
         builder.Property(x => x.CreatedAt).HasColumnName("created_at");
         builder.Property(x => x.PublishedAt).HasColumnName("published_at");
         builder.HasIndex(x => new { x.OrderId, x.RoutingKey }).IsUnique();
+        builder.HasIndex(x => x.Id).HasDatabaseName("ix_order_outbox_pending").HasFilter("\"published_at\" IS NULL");
     }
 }

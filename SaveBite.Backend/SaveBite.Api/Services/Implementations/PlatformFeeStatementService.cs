@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -14,6 +16,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 {
+    private readonly AppDbContext _db;
     private readonly INotificationQueue _notifications;
     private readonly IPlatformFeeStatementRepository _repository;
     private readonly TimeProvider _timeProvider;
@@ -29,8 +32,9 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         ILogger<PlatformFeeStatementService> logger,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
-        INotificationQueue notifications)
+        INotificationQueue notifications, AppDbContext db)
     {
+        _db = db;
         _notifications = notifications;
         _repository = repository;
         _timeProvider = timeProvider;
@@ -379,6 +383,14 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
     // UC-151: Update Platform Fee Payment Status via Webhook (BR-097, BR-167, BR-195)
     public async Task ProcessFeeWebhookAsync(JsonElement body, CancellationToken ct = default)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
+        await ProcessFeeWebhookCoreAsync(body, ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    private async Task ProcessFeeWebhookCoreAsync(JsonElement body, CancellationToken ct = default)
+    {
         var paymentProvider = _configuration["Checkout:PaymentProvider"] ?? "PayOS";
         if (paymentProvider == "PayOS")
         {
@@ -453,9 +465,10 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 
         // BR-195: A Suspended Shop is reactivated only if all overdue fee statements are settled
         var hasOtherOverdue = await _repository.HasOtherOverdueStatementsAsync(payment.ShopId, payment.StatementId, ct);
-        if (!hasOtherOverdue && payment.Shop != null && payment.Shop.Status == ShopStatus.Suspended)
+        if (!hasOtherOverdue && payment.Shop != null && payment.Shop.Status == ShopStatus.Suspended && payment.Shop.SuspendedForPlatformFees)
         {
             payment.Shop.Status = ShopStatus.Active;
+            payment.Shop.SuspendedForPlatformFees = false;
             payment.Shop.UpdatedAt = now;
             _logger.LogInformation("Shop {ShopId} reactivated to Active after full platform fee settlement.", payment.Shop.Id);
         }
@@ -533,6 +546,15 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
     // BR-095, BR-193: Automatically mark overdue statements and suspend delinquent shops
     public async Task<int> CheckAndSuspendOverdueShopsAsync(CancellationToken ct = default)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
+        var result = await CheckAndSuspendOverdueShopsCoreAsync(ct);
+        await transaction.CommitAsync(ct);
+        return result;
+    }
+
+    private async Task<int> CheckAndSuspendOverdueShopsCoreAsync(CancellationToken ct = default)
+    {
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var overdueStatements = await _repository.GetOverdueStatementsAsync(now, ct);
         var suspendedCount = 0;
@@ -545,6 +567,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             if (statement.Shop != null && statement.Shop.Status == ShopStatus.Active)
             {
                 statement.Shop.Status = ShopStatus.Suspended;
+                statement.Shop.SuspendedForPlatformFees = true;
                 statement.Shop.UpdatedAt = now;
                 suspendedCount++;
                 _logger.LogWarning("Shop {ShopId} suspended due to overdue platform fee statement {StatementId}.", statement.ShopId, statement.Id);
@@ -562,6 +585,18 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 
     // BR-096, BR-194, BR-195: Admin records external payment reconciliation and reactivates shop
     public async Task RecordExternalPaymentAsync(
+        Guid adminId,
+        Guid statementId,
+        RecordExternalFeePaymentRequest request,
+        CancellationToken ct = default)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
+        await RecordExternalPaymentCoreAsync(adminId, statementId, request, ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    private async Task RecordExternalPaymentCoreAsync(
         Guid adminId,
         Guid statementId,
         RecordExternalFeePaymentRequest request,
@@ -626,9 +661,10 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 
         // BR-195: A Suspended Shop is reactivated only if all overdue fee statements are settled
         var hasOtherOverdue = await _repository.HasOtherOverdueStatementsAsync(statement.ShopId, statement.Id, ct);
-        if (!hasOtherOverdue && statement.Shop != null && statement.Shop.Status == ShopStatus.Suspended)
+        if (!hasOtherOverdue && statement.Shop != null && statement.Shop.Status == ShopStatus.Suspended && statement.Shop.SuspendedForPlatformFees)
         {
             statement.Shop.Status = ShopStatus.Active;
+            statement.Shop.SuspendedForPlatformFees = false;
             statement.Shop.UpdatedAt = now;
             _logger.LogInformation("Shop {ShopId} reactivated to Active after external payment reconciliation by Admin {AdminId}.", statement.ShopId, adminId);
         }
@@ -654,8 +690,18 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         _logger.LogInformation("Admin {AdminId} recorded external payment of {Amount} for statement {StatementId}.", adminId, request.Amount, statement.Id);
     }
     
-       // BR-093, BR-192: Aggregate unbilled order fees into monthly fee statements
-        public async Task<int> GenerateMonthlyStatementsAsync(
+    // BR-093, BR-192: Aggregate unbilled order fees into monthly fee statements.
+    public async Task<int> GenerateMonthlyStatementsAsync(int billingYear, short billingMonth, CancellationToken ct = default)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
+        var result = await GenerateMonthlyStatementsCoreAsync(billingYear, billingMonth, ct);
+        await transaction.CommitAsync(ct);
+        await NotifyMonthlyStatementsAsync(billingYear, billingMonth, ct);
+        return result;
+    }
+
+    private async Task<int> GenerateMonthlyStatementsCoreAsync(
             int billingYear,
             short billingMonth,
             CancellationToken ct = default)
@@ -670,7 +716,6 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 
             if (unbilledFees.Count == 0 && unbilledAdjustments.Count == 0)
             {
-                await NotifyMonthlyStatementsAsync(billingYear, billingMonth, ct);
                 return 0;
             }
             var shopIds = unbilledFees.Select(f => f.ShopId)
@@ -779,16 +824,33 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 }
             }
             await _repository.SaveChangesAsync(ct);
-            await NotifyMonthlyStatementsAsync(billingYear, billingMonth, ct);
             _logger.LogInformation("Generated {Count} monthly platform fee statements for period {Year}-{Month}.", statementsCreated, billingYear, billingMonth);
             return statementsCreated;
         }
 
 
+    public async Task RepairNotificationsAsync(Guid statementId, CancellationToken ct = default)
+    {
+        var statement = await _repository.GetStatementDetailAsync(statementId, ct);
+        if (statement == null || statement.Status == PlatformFeeStatementStatus.Draft) return;
+        var issuedKey = $"platform-fee-statement:{statement.Id}:issued";
+        if (!await _db.Notifications.AnyAsync(n => n.DeduplicationKey == issuedKey, ct))
+            await NotifyMonthlyStatementsAsync(statement.BillingYear, statement.BillingMonth, ct);
+        var paidKey = $"platform-fee:{statement.Id}:paid";
+        if (statement.Status == PlatformFeeStatementStatus.Paid && !await _db.Notifications.AnyAsync(n => n.DeduplicationKey == paidKey, ct))
+            await NotifyFeePaidAsync(statement.Id, ct);
+    }
+
+    private async Task TryNotifyAsync(NotificationTarget target, CreateNotificationCommand command, CancellationToken ct)
+    {
+        try { await _notifications.EnqueueAsync(target, command, ct); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Platform fee notification {Key} failed.", command.DeduplicationKey); }
+    }
+
     private async Task NotifyFeePaidAsync(Guid statementId, CancellationToken ct)
     {
         var statement = await _repository.GetStatementDetailAsync(statementId, ct) ?? throw AppException.NotFound();
-        await _notifications.EnqueueAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
+        await TryNotifyAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
             NotificationType.PlatformFeePaid, "Platform fee payment received",
             $"Payment for {statement.Shop.Name}, period {statement.BillingMonth:D2}/{statement.BillingYear}, has been recorded.",
             $"/store-owner/platform-fees/{statement.Id}", $"platform-fee:{statement.Id}:paid"), ct);
@@ -801,7 +863,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         {
             if (statement.DueAt > now.AddHours(24)) continue;
             var overdue = statement.DueAt <= now;
-            await _notifications.EnqueueAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
+            await TryNotifyAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
                 overdue ? NotificationType.PlatformFeeOverdue : NotificationType.PlatformFeeDueSoon,
                 overdue ? "Platform fee overdue" : "Platform fee due within 24 hours",
                 $"{statement.Shop.Name}: {statement.TotalFeeAmount:N0} VND is due on {statement.DueAt:dd/MM/yyyy HH:mm} UTC." +
@@ -818,7 +880,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         {
             var paymentInfo = statement.TotalFeeAmount == 0 ? "No payment is required."
                 : $"Amount: {statement.TotalFeeAmount:N0} VND." + (statement.DueAt.HasValue ? $" Due: {statement.DueAt:dd/MM/yyyy}." : "");
-            await _notifications.EnqueueAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
+            await TryNotifyAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
                 NotificationType.PlatformFeeStatementIssued, "Monthly platform fee statement",
                 $"{statement.Shop.Name}: your platform fee statement for {month:D2}/{year} is available. {paymentInfo}",
                 $"/store-owner/platform-fees/{statement.Id}", $"platform-fee-statement:{statement.Id}:issued"), ct);

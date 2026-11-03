@@ -14,6 +14,10 @@ public class FlashDeal
 
     public FlashDealStatus Status { get; set; } = FlashDealStatus.Pending;
 
+    public string? OpenJobId { get; set; }
+    public string? EndJobId { get; set; }
+    public DateTime? LifecycleSyncedAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

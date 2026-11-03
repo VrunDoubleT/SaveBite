@@ -4,26 +4,15 @@ using SaveBite.Backend.BackgroundJobs.Jobs;
 
 namespace SaveBite.Backend.BackgroundJobs.Scheduling;
 
-// Manage Hangfire jobs for initial payment expiry.
-public sealed class CheckoutPaymentExpirationScheduler : ICheckoutPaymentExpirationScheduler
+public sealed class CheckoutPaymentExpirationScheduler(IBackgroundJobClient jobs, ILogger<CheckoutPaymentExpirationScheduler> logger) : ICheckoutPaymentExpirationScheduler
 {
-    private readonly IBackgroundJobClient _jobs;
+    public string? Schedule(Guid orderId, DateTime expiresAt)
+        => SafeSchedule.Try(() => jobs.Schedule<CheckoutPaymentExpirationJob>(job => job.ExecuteAsync(orderId, CancellationToken.None),
+            new DateTimeOffset(DateTime.SpecifyKind(expiresAt, DateTimeKind.Utc))), logger, "payment-expiration", orderId);
 
-    public CheckoutPaymentExpirationScheduler(IBackgroundJobClient jobs)
+    public bool Delete(string jobId)
     {
-        _jobs = jobs;
+        try { return jobs.Delete(jobId); }
+        catch (Exception ex) { logger.LogWarning(ex, "Could not delete job {JobId}.", jobId); return false; }
     }
-
-    // Persist one delayed job for this order instead of scanning pending payments.
-    public string Schedule(Guid orderId, DateTime expiresAt)
-    {
-        var jobId = _jobs.Schedule<CheckoutPaymentExpirationJob>(
-            job => job.ExecuteAsync(orderId, CancellationToken.None),
-            new DateTimeOffset(DateTime.SpecifyKind(expiresAt, DateTimeKind.Utc)));
-        if (string.IsNullOrWhiteSpace(jobId))
-            throw new InvalidOperationException("Payment expiration could not be scheduled.");
-        return jobId;
-    }
-    // Deletion is best effort; an already-running job still validates order and payment state.
-    public bool Delete(string jobId) => _jobs.Delete(jobId);
 }

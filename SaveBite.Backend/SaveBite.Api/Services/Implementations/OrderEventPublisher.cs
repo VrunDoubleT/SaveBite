@@ -1,5 +1,4 @@
 using System.Text.Json;
-using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Events;
@@ -13,11 +12,10 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class OrderEventPublisher : IOrderEventPublisher
 {
     private readonly IOrderEventRepository _events;
-    private readonly IOrderEventDispatchScheduler _scheduler;
     private readonly TimeProvider _clock;
 
-    public OrderEventPublisher(IOrderEventRepository events, IOrderEventDispatchScheduler scheduler, TimeProvider clock)
-    { _events = events; _scheduler = scheduler; _clock = clock; }
+    public OrderEventPublisher(IOrderEventRepository events, TimeProvider clock)
+    { _events = events; _clock = clock; }
 
     // Called inside the order transaction so Pending and its durable event either commit together or both roll back.
     public async Task QueuePendingAsync(Order order, CancellationToken ct = default)
@@ -31,7 +29,6 @@ public sealed class OrderEventPublisher : IOrderEventPublisher
         };
         _events.Add(message);
         await _events.SaveAsync(ct);
-        _scheduler.Enqueue(message.Id);
     }
     // Persist completion alongside the state transition so a broker outage cannot lose earned progress.
     public async Task QueueCompletedAsync(Order order, CancellationToken ct = default)
@@ -45,7 +42,6 @@ public sealed class OrderEventPublisher : IOrderEventPublisher
         };
         _events.Add(message);
         await _events.SaveAsync(ct);
-        _scheduler.Enqueue(message.Id);
     }
 
     // NoShow has its own event so inventory, notifications and trust policies can be added independently.
@@ -61,6 +57,5 @@ public sealed class OrderEventPublisher : IOrderEventPublisher
         };
         _events.Add(message);
         await _events.SaveAsync(ct);
-        _scheduler.Enqueue(message.Id);
     }
 }

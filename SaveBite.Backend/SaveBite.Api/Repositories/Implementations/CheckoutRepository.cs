@@ -45,7 +45,7 @@ public sealed class CheckoutRepository : ICheckoutRepository
             await _dbContext.Set<ShopPaymentConfig>().AsNoTracking().SingleOrDefaultAsync(x => x.ShopId == shopId, ct));
     }
 
-    private IQueryable<Order> Orders => _dbContext.Orders.Include(x => x.Items).ThenInclude(x => x.FlashDealVariant)
+    private IQueryable<Order> Orders => _dbContext.Orders.Include(x => x.Customer).Include(x => x.Items).ThenInclude(x => x.FlashDealVariant)
         .ThenInclude(x => x.FlashDeal).ThenInclude(x => x.Product).ThenInclude(x => x.Images).Include(x => x.Payments)
         .Include(x => x.Items).ThenInclude(x => x.Feedback)
         .Include(x => x.Shop).ThenInclude(x => x.PaymentConfig).AsSplitQuery();

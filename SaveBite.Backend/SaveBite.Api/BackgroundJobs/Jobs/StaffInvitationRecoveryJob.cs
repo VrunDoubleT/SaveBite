@@ -4,38 +4,27 @@ using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Services.Implementations;
-
 namespace SaveBite.Backend.BackgroundJobs.Jobs;
 
-// Repairs scheduling/publish gaps after a restart or an unavailable broker without adding duplicate notifications.
-public sealed class StaffInvitationRecoveryJob(
-    AppDbContext db, StaffInvitationJob job, IStaffInvitationScheduler scheduler, StaffInvitationNotificationService notifications)
+public sealed class StaffInvitationRecoveryJob(IServiceScopeFactory scopes, ILogger<StaffInvitationRecoveryJob> logger)
 {
-    [DisableConcurrentExecution(300)]
-    public async Task ExecuteAsync(bool restoreSchedules, CancellationToken ct)
-    {
-        var offset = 0;
-        while (true)
-        {
-            var batch = await db.StaffInvitations.AsNoTracking()
-                .Where(i => i.Status != nameof(StaffInvitationStatus.Cancelled))
-                .OrderBy(i => i.InvitedAt).ThenBy(i => i.Id)
-                .Skip(offset).Take(100)
-                .Select(i => new { i.Id, i.Status, i.InvitedAt }).ToListAsync(ct);
-            if (batch.Count == 0) return;
-            var expected = new List<(Guid Id, StaffInvitationStatus Status, string[] Keys)>();
-            foreach (var invitation in batch)
+    [DisableConcurrentExecution(600)]
+    public Task ExecuteAsync(bool restoreSchedules, CancellationToken ct)
+        => RecoveryBatch.RunAsync(scopes, logger, "staff-invitation", db => db.StaffInvitations.AsNoTracking()
+            .Where(i => i.Status != nameof(StaffInvitationStatus.Cancelled)).Select(i => i.Id), async (sp, id) =>
             {
-                if (!Enum.TryParse<StaffInvitationStatus>(invitation.Status, out var status)) continue;
+                var db = sp.GetRequiredService<AppDbContext>();
+                var invitation = await db.StaffInvitations.AsNoTracking().SingleAsync(i => i.Id == id, ct);
+                if (!Enum.TryParse<StaffInvitationStatus>(invitation.Status, out var status)) return;
                 if (status == StaffInvitationStatus.Pending)
                 {
                     var deadline = invitation.InvitedAt.AddDays(StaffInvitationJob.LifetimeDays);
                     if (deadline <= DateTime.UtcNow)
                     {
-                        await job.ExpireAsync(invitation.Id, ct);
-                        continue;
+                        await sp.GetRequiredService<StaffInvitationJob>().ExpireAsync(id, ct);
+                        return;
                     }
-                    if (restoreSchedules) scheduler.ScheduleExpiration(invitation.Id, deadline);
+                    if (restoreSchedules) sp.GetRequiredService<IStaffInvitationScheduler>().ScheduleExpiration(id, deadline);
                 }
                 var recipients = status switch
                 {
@@ -44,15 +33,8 @@ public sealed class StaffInvitationRecoveryJob(
                     StaffInvitationStatus.Accepted or StaffInvitationStatus.Expired => new[] { "owner", "customer" },
                     _ => Array.Empty<string>()
                 };
-                expected.Add((invitation.Id, status, recipients.Select(r => StaffInvitationNotificationService.Key(invitation.Id, status, r)).ToArray()));
-            }
-            var keys = expected.SelectMany(e => e.Keys).ToArray();
-            var delivered = (await db.Notifications.AsNoTracking()
-                .Where(n => n.DeduplicationKey != null && keys.Contains(n.DeduplicationKey))
-                .Select(n => n.DeduplicationKey!).ToListAsync(ct)).ToHashSet();
-            foreach (var item in expected.Where(e => e.Keys.Any(key => !delivered.Contains(key))))
-                await notifications.NotifyAsync(item.Id, item.Status, ct);
-            offset += batch.Count;
-        }
-    }
+                var keys = recipients.Select(r => StaffInvitationNotificationService.Key(id, status, r)).ToArray();
+                var delivered = await db.Notifications.AsNoTracking().CountAsync(n => n.DeduplicationKey != null && keys.Contains(n.DeduplicationKey), ct);
+                if (delivered < keys.Length) await sp.GetRequiredService<StaffInvitationNotificationService>().NotifyAsync(id, status, ct);
+            }, ct);
 }

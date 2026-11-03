@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using SaveBite.Backend.Models.Common;
@@ -16,6 +18,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class ShopService : IShopService
 {
+    private readonly AppDbContext _db;
     private readonly INotificationQueue _notifications;
     private readonly IShopRepository _shopRepository;
     private readonly IUserAddressRepository _userAddressRepository;
@@ -27,8 +30,9 @@ public sealed class ShopService : IShopService
         IUserAddressRepository userAddressRepository,
         ICloudinaryService cloudinaryService,
         IRabbitMqPublisher publisher,
-        INotificationQueue notifications)
+        INotificationQueue notifications, AppDbContext db)
     {
+        _db = db;
         _notifications = notifications;
         _shopRepository = shopRepository;
         _userAddressRepository = userAddressRepository;
@@ -493,6 +497,8 @@ public sealed class ShopService : IShopService
     // Manage Shops.
     public async Task<ModerationActionResponse> UpdateShopStatusAsync(Guid adminId, Guid shopId, UpdateShopModerationStatusRequest request, CancellationToken ct)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
         var targetStatus = Enum.Parse<ShopStatus>(request.Status.Trim(), ignoreCase: true);
         
         var shop = await _shopRepository.GetShopForStatusUpdateAsync(shopId, ct);
@@ -526,9 +532,12 @@ public sealed class ShopService : IShopService
             Status = currentStatus.ToString()
         };
 
+        shop.SuspendedForPlatformFees = false; // An administrator decision must never be undone by fee payment.
         shop.Status = targetStatus;
         shop.UpdatedAt = DateTime.UtcNow;
         await _shopRepository.SaveChangesAsync(ct);
+
+        await transaction.CommitAsync(ct);
 
         var moderationEvent = new ModerationEvent
         {

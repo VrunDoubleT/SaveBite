@@ -101,6 +101,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(x => new { x.CustomerId, x.CheckoutRequestId }).IsUnique();
         builder.HasIndex(x => x.CheckoutQuoteId).IsUnique();
         builder.HasIndex(x => new { x.InventoryReservationActive, x.PaymentExpiresAt });
+        builder.HasIndex(x => new { x.Status, x.HardDeadlineAt });
+        builder.HasIndex(x => new { x.Status, x.PaymentExpiresAt });
 
         builder.Property(x => x.CancelReason)
             .HasColumnName("cancel_reason")

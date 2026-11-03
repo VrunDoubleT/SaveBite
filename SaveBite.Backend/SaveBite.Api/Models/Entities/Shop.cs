@@ -28,6 +28,8 @@ public class Shop
 
     public ShopStatus Status { get; set; } = ShopStatus.Active;
 
+    public bool SuspendedForPlatformFees { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
