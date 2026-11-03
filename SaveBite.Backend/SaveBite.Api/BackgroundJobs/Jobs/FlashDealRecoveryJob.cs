@@ -12,7 +12,7 @@ public sealed class FlashDealRecoveryJob(IServiceScopeFactory scopes, TimeProvid
     {
         var now = clock.GetUtcNow().UtcDateTime;
         await RecoveryBatch.RunAsync(scopes, logger, "flash-deal-close", db => db.FlashDeals
-            .Where(d => d.OrderEndTime <= now && (d.Status == FlashDealStatus.Pending || d.Status == FlashDealStatus.OnSale
+            .Where(d => d.OrderEndTime <= now && (d.Status == FlashDealStatus.Pending || d.Status == FlashDealStatus.OnSale || d.Status == FlashDealStatus.SoldOut
                 || d.Status == FlashDealStatus.Hidden || (d.Status == FlashDealStatus.Closed && d.LifecycleSyncedAt == null)))
             .Select(d => d.Id), (sp, id) => sp.GetRequiredService<IFlashDealJobService>().PublishDealExpiredAsync(id), ct);
         await RecoveryBatch.RunAsync(scopes, logger, "flash-deal-visibility", db => db.FlashDeals
@@ -27,7 +27,7 @@ public sealed class FlashDealRecoveryJob(IServiceScopeFactory scopes, TimeProvid
             }, ct);
         await RecoveryBatch.RunAsync(scopes, logger, "flash-deal-open", db => db.FlashDeals
             .Where(d => d.SaleStartTime <= now && d.OrderEndTime > now && (d.Status == FlashDealStatus.Pending
-                || (d.Status == FlashDealStatus.OnSale && d.LifecycleSyncedAt == null)))
+                || ((d.Status == FlashDealStatus.OnSale || d.Status == FlashDealStatus.SoldOut) && d.LifecycleSyncedAt == null)))
             .Select(d => d.Id), (sp, id) => sp.GetRequiredService<IFlashDealJobService>().PublishDealOpenedAsync(id), ct);
     }
 }

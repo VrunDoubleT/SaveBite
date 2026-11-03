@@ -22,6 +22,10 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
+    protected override string? DeadLetterQueueName => "flashdeal_dead_letter_queue";
+    protected override bool ParkFailures => true;
+    protected override int RetryAttempts => 3;
+
     protected override string QueueName => RabbitMqQueues.FlashDealQueueName;
 
     // Listen for all events with the prefix "flashdeal."
@@ -41,6 +45,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         CancellationToken cancellationToken)
     {
         var dealEvent = message.Data;
+        if (dealEvent == null || dealEvent.FlashDealId == Guid.Empty) throw new ArgumentException("FlashDealId is required.");
         var routingKey = message.EventType;
 
         await using var scope = _scopeFactory.CreateAsyncScope();
@@ -56,7 +61,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         var now = DateTime.UtcNow;
         if (routingKey == RabbitMqRoutingKeys.FlashDealOpened
             && (now < current.SaleStartTime || now >= current.OrderEndTime
-                || current.Status is not (FlashDealStatus.Pending or FlashDealStatus.OnSale)
+                || current.Status is not (FlashDealStatus.Pending or FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
                 || (dealEvent.ExpectedDeadline.HasValue && !RefundRules.SameDeadline(current.SaleStartTime, dealEvent.ExpectedDeadline.Value)))) return;
         if (routingKey == RabbitMqRoutingKeys.FlashDealExpired
             && (now < current.OrderEndTime || current.Status == FlashDealStatus.Cancelled
@@ -107,13 +112,21 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
             await dealRepository.UpdateStatusAsync(deal.Id, FlashDealStatus.OnSale, cancellationToken);
         }
 
+        var inventoryStatus = deal.Variants.Any(v => v.Status == FlashDealVariantStatus.Active && v.Variant.IsActive
+            && (long)v.TotalQuantity - v.ReservedQuantity - v.SoldQuantity > 0) ? FlashDealStatus.OnSale : FlashDealStatus.SoldOut;
+        if (deal.Status != inventoryStatus)
+        {
+            deal.Status = inventoryStatus;
+            await dealRepository.UpdateStatusAsync(deal.Id, inventoryStatus, cancellationToken);
+        }
+
         // Push deal information into Redis Cache for customer searches
-        var customerResponse = await dealService.GetByIdAsync(deal.Id, cancellationToken);
+        var customerResponse = FlashDealService.MapToResponse(deal);
         if (deal.Shop != null)
         {
             await redisService.SaveDealAsync(customerResponse, deal.Shop.Latitude, deal.Shop.Longitude);
 
-            await notificationService.EnqueueAsync(
+            if (deal.Status == FlashDealStatus.OnSale) await notificationService.EnqueueAsync(
                     NotificationTarget.Customers(),
                     new CreateNotificationCommand(
                         NotificationType.FlashDealAvailable,

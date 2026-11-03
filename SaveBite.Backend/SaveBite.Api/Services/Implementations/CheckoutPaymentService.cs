@@ -16,12 +16,13 @@ namespace SaveBite.Backend.Services.Implementations;
 // Reconcile provider payments, order submission, cancellation and reservation expiry.
 public sealed class CheckoutPaymentService : ICheckoutPaymentService
 {
+    private readonly OrderResaleService _resale;
     private readonly ICheckoutRepository _checkoutRepository;
     private readonly INotificationQueue _notifications;
     private readonly ICheckoutPaymentGateway _paymentGateway;
     private readonly ICheckoutStockCache _stockCache;
     private readonly TimeProvider _clock;
-    private readonly IOrderEventPublisher _orderEvents;
+    private readonly OrderConfirmationScheduling _confirmation;
     private readonly ICheckoutPaymentExpirationScheduler _paymentExpirationScheduler;
     private readonly IShopOrderEventService _shopOrderEvents;
     private readonly ILogger<CheckoutPaymentService> _logger;
@@ -33,16 +34,17 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         TimeProvider clock,
         ICheckoutPaymentExpirationScheduler paymentExpirationScheduler,
         ILogger<CheckoutPaymentService> logger,
-        IOrderEventPublisher orderEvents,
+        OrderConfirmationScheduling confirmation,
         IShopOrderEventService shopOrderEvents,
-        INotificationQueue notifications)
+        INotificationQueue notifications, OrderResaleService resale)
     {
+        _resale = resale;
         _checkoutRepository = repository;
         _notifications = notifications;
         _paymentGateway = gateway;
         _stockCache = stockCache;
         _clock = clock;
-        _orderEvents = orderEvents;
+        _confirmation = confirmation;
         _paymentExpirationScheduler = paymentExpirationScheduler;
         _shopOrderEvents = shopOrderEvents;
         _logger = logger;
@@ -195,25 +197,6 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             await _checkoutRepository.SaveAsync(ct);
             return CheckoutOrderMapper.Map(order, message, Now);
         }, ct);
-        if (result.Status == nameof(OrderStatus.Cancelled) && cancel
-            || result.Status == nameof(OrderStatus.Expired) && result.PaymentStatus == nameof(PaymentStatus.Expired))
-        {
-            var closed = await _checkoutRepository.GetOrderAsync(orderId, null, ct) ?? throw AppException.NotFound();
-            var expired = result.Status == nameof(OrderStatus.Expired);
-            var type = expired ? NotificationType.OrderPaymentExpired : NotificationType.OrderCancelledByCustomer;
-            var title = expired ? "Order payment expired" : "Order cancelled";
-            var body = expired ? $"The payment window for order {closed.OrderCode} has expired."
-                : $"The customer cancelled order {closed.OrderCode}.";
-            await _notifications.EnqueueAsync(NotificationTarget.User(closed.CustomerId), new CreateNotificationCommand(
-                type, title, body, $"/orders/{orderId}", $"order:{orderId}:{type}:customer"), ct);
-            if (notifyShopCancellation || closed.ConfirmedAt.HasValue || closed.StatusHistories.Any(h => h.ToStatus == OrderStatus.Pending))
-            {
-                await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(closed.ShopId), new CreateNotificationCommand(
-                    type, title, body, $"/store-owner/orders/{orderId}", $"order:{orderId}:{type}:owner"), ct);
-                await _notifications.EnqueueAsync(NotificationTarget.ShopStaff(closed.ShopId), new CreateNotificationCommand(
-                    type, title, body, $"/staff/shops/{closed.ShopId}/orders/{orderId}", $"order:{orderId}:{type}:staff"), ct);
-            }
-        }
         // Notify detail subscribers only after the verified balance payment has committed.
         if (notifyRemainingPayment)
         {
@@ -294,7 +277,10 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         });
         var becamePending = previous == OrderStatus.AwaitingPayment && order.Status == OrderStatus.Pending;
         if (becamePending)
-            await _orderEvents.QueuePendingAsync(order, ct);
+        {
+            _confirmation.Register(order);
+            await _checkoutRepository.SaveAsync(ct);
+        }
         return becamePending;
     }
     
@@ -323,7 +309,10 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     {
         CheckoutRules.ValidateCustomerCancellation(order, Now);
         var previous = order.Status;
-        await _checkoutRepository.ReleaseCancelledInventoryAsync(order, ct);
+        if (order.Status == OrderStatus.AwaitingPayment && order.InventoryReservationActive)
+            await _checkoutRepository.ReleaseCancelledInventoryAsync(order, ct);
+        else
+            await _resale.BeginAsync(order, ct);
         order.Status = OrderStatus.Cancelled;
         order.CancelledAt = Now; order.UpdatedAt = Now;
         order.CancelledBy = order.CustomerId;
@@ -338,7 +327,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         _checkoutRepository.AddHistory(new OrderStatusHistory
         {
             Id = Guid.NewGuid(), OrderId = order.Id, FromStatus = previous, ToStatus = OrderStatus.Cancelled,
-            Note = CheckoutRules.CustomerCancellationPolicy + " Applicable inventory released.", CreatedAt = Now
+            Note = CheckoutRules.CustomerCancellationPolicy + " Inventory released for an unpaid reservation or held pending a five-minute shop resale decision.", CreatedAt = Now
         });
     }
 

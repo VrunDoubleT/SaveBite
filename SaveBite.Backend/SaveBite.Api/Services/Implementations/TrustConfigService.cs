@@ -14,6 +14,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class TrustConfigService : ITrustConfigService
 {
+    private readonly IAdminAuditWriter _audit;
     private const string KindEarning = "Earning";
     private const string KindPenalty = "Penalty";
 
@@ -26,10 +27,11 @@ public sealed class TrustConfigService : ITrustConfigService
     private readonly ILogger<TrustConfigService> _logger;
 
     public TrustConfigService(
-        ITrustConfigRepository repository,
+        ITrustConfigRepository repository, IAdminAuditWriter audit,
         TimeProvider timeProvider,
         ILogger<TrustConfigService> logger, INotificationQueue notifications)
     {
+        _audit = audit;
         _repository = repository;
         _notifications = notifications;
         _timeProvider = timeProvider;
@@ -1194,7 +1196,7 @@ public sealed class TrustConfigService : ITrustConfigService
     private void WriteAudit(
         Guid adminId, string action, string targetType, Guid targetId, object? oldValues, object newValues, DateTime now)
     {
-        _repository.AddAuditLog(new AuditLog
+        _audit.Record(new AuditLog
         {
             Id = Guid.NewGuid(),
             ActorUserId = adminId,

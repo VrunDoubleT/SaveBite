@@ -24,8 +24,11 @@ public sealed class OrderDeadlineRecoveryJob(IServiceScopeFactory scopes, TimePr
             .Where(o => o.HardDeadlineAt <= now && (o.Status == OrderStatus.Confirmed
                 || o.Status == OrderStatus.Preparing || o.Status == OrderStatus.ReadyForPickup))
             .Select(o => o.Id), (sp, id) => sp.GetRequiredService<IShopOrderService>().MarkNoShowAsync(id, ct), ct), ct);
+        await Group("resale-decision", () => RecoveryBatch.RunAsync(scopes, logger, "order-resale-decision", db => db.Orders
+            .Where(o => o.ResaleDecisionDeadlineAt <= now && o.Items.Any(i => i.ResaleDecisionStatus == ResaleDecisionStatus.Pending))
+            .Select(o => o.Id), (sp, id) => sp.GetRequiredService<SaveBite.Backend.Services.Implementations.OrderResaleService>().ExpireAsync(id, ct), ct), ct);
         await Group("reminder", () => RecoveryBatch.RunAsync(scopes, logger, "order-reminder", db => db.Orders
-            .Where(o => o.PickupReminderEmailSentAt == null && o.HardDeadlineAt > now && o.HardDeadlineAt <= now.AddMinutes(10)
+            .Where(o => o.PickupReminderEmailSentAt == null && o.PickupReminderEmailQueuedAt == null && o.HardDeadlineAt > now && o.HardDeadlineAt <= now.AddMinutes(10)
                 && (o.Status == OrderStatus.Confirmed || o.Status == OrderStatus.Preparing || o.Status == OrderStatus.ReadyForPickup))
             .Select(o => o.Id), async (sp, id) =>
             {

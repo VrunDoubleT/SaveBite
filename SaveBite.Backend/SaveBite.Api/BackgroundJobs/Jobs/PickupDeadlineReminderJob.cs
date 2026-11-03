@@ -7,7 +7,7 @@ using SaveBite.Backend.Services.Interfaces;
 namespace SaveBite.Backend.BackgroundJobs.Jobs;
 
 public sealed class PickupDeadlineReminderJob(ICheckoutRepository orders, INotificationQueue notifications,
-    IEmailService email, TimeProvider clock)
+    TimeProvider clock, SaveBite.Backend.Data.AppDbContext db)
 {
     public async Task ExecuteAsync(Guid orderId, DateTime deadline, CancellationToken ct)
     {
@@ -15,7 +15,7 @@ public sealed class PickupDeadlineReminderJob(ICheckoutRepository orders, INotif
         {
             var order = await orders.GetOrderAsync(orderId, null, ct);
             var now = clock.GetUtcNow().UtcDateTime;
-            if (order == null || order.PickupReminderEmailSentAt != null || order.HardDeadlineAt?.Ticks / 10 != deadline.Ticks / 10
+            if (order == null || (order.PickupReminderEmailSentAt != null || order.PickupReminderEmailQueuedAt != null) || order.HardDeadlineAt?.Ticks / 10 != deadline.Ticks / 10
                 || !Eligible(order.Status) || order.Customer.Status != UserStatus.Active
                 || order.Customer.CustomerStatus != CustomerStatus.Active || now >= deadline) return false;
             var due = PickupReminderPolicy.DueAt(order.ConfirmedAt ?? order.CreatedAt, deadline);
@@ -26,8 +26,18 @@ public sealed class PickupDeadlineReminderJob(ICheckoutRepository orders, INotif
             await notifications.EnqueueAsync(NotificationTarget.User(order.CustomerId), new CreateNotificationCommand(
                 NotificationType.PickupDeadlineApproaching, "Pickup deadline approaching", body,
                 $"/orders/{orderId}", $"pickup-deadline:{orderId}:{deadline.Ticks}"), ct);
-            await email.SendAsync(order.Customer.Email, "SaveBite: your pickup deadline is approaching", body, false, ct);
-            order.PickupReminderEmailSentAt = now;
+            var key = $"pickup-email:{orderId}:{deadline.Ticks / 10}";
+            db.Add(new SaveBite.Backend.Models.Entities.OrderEventOutbox
+            {
+                Id = Guid.NewGuid(), OrderId = orderId, EventKey = key, CreatedAt = now,
+                RoutingKey = SaveBite.Backend.Messaging.Constants.RabbitMqRoutingKeys.EmailRoutingKey,
+                PayloadJson = System.Text.Json.JsonSerializer.Serialize(new SaveBite.Backend.Messaging.Events.EmailNotificationEvent
+                {
+                    DeliveryKey = key, ExpiresAt = deadline, To = order.Customer.Email,
+                    Subject = "SaveBite: your pickup deadline is approaching", Body = body, IsHtml = false
+                })
+            });
+            order.PickupReminderEmailQueuedAt = now;
             await orders.SaveAsync(ct);
             return true;
         }, ct);

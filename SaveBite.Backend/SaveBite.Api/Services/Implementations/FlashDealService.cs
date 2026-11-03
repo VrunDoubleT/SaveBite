@@ -73,7 +73,7 @@ public sealed class FlashDealService : IFlashDealService
             _backgroundJobClient.Schedule<IFlashDealJobService>(job => job.PublishDealExpiredAtAsync(deal.Id, end),
                 new DateTimeOffset(DateTime.SpecifyKind(end, DateTimeKind.Utc))), _logger, "flash-end", deal.Id);
         await _dealRepository.UpdateAsync(deal, ct);
-        if (start <= DateTime.UtcNow && end > DateTime.UtcNow && deal.Status is FlashDealStatus.Pending or FlashDealStatus.OnSale)
+        if (start <= DateTime.UtcNow && end > DateTime.UtcNow && deal.Status is FlashDealStatus.Pending or FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
         {
             try { await _publisher.PublishAsync(RabbitMqRoutingKeys.FlashDealOpened,
                 new FlashDealEvent { FlashDealId = deal.Id, ExpectedDeadline = start }, ct); }
@@ -290,13 +290,6 @@ public sealed class FlashDealService : IFlashDealService
         {
             var response = MapToResponse(deal);
             responses.Add(response);
-            if (deal.Shop != null)
-            {
-                await _redisService.SaveDealAsync(
-                    response,
-                    deal.Shop.Latitude,
-                    deal.Shop.Longitude);
-            }
         }
 
         return responses;
@@ -320,13 +313,7 @@ public sealed class FlashDealService : IFlashDealService
 
         var response = MapToResponse(deal);
 
-        if (deal.Shop != null)
-        {
-            await _redisService.SaveDealAsync(
-                response,
-                deal.Shop.Latitude,
-                deal.Shop.Longitude);
-        }
+        // Read fallbacks do not write cache: only locked lifecycle/inventory writers may do so.
 
         return response;
     }
@@ -624,7 +611,7 @@ public sealed class FlashDealService : IFlashDealService
 
             deal.SaleStartTime = request.SaleStartTime;
         }
-        else if (deal.Status == FlashDealStatus.OnSale)
+        else if (deal.Status is FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
         {
             if (request.OrderEndTime - deal.SaleStartTime > TimeSpan.FromMinutes(120))
             {
@@ -689,6 +676,8 @@ public sealed class FlashDealService : IFlashDealService
         await _dealRepository.UpdateAsync(deal, cancellationToken);
 
         await RefreshScheduleAsync(deal, cancellationToken);
+        LifecycleOutbox.InventoryDeals(_db, new[] { deal.Id }, null, DateTime.UtcNow);
+        await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return MapToShopDetailResponse(deal);
     }
@@ -726,7 +715,7 @@ public sealed class FlashDealService : IFlashDealService
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
             ?? throw AppException.NotFound("Flash deal not found.");
-        if (deal.Status != FlashDealStatus.OnSale && deal.Status != FlashDealStatus.Pending)
+        if (deal.Status != FlashDealStatus.OnSale && deal.Status != FlashDealStatus.Pending && deal.Status != FlashDealStatus.SoldOut)
         {
             throw AppException.BadRequest("Only active or pending deals can be hidden.");
         }

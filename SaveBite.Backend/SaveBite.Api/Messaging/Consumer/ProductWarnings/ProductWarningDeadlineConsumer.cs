@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Services.Implementations;
 
-namespace SaveBite.Backend.Messaging.Consumer;
+namespace SaveBite.Backend.Messaging.Consumer.ProductWarnings;
 
 // The warning table is the durable schedule. Rechecking predicates makes retries safe.
 public sealed class ProductWarningDeadlineConsumer : BackgroundService

@@ -25,7 +25,7 @@ public sealed class FlashDealJobService(IFlashDealRepository deals, IRabbitMqPub
         if (opening)
         {
             if (now < deal.SaleStartTime || now >= deal.OrderEndTime
-                || deal.Status is not (FlashDealStatus.Pending or FlashDealStatus.OnSale)) return;
+                || deal.Status is not (FlashDealStatus.Pending or FlashDealStatus.OnSale or FlashDealStatus.SoldOut)) return;
         }
         else if (now < deal.OrderEndTime || deal.Status == FlashDealStatus.Cancelled) return;
         await publisher.PublishAsync(opening ? RabbitMqRoutingKeys.FlashDealOpened : RabbitMqRoutingKeys.FlashDealExpired,

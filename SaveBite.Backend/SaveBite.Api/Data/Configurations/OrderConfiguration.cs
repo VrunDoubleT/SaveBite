@@ -12,9 +12,13 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         builder.Property(x => x.RefundedAmount).HasColumnName("refunded_amount").HasPrecision(12, 2).HasDefaultValue(0m);
         builder.Property(x => x.IsPlatformFeeExempt).HasColumnName("is_platform_fee_exempt");
+        builder.Property(x => x.PickupReminderEmailQueuedAt).HasColumnName("pickup_reminder_email_queued_at");
         builder.Property(x => x.PickupReminderEmailSentAt)
             .HasColumnName("pickup_reminder_email_sent_at").HasColumnType("timestamp with time zone");
 
+        builder.Property(x => x.ResaleDecisionDeadlineAt).HasColumnName("resale_decision_deadline_at");
+        builder.Property(x => x.ResaleDecisionJobId).HasColumnName("resale_decision_job_id").HasMaxLength(100);
+        builder.HasIndex(x => x.ResaleDecisionDeadlineAt);
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

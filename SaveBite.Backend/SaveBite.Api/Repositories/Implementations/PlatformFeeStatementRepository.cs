@@ -221,10 +221,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
     {
         await _context.Set<PlatformFeeAdjustment>().AddAsync(adjustment, ct);
     }
-    public void AddAuditLog(AuditLog audit)
-    {
-        _context.Set<AuditLog>().Add(audit);
-    }
+
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {

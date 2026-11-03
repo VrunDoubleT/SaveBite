@@ -1,3 +1,6 @@
+using System.Text.Json;
+using SaveBite.Backend.Messaging.Constants;
+using SaveBite.Backend.Messaging.Events;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
@@ -191,6 +194,14 @@ public sealed class ProductRepository : IProductRepository
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
 
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE product_id = {product.Id} ORDER BY id FOR UPDATE", ct);
+        var affectedDeals = await _db.FlashDeals.Where(d => d.ProductId == product.Id
+            && d.Status != FlashDealStatus.Cancelled && d.Status != FlashDealStatus.Closed).Select(d => d.Id).ToListAsync(ct);
+        foreach (var id in affectedDeals)
+            _db.Add(new OrderEventOutbox { Id = Guid.NewGuid(), EventKey = $"product-removal:{product.Id}:deal:{id}",
+                RoutingKey = RabbitMqRoutingKeys.FlashDealClosed,
+                PayloadJson = JsonSerializer.Serialize(new FlashDealEvent { FlashDealId = id }), CreatedAt = DateTime.UtcNow });
+
         await _db.FlashDeals
             .Where(x =>
                 x.ProductId == product.Id &&
@@ -201,6 +212,7 @@ public sealed class ProductRepository : IProductRepository
                     .SetProperty(
                         x => x.Status,
                         FlashDealStatus.Cancelled)
+                    .SetProperty(x => x.LifecycleSyncedAt, (DateTime?)null)
                     .SetProperty(
                         x => x.UpdatedAt,
                         DateTime.UtcNow),

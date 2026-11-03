@@ -23,13 +23,13 @@ public sealed class ShopService : IShopService
     private readonly IShopRepository _shopRepository;
     private readonly IUserAddressRepository _userAddressRepository;
     private readonly ICloudinaryService _cloudinaryService;
-    private readonly IRabbitMqPublisher _publisher;
+    private readonly IAdminAuditWriter _audit;
 
     public ShopService(
         IShopRepository shopRepository,
         IUserAddressRepository userAddressRepository,
         ICloudinaryService cloudinaryService,
-        IRabbitMqPublisher publisher,
+        IAdminAuditWriter audit,
         INotificationQueue notifications, AppDbContext db)
     {
         _db = db;
@@ -37,7 +37,7 @@ public sealed class ShopService : IShopService
         _shopRepository = shopRepository;
         _userAddressRepository = userAddressRepository;
         _cloudinaryService = cloudinaryService;
-        _publisher = publisher;
+        _audit = audit;
     }
 
     public async Task<ShopSummaryResponse> GetOwnerShopAsync(
@@ -535,11 +535,7 @@ public sealed class ShopService : IShopService
         shop.SuspendedForPlatformFees = false; // An administrator decision must never be undone by fee payment.
         shop.Status = targetStatus;
         shop.UpdatedAt = DateTime.UtcNow;
-        await _shopRepository.SaveChangesAsync(ct);
-
-        await transaction.CommitAsync(ct);
-
-        var moderationEvent = new ModerationEvent
+        var auditEntry = _audit.Record(new AuditLog
         {
             Id = Guid.NewGuid(),
             ActorUserId = adminId,
@@ -550,12 +546,14 @@ public sealed class ShopService : IShopService
             OldValuesJson = JsonSerializer.Serialize(oldValues),
             NewValuesJson = JsonSerializer.Serialize(new { Status = targetStatus.ToString() }),
             CreatedAt = DateTime.UtcNow
-        };
+        });
+        await _shopRepository.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
         await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
             NotificationType.ShopStatusChanged, "Shop status updated",
             $"{shop.Name}: {currentStatus} → {targetStatus}." + (string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}"),
-            "/account/workspace", $"shop-status:{moderationEvent.Id}"), ct);
-        await _publisher.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, moderationEvent, ct);
+            "/account/workspace", $"shop-status:{auditEntry.Id}"), ct);
 
         return new ModerationActionResponse
         {

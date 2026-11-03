@@ -18,13 +18,14 @@ public static class RabbitMqConsumerRegistration
         services.AddRabbitMqConsumer<EmailConsumer>();
         services.AddRabbitMqConsumer<NotificationConsumer>();
         services.AddRabbitMqConsumer<CartFlashDealConsumer>();
-        services.AddRabbitMqConsumer<OrderPendingConsumer>();
+        services.AddRabbitMqConsumer<RefundPlatformFeeConsumer>();
+        services.AddRabbitMqConsumer<RefundTrustConsumer>();
+        services.AddRabbitMqConsumer<InventoryChangedConsumer>();
         services.AddRabbitMqConsumer<OrderTrustConsumer>();
         services.AddRabbitMqConsumer<UserVerifiedConsumer>();
 
         services.AddRabbitMqConsumer<FlashDealConsumer>();
         services.AddRabbitMqConsumer<OrderPlatformFeeConsumer>();
-        services.AddRabbitMqConsumer<ModerationConsumer>();
         return services;
     }
 }

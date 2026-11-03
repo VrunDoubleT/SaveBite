@@ -29,7 +29,7 @@ public sealed class CheckoutService : ICheckoutService
     private readonly ICheckoutStockCache _stockCache;
     private readonly TimeProvider _clock;
     private readonly ICheckoutQuoteStore _quoteStore;
-    private readonly IOrderEventPublisher _orderEvents;
+    private readonly OrderConfirmationScheduling _confirmation;
     private readonly ICheckoutPaymentExpirationScheduler _paymentExpirationScheduler;
     private readonly IShopOrderEventService _shopOrderEvents;
 
@@ -42,7 +42,7 @@ public sealed class CheckoutService : ICheckoutService
         TimeProvider clock,
         ICheckoutQuoteStore quotes,
         ICheckoutPaymentExpirationScheduler paymentExpirationScheduler,
-        IOrderEventPublisher orderEvents,
+        OrderConfirmationScheduling confirmation,
         IShopOrderEventService shopOrderEvents,
         IOrderCodeCache orderCodes)
     {
@@ -54,7 +54,7 @@ public sealed class CheckoutService : ICheckoutService
         _stockCache = stockCache;
         _clock = clock;
         _quoteStore = quotes;
-        _orderEvents = orderEvents;
+        _confirmation = confirmation;
         _paymentExpirationScheduler = paymentExpirationScheduler;
         _shopOrderEvents = shopOrderEvents;
     }
@@ -242,14 +242,17 @@ public sealed class CheckoutService : ICheckoutService
             // Remove only this shop from the cart and commit its order, payment and inventory changes together.
             await _checkoutRepository.RemoveShopCartAsync(userId, quote.ShopId, ct);
             await _checkoutRepository.SaveAsync(ct);
-            // Persist the expiry job before commit; scheduling failure rolls back the order and its reservation.
+            // Persist the job metadata; scheduling failure leaves the durable deadline for Order recovery.
             if (order.PaymentExpiresAt.HasValue)
             {
                 order.PaymentExpirationJobId = _paymentExpirationScheduler.Schedule(order.Id, order.PaymentExpiresAt.Value);
                 await _checkoutRepository.SaveAsync(ct);
             }
             if (order.Status == OrderStatus.Pending)
-                await _orderEvents.QueuePendingAsync(order, ct);
+            {
+                _confirmation.Register(order);
+                await _checkoutRepository.SaveAsync(ct);
+            }
             return order.Id;
         }, ct), ct);
         if (notifyShopPending)

@@ -61,10 +61,7 @@ public sealed class UserRepository : IUserRepository
         _dbContext.Set<AccountStatusLog>().Add(log);
     }
 
-    public void AddAuditLog(AuditLog log)
-    {
-        _dbContext.Set<AuditLog>().Add(log);
-    }
+
 
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {

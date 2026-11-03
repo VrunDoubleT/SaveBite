@@ -32,8 +32,11 @@ public static class HangfireExtensions
         services.AddScoped<ShopOrderConfirmationJob>();
         services.AddScoped<ShopOrderNoShowJob>();
         services.AddScoped<PickupDeadlineReminderJob>();
+        services.AddScoped<ResaleDecisionExpirationJob>();
         services.AddScoped<OrderDeadlineRecoveryJob>();
         services.AddScoped<OrderOutboxRecoveryJob>();
+        services.AddScoped<RabbitFailureRecoveryJob>();
+        services.AddScoped<CartAvailabilityRecoveryJob>();
         services.AddScoped<FlashDealRecoveryJob>();
         services.AddScoped<PlatformFeeRecoveryJob>();
         services.AddScoped<PlatformFeeOverdueJob>();
@@ -85,6 +88,8 @@ public static class HangfireExtensions
         var recurring = app.Services.GetRequiredService<IRecurringJobManager>();
         recurring.AddOrUpdate<OrderDeadlineRecoveryJob>("order-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
         recurring.AddOrUpdate<OrderOutboxRecoveryJob>("order-outbox-dispatch", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<RabbitFailureRecoveryJob>("rabbit-failure-recovery", job => job.ExecuteAsync(CancellationToken.None), "*/5 * * * *");
+        recurring.AddOrUpdate<CartAvailabilityRecoveryJob>("cart-availability-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
         recurring.AddOrUpdate<RefundDeadlineRecoveryJob>("refund-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
         recurring.AddOrUpdate<FlashDealRecoveryJob>("flash-deal-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
         recurring.AddOrUpdate<StaffInvitationRecoveryJob>("staff-invitation-recovery", job => job.ExecuteAsync(false, CancellationToken.None), Cron.Minutely());
@@ -109,7 +114,7 @@ public static class HangfireExtensions
         recurring.AddOrUpdate<PlatformFeeOverdueJob>("platform-fee-overdue-check",
             job => job.ExecuteAsync(CancellationToken.None), Cron.Hourly());
 
-        // Stop the legacy notification recovery schedule; notifications now publish directly to RabbitMQ.
+        // Shared event_outbox recovery now dispatches notifications as well.
         app.Services.GetRequiredService<IRecurringJobManager>().RemoveIfExists("notification-outbox-recovery");
         return app;
     }

@@ -1,3 +1,4 @@
+using SaveBite.Backend.Data;
 using System.Security.Cryptography;
 using System.Text;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
@@ -19,6 +20,8 @@ namespace SaveBite.Backend.Services.Implementations;
 // Manage shop fulfillment, payment collection, deadlines, refunds and operator audit history.
 public sealed class ShopOrderService : IShopOrderService
 {
+    private readonly OrderResaleService _resale;
+    private readonly AppDbContext _db;
     private readonly IRefundDeadlineScheduler _refundDeadlines;
     private readonly IShopOrderRepository _shops;
     private readonly ICheckoutRepository _orders;
@@ -46,8 +49,10 @@ public sealed class ShopOrderService : IShopOrderService
         IShopOrderEventService orderEvents,
         IShopOrderNoShowScheduler noShowScheduler,
         IOrderEventPublisher eventPublisher,
-        IRefundDeadlineScheduler refundDeadlines)
+        IRefundDeadlineScheduler refundDeadlines, AppDbContext db, OrderResaleService resale)
     {
+        _resale = resale;
+        _db = db;
         _refundDeadlines = refundDeadlines;
         _shops = shops;
         _orders = orders;
@@ -150,7 +155,7 @@ public sealed class ShopOrderService : IShopOrderService
                 if (action == "confirm")
                 {
                     order.ConfirmedAt = Now;
-                    // Schedule within the transaction; a scheduling failure rolls back confirmation.
+                    // Scheduling is best effort; Order recovery covers the persisted deadline.
                     _noShowScheduler.Schedule(order.Id, order.HardDeadlineAt!.Value);
                 }
                 if (action == "ReadyForPickup") order.ReadyAt = Now;
@@ -321,12 +326,8 @@ public sealed class ShopOrderService : IShopOrderService
         await CloseLinksAsync(order, ct);
         await _orders.ReleaseCancelledInventoryAsync(order, ct);
         order.RemainingAmount = 0;
-        var refund = EnsureRefund(order, actor, reason);
-        if (refund != null)
-        {
-            var adjustment = RefundFeePolicy.Waive(order, refund, await _shops.FeeAsync(order.Id, ct), Now);
-            if (adjustment != null) _shops.AddFeeAdjustment(adjustment);
-        }
+        EnsureRefund(order, actor, reason);
+
     }
 
     // Record an outstanding full-refund request for collected funds without executing a transfer.
@@ -417,6 +418,7 @@ public sealed class ShopOrderService : IShopOrderService
             if (order == null || order.Status is not (OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.ReadyForPickup)) return (Guid?)null;
             if (order.HardDeadlineAt == null) throw new InvalidOperationException("The order has no pickup deadline.");
             if (order.HardDeadlineAt > Now) throw new InvalidOperationException("The NoShow job ran before its deadline.");
+            await _resale.BeginAsync(order, ct);
             order.NoShow = true;
             ChangeStatus(order, OrderStatus.NoShow, null, "Pickup deadline passed before collection.");
             // The outbox and status commit together; retries cannot create a second business event.
@@ -548,74 +550,9 @@ public sealed class ShopOrderService : IShopOrderService
             f.Status = RefundStatus.Transferred; f.TransferReference = reference.Trim(); f.TransferredAt = Now; f.ReviewedBy = userId; f.ReviewedAt = Now; f.UpdatedAt = Now;
             AddActivity(order, await _shops.ActorAsync(userId, shopId, ct), $"Recorded refund bank transfer of {transferredNow} VND: " + reference.Trim());
           
-          // BR-205: Update platform fee when Store Owner executes refund transfer
-if (transferredNow > 0)
-{
-    var orderFee = await _shops.GetOrderPlatformFeeAsync(order.Id, ct);
-    if (orderFee != null)
-    {
-        var feeReduction = Math.Round(transferredNow * orderFee.FeeRate, 2);
-        if (feeReduction > 0)
-        {
-            // Case 1: Statement is already Paid -> record PlatformFeeAdjustment for the next billing cycle
-            if (orderFee.Statement != null && orderFee.Statement.Status == PlatformFeeStatementStatus.Paid)
-            {
-                var adjustment = new PlatformFeeAdjustment
-                {
-                    Id = Guid.NewGuid(),
-                    ShopId = order.ShopId,
-                    OrderFeeId = orderFee.Id,
-                    RefundId = f.Id,
-                    StatementId = null,
-                    Amount = -feeReduction,
-                    Reason = $"Fee reduction via refund {transferredNow:N0} VND for order #{order.OrderCode}.",
-                    CreatedAt = Now
-                };
-                _shops.AddFeeAdjustment(adjustment);
-            }
-            // Case 2: Statement is not yet issued or not yet Paid -> directly deduct fee and record statement history
-            else
-            {
-                orderFee.FeeAmount = Math.Max(0, orderFee.FeeAmount - feeReduction);
-                orderFee.UpdatedAt = Now;
-
-                if (orderFee.Statement != null)
-                {
-                    var previousTotal = orderFee.Statement.TotalFeeAmount;
-                    var newTotal = Math.Max(0, previousTotal - feeReduction);
-                    orderFee.Statement.TotalFeeAmount = newTotal;
-                    orderFee.Statement.UpdatedAt = Now;
-
-                    if (newTotal == 0)
-                    {
-                        orderFee.Statement.Status = PlatformFeeStatementStatus.Paid;
-                        orderFee.Statement.PaidAt = Now;
-                        orderFee.Statement.DueAt = null;
-                    }
-
-                    var isPartial = f.RequestedAmount < order.TotalAmount;
-                    var history = new PlatformFeeStatementHistory
-                    {
-                        Id = Guid.NewGuid(),
-                        StatementId = orderFee.Statement.Id,
-                        PreviousAmount = previousTotal,
-                        ChangeAmount = -feeReduction,
-                        NewAmount = newTotal,
-                        ChangeType = isPartial
-                            ? StatementChangeType.PartialRefundDeduction
-                            : StatementChangeType.FullRefundDeduction,
-                        Reason = $"Fee reduction via refund {transferredNow:N0} VND for order #{order.OrderCode}.",
-                        RelatedRefundId = f.Id,
-                        RelatedOrderId = order.Id,
-                        CreatedAt = Now
-                    };
-                    _shops.AddStatementHistory(history);
-                }
-            }
-        }
-    }
-}
-
+            order.RefundedAmount += transferredNow;
+            f.FeeAdjustedAt = null; f.AccumulatedValueReclaimedAt = null;
+            LifecycleOutbox.RefundTransferred(_db, f, Now);
 
             await _orders.SaveAsync(ct);
             return MapRefund(f);

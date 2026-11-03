@@ -12,6 +12,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
 {
+    private readonly IAdminAuditWriter _audit;
     private static readonly TimeSpan EffectiveFromTolerance = TimeSpan.FromMinutes(1);
 
     private readonly IPlatformFeeConfigRepository _repository;
@@ -21,8 +22,9 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
     public PlatformFeeConfigService(
         IPlatformFeeConfigRepository repository,
         TimeProvider timeProvider,
-        ILogger<PlatformFeeConfigService> logger)
+        ILogger<PlatformFeeConfigService> logger, IAdminAuditWriter audit)
     {
+        _audit = audit;
         _repository = repository;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -117,7 +119,7 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
                     NewValuesJson = JsonSerializer.Serialize(new { FeeRate = normalizedRate, EffectiveFrom = effectiveFrom }),
                     CreatedAt = now
                 };
-                _repository.AddAuditLog(audit);
+                _audit.Record(audit);
             }
             else
             {
@@ -151,7 +153,7 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
                     NewValuesJson = JsonSerializer.Serialize(new { FeeRate = normalizedRate, EffectiveFrom = effectiveFrom }),
                     CreatedAt = now
                 };
-                _repository.AddAuditLog(audit);
+                _audit.Record(audit);
             }
         }
         else
@@ -214,7 +216,7 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
                 NewValuesJson = JsonSerializer.Serialize(new { resultConfig.FeeRate, resultConfig.EffectiveFrom }),
                 CreatedAt = now
             };
-            _repository.AddAuditLog(audit);
+            _audit.Record(audit);
         }
 
         await _repository.SaveChangesAsync(ct);
@@ -269,7 +271,7 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
             OldValuesJson = JsonSerializer.Serialize(new { config.FeeRate, config.EffectiveFrom }),
             CreatedAt = now
         };
-        _repository.AddAuditLog(audit);
+        _audit.Record(audit);
 
         await _repository.SaveChangesAsync(ct);
         _logger.LogInformation("Upcoming scheduled platform fee config {ConfigId} cancelled by Admin {AdminId}.", configId, adminId);

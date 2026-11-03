@@ -53,24 +53,27 @@ public class SmtpEmailService : IEmailService
             ? SecureSocketOptions.StartTls
             : SecureSocketOptions.None;
 
-        await smtp.ConnectAsync(
-            _options.Host,
-            _options.Port,
-            secureSocketOptions,
-            cancellationToken);
-
-        await smtp.AuthenticateAsync(
-            _options.Username,
-            _options.Password,
-            cancellationToken);
-
-        await smtp.SendAsync(
-            email,
-            cancellationToken);
-
-        await smtp.DisconnectAsync(
-            true,
-            cancellationToken);
+        try
+        {
+            await smtp.ConnectAsync(_options.Host, _options.Port, secureSocketOptions, cancellationToken);
+            await smtp.AuthenticateAsync(_options.Username, _options.Password, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            throw new EmailSendException("SMTP connection/authentication failed before sending.", false, ex);
+        }
+        try { await smtp.SendAsync(email, cancellationToken); }
+        catch (SmtpCommandException ex)
+        {
+            throw new EmailSendException("SMTP rejected the message.", false, ex);
+        }
+        catch (Exception ex)
+        {
+            throw new EmailSendException("SMTP did not confirm whether the message was accepted.", true, ex);
+        }
+        // An accepted message remains successful even if the subsequent QUIT fails.
+        try { await smtp.DisconnectAsync(true, cancellationToken); }
+        catch (Exception ex) { _logger.LogWarning(ex, "SMTP disconnect failed after accepting the email."); }
 
         _logger.LogInformation(
             "Email sent successfully to {Email}. Subject: {Subject}",

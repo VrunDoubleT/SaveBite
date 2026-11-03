@@ -3,6 +3,6 @@ namespace SaveBite.Backend.Services.Interfaces;
 
 public interface INotificationQueue
 {
-    // Publish directly to RabbitMQ after business success; failures are propagated without local persistence.
+    // Persist a durable notification request; joins the current database transaction when present.
     Task EnqueueAsync(NotificationTarget target, CreateNotificationCommand command, CancellationToken ct = default);
 }

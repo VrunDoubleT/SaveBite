@@ -35,8 +35,7 @@ public class PlatformFeeAdjustmentConfiguration
             .HasColumnName("refund_id")
             .IsRequired();
         
-        builder.HasIndex(x => x.RefundId)
-            .IsUnique();
+        builder.HasIndex(x => x.RefundId);
 
         builder.Property(x => x.StatementId)
             .HasColumnName("statement_id");
@@ -67,8 +66,8 @@ public class PlatformFeeAdjustmentConfiguration
             .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasOne(x => x.Refund)
-            .WithOne(x => x.PlatformFeeAdjustment)
-            .HasForeignKey<PlatformFeeAdjustment>(x => x.RefundId)
+            .WithMany(x => x.PlatformFeeAdjustments)
+            .HasForeignKey(x => x.RefundId)
             .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasOne(x => x.Statement)

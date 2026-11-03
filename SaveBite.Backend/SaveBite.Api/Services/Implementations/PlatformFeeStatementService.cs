@@ -16,6 +16,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 {
+    private readonly IAdminAuditWriter _audit;
     private readonly AppDbContext _db;
     private readonly INotificationQueue _notifications;
     private readonly IPlatformFeeStatementRepository _repository;
@@ -32,8 +33,9 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         ILogger<PlatformFeeStatementService> logger,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
-        INotificationQueue notifications, AppDbContext db)
+        INotificationQueue notifications, AppDbContext db, IAdminAuditWriter audit)
     {
+        _audit = audit;
         _db = db;
         _notifications = notifications;
         _repository = repository;
@@ -482,65 +484,28 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         _logger.LogInformation("Platform fee statement {StatementId} marked Paid.", payment.StatementId);
     }
 
-    // BR-093: Accrue platform fee on completed order revenue
     public async Task AccrueOrderPlatformFeeAsync(Guid orderId, CancellationToken ct = default)
     {
-        var order = await _repository.GetOrderByIdAsync(orderId, ct);
-        if (order == null || order.Status != OrderStatus.Completed)
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await RefundEventEffects.LockOrderAsync(_db, orderId, ct);
+        await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
+        var order = await _db.Orders.Include(o => o.Refunds).SingleAsync(o => o.Id == orderId, ct);
+        if (order.Status != OrderStatus.Completed) return;
+        if (!await _db.OrderPlatformFees.AnyAsync(f => f.OrderId == orderId, ct))
         {
-            return;
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            var asOf = order.CompletedAt ?? now;
+            var config = await _repository.GetActiveFeeConfigAsync(asOf, ct)
+                ?? throw new InvalidOperationException("An effective platform fee configuration is required.");
+            _db.Add(new OrderPlatformFee { Id = Guid.NewGuid(), OrderId = order.Id, ShopId = order.ShopId,
+                FeeConfigId = config.Id, GrossAmount = order.TotalAmount, FeeRate = config.FeeRate,
+                FeeAmount = Math.Round(order.TotalAmount * config.FeeRate, 2, MidpointRounding.AwayFromZero),
+                CalculatedAt = asOf, CreatedAt = now, UpdatedAt = now });
+            await _db.SaveChangesAsync(ct);
         }
-        // Check idempotency: If fee is already accrued for this order, do not duplicate
-        if (await _repository.HasOrderPlatformFeeAsync(orderId, ct))
-        {
-            _logger.LogInformation("Order fee already accrued for completed order {OrderId}. Skipping duplicate accrual.", orderId);
-            return;
-        }
-
-        // Business Rule: If order was refunded by shop, refunded amount is not counted into platform fee
-        var refundedAmount = order.Refunds
-            .Where(r => r.Status == RefundStatus.Transferred || r.Status == RefundStatus.Completed)
-            .Sum(r => r.TransferredAmount > 0 ? r.TransferredAmount : r.RequestedAmount);
-
-        var netGrossAmount = order.TotalAmount - refundedAmount;
-        if (netGrossAmount <= 0)
-        {
-            _logger.LogInformation("Order {OrderId} was fully refunded by shop ({RefundedAmount} VND). Skipping platform fee accrual.", orderId, refundedAmount);
-            return;
-            throw AppException.InternalError("Platform fee configuration is not configured in the system.");
-        }
-
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
-        var asOf = order.CompletedAt ?? now;
-        var config = await _repository.GetActiveFeeConfigAsync(asOf, ct);
-        if (config == null)
-        {
-            _logger.LogWarning("No active platform fee configuration found for completed order {OrderId}.", orderId);
-            return;
-        }
-
-        var feeRate = config.FeeRate;
-        var grossAmount = netGrossAmount;
-        var feeAmount = Math.Round(grossAmount * feeRate, 2);
-
-        var orderFee = new OrderPlatformFee
-        {
-            Id = Guid.NewGuid(),
-            OrderId = order.Id,
-            ShopId = order.ShopId,
-            FeeConfigId = config.Id,
-            StatementId = null,
-            GrossAmount = grossAmount,
-            FeeRate = feeRate,
-            FeeAmount = feeAmount,
-            CalculatedAt = asOf,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
-
-        await _repository.AddOrderPlatformFeeAsync(orderFee, ct);
-        await _repository.SaveChangesAsync(ct);
-        _logger.LogInformation("Accrued platform fee {FeeAmount} on completed order {OrderId} (Rate: {Rate}).", feeAmount, orderId, feeRate);
+        await RefundEventEffects.ReconcileFeesAsync(_db, order, _timeProvider.GetUtcNow().UtcDateTime, ct);
+        await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     // BR-095, BR-193: Automatically mark overdue statements and suspend delinquent shops
@@ -683,7 +648,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             NewValuesJson = JsonSerializer.Serialize(new { Amount = request.Amount, ReferenceCode = refCode, Note = request.Note }),
             CreatedAt = now
         };
-        _repository.AddAuditLog(audit);
+        _audit.Record(audit);
 
         await _repository.SaveChangesAsync(ct);
         await NotifyFeePaidAsync(statementId, ct);
@@ -729,27 +694,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 var shopFees = unbilledFees.Where(f => f.ShopId == shopId).ToList();
                 var shopAdjustments = unbilledAdjustments.Where(a => a.ShopId == shopId).ToList();
                 // Business Rule: If order was refunded by shop, refunded orders must not be counted into platform fee
-                var periodGrossFees = 0m;
-                foreach (var fee in shopFees)
-                {
-                    var feeAmount = fee.FeeAmount;
-                    if (fee.Order != null)
-                    {
-                        var refundedAmount = fee.Order.Refunds
-                            .Where(r => r.Status == RefundStatus.Transferred || r.Status == RefundStatus.Completed)
-                            .Sum(r => r.TransferredAmount > 0 ? r.TransferredAmount : r.RequestedAmount);
-
-                        if (refundedAmount >= fee.Order.TotalAmount && refundedAmount > 0)
-                        {
-                            var hasAdjustment = shopAdjustments.Any(a => a.OrderFeeId == fee.Id);
-                            if (!hasAdjustment)
-                            {
-                                feeAmount = 0m;
-                            }
-                        }
-                    }
-                    periodGrossFees += feeAmount;
-                }
+                // Refund consumers record explicit credits; do not infer a second waiver from refund status.
+                var periodGrossFees = shopFees.Sum(f => f.FeeAmount);
                 var periodAdjustments = shopAdjustments.Sum(a => a.Amount); // negative for refunds
 
                 var existingStatement = await _repository.GetShopStatementForPeriodAsync(shopId, billingYear, billingMonth, ct);

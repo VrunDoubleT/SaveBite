@@ -2,6 +2,9 @@ namespace SaveBite.Backend.Messaging.Constants;
 
 public static class RabbitMqQueues
 {
+    public const string RefundPlatformFeeQueueName = "refund_platform_fee_queue";
+    public const string RefundTrustQueueName = "refund_trust_queue";
+    public const string InventoryQueueName = "inventory_queue";
     public const string NotificationQueueName = "notification_queue";
     public const string NotificationDeadLetterQueueName = "notification_dead_letter_queue";
     public const string UserTrustQueueName = "user_trust_queue";
@@ -17,6 +20,4 @@ public static class RabbitMqQueues
     public const string FlashDealQueueName = "flashdeal_queue";
     public const string OrderPlatformFeeQueueName = "order_platform_fee_queue";
     public const string OrderPlatformFeeDeadLetterQueueName = "order_platform_fee_dead_letter_queue";
-    public const string ModerationQueueName = "moderation_queue";
-    public const string ModerationDeadLetterQueueName = "moderation_dead_letter_queue";
 }

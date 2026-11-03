@@ -26,11 +26,11 @@ public sealed class ProductService : IProductService
     private readonly ICloudinaryService _images;
     private readonly TimeProvider _clock;
     private readonly ILogger<ProductService> _logger;
-    private readonly IRabbitMqPublisher _publisher;
+    private readonly IAdminAuditWriter _audit;
 
     public ProductService(IProductRepository repository, ICloudinaryService images,
-        TimeProvider clock, ILogger<ProductService> logger, IRabbitMqPublisher publisher, AppDbContext db, INotificationQueue notifications)
-        => (_repository, _images, _clock, _logger, _publisher, _db, _notifications) = (repository, images, clock, logger, publisher, db, notifications);
+        TimeProvider clock, ILogger<ProductService> logger, IAdminAuditWriter audit, AppDbContext db, INotificationQueue notifications)
+        => (_repository, _images, _clock, _logger, _audit, _db, _notifications) = (repository, images, clock, logger, audit, db, notifications);
 
     public async Task<ProductSummaryResponse> GetSummaryAsync(Guid userId, CancellationToken ct)
         => await _repository.GetSummaryAsync(await RequireShopAsync(userId, ct), ct);
@@ -619,9 +619,7 @@ public sealed class ProductService : IProductService
         product.Status = ProductStatus.Hidden;
         product.UpdatedAt = now;
 
-        await _repository.RemoveProductForViolationAndCancelDealsAsync(product, ct);
-
-        var moderationEvent = new ModerationEvent
+        var auditEntry = _audit.Record(new AuditLog
         {
             Id = Guid.NewGuid(),
             ActorUserId = adminId,
@@ -637,12 +635,13 @@ public sealed class ProductService : IProductService
                 product.ShopId
             }),
             CreatedAt = DateTime.UtcNow
-        };
+        });
+        await _repository.RemoveProductForViolationAndCancelDealsAsync(product, ct);
+
         await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
             NotificationType.ProductRemoved, "Product removed for a violation",
             $"{product.Name} was removed by an administrator. Reason: {reason}",
-            "/store-owner/products", $"product-removed:{moderationEvent.Id}"), ct);
-        await _publisher.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, moderationEvent, ct);
+            "/store-owner/products", $"product-removed:{auditEntry.Id}"), ct);
 
         return new ModerationActionResponse
         {

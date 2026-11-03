@@ -169,10 +169,7 @@ public sealed class AuthService : IAuthService
             await _redis.RemoveAsync(pendingKey);
         }
 
-        // Publish only after the verified account has been saved successfully.
-        await _publisher.PublishAsync(RabbitMqRoutingKeys.UserVerified,
-            new UserVerifiedEvent(user.Id, now), cancellationToken);
-
+        // The verified-account event was saved atomically by TryAddUserAsync.
         _logger.LogInformation(
             "Registration completed. UserId: {UserId}",
             user.Id);
@@ -371,6 +368,7 @@ public sealed class AuthService : IAuthService
         var otp = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
         var salt = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         var record = new OtpRecord(salt, HashOtp(purpose, email, otp, salt));
+        var emailExpiresAt = UtcNow().Add(OtpLifetime());
         var key = RedisKeys.AuthOtp(purpose, subjectHash);
 
         // Store only a keyed hash of the OTP. The plain code exists only long.
@@ -387,6 +385,7 @@ public sealed class AuthService : IAuthService
                 RabbitMqRoutingKeys.EmailRoutingKey,
                 new EmailNotificationEvent
                 {
+                    ExpiresAt = emailExpiresAt,
                     To = email,
                     Subject = subject,
                     Body = OtpEmailTemplate.Build(

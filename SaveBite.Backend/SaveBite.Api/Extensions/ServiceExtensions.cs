@@ -8,6 +8,10 @@ public static class ServiceExtensions
     public static IServiceCollection AddServices(
         this IServiceCollection services)
     {
+        services.AddScoped<OrderConfirmationScheduling>();
+        services.AddScoped<OrderResaleService>();
+        services.AddScoped<RefundEventEffects>();
+        services.AddScoped<DealInventoryService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IRefundService, RefundService>();
         services.AddScoped<IRefundImageService, RefundImageService>();
@@ -15,6 +19,7 @@ public static class ServiceExtensions
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<EmailDeliveryService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IShopApplicationService, ShopApplicationService>();
@@ -42,6 +47,7 @@ public static class ServiceExtensions
         services.AddScoped<INotificationQueue, NotificationQueue>();
 
         services.AddScoped<IAuditLogService, AuditLogService>();
+        services.AddScoped<IAdminAuditWriter, AdminAuditWriter>();
         services.AddScoped<IStoreAnalyticsService, StoreAnalyticsService>();
         services.AddScoped<IPlatformAnalyticsService, PlatformAnalyticsService>();
 

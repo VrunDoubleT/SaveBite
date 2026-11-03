@@ -10,7 +10,7 @@ public sealed class OrderEventOutboxConfiguration : IEntityTypeConfiguration<Ord
     // Map durable outbox messages and the indexes used to dispatch pending events.
     public void Configure(EntityTypeBuilder<OrderEventOutbox> builder)
     {
-        builder.ToTable("order_event_outbox");
+        builder.ToTable("event_outbox");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasColumnName("id");
         builder.Property(x => x.OrderId).HasColumnName("order_id");
@@ -18,7 +18,8 @@ public sealed class OrderEventOutboxConfiguration : IEntityTypeConfiguration<Ord
         builder.Property(x => x.PayloadJson).HasColumnName("payload_json").HasColumnType("jsonb");
         builder.Property(x => x.CreatedAt).HasColumnName("created_at");
         builder.Property(x => x.PublishedAt).HasColumnName("published_at");
-        builder.HasIndex(x => new { x.OrderId, x.RoutingKey }).IsUnique();
-        builder.HasIndex(x => x.Id).HasDatabaseName("ix_order_outbox_pending").HasFilter("\"published_at\" IS NULL");
+        builder.Property(x => x.EventKey).HasColumnName("event_key").HasMaxLength(200).IsRequired();
+        builder.HasIndex(x => x.EventKey).IsUnique();
+        builder.HasIndex(x => x.Id).HasDatabaseName("ix_event_outbox_pending").HasFilter("\"published_at\" IS NULL");
     }
 }
