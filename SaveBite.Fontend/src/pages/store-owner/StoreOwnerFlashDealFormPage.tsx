@@ -456,12 +456,12 @@ export function StoreOwnerFlashDealFormPage() {
         const floor = Math.floor(priceNum / 1000) * 1000;
         const ceil = Math.ceil(priceNum / 1000) * 1000;
         toast.error(
-          `Deal price for ${v.variantName} must be a multiple of 1,000 VND. The two nearest valid values are ${floor.toLocaleString("vi-VN")}đ and ${ceil.toLocaleString("vi-VN")}đ.`
+          `Deal price for ${v.variantName} must be a multiple of 1,000 VND. The two nearest valid values are ${floor.toLocaleString("en-US")} VND and ${ceil.toLocaleString("en-US")} VND.`
         );
         return;
       }
       if (priceNum >= v.originalPrice) {
-        toast.error(`Deal price for ${v.variantName} must be lower than original price (${v.originalPrice.toLocaleString("vi-VN")}đ).`);
+        toast.error(`Deal price for ${v.variantName} must be lower than original price (${v.originalPrice.toLocaleString("en-US")} VND).`);
         return;
       }
       const qtyNum = Number(v.totalQuantity);
@@ -1030,7 +1030,7 @@ export function StoreOwnerFlashDealFormPage() {
                         <p className="text-[10px] text-neutral-400 font-mono mt-0.5">{v.sku}</p>
                       )}
                       <p className="mt-0.5 text-xs text-neutral-500">
-                        Original: <span className="font-semibold text-neutral-700">{v.originalPrice.toLocaleString("vi-VN")}đ</span>
+                        Original: <span className="font-semibold text-neutral-700">{v.originalPrice.toLocaleString("en-US")} VND</span>
                       </p>
                       {hasOrders && (
                         <span className="mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
@@ -1063,14 +1063,14 @@ export function StoreOwnerFlashDealFormPage() {
                                 : "border-neutral-300 bg-white focus:border-emerald-500 focus:ring-emerald-500"
                             }`}
                           />
-                          <span className="absolute right-2.5 top-1.5 text-xs text-neutral-400 font-medium">đ</span>
+                          <span className="absolute right-2.5 top-1.5 text-xs text-neutral-400 font-medium">VND</span>
                         </div>
 
                         {/* Real-time Inline Validation Message & Nearest Suggestions */}
                         {isNotMultipleOf1000 ? (
                           <div className="mt-1 space-y-1">
                             <p className="text-[10px] font-medium text-amber-600">
-                              Must be multiple of 1,000đ
+                              Must be a multiple of 1,000 VND
                             </p>
                             <div className="flex items-center gap-1 text-[10px]">
                               <span className="text-neutral-400">Nearest:</span>
@@ -1079,7 +1079,7 @@ export function StoreOwnerFlashDealFormPage() {
                                 onClick={() => handleUpdateVariant(index, "dealPrice", nearestFloor)}
                                 className="rounded bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 px-1.5 py-0.5 font-bold text-neutral-700 border border-neutral-200 transition text-[10px]"
                               >
-                                {nearestFloor.toLocaleString("vi-VN")}đ
+                                {nearestFloor.toLocaleString("en-US")} VND
                               </button>
                               {nearestCeil !== nearestFloor && (
                                 <button
@@ -1087,18 +1087,18 @@ export function StoreOwnerFlashDealFormPage() {
                                   onClick={() => handleUpdateVariant(index, "dealPrice", nearestCeil)}
                                   className="rounded bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 px-1.5 py-0.5 font-bold text-neutral-700 border border-neutral-200 transition text-[10px]"
                                 >
-                                  {nearestCeil.toLocaleString("vi-VN")}đ
+                                  {nearestCeil.toLocaleString("en-US")} VND
                                 </button>
                               )}
                             </div>
                           </div>
                         ) : isPriceGteOriginal ? (
                           <p className="mt-1 text-[10px] font-medium text-red-500">
-                            Must be lower than {v.originalPrice.toLocaleString("vi-VN")}đ
+                            Must be lower than {v.originalPrice.toLocaleString("en-US")} VND
                           </p>
                         ) : isPriceTooLow ? (
                           <p className="mt-1 text-[10px] font-medium text-red-500">
-                            Must be at least 1,000đ
+                            Must be at least 1,000 VND
                           </p>
                         ) : discountPercent > 0 ? (
                           <p className="mt-1 text-[10px] font-semibold text-emerald-600">

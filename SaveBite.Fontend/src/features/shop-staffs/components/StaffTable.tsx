@@ -4,7 +4,7 @@ import type { ShopStaff } from "../types/shopStaff.types";
 import { StaffStatusBadge } from "./StaffStatusBadge";
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString("vi-VN");
+  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
 }
 
 // Take up to 2 initials from the user's name for the avatar
@@ -24,27 +24,27 @@ interface Props {
   onRemove?: (staff: ShopStaff) => void;
 }
 
-const HEAD_CELL = "px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500";
+const HEAD_CELL = "px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500";
 
 const ICON_BUTTON =
-  "inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-900";
+  "inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900";
 
 export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
   if (staffs.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center">
-        <Users className="mb-3 h-10 w-10 text-gray-300" />
-        <p className="font-medium text-gray-900">No staff yet</p>
-        <p className="mt-1 text-sm text-gray-500">Invite your first staff member to get started.</p>
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-200 bg-white py-16 text-center shadow-2xs">
+        <Users className="mb-3 h-10 w-10 text-neutral-300" />
+        <p className="font-medium text-neutral-900">No staff yet</p>
+        <p className="mt-1 text-sm text-neutral-500">Invite your first staff member to get started.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px]">
-          <thead className="border-b border-gray-200 bg-gray-50">
+          <thead className="border-b border-neutral-200 bg-neutral-50/75">
             <tr>
               <th className={HEAD_CELL}>Staff</th>
               <th className={HEAD_CELL}>Role</th>
@@ -54,9 +54,9 @@ export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-neutral-100">
             {staffs.map((staff) => (
-              <tr key={staff.id} className="transition hover:bg-gray-50/70">
+              <tr key={staff.id} className="transition hover:bg-neutral-50/70">
                 {/* Staff info */}
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
@@ -64,20 +64,20 @@ export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
                       {getInitials(staff.displayName)}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-gray-900">{staff.displayName}</p>
+                      <p className="truncate font-medium text-neutral-900">{staff.displayName}</p>
 
                       {staff.staffNickname && (
-                        <p className="truncate text-xs text-gray-400">{staff.staffNickname}</p>
+                        <p className="truncate text-xs text-neutral-400">{staff.staffNickname}</p>
                       )}
 
-                      <p className="truncate text-sm text-gray-500">{staff.userEmail}</p>
+                      <p className="truncate text-sm text-neutral-500">{staff.userEmail}</p>
                     </div>
                   </div>
                 </td>
 
                 {/* Role */}
                 <td className="px-6 py-4">
-                  <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                  <span className="rounded-md bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-700">
                     Staff
                   </span>
                 </td>
@@ -88,7 +88,7 @@ export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
                 </td>
 
                 {/* Joined date */}
-                <td className="px-6 py-4 text-sm text-gray-600">{formatDate(staff.joinedAt)}</td>
+                <td className="px-6 py-4 text-sm text-neutral-600">{formatDate(staff.joinedAt)}</td>
 
                 {/* Actions */}
                 <td className="px-6 py-4">

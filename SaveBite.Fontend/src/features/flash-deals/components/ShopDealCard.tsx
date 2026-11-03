@@ -10,7 +10,7 @@ interface ShopDealCardProps {
 
 const formatVndPrice = (value: number) => {
   return Number.isFinite(value)
-    ? `${Math.round(value).toLocaleString("vi-VN")}đ`
+    ? `${Math.round(value).toLocaleString("en-US")} VND`
     : "—";
 };
 

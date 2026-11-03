@@ -341,7 +341,7 @@ export default function LatestShopApplication({
         />
       )}
       {application && status && (
-        <Card padding="none" aria-label="Latest shop application" className="overflow-hidden">
+<Card padding="none" aria-label="Latest shop application" className="overflow-hidden">
           {application.coverImageUrl && (
             <MediaImage
               src={application.coverImageUrl}

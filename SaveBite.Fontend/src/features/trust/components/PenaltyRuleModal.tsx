@@ -30,7 +30,7 @@ interface PenaltyRuleModalProps {
 
 const ONE_MINUTE_MS = 60_000;
 
-// Đọc thời gian hiện tại ở module scope: chỉ được gọi từ event handler (submit), không phải lúc render.
+// Read current time at module scope: only called from event handler (submit), not during render.
 const getNowMs = () => Date.now();
 
 export function PenaltyRuleModal({

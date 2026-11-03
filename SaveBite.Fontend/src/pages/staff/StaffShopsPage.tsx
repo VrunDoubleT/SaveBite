@@ -8,7 +8,7 @@ import type { AssociatedShop } from "@/features/staff-shops/types/staff.types";
 import { APP_PATHS } from "@/app/router/paths";
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString("vi-VN");
+  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
 }
 
 function getStatusStyle(status: AssociatedShop["status"]) {

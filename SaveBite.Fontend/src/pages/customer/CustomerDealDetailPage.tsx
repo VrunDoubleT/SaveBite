@@ -40,7 +40,9 @@ import { toast } from "@/shared/stores/toastStore";
 import { APP_PATHS } from "@/app/router/paths";
 
 const formatVnd = (value: number) => {
-  return Number.isFinite(value) ? `${Math.round(value).toLocaleString("vi-VN")}đ` : "—";
+  return Number.isFinite(value)
+    ? `${Math.round(value).toLocaleString("en-US")} VND`
+    : "—";
 };
 
 const formatTime = (iso?: string) => {

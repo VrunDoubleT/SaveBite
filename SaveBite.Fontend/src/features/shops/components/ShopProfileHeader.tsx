@@ -133,9 +133,9 @@ export function ShopProfileHeader({ shop, onEdit }: { shop: OwnerShop; onEdit: (
   const hasHours = Boolean(open && close);
 
   return (
-    <section className="rounded-[2rem] border border-border-default bg-bg-surface shadow-sm">
+    <section className="rounded-xl border border-neutral-200 bg-white shadow-2xs">
       {/* Cover */}
-      <div className="relative h-48 overflow-hidden rounded-t-[2rem] sm:h-64">
+      <div className="relative h-48 overflow-hidden rounded-t-xl sm:h-64">
         {shop.coverImageUrl ? (
           <>
             <img src={shop.coverImageUrl} alt="Shop cover" className="h-full w-full object-cover" />

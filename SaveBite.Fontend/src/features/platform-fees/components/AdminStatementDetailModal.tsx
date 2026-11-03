@@ -101,7 +101,7 @@ export function AdminStatementDetailModal({
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900">
                   {statement
-                    ? `${statement.shopName} — Kỳ ${statement.billingMonth}/${statement.billingYear}`
+                    ? `${statement.shopName} — Period ${statement.billingMonth}/${statement.billingYear}`
                     : "Statement Detail"}
                 </h3>
                 {statement && <StatusBadge status={statement.status} size="sm" />}

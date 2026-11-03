@@ -62,7 +62,7 @@ export function StaffActivityLog({ logs, loading = false }: StaffActivityLogProp
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+      <div className="rounded-xl border border-neutral-200 bg-white shadow-2xs p-6">
         <div className="h-5 w-40 animate-pulse rounded bg-gray-100" />
 
         <div className="mt-6 space-y-5">
@@ -82,7 +82,7 @@ export function StaffActivityLog({ logs, loading = false }: StaffActivityLogProp
   }
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white">
+    <section className="rounded-xl border border-neutral-200 bg-white shadow-2xs">
       <div className="border-b border-gray-100 px-6 py-5">
         <div className="flex items-center gap-2">
           <Clock size={19} className="text-gray-500" />
@@ -120,7 +120,7 @@ export function StaffActivityLog({ logs, loading = false }: StaffActivityLogProp
                     </p>
                   )}
 
-                  {/* Hiển thị Order ID trực tiếp từ API */}
+                  {/* Display Order ID directly from API */}
                   {log.orderId && <OrderIdBadge orderId={log.orderId} />}
 
                   {log.description && (

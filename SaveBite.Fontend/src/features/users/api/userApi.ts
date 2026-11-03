@@ -27,7 +27,7 @@ export const userApi = {
     };
   },
 
-  // chi tiết User lịch sử Log
+  // User activity history details
   async getUserDetails(id: string): Promise<UserDetailsResponse> {
     const res = await httpClient.get<ApiResponse<UserDetailsResponse>>(
       API_ENDPOINTS.USERS.DETAIL(id),
@@ -35,7 +35,7 @@ export const userApi = {
     return res.data.data;
   },
 
-  // Suspend và Reactivate Account Customer
+  // Suspend and reactivate customer account
   async updateStatus(id: string, data: UpdateUserStatusRequest) {
     const res = await httpClient.patch<ApiResponse<string>>(
       API_ENDPOINTS.USERS.STATUS(id),

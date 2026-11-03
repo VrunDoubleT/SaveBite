@@ -72,7 +72,7 @@ export function CancelFlashDealModal({
               <p className="text-[11px] text-neutral-400">{deal.categoryName || "Product"}</p>
               {deal.minDealPrice != null && (
                 <p className="text-[11px] font-medium text-red-600">
-                  {deal.minDealPrice.toLocaleString("vi-VN")}đ
+                  {deal.minDealPrice.toLocaleString("en-US")} VND
                 </p>
               )}
             </div>

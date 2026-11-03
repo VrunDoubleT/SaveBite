@@ -24,13 +24,13 @@ export function formatPaymentMethod(method: string): string {
   }
 }
 
-/** Short money for chart axes: 1,2 tỷ / 3,5 tr / 120k. */
+/** Short money for chart axes: 1.2B / 3.5M / 120k. */
 export function formatVndCompact(amount: number): string {
   const value = Math.abs(amount || 0);
   const sign = amount < 0 ? "-" : "";
   const fmt = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 1 });
-  if (value >= 1_000_000_000) return `${sign}${fmt(value / 1_000_000_000)} tỷ`;
-  if (value >= 1_000_000) return `${sign}${fmt(value / 1_000_000)} tr`;
+  if (value >= 1_000_000_000) return `${sign}${fmt(value / 1_000_000_000)}B`;
+  if (value >= 1_000_000) return `${sign}${fmt(value / 1_000_000)}M`;
   if (value >= 1_000) return `${sign}${fmt(value / 1_000)}k`;
   return `${sign}${Math.round(value)}`;
 }

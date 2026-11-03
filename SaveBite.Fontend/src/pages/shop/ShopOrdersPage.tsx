@@ -3,7 +3,7 @@ import { Pagination } from "@/shared/components/pagination";
 import { ConfirmationCountdown } from "@/features/shop-orders/components/ConfirmationCountdown";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Search, Package } from "lucide-react";
+import { CheckCircle2, Clock, Package, Search, ShoppingBag } from "lucide-react";
 import { shopOrderApi } from "@/features/shop-orders/api/shopOrderApi";
 import type { ShopOrderPage } from "@/features/shop-orders/types/shopOrder.types";
 import { OrderStatusPanel } from "@/features/checkout/components/OrderStatusPanel";
@@ -11,6 +11,8 @@ import { OrderPickupDeadlines } from "@/features/checkout/components/OrderPickup
 import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import { getApiErrorMessage } from "@/shared/api";
+import { useAuthStore } from "@/shared/stores/authStore";
+
 const statuses = [
   "All",
   "Pending",
@@ -23,12 +25,13 @@ const statuses = [
   "Expired",
   "NoShow",
 ];
-import { useAuthStore } from "@/shared/stores/authStore";
+
 export function ShopOrdersPage() {
   const { shopId, orderId } = useParams();
   const userId = useAuthStore((state) => state.user?.id);
   return <ShopOrdersPageContent key={`${userId}:${shopId}:${orderId}`} />;
 }
+
 function ShopOrdersPageContent() {
   const { shopId: staffShopId } = useParams();
   const [shopId, setShopId] = useState(staffShopId ?? "");
@@ -45,12 +48,15 @@ function ShopOrdersPageContent() {
   const [loading, setLoading] = useState(true);
   const [retry, setRetry] = useState(0);
   const [now, setNow] = useState(Date.now);
+
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
   const generation = useRef(0);
   const base = staffShopId ? `/staff/shops/${staffShopId}/orders` : "/store-owner/orders";
+
   useEffect(() => {
     const abort = new AbortController();
     if (staffShopId) return;
@@ -65,6 +71,7 @@ function ShopOrdersPageContent() {
       });
     return () => abort.abort();
   }, [staffShopId]);
+
   useEffect(() => {
     if (!shopId) return;
     const abort = new AbortController();
@@ -91,6 +98,7 @@ function ShopOrdersPageContent() {
       });
     return () => abort.abort();
   }, [shopId, status, search, searchDate, page, retry, shopRevision, reconnectRevision]);
+
   function reset() {
     setPage(1);
     generation.current++;
@@ -98,14 +106,76 @@ function ShopOrdersPageContent() {
     setData(null);
     setError("");
   }
+
+  const totalOrdersCount = data?.statusCounts
+    ? Object.values(data.statusCounts).reduce((a, b) => a + b, 0)
+    : data?.page?.totalItems ?? "—";
+
   return (
-    <div className="min-w-0 space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-neutral-900">Shop orders</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Confirm paid orders within 5 minutes, prepare items and verify payment before handover.
-        </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Shop orders</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            Confirm paid orders within 5 minutes, prepare items and verify payment before handover.
+          </p>
+        </div>
       </div>
+
+      {/* 4 Stats Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <ShoppingBag className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Total orders</p>
+              <p className="text-xl font-bold text-neutral-900">{totalOrdersCount}</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <Clock className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Pending confirmation</p>
+              <p className="text-xl font-bold text-amber-600">{data?.statusCounts?.Pending ?? 0}</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <Package className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Preparing & Ready</p>
+              <p className="text-xl font-bold text-blue-600">
+                {(data?.statusCounts?.Confirmed ?? 0) +
+                  (data?.statusCounts?.Preparing ?? 0) +
+                  (data?.statusCounts?.ReadyForPickup ?? 0)}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Completed</p>
+              <p className="text-xl font-bold text-emerald-600">{data?.statusCounts?.Completed ?? 0}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Filters */}
       <form
         className="flex max-w-lg gap-2"
         onSubmit={(e) => {
@@ -135,21 +205,41 @@ function ShopOrdersPageContent() {
             }}
             maxLength={64}
             placeholder="Pickup code or exact order ID"
-            className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm"
+            className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm focus:border-emerald-500 focus:outline-none"
           />
         </label>
         {/^\d{1,6}$/.test(input.trim()) && (
           <label className="shrink-0 text-xs text-neutral-500">
             <span className="sr-only">Order date (Vietnam time)</span>
-            <input type="date" value={orderDate || new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(now))} onChange={(e) => setOrderDate(e.target.value)} required
-              aria-label="Order date (Vietnam time)" className="h-10 rounded-lg border border-neutral-200 bg-white px-2 text-sm" />
+            <input
+              type="date"
+              value={
+                orderDate ||
+                new Intl.DateTimeFormat("en-CA", {
+                  timeZone: "Asia/Ho_Chi_Minh",
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                }).format(new Date(now))
+              }
+              onChange={(e) => setOrderDate(e.target.value)}
+              required
+              aria-label="Order date (Vietnam time)"
+              className="h-10 rounded-lg border border-neutral-200 bg-white px-2 text-sm focus:border-emerald-500 focus:outline-none"
+            />
           </label>
         )}
-        <button className="rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white">
+        <button className="rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
           Search
         </button>
       </form>
-      {/^\d{1,6}$/.test(input.trim()) && <p className="text-xs text-neutral-500">Pickup codes repeat daily. Select the order date in Vietnam time, especially for overnight pickups.</p>}
+      {/^\d{1,6}$/.test(input.trim()) && (
+        <p className="text-xs text-neutral-500">
+          Pickup codes repeat daily. Select the order date in Vietnam time, especially for overnight pickups.
+        </p>
+      )}
+
+      {/* Filter Tabs */}
       <div
         className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:thin]"
         aria-label="Filter shop orders"
@@ -163,7 +253,11 @@ function ShopOrdersPageContent() {
                 setStatus(value);
               }
             }}
-            className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold ${status === value ? "bg-emerald-600 text-white" : "border border-neutral-200 bg-white text-neutral-600"}`}
+            className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+              status === value
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
+            }`}
           >
             {value === "ReadyForPickup"
               ? "Ready for pickup"
@@ -174,6 +268,7 @@ function ShopOrdersPageContent() {
           </button>
         ))}
       </div>
+
       {error && (
         <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {error}
@@ -188,18 +283,19 @@ function ShopOrdersPageContent() {
           </button>
         </div>
       )}
+
       {loading ? (
         <p className="py-8 text-sm text-neutral-500">Loading orders…</p>
       ) : data?.page.items.length === 0 ? (
         <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500">
-          <Package className="mx-auto mb-2" />
+          <Package className="mx-auto mb-2 text-neutral-400" />
           No matching orders.
         </div>
       ) : (
         data?.page.items.map((row) => (
           <article
             key={row.order.id}
-            className="min-w-0 rounded-xl border border-neutral-200 bg-white p-4"
+            className="min-w-0 rounded-xl border border-neutral-200 bg-white p-4 shadow-2xs"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
@@ -215,7 +311,7 @@ function ShopOrdersPageContent() {
                 <p className="mb-2 text-xs text-neutral-400">{checkoutTime(row.order.createdAt)}</p>
                 <Link
                   to={`${base}/${row.order.id}`}
-                  className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700"
+                  className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition"
                 >
                   View details
                 </Link>

@@ -51,21 +51,21 @@ export function ShopProfilePage() {
 
   if (loading && !shop)
     return (
-      <div className="flex min-h-64 items-center justify-center gap-3 text-text-secondary">
-        <LoaderCircle className="animate-spin" /> Loading shop profile…
+      <div className="flex min-h-64 items-center justify-center gap-3 text-neutral-500">
+        <LoaderCircle className="animate-spin text-emerald-600" /> Loading shop profile…
       </div>
     );
   if (!shop)
     return (
-      <section className="mx-auto max-w-3xl rounded-2xl border border-border-default bg-bg-surface p-8 text-center">
-        <Store className="mx-auto mb-3 text-primary-600" size={36} />
-        <h1 className="text-xl font-bold text-text-primary">Shop profile unavailable</h1>
-        <p className="mt-2 text-sm text-text-secondary">
+      <section className="mx-auto max-w-3xl rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-2xs">
+        <Store className="mx-auto mb-3 text-emerald-600" size={36} />
+        <h1 className="text-xl font-bold text-neutral-900">Shop profile unavailable</h1>
+        <p className="mt-2 text-sm text-neutral-500">
           We couldn't load the shop associated with your account.
         </p>
         <button
           onClick={() => void loadProfile()}
-          className="mt-5 rounded-lg bg-primary-600 px-4 py-2 font-semibold text-white hover:bg-primary-700"
+          className="mt-5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
         >
           Try again
         </button>
@@ -74,17 +74,16 @@ export function ShopProfilePage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <p className="mb-2 text-xs font-bold tracking-[0.16em] text-primary-700">
-          STORE OWNER WORKSPACE
-        </p>
-        <h1 className="text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
-          Shop Profile
-        </h1>
-        <p className="mt-2 text-sm text-text-secondary">
-          View your shop details, registration documents and current status.
-        </p>
-      </header>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+            Shop Profile
+          </h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            View your shop details, registration documents and current status.
+          </p>
+        </div>
+      </div>
       {isEditing ? (
         <ShopBusinessInfoForm
           shop={shop}
@@ -101,3 +100,5 @@ export function ShopProfilePage() {
     </div>
   );
 }
+
+export default ShopProfilePage;
