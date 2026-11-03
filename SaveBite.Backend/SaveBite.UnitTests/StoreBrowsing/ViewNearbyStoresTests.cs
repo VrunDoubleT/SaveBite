@@ -2,6 +2,7 @@ using System.Text.Json;
 using FluentAssertions;
 using FluentValidation;
 using Moq;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Repositories.Interfaces;
@@ -27,13 +28,14 @@ public class ViewNearbyStoresTests
     private readonly Mock<ICloudinaryService> _cloudinaryServiceMock = new();
     private readonly ShopService _service;
     private readonly NearbyShopsRequestValidator _validator = new();
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
 
     public ViewNearbyStoresTests(ITestOutputHelper output)
     {
         _output = output;
         _shopRepoMock.Setup(r => r.GetActiveDealCountsForShopsAsync(It.IsAny<List<Guid>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<Guid, int>());
-        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object);
+        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object, _publisherMock.Object);
     }
 
     private List<Shop> CreateSampleShops()

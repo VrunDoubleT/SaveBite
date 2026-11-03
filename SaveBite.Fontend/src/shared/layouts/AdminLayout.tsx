@@ -10,6 +10,7 @@ import {
   Users,
   Tags,
   Receipt,
+  MessageSquare,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
@@ -67,8 +68,13 @@ const navigation = [
   },
   {
     to: APP_PATHS.ADMIN_REVIEWS,
-    label: "Feedbacks",
+    label: "Reviews",
     icon: Star,
+  },
+  {
+    to: APP_PATHS.ADMIN_FEEDBACK,
+    label: "Feedback Moderation",
+    icon: MessageSquare,
   },
 ] as const;
 export function AdminLayout() {

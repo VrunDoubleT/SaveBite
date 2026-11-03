@@ -20,8 +20,7 @@ using SaveBite.Backend.Services.Interfaces;
 using SaveBite.Api.Tests.UnitTests.Support;
 using Xunit;
 using Xunit.Abstractions;
-
-namespace SaveBite.Api.Tests.UnitTests.Support;
+namespace SaveBite.Tests.OrderManagement.Support;
 
 // Configure Moq responses and mutation callbacks; no concrete repository or database is used.
 internal sealed class CartTestContext

@@ -60,8 +60,7 @@ public class ViewFlashDealsForShopTests
             _staffRepoMock.Object,
             _backgroundJobClientMock.Object,
             _publisherMock.Object,
-            _loggerMock.Object
-        );
+            _loggerMock.Object, null!);
     }
 
     private Shop CreateSampleShop(Guid id, Guid ownerId, string name = "SaveBite Bakery")

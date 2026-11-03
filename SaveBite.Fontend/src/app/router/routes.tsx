@@ -75,7 +75,12 @@ import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
 import { PlatformFeeManagementPage } from "@/pages/admin/PlatformFeeManagementPage";
 import { PlatformFeesPage } from "@/pages/store-owner/PlatformFeesPage";
 import { PlatformFeeDetailPage } from "@/pages/store-owner/PlatformFeeDetailPage";
-
+import { ShopManagementPage } from "@/pages/admin/ShopManagementPage";
+import { ShopContentManagementPage } from "@/pages/admin/ShopContentManagementPage";
+import { ProductManagementPage } from "@/pages/admin/ProductManagementPage";
+import { ProductContentManagementPage } from "@/pages/admin/ProductContentManagementPage";
+import { WarningHistoryPage } from "@/features/warnings/pages/WarningHistoryPage";
+import { FeedbackManagementPage } from "@/pages/admin/FeedbackManagementPage";
 export const routes: RouteObject[] = [
   {
     element: <CustomerRoute />,
@@ -232,13 +237,11 @@ export const routes: RouteObject[] = [
           },
           {
             path: APP_PATHS.ADMIN_PRODUCTS,
-            element: (
-              <ComingSoonPage
-                title="Products"
-                description="Product management will appear here when its data source is ready."
-                backTo={APP_PATHS.ADMIN}
-              />
-            ),
+            element: <ProductManagementPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_PRODUCT_CONTENT,
+            element: <ProductContentManagementPage />,
           },
           {
             path: APP_PATHS.ADMIN_ORDERS,
@@ -252,15 +255,13 @@ export const routes: RouteObject[] = [
           },
           {
             path: APP_PATHS.ADMIN_STORES,
-            element: (
-              <ComingSoonPage
-                title="Stores"
-                description="The store management module is being prepared."
-                backTo={APP_PATHS.ADMIN}
-              />
-            ),
+            element: <ShopManagementPage />,
           },
-                    {
+          {
+            path: APP_PATHS.ADMIN_SHOP_CONTENT,
+            element: <ShopContentManagementPage />,
+          },
+          {
             path: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
             element: <AdminShopApplicationsPage />,
           },
@@ -276,11 +277,14 @@ export const routes: RouteObject[] = [
             path: APP_PATHS.ADMIN_REVIEWS,
             element: <AdminReviewsPage />,
           },
+          {
+            path: APP_PATHS.ADMIN_FEEDBACK,
+            element: <FeedbackManagementPage />,
+          },
         ],
       },
     ],
   },
-
   {
     element: <ProtectedRoute allowedRoles={STAFF_ROLES} />,
     children: [
@@ -414,6 +418,10 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.STORE_OWNER_REVIEWS,
             element: <StoreOwnerReviewsPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_WARNINGS,
+            element: <WarningHistoryPage />,
           },
         ],
       },

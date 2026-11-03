@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
@@ -38,16 +39,11 @@ public class UpdateVariantTests
     private readonly Guid _variantId = Guid.Parse("44444444-4444-4444-4444-444444444444");
     private readonly Guid _secondVariantId = Guid.Parse("55555555-5555-5555-5555-555555555555");
     private readonly Guid _nonExistentVariantId = Guid.Parse("99999999-9999-9999-9999-999999999999");
-
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
     public UpdateVariantTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ProductService(
-            _repositoryMock.Object,
-            _cloudinaryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object
-        );
+        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, _publisherMock.Object, null!);
     }
 
     private Product CreateSampleProduct(bool hasMultipleActiveVariants = false)

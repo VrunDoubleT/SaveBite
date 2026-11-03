@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
@@ -39,16 +40,11 @@ public class UpdateProductInfoTests
     private readonly Guid _newCategoryId = Guid.Parse("55555555-5555-5555-5555-555555555555");
     private readonly Guid _inactiveCategoryId = Guid.Parse("66666666-6666-6666-6666-666666666666");
     private readonly Guid _nonExistentProductId = Guid.Parse("99999999-9999-9999-9999-999999999999");
-
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
     public UpdateProductInfoTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ProductService(
-            _repositoryMock.Object,
-            _cloudinaryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object
-        );
+        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, _publisherMock.Object, TestDbContextFactory.Create());
     }
 
     // =========================================================================

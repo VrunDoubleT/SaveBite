@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using SaveBite.Backend.Configurations;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
@@ -33,6 +34,7 @@ public class AddAttributesValuesTests
     private readonly Mock<ILogger<ProductService>> _loggerMock = new();
     private readonly ProductService _service;
     private readonly AddProductValuesRequestValidator _validator;
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
 
     private readonly Guid _userId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly Guid _shopId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -46,12 +48,8 @@ public class AddAttributesValuesTests
     public AddAttributesValuesTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ProductService(
-            _repositoryMock.Object,
-            _cloudinaryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object
-        );
+        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, _publisherMock.Object, TestDbContextFactory.Create());
+
 
         var cloudinaryOptions = Options.Create(new CloudinarySettings
         {

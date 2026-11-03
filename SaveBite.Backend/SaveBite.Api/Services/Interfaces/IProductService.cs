@@ -19,4 +19,10 @@ public interface IProductService
     Task<ProductResponse> UpdateVariantAsync(Guid userId, Guid productId, Guid variantId, UpdateProductVariantRequest request, CancellationToken ct);
     Task<ProductResponse> UpdateStatusAsync(Guid userId, Guid productId, UpdateProductStatusRequest request, CancellationToken ct);
     Task<ProductResponse> UpdateValueImageAsync(Guid userId, Guid productId, Guid valueId, UpdateProductValueImageRequest request, CancellationToken ct);
+
+    // Manage Products.
+    Task<PagedResult<ProductListResponse>> GetProductListAsync(string? keyword, int page, int pageSize, CancellationToken ct);
+    Task<ProductContentResponse> GetProductContentAsync(Guid productId, CancellationToken ct);
+    Task<ModerationActionResponse> RemoveProductAsync(Guid adminId, Guid productId, RemoveViolatingProductRequest request, CancellationToken ct);
+    Task<ModerationActionResponse> ApproveContentAsync(Guid adminId, Guid productId, Guid revisionId, CancellationToken ct);
 }   

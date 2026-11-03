@@ -3,6 +3,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Moq;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
@@ -25,14 +26,14 @@ public class EditFeedbackTests
     private readonly ITestOutputHelper _output;
     private readonly Mock<IFeedbackRepository> _feedbackRepoMock = new();
     private readonly FeedbackService _service;
-
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
     private readonly Guid _userId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly Guid _feedbackId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     public EditFeedbackTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new FeedbackService(_feedbackRepoMock.Object);
+        _service = new FeedbackService(_feedbackRepoMock.Object, _publisherMock.Object);
     }
 
     private ProductFeedback CreateFeedback(Guid userId, FeedbackStatus status = FeedbackStatus.Visible)

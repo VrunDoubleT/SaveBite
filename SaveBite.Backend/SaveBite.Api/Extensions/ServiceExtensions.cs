@@ -75,6 +75,7 @@ public static class ServiceExtensions
         services.AddScoped<ICartDealEventService, CartDealEventService>();
         services.AddScoped<IPlatformFeeConfigService, PlatformFeeConfigService>();
         services.AddScoped<IPlatformFeeStatementService, PlatformFeeStatementService>();
+        services.AddScoped<IWarningService, WarningService>();
 
         return services;
     }

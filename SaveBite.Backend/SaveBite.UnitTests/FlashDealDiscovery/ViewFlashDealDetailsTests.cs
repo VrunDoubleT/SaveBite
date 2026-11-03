@@ -48,8 +48,7 @@ public class ViewFlashDealDetailsTests
             _staffRepo.Object,
             _backgroundJobClientMock.Object,
             _publisherMock.Object,
-            _loggerMock.Object
-        );
+            _loggerMock.Object, null!);
     }
 
     private FlashDeal CreateDatabaseDeal(bool withDealVariants = true, bool withShop = true)

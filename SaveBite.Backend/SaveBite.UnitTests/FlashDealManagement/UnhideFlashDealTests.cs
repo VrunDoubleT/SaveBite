@@ -49,17 +49,17 @@ public class UnhideFlashDealTests
     public UnhideFlashDealTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new FlashDealService(
-            _redisMock.Object,
-            _dealRepoMock.Object,
-            _userAddressRepoMock.Object,
-            _shopRepoMock.Object,
-            _staffRepoMock.Object,
-            _backgroundJobClientMock.Object,
-            _publisherMock.Object,
-            _loggerMock.Object
-        );
-    }
+       _service = new FlashDealService(
+                   _redisMock.Object,
+                   _dealRepoMock.Object,
+                   _userAddressRepoMock.Object,
+                   _shopRepoMock.Object,
+                   _staffRepoMock.Object,
+                   _backgroundJobClientMock.Object,
+                   _publisherMock.Object,
+                   _loggerMock.Object, TestDbContextFactory.Create());
+           }
+
 
     private Shop CreateSampleShop()
     {

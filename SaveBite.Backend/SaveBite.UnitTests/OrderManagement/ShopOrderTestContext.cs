@@ -20,8 +20,7 @@ using SaveBite.Backend.Services.Interfaces;
 using SaveBite.Api.Tests.UnitTests.Support;
 using Xunit;
 using Xunit.Abstractions;
-
-namespace SaveBite.Api.Tests.UnitTests.Support;
+namespace SaveBite.Tests.OrderManagement.Support;
 
 internal sealed class ShopOrderTestContext
 {

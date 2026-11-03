@@ -61,6 +61,9 @@ export const API_ENDPOINTS = {
     REVIEWS: (shopId: string) => `/shops/${shopId}/reviews`,
     PAYMENT_CONFIG: "/shops/me/payment-config",
     UPDATE_PAYMENT_CONFIG: "/shops/me/payment-config",
+    ADMIN_LIST: "/shops/admin",
+    ADMIN_CONTENT: (id: string) => `/shops/admin/${id}`,
+    MODERATION_STATUS: (shopId: string) => `/shops/admin/${encodeURIComponent(shopId)}/status`,
   },
   SHOP_APPLICATIONS: {
     BASE: "/shop-applications",
@@ -115,6 +118,11 @@ export const API_ENDPOINTS = {
     VARIANTS: (productId: string, variantId: string) =>
       `/products/${productId}/variants/${variantId}`,
     FLASH_DEALS: (productId: string) => `/products/${productId}/flash-deals`,
+    ADMIN_LIST: "/products/admin",
+    ADMIN_CONTENT: (id: string) => `/products/admin/${id}`,
+    APPROVE_CONTENT: (productId: string, revisionId: string) =>
+      `/products/admin/${encodeURIComponent(productId)}/content-revisions/${encodeURIComponent(revisionId)}/approve`,
+    VIOLATION: (productId: string) => `/products/admin/${encodeURIComponent(productId)}/violation`,
   },
   TRUST_SCORE: {
     ME: "/trust-score/me",
@@ -184,7 +192,19 @@ export const API_ENDPOINTS = {
   NOTIFICATIONS: {
     BASE: "/notifications",
     MARK_ALL_READ: "/notifications/read-all",
-    MARK_READ: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}/read`,
+    MARK_READ: (notificationId: string) =>
+      `/notifications/${encodeURIComponent(notificationId)}/read`,
     DELETE: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}`,
+  },
+  WARNINGS: {
+    BASE: "/warnings",
+    DETAIL: (warningId: string) => `/warnings/${encodeURIComponent(warningId)}`,
+    ISSUE_FOR_PRODUCT: (productId: string) =>
+      `/warnings/admin/products/${encodeURIComponent(productId)}`,
+  },
+  FEEDBACK: {
+    BASE: "/feedback",
+    REMOVE: (feedbackId: string) => `/feedback/${encodeURIComponent(feedbackId)}`,
+    RESTORE: (feedbackId: string) => `/feedback/${encodeURIComponent(feedbackId)}/restore`,
   },
 } as const;

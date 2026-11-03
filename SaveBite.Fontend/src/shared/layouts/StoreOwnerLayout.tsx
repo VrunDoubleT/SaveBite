@@ -7,6 +7,7 @@ import {
   Package,
   Settings2,
   Star,
+  ShieldAlert,
   Store,
   Users,
   Zap,
@@ -49,6 +50,12 @@ const navigation = [
     icon: Users,
   },
   {
+    to: APP_PATHS.STORE_OWNER_STAFF,
+    label: "Staff Management",
+    end: false,
+    icon: Users,
+  },
+  {
     to: APP_PATHS.STORE_OWNER_PRODUCTS,
     label: "Products",
     end: false,
@@ -77,6 +84,12 @@ const navigation = [
     label: "Shop Profile",
     end: false,
     icon: Settings2,
+  },
+  {
+    to: "/store-owner/warnings",
+    label: "Warning History",
+    end: false,
+    icon: ShieldAlert,
   },
 ] as const;
 export function StoreOwnerLayout() {

@@ -56,9 +56,9 @@ public class CreateFlashDealTests
             _staffRepoMock.Object,
             _backgroundJobClientMock.Object,
             _publisherMock.Object,
-            _loggerMock.Object
-        );
+            _loggerMock.Object, TestDbContextFactory.Create());
     }
+
 
     private Shop CreateSampleShop()
     {

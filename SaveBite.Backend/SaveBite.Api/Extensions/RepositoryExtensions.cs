@@ -37,12 +37,13 @@ public static class RepositoryExtensions
         services.AddScoped<IPlatformFeeStatementRepository, PlatformFeeStatementRepository>();
         services.AddScoped<IPlatformFeeConfigRepository, PlatformFeeConfigRepository>();
         services.AddScoped<IRefundRepository, RefundRepository>();
-        
+
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<IStoreAnalyticsRepository, StoreAnalyticsRepository>();
         services.AddScoped<IPlatformAnalyticsRepository, PlatformAnalyticsRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
 
+        services.AddScoped<IWarningRepository, WarningRepository>();
         return services;
     }
-}   
+}

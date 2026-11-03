@@ -3,6 +3,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Moq;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
@@ -25,6 +26,7 @@ public class ViewStoreProfileTests
     private readonly Mock<IShopRepository> _shopRepoMock = new();
     private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
     private readonly Mock<ICloudinaryService> _cloudinaryServiceMock = new();
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
     private readonly ShopService _service;
 
     // Fixed Test Identifiers
@@ -34,7 +36,7 @@ public class ViewStoreProfileTests
     public ViewStoreProfileTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object);
+        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object, _publisherMock.Object);
     }
 
     private Shop CreateValidShop(TimeOnly? openingTime = null, TimeOnly? closingTime = null)

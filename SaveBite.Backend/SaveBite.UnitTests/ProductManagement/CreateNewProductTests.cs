@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using SaveBite.Backend.Configurations;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
@@ -38,16 +39,11 @@ public class CreateNewProductTests
     private readonly Guid _shopId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private readonly Guid _categoryId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private readonly Guid _invalidCategoryId = Guid.Parse("44444444-4444-4444-4444-444444444444");
-
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
     public CreateNewProductTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ProductService(
-            _repositoryMock.Object,
-            _cloudinaryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object
-        );
+        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, _publisherMock.Object, null!);
 
         var cloudinaryOptions = Options.Create(new CloudinarySettings
         {

@@ -4,6 +4,7 @@ using FluentAssertions;
 using FluentValidation;
 using Moq;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
@@ -30,6 +31,7 @@ public class ViewStoreReviewsTests
     private readonly Mock<ICloudinaryService> _cloudinaryServiceMock = new();
     private readonly ShopService _service;
     private readonly StoreReviewsQueryRequestValidator _validator = new();
+    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
 
     // Fixed Test Identifiers
     private readonly Guid _existingShopId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -41,7 +43,7 @@ public class ViewStoreReviewsTests
     public ViewStoreReviewsTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object);
+        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object, _publisherMock.Object);
     }
 
     private List<ProductFeedback> CreateSampleFeedbacks()

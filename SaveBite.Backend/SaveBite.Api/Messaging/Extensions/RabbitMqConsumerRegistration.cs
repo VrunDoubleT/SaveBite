@@ -21,9 +21,9 @@ public static class RabbitMqConsumerRegistration
         services.AddRabbitMqConsumer<OrderPendingConsumer>();
         services.AddRabbitMqConsumer<OrderTrustConsumer>();
         services.AddRabbitMqConsumer<UserVerifiedConsumer>();
-
         services.AddRabbitMqConsumer<FlashDealConsumer>();
         services.AddRabbitMqConsumer<OrderPlatformFeeConsumer>();
+        services.AddRabbitMqConsumer<ModerationConsumer>();
         return services;
     }
 }

@@ -18,10 +18,11 @@ using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Implementations;
 using SaveBite.Backend.Services.Interfaces;
 using SaveBite.Api.Tests.UnitTests.Support;
+using SaveBite.Tests.OrderManagement.Support;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace SaveBite.Api.Tests.UnitTests;
+namespace SaveBite.Tests.OrderManagement;
 
 [Trait("Category", "Unit")]
 public class ViewItemsInCartTests
