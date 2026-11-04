@@ -11,6 +11,7 @@ public sealed class RabbitFailureRecoveryJob(IConnection connection, RabbitMqTop
 {
     public static readonly IReadOnlyList<(string Source, string Destination)> Queues = new[]
     {
+        (RabbitMqQueues.ShopDealOpenedQueueName + "_dead_letter", RabbitMqQueues.ShopDealOpenedQueueName),
         ("email_dead_letter_queue", RabbitMqQueues.EmailQueueName),
         ("flashdeal_dead_letter_queue", RabbitMqQueues.FlashDealQueueName),
         (RabbitMqQueues.CartFlashDealDeadLetterQueueName, RabbitMqQueues.CartFlashDealQueueName),

@@ -2848,6 +2848,42 @@ namespace SaveBite.Backend.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.ShopFollow", b =>
+                {
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTime>("FollowedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("followed_at");
+
+                    b.Property<string>("NotificationStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("notification_status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("CustomerId", "ShopId");
+
+                    b.HasIndex("CustomerId", "FollowedAt");
+
+                    b.HasIndex("ShopId", "NotificationStatus", "FollowedAt");
+
+                    b.ToTable("shop_follows", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_shop_follows_notification_status", "notification_status IN ('Disabled', 'Enabled')");
+                        });
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.ShopPaymentConfig", b =>
                 {
                     b.Property<int>("Id")
@@ -4519,6 +4555,25 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("Admin");
 
                     b.Navigation("Application");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.ShopFollow", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.Shop", "Shop")
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Shop");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.ShopPaymentConfig", b =>

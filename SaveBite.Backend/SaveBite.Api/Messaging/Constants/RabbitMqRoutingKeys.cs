@@ -2,6 +2,7 @@ namespace SaveBite.Backend.Messaging.Constants;
 
 public static class RabbitMqRoutingKeys
 {
+    public const string ShopDealOpened = "shop.deal.opened";
     public const string RefundTransferred = "refund.transferred";
     public const string InventoryChanged = "inventory.changed";
     public const string NotificationRequested = "notification.requested";

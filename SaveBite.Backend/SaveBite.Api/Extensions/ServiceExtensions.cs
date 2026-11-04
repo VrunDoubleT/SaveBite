@@ -12,6 +12,8 @@ public static class ServiceExtensions
         services.AddScoped<OrderResaleService>();
         services.AddScoped<RefundEventEffects>();
         services.AddScoped<DealInventoryService>();
+        services.AddScoped<IShopFollowService, ShopFollowService>();
+        services.AddScoped<ShopDealNotificationService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IRefundService, RefundService>();
         services.AddScoped<IRefundImageService, RefundImageService>();

@@ -51,6 +51,7 @@ public class RabbitMqTopologyInitializer : IHostedService
 
         foreach (var binding in new[]
         {
+            (RabbitMqQueues.ShopDealOpenedQueueName, RabbitMqRoutingKeys.ShopDealOpened),
             (RabbitMqQueues.RefundPlatformFeeQueueName, RabbitMqRoutingKeys.RefundTransferred),
             (RabbitMqQueues.RefundTrustQueueName, RabbitMqRoutingKeys.RefundTransferred),
             (RabbitMqQueues.InventoryQueueName, RabbitMqRoutingKeys.InventoryChanged)

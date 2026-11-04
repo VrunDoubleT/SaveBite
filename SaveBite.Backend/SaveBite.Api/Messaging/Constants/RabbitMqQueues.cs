@@ -2,6 +2,7 @@ namespace SaveBite.Backend.Messaging.Constants;
 
 public static class RabbitMqQueues
 {
+    public const string ShopDealOpenedQueueName = "shop_deal_opened_queue";
     public const string RefundPlatformFeeQueueName = "refund_platform_fee_queue";
     public const string RefundTrustQueueName = "refund_trust_queue";
     public const string InventoryQueueName = "inventory_queue";

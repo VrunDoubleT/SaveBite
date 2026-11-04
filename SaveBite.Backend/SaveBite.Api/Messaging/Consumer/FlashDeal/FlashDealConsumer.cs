@@ -52,8 +52,6 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var dealRepository = scope.ServiceProvider.GetRequiredService<IFlashDealRepository>();
         var redisService = scope.ServiceProvider.GetRequiredService<IFlashDealRedisService>();
-        var dealService = scope.ServiceProvider.GetRequiredService<IFlashDealService>();
-        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationQueue>();
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE id = {dealEvent.FlashDealId} FOR UPDATE", cancellationToken);
         var current = await db.FlashDeals.AsNoTracking().SingleOrDefaultAsync(d => d.Id == dealEvent.FlashDealId, cancellationToken);
@@ -73,7 +71,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         switch (routingKey)
         {
             case RabbitMqRoutingKeys.FlashDealOpened:
-                await HandleDealOpenedAsync(dealEvent.FlashDealId, db, dealRepository, redisService, dealService, notificationService, cancellationToken);
+                await HandleDealOpenedAsync(dealEvent.FlashDealId, db, dealRepository, redisService, cancellationToken);
                 break;
 
             case RabbitMqRoutingKeys.FlashDealClosed:
@@ -95,8 +93,6 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         AppDbContext db,
         IFlashDealRepository dealRepository,
         IFlashDealRedisService redisService,
-        IFlashDealService dealService,
-        INotificationQueue notificationService,
         CancellationToken cancellationToken)
     {
         var deal = await dealRepository.GetActiveDealByIdAsync(flashDealId, cancellationToken);
@@ -126,15 +122,8 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         {
             await redisService.SaveDealAsync(customerResponse, deal.Shop.Latitude, deal.Shop.Longitude);
 
-            if (deal.Status == FlashDealStatus.OnSale) await notificationService.EnqueueAsync(
-                    NotificationTarget.Customers(),
-                    new CreateNotificationCommand(
-                        NotificationType.FlashDealAvailable,
-                        $"New Flash Deal from {deal.Shop.Name}!",
-                        $"'{customerResponse.ProductName}' is now on sale. Order now before it runs out!",
-                        ActionUrl: NotificationActionUrls.FlashDeal(deal.Id),
-                        DeduplicationKey: $"flash-deal-opened:{deal.Id}"),
-                    cancellationToken);
+            if (customerResponse.IsPurchasable)
+                await ShopDealOpenedOutbox.StageAsync(db, deal.Id, deal.ShopId, DateTime.UtcNow, cancellationToken);
         }
     }
 

@@ -26,6 +26,11 @@ public sealed class OrderEventDispatchJob
         {
             switch (message.RoutingKey)
             {
+                case RabbitMqRoutingKeys.ShopDealOpened:
+                    await _publisher.PublishAsync(message.RoutingKey,
+                        JsonSerializer.Deserialize<ShopDealOpenedEvent>(message.PayloadJson)
+                            ?? throw new InvalidOperationException("Invalid shop deal opening event."), ct);
+                    break;
                 case "internal.cart.refresh":
                     var refresh = JsonSerializer.Deserialize<CartRefreshEvent>(message.PayloadJson)
                         ?? throw new InvalidOperationException("Invalid cart refresh request.");

@@ -53,6 +53,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher
             routingKey: routingKey,
             // Durable lifecycle events must be routed before their outbox can be marked published.
             mandatory: routingKey.StartsWith("order.", StringComparison.Ordinal)
+                || routingKey == Constants.RabbitMqRoutingKeys.ShopDealOpened
                 || routingKey.StartsWith("flashdeal.", StringComparison.Ordinal)
                 || routingKey == Constants.RabbitMqRoutingKeys.EmailRoutingKey
                 || routingKey == Constants.RabbitMqRoutingKeys.RefundTransferred

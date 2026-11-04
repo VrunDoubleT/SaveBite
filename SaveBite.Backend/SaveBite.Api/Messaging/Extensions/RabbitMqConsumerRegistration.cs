@@ -17,6 +17,7 @@ public static class RabbitMqConsumerRegistration
         // Example registration: services.AddRabbitMqConsumer<TestProductConsumer>();
         services.AddRabbitMqConsumer<EmailConsumer>();
         services.AddRabbitMqConsumer<NotificationConsumer>();
+        services.AddRabbitMqConsumer<ShopDealOpenedConsumer>();
         services.AddRabbitMqConsumer<CartFlashDealConsumer>();
         services.AddRabbitMqConsumer<RefundPlatformFeeConsumer>();
         services.AddRabbitMqConsumer<RefundTrustConsumer>();
