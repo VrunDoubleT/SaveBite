@@ -1,14 +1,6 @@
-import {
-  CheckCircle2,
-  CircleAlert,
-  Info,
-  X,
-} from "lucide-react";
+import { CheckCircle2, CircleAlert, Info, X } from "lucide-react";
 
-import {
-  type ToastType,
-  useToastStore,
-} from "@/shared/stores/toastStore";
+import { type ToastType, useToastStore } from "@/shared/stores/toastStore";
 
 const toastStyles: Record<
   ToastType,
@@ -18,63 +10,39 @@ const toastStyles: Record<
   }
 > = {
   success: {
-    container: "border-emerald-200 bg-white",
-    icon: "text-emerald-600",
+    container: "border-primary-200 bg-bg-surface",
+    icon: "text-primary-700",
   },
 
   error: {
-    container: "border-red-200 bg-white",
-    icon: "text-red-600",
+    container: "border-danger/30 bg-bg-surface",
+    icon: "text-danger-strong",
   },
 
   info: {
-    container: "border-blue-200 bg-white",
-    icon: "text-blue-600",
+    container: "border-info/30 bg-bg-surface",
+    icon: "text-info-strong",
   },
 };
 
-function ToastIcon({
-  type,
-}: {
-  type: ToastType;
-}) {
-  const className =
-    `mt-0.5 shrink-0 ${toastStyles[type].icon}`;
+function ToastIcon({ type }: { type: ToastType }) {
+  const className = `mt-0.5 shrink-0 ${toastStyles[type].icon}`;
 
   if (type === "success") {
-    return (
-      <CheckCircle2
-        size={20}
-        className={className}
-      />
-    );
+    return <CheckCircle2 size={20} className={className} />;
   }
 
   if (type === "error") {
-    return (
-      <CircleAlert
-        size={20}
-        className={className}
-      />
-    );
+    return <CircleAlert size={20} className={className} />;
   }
 
-  return (
-    <Info
-      size={20}
-      className={className}
-    />
-  );
+  return <Info size={20} className={className} />;
 }
 
 export function ToastViewport() {
-  const toasts = useToastStore(
-    (state) => state.toasts,
-  );
+  const toasts = useToastStore((state) => state.toasts);
 
-  const removeToast = useToastStore(
-    (state) => state.removeToast,
-  );
+  const removeToast = useToastStore((state) => state.removeToast);
 
   return (
     <div
@@ -98,17 +66,13 @@ export function ToastViewport() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          role={
-            toast.type === "error"
-              ? "alert"
-              : "status"
-          }
+          role={toast.type === "error" ? "alert" : "status"}
           className={`
             pointer-events-auto
             flex
             items-start
             gap-3
-            rounded-2xl
+            rounded-lg
             border
             px-4
             py-3.5
@@ -125,7 +89,7 @@ export function ToastViewport() {
               text-sm
               font-medium
               leading-5
-              text-gray-800
+              text-text-primary
             "
           >
             {toast.message}
@@ -133,17 +97,15 @@ export function ToastViewport() {
 
           <button
             type="button"
-            onClick={() =>
-              removeToast(toast.id)
-            }
+            onClick={() => removeToast(toast.id)}
             className="
               shrink-0
               rounded-lg
               p-1
-              text-gray-400
+              text-text-muted
               transition
-              hover:bg-gray-100
-              hover:text-gray-700
+              hover:bg-neutral-100
+              hover:text-text-secondary
             "
             aria-label="Dismiss notification"
           >

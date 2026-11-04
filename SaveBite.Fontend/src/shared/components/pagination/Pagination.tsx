@@ -50,7 +50,9 @@ export function Pagination({
   size = "md",
 }: PaginationProps) {
   // Keep incomplete pagination metadata from rendering NaN or invalid navigation targets.
-  const totalPages = Number.isFinite(requestedTotalPages) ? Math.max(1, Math.trunc(requestedTotalPages)) : 1;
+  const totalPages = Number.isFinite(requestedTotalPages)
+    ? Math.max(1, Math.trunc(requestedTotalPages))
+    : 1;
   const currentPage = Number.isFinite(requestedPage) ? Math.trunc(requestedPage) : 1;
   const safeCurrentPage = Math.max(1, Math.min(currentPage, totalPages));
 
@@ -127,7 +129,7 @@ export function Pagination({
     <nav
       role="navigation"
       aria-label="Pagination Navigation"
-      className={`flex flex-col items-center justify-between gap-4 rounded-xl border border-neutral-200/80 bg-white p-3.5 shadow-xs sm:flex-row sm:px-5 sm:py-3 ${className}`}
+      className={`flex flex-col items-center justify-between gap-4 rounded-lg border border-border-default/80 bg-bg-surface p-3.5 shadow-xs sm:flex-row sm:px-5 sm:py-3 ${className}`}
     >
       {/* Information text */}
       <div className="text-xs text-neutral-500">
@@ -148,7 +150,7 @@ export function Pagination({
       </div>
 
       {/* Controls */}
-      <div className={`flex items-center ${sizeClasses.gap}`}>
+      <div className={`flex max-w-full flex-wrap items-center justify-center ${sizeClasses.gap}`}>
         {/* First page button */}
         {showFirstLast && (
           <button
@@ -157,7 +159,7 @@ export function Pagination({
             disabled={safeCurrentPage <= 1}
             title="First page"
             aria-label="First page"
-            className={`inline-flex items-center justify-center rounded-lg border border-neutral-200 bg-white font-medium text-neutral-600 shadow-2xs transition hover:border-emerald-300 hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-200 disabled:hover:bg-white ${sizeClasses.btn}`}
+            className={`inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-surface font-medium text-neutral-600 shadow-2xs transition hover:border-primary-300 hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border-default disabled:hover:bg-bg-surface ${sizeClasses.btn}`}
           >
             <ChevronsLeft size={sizeClasses.iconSize} />
           </button>
@@ -169,7 +171,7 @@ export function Pagination({
           onClick={() => onPageChange(safeCurrentPage - 1)}
           disabled={safeCurrentPage <= 1}
           aria-label="Previous page"
-          className={`inline-flex items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-700 shadow-2xs transition hover:border-emerald-300 hover:bg-neutral-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-200 disabled:hover:bg-white disabled:hover:text-neutral-700 ${sizeClasses.navBtn}`}
+          className={`inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-surface text-neutral-700 shadow-2xs transition hover:border-primary-300 hover:bg-neutral-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border-default disabled:hover:bg-bg-surface disabled:hover:text-neutral-700 ${sizeClasses.navBtn}`}
         >
           <ChevronLeft size={sizeClasses.iconSize} />
           <span>Previous</span>
@@ -203,8 +205,8 @@ export function Pagination({
                   sizeClasses.btn
                 } ${
                   isCurrent
-                    ? "bg-emerald-600 text-white shadow-2xs font-bold ring-2 ring-emerald-500/20"
-                    : "border border-neutral-200 bg-white text-neutral-700 shadow-2xs hover:border-emerald-300 hover:bg-neutral-50 hover:text-emerald-700 font-medium"
+                    ? "bg-primary-700 text-text-inverse shadow-2xs font-bold ring-2 ring-primary-500/20"
+                    : "border border-border-default bg-bg-surface text-neutral-700 shadow-2xs hover:border-primary-300 hover:bg-neutral-50 hover:text-primary-700 font-medium"
                 }`}
               >
                 {page}
@@ -219,7 +221,7 @@ export function Pagination({
           onClick={() => onPageChange(safeCurrentPage + 1)}
           disabled={safeCurrentPage >= totalPages}
           aria-label="Next page"
-          className={`inline-flex items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-700 shadow-2xs transition hover:border-emerald-300 hover:bg-neutral-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-200 disabled:hover:bg-white disabled:hover:text-neutral-700 ${sizeClasses.navBtn}`}
+          className={`inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-surface text-neutral-700 shadow-2xs transition hover:border-primary-300 hover:bg-neutral-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border-default disabled:hover:bg-bg-surface disabled:hover:text-neutral-700 ${sizeClasses.navBtn}`}
         >
           <span>Next</span>
           <ChevronRight size={sizeClasses.iconSize} />
@@ -233,7 +235,7 @@ export function Pagination({
             disabled={safeCurrentPage >= totalPages}
             title="Last page"
             aria-label="Last page"
-            className={`inline-flex items-center justify-center rounded-lg border border-neutral-200 bg-white font-medium text-neutral-600 shadow-2xs transition hover:border-emerald-300 hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-200 disabled:hover:bg-white ${sizeClasses.btn}`}
+            className={`inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-surface font-medium text-neutral-600 shadow-2xs transition hover:border-primary-300 hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border-default disabled:hover:bg-bg-surface ${sizeClasses.btn}`}
           >
             <ChevronsRight size={sizeClasses.iconSize} />
           </button>

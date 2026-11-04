@@ -39,6 +39,7 @@ import { ShopApplicationFormPage } from "@/pages/customer/ShopApplicationFormPag
 import ShopApplicationPage from "@/pages/customer/ShopApplicationPage";
 import { TrustScorePage } from "@/pages/customer/TrustScorePage";
 import { ReviewsPage } from "@/pages/customer/ReviewsPage";
+import { OrderRefundRequestPage } from "@/pages/customer/OrderRefundRequestPage";
 import { OrderDetailPage } from "@/pages/customer/OrderDetailPage";
 import { OrdersPage } from "@/pages/customer/OrdersPage";
 import { ProfilePage } from "@/pages/customer/ProfilePage";
@@ -82,8 +83,17 @@ import { ProductContentManagementPage } from "@/pages/admin/ProductContentManage
 import { WarningHistoryPage } from "@/features/warnings/pages/WarningHistoryPage";
 import { FeedbackManagementPage } from "@/pages/admin/FeedbackManagementPage";
 
-
 export const routes: RouteObject[] = [
+  ...(import.meta.env.DEV && import.meta.env.VITE_ENABLE_UI_SHOWCASE === "true"
+    ? [
+        {
+          path: "/__ui",
+          lazy: async () => ({
+            Component: (await import("@/pages/dev/UiShowcasePage")).UiShowcasePage,
+          }),
+        },
+      ]
+    : []),
   {
     element: <CustomerRoute />,
     children: [
@@ -144,6 +154,10 @@ export const routes: RouteObject[] = [
               {
                 path: "/checkout/simulation",
                 element: <CheckoutSimulationPage />,
+              },
+              {
+                path: APP_PATHS.ORDER_REFUND_REQUEST,
+                element: <OrderRefundRequestPage />,
               },
               {
                 path: APP_PATHS.ORDER_DETAIL,

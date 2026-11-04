@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Store } from "lucide-react";
-import { APP_PATHS } from "@/app/router/paths";
+import { useParams } from "react-router-dom";
+import { Store } from "lucide-react";
+import { Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
 import { getApiErrorMessage } from "@/shared/api";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
@@ -76,65 +76,46 @@ function RefundDetail({ refundId }: { refundId: string }) {
   }
   return (
     <div className="w-full min-w-0 space-y-4">
-      <Link
-        to={APP_PATHS.ACCOUNT_REFUNDS}
-        className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-emerald-700"
-      >
-        <ArrowLeft size={16} />
-        My refunds
-      </Link>
-      <header>
-        <h1 className="text-xl font-bold text-neutral-900">Refund details</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Follow your refund, confirmed destination and complete decision history.
-        </p>
-      </header>
       {error && (
-        <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          {error}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setRevision((old) => old + 1)}
-            className="ml-3 underline"
-          >
-            Retry
-          </button>
-        </p>
+        <ErrorState
+          title="Couldn't load refund details"
+          description={error}
+          onRetry={busy ? undefined : () => setRevision((old) => old + 1)}
+        />
       )}
       {!refund && !error && (
-        <p role="status" className="py-6 text-sm text-neutral-500">
-          Loading refund…
-        </p>
+        <div role="status" aria-label="Loading refund details" className="space-y-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-48" />
+          <Skeleton className="h-80" />
+        </div>
       )}
       {refund && (
         <>
-          <section className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-400">
-                  <Store size={24} />
-                  {refund.shopLogoUrl && (
-                    <img
-                      src={refund.shopLogoUrl}
-                      alt={`${refund.shopName} logo`}
-                      onError={(event) => {
-                        event.currentTarget.style.display = "none";
-                      }}
-                      className="absolute inset-0 size-full object-cover"
-                    />
-                  )}
-                </span>
-                <div className="min-w-0">
-                  <h2 className="break-words text-sm font-semibold">{refund.shopName}</h2>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Order {refund.orderCode} · Requested {checkoutTime(refund.createdAt)} · GMT+7
-                  </p>
-                </div>
+          <Card
+            padding="compact"
+            aria-label="Refund details"
+            className="flex flex-wrap items-center justify-between gap-3 !bg-primary-50/40"
+          >
+            <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1">
+              <MediaImage
+                src={refund.shopLogoUrl}
+                alt=""
+                fallbackIcon={Store}
+                showFallbackLabel={false}
+                className="size-10 shrink-0 rounded-md"
+              />
+              <div className="min-w-0">
+                <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
+                  {refund.shopName}
+                </h2>
+                <p className="mt-1 text-caption text-text-secondary">
+                  Order {refund.orderCode} · Requested {checkoutTime(refund.createdAt)} · GMT+7
+                </p>
               </div>
-              <RefundStatusBadge status={refund.status} overdue={refund.isOverdue} />
             </div>
-          </section>
+            <RefundStatusBadge status={refund.status} overdue={refund.isOverdue} />
+          </Card>
           <CustomerRefundDetailContent refund={refund} busy={busy} mutate={mutate} />
         </>
       )}

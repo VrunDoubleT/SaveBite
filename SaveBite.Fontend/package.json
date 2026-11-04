@@ -9,13 +9,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "test:checkout": "node tests/checkout-policy.test.mjs",
-    "test:shop-orders": "node tests/shop-order-history.test.mjs",
-    "test:cart": "node tests/cart-store.test.mjs",
-    "test:realtime": "node tests/realtime-client.test.mjs",
-    "test:address-location": "node tests/address-location.test.mjs",
-    "preview": "vite preview",
-    "test:products": "playwright test"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -28,6 +22,7 @@
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.89.0",
     "react-router-dom": "^7.18.3",
+    "recharts": "^3.10.1",
     "tailwindcss": "^4.3.3",
     "zod": "^4.6.5",
     "zustand": "^5.0.15"

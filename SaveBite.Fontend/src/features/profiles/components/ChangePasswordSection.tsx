@@ -1,5 +1,6 @@
+import { Button } from "@/shared/components/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { LoaderCircle, LockKeyhole } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { authApi } from "@/features/auth/api/authApi";
 import { PasswordField } from "@/features/auth/components/PasswordField";
@@ -48,21 +49,21 @@ export function ChangePasswordSection({ onClose }: { onClose: () => void }) {
   return (
     <section
       id="change-password-form"
-      className="mt-6 border-t border-border-default pt-6"
+      className="space-y-4 [&_[role=alert]]:text-danger-strong"
       aria-labelledby="change-password-title"
     >
       <h2
         id="change-password-title"
-        className="flex items-center gap-2 text-lg font-bold text-text-primary"
+        className="flex items-center gap-2 text-section font-semibold text-text-primary"
       >
-        <LockKeyhole className="size-5" aria-hidden="true" />
+        <LockKeyhole className="size-5 text-secondary-700" aria-hidden="true" />
         Change password
       </h2>
-      <p className="mt-2 text-sm text-text-secondary">
+      <p className="mt-2 text-body text-text-secondary">
         Enter your current password to set a new one.
       </p>
-      <form className="mt-5 space-y-5" onSubmit={submit} noValidate>
-        <fieldset disabled={isSubmitting || isLoggingOut} className="space-y-5 disabled:opacity-60">
+      <form className="space-y-4" onSubmit={submit} noValidate>
+        <fieldset disabled={isSubmitting || isLoggingOut} className="space-y-4 disabled:opacity-60">
           <PasswordField
             {...register("currentPassword")}
             autoFocus
@@ -71,7 +72,7 @@ export function ChangePasswordSection({ onClose }: { onClose: () => void }) {
             aria-invalid={Boolean(errors.currentPassword)}
             error={errors.currentPassword?.message}
           />
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <PasswordField
               {...register("newPassword")}
               label="New password"
@@ -92,28 +93,25 @@ export function ChangePasswordSection({ onClose }: { onClose: () => void }) {
             (maximum 72 UTF-8 bytes).
           </p>
           {errors.root?.server?.message && (
-            <p role="alert" className="text-sm text-danger">
+            <p role="alert" className="text-body text-danger-strong">
               {errors.root.server.message}
             </p>
           )}
           <div className="flex flex-wrap justify-end gap-3 border-t border-border-default pt-5">
-            <button
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => {
                 reset();
                 onClose();
               }}
-              className="rounded-full border border-border-default px-5 py-2.5 text-sm font-semibold text-text-secondary hover:bg-bg-subtle"
+              className="min-h-11"
             >
               Cancel
-            </button>
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-5 py-2.5 text-sm font-semibold text-primary-700 hover:bg-primary-100 disabled:cursor-not-allowed"
-            >
-              {isSubmitting && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
+            </Button>
+            <Button loading={isSubmitting} type="submit" className="min-h-11">
               {isSubmitting ? "Changing password..." : "Save new password"}
-            </button>
+            </Button>
           </div>
         </fieldset>
       </form>

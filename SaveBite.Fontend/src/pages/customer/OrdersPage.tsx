@@ -1,10 +1,22 @@
-﻿import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
+import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
 import { readCustomerOrderPages } from "@/features/orders/utils/readCustomerOrderPages";
 import { OrderPickupCode } from "@/features/checkout/components/OrderPickupCode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, CheckCircle2, MapPin, Package, ShoppingBag, Star, Store } from "lucide-react";
+import { ArrowRight, ChevronDown, Clock3, MapPin, ShoppingBag, Star, Store } from "lucide-react";
+import {
+  Button,
+  ButtonLink,
+  Card,
+  EmptyState,
+  ErrorState,
+  MediaImage,
+  FilterBar,
+  Skeleton,
+} from "@/shared/components/ui";
+import { OrderItems, type OrderReviewTarget } from "@/features/orders/components/OrderItems";
+import { OrderPaymentAmounts } from "@/features/orders/components/OrderPaymentAmounts";
 import { RateOrderModal } from "@/features/feedbacks/components/RateOrderModal";
 import { EditReviewModal } from "@/features/feedbacks/components/EditReviewModal";
 import { APP_PATHS } from "@/app/router/paths";
@@ -13,7 +25,6 @@ import { OrderStatusPanel } from "@/features/checkout/components/OrderStatusPane
 import { OrderPickupDeadlines } from "@/features/checkout/components/OrderPickupDeadlines";
 import type { CheckoutOrder } from "@/features/checkout/types/checkout.types";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
-import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
 import { getApiErrorMessage } from "@/shared/api";
 import { useAuthStore } from "@/shared/stores/authStore";
 
@@ -73,12 +84,9 @@ function CustomerOrders({
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [ratingOrder, setRatingOrder] = useState<CheckoutOrder | null>(null);
-  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<{
-    feedbackId: string;
-    productName?: string;
-    variantName?: string;
-    imageUrl?: string | null;
-  } | null>(null);
+  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<OrderReviewTarget | null>(
+    null,
+  );
   const [now, setNow] = useState(Date.now);
   const alive = useRef(true);
   const operation = useRef(false);
@@ -175,76 +183,70 @@ function CustomerOrders({
     observer.observe(sentinel.current);
     return () => observer.disconnect();
   }, [loading, loadingMore, pageError, hasMore, loadMore, orders.length]);
+  const countFor = (value: string) =>
+    value === "All"
+      ? Object.values(counts).reduce((sum, count) => sum + count, 0)
+      : (counts[value] ?? 0);
   return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">My orders</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Track your meals, payments, and pickup times. All times are GMT+7.
-          </p>
-        </div>
+    <div className="min-w-0 space-y-4">
+      <FilterBar
+        filters={[
+          {
+            label: "Order status",
+            value: status,
+            options: tabs.map(([value, label]) => ({
+              value,
+              label: `${label}${loading ? "" : ` (${countFor(value)})`}`,
+            })),
+            onChange: onFilter,
+          },
+        ]}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-2 text-caption text-text-secondary">
+        <p role="status">
+          {loading
+            ? "Loading orders…"
+            : `${orders.length} ${orders.length === 1 ? "order" : "orders"} shown · ${tabs.find(([value]) => value === status)?.[1]}`}
+        </p>
+        <span className="inline-flex items-center gap-1.5">
+          <Clock3 size={14} aria-hidden="true" />
+          Pickup times · GMT+7
+        </span>
       </div>
-      <nav
-        aria-label="Filter orders by status"
-        className="order-status-scroll flex max-w-full gap-2 overflow-x-auto rounded-xl border border-neutral-200 bg-white p-2"
-      >
-        {tabs.map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={status === value}
-            onClick={() => onFilter(value)}
-            className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${status === value ? "bg-emerald-600 text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
-          >
-            {label}
-            <span
-              className={`rounded-full px-1.5 py-0.5 text-xs ${status === value ? "bg-white/20" : "bg-neutral-100"}`}
-            >
-              {loading
-                ? "…"
-                : value === "All"
-                  ? Object.values(counts).reduce((sum, count) => sum + count, 0)
-                  : (counts[value] ?? 0)}
-            </span>
-          </button>
-        ))}
-      </nav>
       {pageError && (
-        <div
-          role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
-        >
-          {pageError}
-          <button
-            type="button"
-            onClick={() => (orders.length ? void loadMore() : onRefresh())}
-            className="ml-3 font-semibold underline"
-          >
-            Retry
-          </button>
-        </div>
+        <ErrorState title="Couldn't load orders" description={pageError} onRetry={onRefresh} />
       )}
       {loading && (
-        <p role="status" className="py-8 text-center text-sm text-neutral-500">
-          Loading orders…
-        </p>
+        <div role="status" aria-label="Loading order cards" className="space-y-4">
+          {[0, 1, 2].map((key) => (
+            <Card padding="compact" key={key} className="space-y-4">
+              <Skeleton className="h-14 w-3/4" />
+              <Skeleton className="h-8 w-2/3" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-16" />
+            </Card>
+          ))}
+        </div>
       )}
       {!loading && !pageError && !hasMore && orders.length === 0 && (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center">
-          <ShoppingBag size={36} className="mx-auto text-emerald-600" />
-          <h2 className="mt-4 font-semibold text-neutral-900">
-            {status === "All" ? "You have no orders yet" : "No orders in this status"}
-          </h2>
-          <p className="mt-2 text-sm text-neutral-500">
-            {status === "All"
+        <EmptyState
+          icon={ShoppingBag}
+          title={status === "All" ? "You have no orders yet" : "No orders in this status"}
+          description={
+            status === "All"
               ? "Find a deal and save a meal today."
-              : "Choose another status to find your orders."}
-          </p>
-          <Link to={APP_PATHS.CART} className="mt-4 inline-block font-semibold text-emerald-700">
-            Open cart
-          </Link>
-        </div>
+              : "Choose another status to find your orders."
+          }
+          action={
+            status === "All" ? (
+              <ButtonLink to={APP_PATHS.CART}>Open cart</ButtonLink>
+            ) : (
+              <Button variant="secondary" onClick={() => onFilter("All")}>
+                View all orders
+              </Button>
+            )
+          }
+        />
       )}
       <EditReviewModal
         isOpen={Boolean(editingFeedbackTarget)}
@@ -261,206 +263,134 @@ function CustomerOrders({
         order={ratingOrder}
         onSubmitted={onRefresh}
       />
-      {orders.map((order) => (
-        <article
-          key={order.id}
-          aria-label={`Order ${order.orderCode}`}
-          className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs"
-        >
-          <header className="px-4 pt-4 sm:px-5 sm:pt-5">
-            <div className="mb-4 flex items-start justify-between gap-3 border-b border-neutral-100 pb-3 text-xs text-neutral-500">
-              <div className="min-w-0 flex-1">
-                <OrderPickupCode code={order.orderCode} compact />
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-2">
-                {order.createdAt && (
-                  <time dateTime={order.createdAt}>{checkoutTime(order.createdAt)}</time>
-                )}
-                <Link
-                  to={APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id))}
-                  className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
-                >
-                  View details
-                  <ArrowRight size={16} />
-                </Link>
-              </div>
-            </div>
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-100 text-emerald-700">
-                <Store size={20} />
-                {order.shopLogoUrl && (
-                  <img
-                    src={order.shopLogoUrl}
-                    alt=""
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                    }}
-                    className="absolute inset-0 size-full object-cover"
-                  />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate font-bold text-neutral-900">{order.shopName}</h2>
-                {order.shopAddress && (
-                  <p className="mt-0.5 flex items-center gap-1 text-xs text-neutral-500">
-                    <MapPin size={12} className="shrink-0" />
-                    <span className="truncate">{order.shopAddress}</span>
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="mt-3">
-              <OrderStatusPanel order={order} compact />
-            </div>
-          </header>
-          <div className="space-y-3 p-4 sm:p-5">
-            <ul className="divide-y divide-neutral-100" aria-label="Ordered products">
-              {order.items.slice(0, 2).map((item) => (
-                <li key={item.flashDealVariantId} className="flex items-start gap-3 py-3">
-                  <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-neutral-100 text-neutral-400">
-                    <Package size={24} />
-                    {item.imageUrl && (
-                      <img
-                        loading="lazy"
-                        src={item.imageUrl}
-                        alt={item.productName}
-                        onError={(event) => {
-                          event.currentTarget.style.display = "none";
-                        }}
-                        className="absolute inset-0 size-full object-cover"
-                      />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-sm font-semibold text-neutral-900">
-                      {item.productName}
-                    </p>
-                    {item.variantName && (
-                      <p className="mt-1 text-xs text-neutral-500">{item.variantName}</p>
-                    )}
-                    <p className="mt-1 text-xs text-neutral-500">
-                      Qty {item.quantity} × {money(item.unitPrice)}
-                    </p>
-                    {item.rating && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (item.feedbackId) {
-                            setEditingFeedbackTarget({
-                              feedbackId: item.feedbackId,
-                              productName: item.productName,
-                              variantName: item.variantName,
-                              imageUrl: item.imageUrl,
-                            });
-                          }
-                        }}
-                        className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer text-left"
+      {orders.map((order) => {
+        const detailUrl = APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id));
+        return (
+          <Card
+            padding="none"
+            key={order.id}
+            aria-label={`Order ${order.orderCode}`}
+            className="overflow-hidden"
+          >
+            <header className="space-y-4 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <MediaImage
+                  src={order.shopLogoUrl}
+                  alt=""
+                  fallbackIcon={Store}
+                  showFallbackLabel={false}
+                  className="size-10 shrink-0 rounded-md"
+                />
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
+                    {order.shopName}
+                  </h2>
+                  {order.shopAddress && (
+                    <p className="mt-1 flex items-start gap-1 text-caption text-text-secondary">
+                      <MapPin size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                      <span
+                        className="line-clamp-2 [overflow-wrap:anywhere]"
+                        title={order.shopAddress}
                       >
-                        <CheckCircle2 size={12} />
-                        Reviewed
-                        <Star size={11} className="fill-amber-400 text-amber-400" />
-                        {item.rating}/5 · Edit
-                      </button>
-                    )}
+                        {order.shopAddress}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              </div>
+              <OrderStatusPanel order={order} compact />
+            </header>
+            <div className="space-y-3 p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <OrderPickupCode code={order.orderCode} compact showHint={false} />
+                {order.createdAt && (
+                  <time dateTime={order.createdAt} className="text-caption text-text-secondary">
+                    Placed {checkoutTime(order.createdAt)}
+                  </time>
+                )}
+              </div>
+              {["AwaitingPayment", "Pending", "Confirmed", "Preparing", "ReadyForPickup"].includes(
+                order.status,
+              ) ? (
+                <OrderPickupDeadlines order={order} now={now} compact />
+              ) : (
+                <details className="rounded-md bg-neutral-50 px-3">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-caption font-medium text-text-secondary">
+                    <Clock3 size={14} aria-hidden="true" />
+                    Pickup times · GMT+7
+                    <ChevronDown size={15} aria-hidden="true" className="ml-auto" />
+                  </summary>
+                  <div className="pb-3">
+                    <OrderPickupDeadlines order={order} now={now} compact />
                   </div>
-                  <p className="shrink-0 text-sm font-bold text-neutral-900">
-                    {money(item.subtotal)}
-                  </p>
-                </li>
-              ))}
-            </ul>
-            {order.items.length > 2 && (
-              <p className="text-xs text-neutral-500">
-                +{order.items.length - 2} more products · See all in{" "}
-                <Link
-                  to={APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id))}
-                  className="font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-800"
-                >
-                  order details
-                </Link>
-              </p>
-            )}
-            <section
-              className="space-y-2 border-t border-neutral-100 pt-3"
-              aria-label="Order payment summary"
-            >
-              <div className="flex items-center justify-between gap-3 text-xs text-neutral-500">
-                <p className="flex items-center gap-1.5 font-medium">
-                  <ShoppingBag size={14} aria-hidden="true" />
-                  Payment summary
+                </details>
+              )}
+              {(order.paymentReviewRequired || order.paymentMessage) && (
+                <p className="rounded-md bg-accent-50 p-3 text-caption text-accent-700">
+                  {order.paymentMessage ||
+                    "Your payment needs review. Open order details and contact the shop."}
                 </p>
-                <p>{order.items.reduce((sum, item) => sum + item.quantity, 0)} items</p>
+              )}
+              <OrderItems items={order.items.slice(0, 2)} onEditReview={setEditingFeedbackTarget} />
+              {order.items.length > 2 && (
+                <p className="text-caption text-text-secondary">
+                  +{order.items.length - 2} more products ·{" "}
+                  <Link
+                    to={detailUrl}
+                    className="font-semibold text-primary-700 underline underline-offset-2"
+                  >
+                    See all items
+                  </Link>
+                </p>
+              )}
+              <section
+                aria-label="Order payment summary"
+                className="space-y-3 border-t border-border-default pt-4"
+              >
+                <div className="flex items-center justify-between gap-3 text-caption text-text-secondary">
+                  <p className="font-medium">Payment summary</p>
+                  <p>{order.items.reduce((sum, item) => sum + item.quantity, 0)} items</p>
+                </div>
+                <OrderPaymentAmounts order={order} />
+              </section>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-default pt-4">
+                {order.status === "Completed" && order.items.some((item) => item.canReview) ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setRatingOrder(order)}
+                    className="min-h-11 !border-accent-100 !bg-accent-50 !text-accent-700 hover:!bg-accent-100"
+                  >
+                    <Star size={16} aria-hidden="true" />
+                    Rate order
+                  </Button>
+                ) : null}
+                <ButtonLink to={detailUrl} className="min-h-11 w-full sm:ml-auto sm:w-auto">
+                  View details
+                  <ArrowRight size={16} aria-hidden="true" />
+                </ButtonLink>
               </div>
-              <OrderAmounts order={order} />
-            </section>
-            {order.status === "Completed" && order.items.some((i) => i.canReview) && (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
-                <span className="inline-flex items-center gap-1.5 font-medium">
-                  <Star size={14} className="shrink-0 fill-amber-400 text-amber-500" />
-                  You haven&apos;t rated all items in this completed order yet.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setRatingOrder(order)}
-                  className="font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700"
-                >
-                  Rate now
-                </button>
-              </div>
-            )}
-            <OrderPickupDeadlines order={order} now={now} compact />
-          </div>
-        </article>
-      ))}
+            </div>
+          </Card>
+        );
+      })}
       <div
         id="orders-sentinel"
         ref={sentinel}
         aria-live="polite"
-        className="min-h-10 py-3 text-center text-sm text-neutral-500"
+        className="min-h-11 text-center text-caption text-text-secondary"
       >
-        {loadingMore
-          ? "Loading more orders…"
-          : !loading && !pageError && orders.length > 0
-            ? hasMore
-              ? "Scroll to load more orders"
-              : "All orders loaded"
-            : null}
+        {loadingMore ? (
+          "Loading more orders…"
+        ) : !loading && !pageError && orders.length > 0 ? (
+          hasMore ? (
+            <Button variant="secondary" onClick={() => void loadMore()} className="min-h-11">
+              Load more orders
+            </Button>
+          ) : (
+            "All orders loaded"
+          )
+        ) : null}
       </div>
     </div>
-  );
-}
-
-function OrderAmounts({ order }: { order: CheckoutOrder }) {
-  const paid =
-    order.paidAmount ?? (order.paymentStatus === "Succeeded" ? order.requiredOnlineAmount : 0);
-  const outstanding =
-    order.outstandingAmount ??
-    (["Cancelled", "Expired", "NoShow", "Rejected"].includes(order.status)
-      ? 0
-      : Math.max(0, order.totalAmount - paid));
-  return (
-    <dl
-      aria-label="Payment amounts"
-      className="grid grid-cols-3 divide-x divide-neutral-200 rounded-lg bg-neutral-50 px-1 py-3 sm:px-2"
-    >
-      {[
-        { label: "Order total", amount: order.totalAmount, color: "text-neutral-900" },
-        { label: "Amount paid", amount: paid, color: "text-emerald-700" },
-        {
-          label: "Amount due",
-          amount: outstanding,
-          color: outstanding > 0 ? "text-amber-700" : "text-emerald-700",
-        },
-      ].map(({ label, amount, color }) => (
-        <div key={label} className="min-w-0 px-2 text-right sm:px-3">
-          <dt className="text-[11px] font-medium text-neutral-500 sm:text-xs">{label}</dt>
-          <dd
-            className={`mt-1 break-words text-sm font-bold leading-snug tabular-nums sm:text-base ${color}`}
-          >
-            {money(amount)}
-          </dd>
-        </div>
-      ))}
-    </dl>
   );
 }

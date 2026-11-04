@@ -58,7 +58,7 @@ const EMPTY_FORM: FormValues = {
 
 /*  Shared styles */
 const inputClass =
-  "mt-1.5 w-full rounded-xl border border-border-default bg-bg-surface px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none transition hover:border-neutral-300 focus:border-primary-500 focus:ring-4 focus:ring-primary-100 aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger/20";
+  "mt-1.5 w-full rounded-md border border-border-default bg-bg-surface px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none transition hover:border-neutral-300 focus:border-primary-500 focus:ring-4 focus:ring-primary-100 aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger/20";
 
 const labelClass = "block text-sm font-medium text-text-primary";
 
@@ -323,17 +323,17 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
     <form
       onSubmit={handleSubmit}
       noValidate
-      className="rounded-2xl border border-border-default bg-bg-surface shadow-sm"
+      className="rounded-lg border border-border-default bg-bg-surface shadow-sm"
     >
       {/* Header */}
-      <header className="flex items-start justify-between gap-4 rounded-t-2xl border-b border-border-default bg-gradient-to-r from-primary-50 to-bg-surface px-5 py-5 sm:px-8">
+      <header className="flex items-start justify-between gap-4 rounded-t-lg border-b border-border-default bg-gradient-to-r from-primary-50 to-bg-surface p-4 sm:p-5">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-sm">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white shadow-sm">
             <Store size={22} />
           </div>
 
           <div>
-            <h2 className="text-xl font-semibold tracking-tight text-text-primary">
+            <h2 className="text-section font-semibold tracking-tight text-text-primary">
               {isEditing ? "Edit shop application" : "Register your shop"}
             </h2>
 
@@ -355,13 +355,13 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
         </button>
       </header>
 
-      <div className="px-5 py-2 sm:px-8">
+      <div className="px-4 py-2 sm:px-5">
         {/* Error */}
         {error && (
           <div
             ref={errorRef}
             role="alert"
-            className="mt-6 flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+            className="mt-6 flex items-start gap-3 rounded-md border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
           >
             <AlertCircle size={18} className="mt-0.5 shrink-0" />
             <p>{error}</p>
@@ -480,7 +480,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
               />
             </div>
 
-            <div className="mt-5 rounded-xl border border-border-default bg-neutral-50 p-4">
+            <div className="mt-5 rounded-md border border-border-default bg-neutral-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-text-primary">Coordinates</p>
@@ -660,7 +660,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
             description="Connect PayOS to accept online payments."
           >
             {hasPayos ? (
-              <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+              <div className="mb-4 flex items-start gap-2.5 rounded-md border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
                 <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-primary-600" />
 
                 <p>
@@ -708,11 +708,11 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
       </div>
 
       {/* Actions */}
-      <footer className="sticky bottom-0 z-20 flex flex-col-reverse gap-3 rounded-b-2xl border-t border-border-default bg-bg-surface/90 px-5 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-end sm:px-8">
+      <footer className="sticky bottom-0 z-20 flex flex-col-reverse gap-3 rounded-b-lg border-t border-border-default bg-bg-surface/90 px-4 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-end sm:px-5">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-xl border border-border-default bg-bg-surface px-5 py-2.5 text-sm font-semibold text-text-secondary transition hover:bg-neutral-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-neutral-200"
+          className="min-h-11 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-semibold text-text-secondary transition hover:bg-neutral-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-neutral-200"
         >
           Cancel
         </button>
@@ -720,7 +720,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
         <button
           type="submit"
           disabled={saving}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? <LoaderCircle size={17} className="animate-spin" /> : <Save size={17} />}
 
@@ -744,9 +744,9 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="grid gap-5 py-7 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10">
+    <section className="grid gap-4 py-5 lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-6">
       <div className="flex items-start gap-3 lg:block">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
           {icon}
         </div>
 
@@ -855,7 +855,7 @@ function BrandingUploader({
       <div className="relative pb-14">
         {/* Cover */}
         <label
-          className={`group relative block h-44 cursor-pointer overflow-hidden rounded-2xl border border-border-default bg-gradient-to-br from-primary-50 to-neutral-50 transition sm:h-52 ${focusRing}`}
+          className={`group relative block h-44 cursor-pointer overflow-hidden rounded-lg border border-border-default bg-gradient-to-br from-primary-50 to-neutral-50 transition sm:h-52 ${focusRing}`}
         >
           {coverUrl ? (
             <img src={coverUrl} alt="Cover preview" className="h-full w-full object-cover" />
@@ -972,7 +972,7 @@ function ExistingDocument({ document }: { document: ShopApplication["documents"]
       href={document.fileUrl}
       target="_blank"
       rel="noreferrer"
-      className="group flex items-center gap-3 rounded-xl border border-border-default bg-bg-surface px-3.5 py-3 text-sm transition hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-100"
+      className="group flex items-center gap-3 rounded-md border border-border-default bg-bg-surface px-3.5 py-3 text-sm transition hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-100"
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
         <Paperclip size={17} />
@@ -1005,7 +1005,7 @@ function NewDocument({
   const isImage = document.file.type.startsWith("image/");
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-primary-200 bg-primary-50/40 px-3.5 py-3">
+    <div className="flex items-center gap-3 rounded-md border border-primary-200 bg-primary-50/40 px-3.5 py-3">
       {isImage && previewUrl ? (
         <img
           src={previewUrl}
@@ -1050,13 +1050,13 @@ function DocumentUploader({ onAdd }: { onAdd: (type: ShopDocumentType, file?: Fi
   const [type, setType] = useState<ShopDocumentType>("BusinessLicense");
 
   return (
-    <div className="rounded-xl border border-dashed border-border-default bg-neutral-50 p-4 transition hover:border-primary-400">
+    <div className="rounded-md border border-dashed border-border-default bg-neutral-50 p-4 transition hover:border-primary-400">
       <div className="flex flex-col gap-3 sm:flex-row">
         <select
           aria-label="Document type"
           value={type}
           onChange={(event) => setType(event.target.value as ShopDocumentType)}
-          className="w-full rounded-xl border border-border-default bg-bg-surface px-3.5 py-2.5 text-sm text-text-primary outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100 sm:w-64"
+          className="w-full rounded-md border border-border-default bg-bg-surface px-3.5 py-2.5 text-sm text-text-primary outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100 sm:w-64"
         >
           <option value="BusinessLicense">Business license</option>
           <option value="FoodSafetyCertificate">Food safety certificate</option>
@@ -1064,7 +1064,7 @@ function DocumentUploader({ onAdd }: { onAdd: (type: ShopDocumentType, file?: Fi
         </select>
 
         <label
-          className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-primary-200 bg-bg-surface px-4 py-2.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50 ${focusRing}`}
+          className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-primary-200 bg-bg-surface px-4 py-2.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50 ${focusRing}`}
         >
           <Upload size={16} />
           Choose file

@@ -1,31 +1,53 @@
+import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { IconButton } from "@/shared/components/ui";
 import { UserAvatar } from "@/shared/components/avatar/UserAvatar";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { useUiStore } from "@/shared/stores/uiStore";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 
 interface WorkspaceHeaderProps {
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   subtitle: string;
   title: string;
 }
 
-export function WorkspaceHeader({ subtitle, title }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({
+  subtitle,
+  title,
+  collapsed,
+  onToggleCollapsed,
+}: WorkspaceHeaderProps) {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const isSidebarOpen = useUiStore((state) => state.isSidebarOpen);
   const user = useAuthStore((state) => state.user);
 
   return (
-    <header className="sticky top-0 z-20 h-16 border-b border-neutral-200 bg-white">
-      <div className="flex h-full items-center justify-between px-4 md:px-8">
+    <header className="sticky top-0 z-20 h-16 border-b border-border-default bg-bg-surface">
+      <div className="flex h-full items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="flex size-10 items-center justify-center rounded-md border border-neutral-200 text-neutral-600 transition-colors hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-400/30 lg:hidden"
+          <IconButton
+            className="lg:hidden"
             aria-label="Open navigation"
+            aria-controls="workspace-navigation"
+            aria-expanded={isSidebarOpen}
             onClick={toggleSidebar}
           >
-            <svg viewBox="0 0 24 24" className="size-5 fill-none stroke-current stroke-2">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+            <Menu className="size-5" aria-hidden="true" />
+          </IconButton>
+          <IconButton
+            className="hidden lg:inline-flex"
+            aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+            aria-controls="workspace-navigation"
+            aria-expanded={!collapsed}
+            onClick={onToggleCollapsed}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="size-5" aria-hidden="true" />
+            ) : (
+              <PanelLeftClose className="size-5" aria-hidden="true" />
+            )}
+          </IconButton>
           <div>
             <p className="text-sm font-semibold text-neutral-900">{title}</p>
             <p className="hidden text-xs font-medium text-neutral-500 sm:block">{subtitle}</p>

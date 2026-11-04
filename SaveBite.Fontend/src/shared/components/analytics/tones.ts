@@ -2,7 +2,10 @@ export type Tone = "neutral" | "primary" | "info" | "warning" | "danger";
 
 // Colour carries meaning: green is money in or healthy, orange is money going back or needs attention, red is a
 // failure, blue is informational. All class names come from the app theme.
-export const TONE: Record<Tone, { text: string; soft: string; icon: string; dot: string; bar: string }> = {
+export const TONE: Record<
+  Tone,
+  { text: string; soft: string; icon: string; dot: string; bar: string }
+> = {
   neutral: {
     text: "text-neutral-900",
     soft: "bg-neutral-100 text-neutral-700",
@@ -18,9 +21,9 @@ export const TONE: Record<Tone, { text: string; soft: string; icon: string; dot:
     bar: "bg-primary-500",
   },
   info: {
-    text: "text-info",
-    soft: "bg-info/10 text-info",
-    icon: "bg-info/10 text-info",
+    text: "text-info-strong",
+    soft: "bg-info-soft text-info-strong",
+    icon: "bg-info-soft text-info-strong",
     dot: "bg-info",
     bar: "bg-info",
   },
@@ -32,9 +35,9 @@ export const TONE: Record<Tone, { text: string; soft: string; icon: string; dot:
     bar: "bg-accent-500",
   },
   danger: {
-    text: "text-danger",
-    soft: "bg-danger/10 text-danger",
-    icon: "bg-danger/10 text-danger",
+    text: "text-danger-strong",
+    soft: "bg-danger-soft text-danger-strong",
+    icon: "bg-danger-soft text-danger-strong",
     dot: "bg-danger",
     bar: "bg-danger",
   },

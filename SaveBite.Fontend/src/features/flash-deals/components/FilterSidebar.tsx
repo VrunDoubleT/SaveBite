@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { Filter, RotateCcw, Loader2, X } from "lucide-react";
+import { Filter, RotateCcw, X } from "lucide-react";
 import type { DealFilterState } from "@/features/flash-deals/types/flashDeal.types";
 import { categoryApi } from "@/features/categories/api/categoryApi";
+
+import { Badge, Button, Card, Checkbox, IconButton, Skeleton } from "@/shared/components/ui";
+import { toast } from "@/shared/stores/toastStore";
 
 interface FilterSidebarProps {
   filters: DealFilterState;
@@ -31,13 +34,12 @@ export function FilterSidebar({
   isSearching = false,
 }: FilterSidebarProps) {
   const [internalCategories, setInternalCategories] = useState<string[]>([]);
-  const [internalLoading, setInternalLoading] = useState(false);
+  const [internalLoading, setInternalLoading] = useState(propCategories === undefined);
 
   // If parent didn't supply categories, fetch directly from backend DB API
   useEffect(() => {
     if (propCategories !== undefined) return;
     let isMounted = true;
-    setInternalLoading(true);
     categoryApi
       .getCategories()
       .then((data) => {
@@ -84,6 +86,7 @@ export function FilterSidebar({
     setFilters({ distance: [], price: [], category: [] });
     setRadiusInKm?.(10);
     onClearShop();
+    toast.success("Filters reset");
   };
 
   const categoryList = useMemo(() => {
@@ -92,152 +95,93 @@ export function FilterSidebar({
   }, [activeCategories, categoryCounts]);
 
   return (
-    <aside className="relative lg:sticky lg:top-24 rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-      <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-        <h2 className="flex items-center gap-2 text-base font-bold text-neutral-900">
-          <Filter size={18} className="text-emerald-600" />
+    <Card aria-label="Deal filters" className="lg:sticky lg:top-24">
+      <div className="flex items-center justify-between gap-2 border-b border-border-default pb-4">
+        <h2 className="flex items-center gap-2 text-section font-semibold text-text-primary">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
+            <Filter className="size-4" aria-hidden="true" />
+          </span>
           Filters
         </h2>
-        <button
-          type="button"
-          onClick={clearAll}
-          className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-        >
-          <RotateCcw size={12} />
+        <Button variant="ghost" className="min-h-11 px-2" onClick={clearAll}>
+          <RotateCcw className="size-4" aria-hidden="true" />
           Reset
-        </button>
+        </Button>
       </div>
-
-      {/* Category Filter */}
-      {!isSearching ? (
-        <div className="border-b border-neutral-100 py-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-              Categories
-            </span>
-            {filters.category.length > 0 && (
-              <span className="rounded-full bg-emerald-100 px-1.5 py-0.2 text-[10px] font-bold text-emerald-800">
-                {filters.category.length}
-              </span>
-            )}
+      <fieldset className="border-b border-border-default py-4" disabled={isSearching}>
+        <legend className="float-left mb-3 w-full text-body font-semibold text-text-primary">
+          Categories
+        </legend>
+        <div className="clear-both space-y-1">
+          {isSearching ? (
+            <p className="text-caption text-text-secondary">Clear search to browse categories.</p>
+          ) : isCategoriesLoading && !categoryList.length ? (
+            <div role="status" aria-label="Loading categories" className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-8" />
+              ))}
+            </div>
+          ) : !categoryList.length ? (
+            <p className="text-body text-text-secondary">No categories available.</p>
+          ) : (
+            categoryList.map((cat) => (
+              <label
+                key={cat}
+                className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-md px-2 text-body text-text-secondary transition-colors hover:bg-primary-50 has-checked:bg-primary-50 has-checked:text-primary-700"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <Checkbox
+                    checked={filters.category.includes(cat)}
+                    onChange={() => toggle("category", cat)}
+                  />
+                  <span className="truncate" title={cat}>
+                    {cat}
+                  </span>
+                </span>
+                {(categoryCounts[cat] ?? 0) > 0 && (
+                  <Badge tone="primary">{categoryCounts[cat]}</Badge>
+                )}
+              </label>
+            ))
+          )}
+        </div>
+      </fieldset>
+      {(
+        [
+          { key: "distance", title: "Distance", options: DISTANCE_OPTIONS },
+          { key: "price", title: "Price range", options: PRICE_OPTIONS },
+        ] as const
+      ).map((group) => (
+        <fieldset key={group.key} className="border-b border-border-default py-4 last:border-b-0">
+          <legend className="float-left mb-3 w-full text-body font-semibold text-text-primary">
+            {group.title}
+          </legend>
+          <div className="clear-both space-y-1">
+            {group.options.map((option) => (
+              <label
+                key={option}
+                className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 text-body text-text-secondary transition-colors hover:bg-primary-50 has-checked:bg-primary-50 has-checked:text-primary-700"
+              >
+                <Checkbox
+                  checked={filters[group.key].includes(option)}
+                  onChange={() => toggleSingle(group.key, option)}
+                />
+                {option}
+              </label>
+            ))}
           </div>
-
-          {/* Scrollable list with max-height to avoid overflow */}
-          <div className="mt-2.5 max-h-52 overflow-y-auto pr-1 space-y-1 overscroll-contain">
-            {isCategoriesLoading && categoryList.length === 0 ? (
-              <div className="flex items-center gap-2 py-3 text-xs text-neutral-400">
-                <Loader2 size={14} className="animate-spin text-emerald-600" />
-                <span>Loading categories...</span>
-              </div>
-            ) : categoryList.length === 0 ? (
-              <p className="py-2 text-center text-xs text-neutral-400 italic">
-                No categories available
-              </p>
-            ) : (
-              categoryList.map((cat) => {
-                const count = categoryCounts[cat] ?? 0;
-                const isChecked = filters.category.includes(cat);
-                return (
-                  <label
-                    key={cat}
-                    className="flex cursor-pointer items-center justify-between rounded-md px-1.5 py-1 text-xs text-neutral-700 hover:bg-emerald-50/60 hover:text-emerald-800 transition"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => toggle("category", cat)}
-                        className="h-3.5 w-3.5 shrink-0 rounded-xs border-neutral-300 accent-emerald-600"
-                      />
-                      <span className="truncate">{cat}</span>
-                    </div>
-                    {count > 0 && (
-                      <span className="ml-2 shrink-0 rounded-full bg-neutral-100 px-1.5 py-0.2 text-[10px] font-semibold text-neutral-500">
-                        {count}
-                      </span>
-                    )}
-                  </label>
-                );
-              })
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="border-b border-neutral-100 py-3.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-              Categories
-            </span>
-            <span className="text-[10px] font-semibold text-neutral-400 italic">
-              Hidden while searching
-            </span>
-          </div>
-          <p className="mt-1 text-[11px] text-neutral-400">
-            Clear search to browse categories.
-          </p>
-        </div>
-      )}
-
-
-
-
-      {/* Distance */}
-      <div className="border-b border-neutral-100 py-4">
-        <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-          Distance
-        </span>
-        <div className="mt-2.5 space-y-1.5">
-          {DISTANCE_OPTIONS.map((opt) => (
-            <label
-              key={opt}
-              className="flex cursor-pointer items-center gap-2.5 text-xs text-neutral-700 hover:text-emerald-700"
-            >
-              <input
-                type="checkbox"
-                checked={filters.distance.includes(opt)}
-                onChange={() => toggleSingle("distance", opt)}
-                className="h-4 w-4 rounded-full border-neutral-300 accent-emerald-600"
-              />
-              <span>{opt}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Price Range */}
-      <div className="py-4">
-        <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Price Range</span>
-        <div className="mt-2.5 space-y-1.5">
-          {PRICE_OPTIONS.map((opt) => (
-            <label
-              key={opt}
-              className="flex cursor-pointer items-center gap-2.5 text-xs text-neutral-700 hover:text-emerald-700"
-            >
-              <input
-                type="checkbox"
-                checked={filters.price.includes(opt)}
-                onChange={() => toggleSingle("price", opt)}
-                className="h-4 w-4 rounded-full border-neutral-300 accent-emerald-600"
-              />
-              <span>{opt}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Filtered by store */}
+        </fieldset>
+      ))}
       {selectedShop && (
-        <div className="mt-2 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
-          <span className="truncate">Store: {selectedShop}</span>
-          <button
-            type="button"
-            onClick={onClearShop}
-            className="text-emerald-700 hover:text-emerald-900"
-          >
-            <X size={14} />
-          </button>
+        <div className="mt-4 flex min-w-0 items-center justify-between gap-2 rounded-md bg-primary-50 p-2 text-primary-700">
+          <span className="truncate" title={selectedShop}>
+            Store: {selectedShop}
+          </span>
+          <IconButton aria-label="Clear store filter" onClick={onClearShop}>
+            <X className="size-4" aria-hidden="true" />
+          </IconButton>
         </div>
       )}
-    </aside>
+    </Card>
   );
 }

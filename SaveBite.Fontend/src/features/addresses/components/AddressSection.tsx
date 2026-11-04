@@ -1,5 +1,7 @@
+import { Badge, Button, Card, EmptyState, ErrorState, Skeleton } from "@/shared/components/ui";
+import { toast } from "@/shared/stores/toastStore";
 import { useEffect, useState } from "react";
-import { LoaderCircle, MapPin, Navigation, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { MapPin, Navigation, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { addressApi } from "@/features/addresses/api/addressApi";
 import { AddressForm } from "@/features/addresses/components/AddressForm";
 import type { UserAddress } from "@/features/addresses/types/address.types";
@@ -16,6 +18,7 @@ function formatCoordinate(value: number): string {
 }
 
 export function AddressSection() {
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -42,7 +45,7 @@ export function AddressSection() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [loadAttempt]);
 
   function openAddForm() {
     setEditingId(null);
@@ -61,6 +64,7 @@ export function AddressSection() {
         : [...current, created],
     );
     setIsAdding(false);
+    toast.success("Address added.");
   }
 
   function handleUpdated(updated: UserAddress) {
@@ -75,6 +79,7 @@ export function AddressSection() {
         : current.map((address) => (address.id === updated.id ? updated : address)),
     );
     setEditingId(null);
+    toast.success("Address updated.");
   }
 
   async function handleSetDefault(addressId: string) {
@@ -101,37 +106,33 @@ export function AddressSection() {
   }
 
   return (
-    <section
-      aria-labelledby="addresses-heading"
-      className="rounded-2xl border border-border-default bg-bg-surface p-6 sm:p-8"
-    >
+    <Card padding="compact" aria-labelledby="addresses-heading">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2
             id="addresses-heading"
-            className="text-xl font-semibold tracking-tight text-text-primary"
+            className="flex items-center gap-2 text-section font-semibold text-text-primary"
           >
-            My Addresses
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary-50 text-secondary-700">
+              <MapPin className="size-4" aria-hidden="true" />
+            </span>
+            My addresses
           </h2>
-          <p className="mt-1 text-sm text-text-secondary">
+          <p className="mt-1 text-body text-text-secondary">
             Manage the saved addresses for your account.
           </p>
         </div>
 
         {!isAdding && (
-          <button
-            type="button"
-            onClick={openAddForm}
-            className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-5 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-          >
+          <Button type="button" onClick={openAddForm} disabled={isLoading} className="min-h-11">
             <Plus className="size-4" aria-hidden="true" />
             Add new address
-          </button>
+          </Button>
         )}
       </div>
 
       {isAdding && (
-        <div className="mt-6">
+        <div className="mt-4">
           <AddressForm
             isFirstAddress={addresses.length === 0}
             onSaved={handleCreated}
@@ -140,33 +141,38 @@ export function AddressSection() {
         </div>
       )}
 
-      <div className="mt-6">
+      <div className="mt-4">
         {isLoading && (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-text-secondary">
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-            Loading addresses...
+          <div role="status" aria-label="Loading addresses" className="space-y-3">
+            <span className="sr-only">Loading addresses…</span>
+            {[0, 1].map((index) => (
+              <Skeleton key={index} className="h-36" />
+            ))}
           </div>
         )}
-
         {!isLoading && loadError && (
-          <div className="rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
-            Unable to load addresses: {loadError}
-          </div>
+          <ErrorState
+            title="Couldn't load your addresses"
+            description={loadError}
+            onRetry={() => {
+              setLoadError(null);
+              setIsLoading(true);
+              setLoadAttempt((value) => value + 1);
+            }}
+          />
         )}
-
         {!isLoading && !loadError && addresses.length === 0 && !isAdding && (
-          <div className="flex flex-col items-center rounded-xl border border-dashed border-border-default px-6 py-10 text-center">
-            <span
-              className="flex size-12 items-center justify-center rounded-full bg-primary-50 text-primary-600"
-              aria-hidden="true"
-            >
-              <MapPin className="size-6" />
-            </span>
-            <p className="mt-3 text-sm font-semibold text-text-primary">No saved addresses yet</p>
-            <p className="mt-1 text-sm text-text-secondary">
-              Add an address to use it when placing orders.
-            </p>
-          </div>
+          <EmptyState
+            title="No saved addresses yet"
+            description="Save a location to find nearby deals more easily."
+            icon={MapPin}
+            action={
+              <Button variant="primary" onClick={openAddForm}>
+                <Plus className="size-4" aria-hidden="true" />
+                Add an address
+              </Button>
+            }
+          />
         )}
 
         {!isLoading && !loadError && addresses.length > 0 && (
@@ -193,12 +199,9 @@ export function AddressSection() {
           </ul>
         )}
       </div>
-    </section>
+    </Card>
   );
 }
-
-const actionButtonClass =
-  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 interface AddressItemProps {
   address: UserAddress;
@@ -217,6 +220,7 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
 
     try {
       await task();
+      toast.success(action === "default" ? "Default address updated." : "Address deleted.");
     } catch (error) {
       setActionError(getApiErrorMessage(error));
     } finally {
@@ -228,14 +232,14 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
 
   return (
     <li
-      className={`flex gap-4 rounded-xl border p-4 transition-colors ${
+      className={`flex min-w-0 gap-3 rounded-md border p-3 ${
         address.isDefault
-          ? "border-primary-200 bg-primary-50/40"
+          ? "border-primary-200 bg-primary-50/50"
           : "border-border-default bg-bg-surface hover:border-primary-200"
       }`}
     >
       <span
-        className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600"
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700"
         aria-hidden="true"
       >
         <MapPin className="size-5" />
@@ -243,68 +247,71 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold text-text-primary">{address.label || "Address"}</h3>
+          <h3
+            title={address.label || "Address"}
+            className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]"
+          >
+            {address.label || "Address"}
+          </h3>
 
-          {address.isDefault && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-semibold text-primary-800 ring-1 ring-inset ring-primary-300">
-              <span className="size-1.5 rounded-full bg-primary-600" aria-hidden="true" />
-              Default
-            </span>
-          )}
+          {address.isDefault && <Badge tone="primary">Default</Badge>}
         </div>
 
-        <p className="mt-1 text-sm leading-relaxed text-text-secondary">{formatAddress(address)}</p>
+        <p className="mt-2 text-body leading-relaxed text-text-secondary [overflow-wrap:anywhere]">
+          {formatAddress(address)}
+        </p>
 
-        <p className="mt-3 inline-flex items-center gap-1.5 text-xs tabular-nums text-text-muted">
+        <p className="mt-3 inline-flex items-center gap-1.5 text-caption tabular-nums text-text-muted">
           <Navigation className="size-3.5" aria-hidden="true" />
           {formatCoordinate(address.latitude)} · {formatCoordinate(address.longitude)}
         </p>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border-default pt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-default pt-3">
           {!address.isDefault && (
-            <button
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => void runAction("default", onSetDefault)}
               disabled={isBusy}
-              className={`${actionButtonClass} border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100`}
+              className="min-h-11 text-primary-700"
+              loading={pendingAction === "default"}
             >
-              {pendingAction === "default" ? (
-                <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <Star className="size-3.5" aria-hidden="true" />
-              )}
+              <Star className="size-4" aria-hidden="true" />
               {pendingAction === "default" ? "Setting..." : "Set default"}
-            </button>
+            </Button>
           )}
 
-          <button
+          <Button
+            variant="secondary"
             type="button"
             onClick={onEdit}
             disabled={isBusy}
-            className={`${actionButtonClass} border-border-default bg-bg-surface text-text-secondary hover:bg-bg-subtle`}
+            className="min-h-11"
           >
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit
-          </button>
+          </Button>
 
           {!address.isDefault && (
-            <button
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => void runAction("delete", onDelete)}
               disabled={isBusy}
-              className={`${actionButtonClass} border-red-200 bg-red-50 text-danger hover:bg-red-100`}
+              className="min-h-11 text-danger-strong hover:bg-danger-soft"
+              loading={pendingAction === "delete"}
             >
-              {pendingAction === "delete" ? (
-                <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <Trash2 className="size-3.5" aria-hidden="true" />
-              )}
+              <Trash2 className="size-4" aria-hidden="true" />
               {pendingAction === "delete" ? "Deleting..." : "Delete"}
-            </button>
+            </Button>
           )}
         </div>
 
-        {actionError && <p className="mt-2 text-xs text-danger">{actionError}</p>}
+        {actionError && (
+          <p role="alert" className="mt-2 text-body text-danger-strong">
+            {actionError}
+          </p>
+        )}
       </div>
     </li>
   );

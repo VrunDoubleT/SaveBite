@@ -205,9 +205,9 @@ export function RateOrderModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Shop header */}
-        <div className="flex items-center gap-2.5 rounded-xl bg-neutral-50 px-3.5 py-2.5 text-xs text-neutral-600">
-          <Store className="size-4 shrink-0 text-emerald-700" />
-          <span className="font-semibold text-neutral-900">{order.shopName}</span>
+        <div className="flex items-center gap-2.5 rounded-lg bg-neutral-50 px-3.5 py-2.5 text-caption text-text-secondary">
+          <Store className="size-4 shrink-0 text-primary-700" />
+          <span className="font-semibold text-text-primary">{order.shopName}</span>
           <span>·</span>
           <span>Completed order</span>
         </div>
@@ -223,10 +223,10 @@ export function RateOrderModal({
             return (
               <div
                 key={itemId ?? item.flashDealVariantId}
-                className="rounded-xl border border-neutral-200 bg-white p-4 shadow-2xs"
+                className="rounded-lg border border-border-default bg-bg-surface p-4 shadow-2xs"
               >
                 <div className="flex items-start gap-3">
-                  <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-neutral-100 text-neutral-400">
+                  <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-100 text-text-muted">
                     <Package size={20} />
                     {item.imageUrl && (
                       <img
@@ -243,25 +243,25 @@ export function RateOrderModal({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-sm font-semibold text-neutral-900">
+                        <p className="text-body font-semibold text-text-primary">
                           {item.productName}
                         </p>
                         {item.variantName && (
-                          <p className="mt-0.5 text-xs text-neutral-500">
+                          <p className="mt-0.5 text-caption text-text-secondary">
                             {item.variantName}
                           </p>
                         )}
                       </div>
 
                       {isReviewable && reviewableItems.length > 1 && itemId && (
-                        <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-neutral-600">
+                        <label className="inline-flex cursor-pointer items-center gap-1.5 text-caption font-medium text-text-secondary">
                           <input
                             type="checkbox"
                             checked={draft?.enabled ?? true}
                             onChange={(e) =>
                               updateDraft(itemId, { enabled: e.target.checked })
                             }
-                            className="size-4 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                            className="size-4 rounded border-border-default text-primary-600 focus:ring-primary-500"
                           />
                           Rate this item
                         </label>
@@ -271,21 +271,21 @@ export function RateOrderModal({
                     {!isReviewable && (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {item.rating ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-0.5 text-caption font-semibold text-primary-700">
                             <CheckCircle2 className="size-3.5" />
                             Reviewed
-                            <Star className="ml-0.5 size-3 fill-amber-400 text-amber-400" />
+                            <Star className="ml-0.5 size-3 fill-accent-300 text-accent-300" />
                             {item.rating}/5
                           </span>
                         ) : (
-                          <span className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-600">
+                          <span className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-caption font-medium text-text-secondary">
                             Already reviewed
                           </span>
                         )}
                         <Link
                           to={APP_PATHS.ACCOUNT_REVIEWS}
                           onClick={onClose}
-                          className="text-xs font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-800"
+                          className="text-caption font-semibold text-primary-700 underline underline-offset-2 hover:text-primary-800"
                         >
                           View in My reviews
                         </Link>
@@ -295,9 +295,9 @@ export function RateOrderModal({
                 </div>
 
                 {isReviewable && itemId && draft?.enabled && (
-                  <div className="mt-3.5 space-y-3 border-t border-neutral-100 pt-3">
+                  <div className="mt-3.5 space-y-3 border-t border-border-default pt-3">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-neutral-700">
+                      <label className="mb-1 block text-caption font-medium text-text-secondary">
                         Your rating
                       </label>
                       <StarRatingInput
@@ -309,10 +309,10 @@ export function RateOrderModal({
 
                     <div>
                       <div className="mb-1 flex items-center justify-between">
-                        <label className="block text-xs font-medium text-neutral-700">
-                          Comment <span className="font-normal text-neutral-400">(optional)</span>
+                        <label className="block text-caption font-medium text-text-secondary">
+                          Comment <span className="font-normal text-text-muted">(optional)</span>
                         </label>
-                        <span className="text-[11px] text-neutral-400">
+                        <span className="text-caption text-text-muted">
                           {draft.comment.length}/2000
                         </span>
                       </div>
@@ -325,17 +325,17 @@ export function RateOrderModal({
                           updateDraft(itemId, { comment: e.target.value })
                         }
                         placeholder="Share your experience with food quality, portion size, and packaging..."
-                        className="w-full resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                        className="w-full resize-none rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-body text-text-primary outline-none focus:border-primary-600 focus:ring-1 focus:ring-primary-600"
                       />
                     </div>
 
                     {/* Review Photos (Up to 5 images) */}
                     <div>
                       <div className="mb-1.5 flex items-center justify-between">
-                        <label className="block text-xs font-medium text-neutral-700">
-                          Add photos <span className="font-normal text-neutral-400">(optional, max 5)</span>
+                        <label className="block text-caption font-medium text-text-secondary">
+                          Add photos <span className="font-normal text-text-muted">(optional, max 5)</span>
                         </label>
-                        <span className="text-[11px] text-neutral-400">
+                        <span className="text-caption text-text-muted">
                           {draft.images.length}/5 photos
                         </span>
                       </div>
@@ -344,7 +344,7 @@ export function RateOrderModal({
                         {draft.images.map((imgUrl, imgIdx) => (
                           <div
                             key={imgIdx}
-                            className="relative size-16 overflow-hidden rounded-xl border border-neutral-200 group"
+                            className="relative size-16 overflow-hidden rounded-lg border border-border-default group"
                           >
                             <img
                               src={imgUrl}
@@ -355,7 +355,7 @@ export function RateOrderModal({
                               type="button"
                               onClick={() => handleRemoveImage(itemId, imgIdx)}
                               disabled={isSubmitting}
-                              className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black"
+                              className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-text-primary/60 text-text-inverse transition hover:bg-text-primary"
                               title="Remove image"
                             >
                               <X className="size-3" />
@@ -368,14 +368,14 @@ export function RateOrderModal({
                             type="button"
                             disabled={isSubmitting || isUploadingThisItem}
                             onClick={() => fileInputRefs.current[itemId]?.click()}
-                            className="flex size-16 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 text-neutral-500 transition hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-700 disabled:opacity-50"
+                            className="flex size-16 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border-default bg-neutral-50 text-text-secondary transition hover:border-primary-500 hover:bg-primary-50/50 hover:text-primary-700 disabled:opacity-50"
                           >
                             {isUploadingThisItem ? (
-                              <Loader2 className="size-5 animate-spin text-emerald-600" />
+                              <Loader2 className="size-5 animate-spin text-primary-600" />
                             ) : (
                               <>
                                 <Camera className="size-5" />
-                                <span className="text-[10px] font-medium">Add photo</span>
+                                <span className="text-caption font-medium">Add photo</span>
                               </>
                             )}
                           </button>
@@ -401,12 +401,12 @@ export function RateOrderModal({
         </div>
 
         {/* Footer actions */}
-        <div className="flex items-center justify-end gap-2.5 border-t border-neutral-100 pt-3">
+        <div className="flex items-center justify-end gap-2.5 border-t border-border-default pt-3">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+            className="rounded-lg border border-border-default bg-bg-surface px-4 py-2 text-caption font-semibold text-text-secondary hover:bg-neutral-50 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -414,7 +414,7 @@ export function RateOrderModal({
             <button
               type="submit"
               disabled={isSubmitting || selectedCount === 0 || Boolean(uploadingItemId)}
-              className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+              className="rounded-lg bg-primary-600 px-5 py-2 text-caption font-semibold text-text-inverse shadow-xs hover:bg-primary-700 disabled:opacity-50"
             >
               {isSubmitting
                 ? "Submitting..."
