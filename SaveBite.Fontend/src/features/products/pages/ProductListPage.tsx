@@ -60,7 +60,7 @@ export function ProductListPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Product management</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Product Management</h1>
           <p className="mt-1 text-sm text-text-secondary">
             Manage your products, variants, and prices.
           </p>

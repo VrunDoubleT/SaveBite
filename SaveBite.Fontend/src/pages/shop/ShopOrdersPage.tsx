@@ -76,7 +76,8 @@ function ShopOrdersPageContent() {
     if (!shopId) return;
     const abort = new AbortController();
     const current = ++generation.current;
-    void shopOrderApi.page(shopId, status, search, page, abort.signal, searchDate)
+    void shopOrderApi
+      .page(shopId, status, search, page, abort.signal, searchDate)
       .then((next) => {
         if (current === generation.current && !abort.signal.aborted) {
           const lastPage = Math.max(1, next.page.totalPages);
@@ -89,7 +90,8 @@ function ShopOrdersPageContent() {
         }
       })
       .catch((e) => {
-        if (!abort.signal.aborted && current === generation.current) setError(getApiErrorMessage(e));
+        if (!abort.signal.aborted && current === generation.current)
+          setError(getApiErrorMessage(e));
       })
       .finally(() => {
         if (!abort.signal.aborted && current === generation.current) {
@@ -109,14 +111,14 @@ function ShopOrdersPageContent() {
 
   const totalOrdersCount = data?.statusCounts
     ? Object.values(data.statusCounts).reduce((a, b) => a + b, 0)
-    : data?.page?.totalItems ?? "—";
+    : (data?.page?.totalItems ?? "—");
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Shop orders</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Shop Orders</h1>
           <p className="mt-1 text-sm text-neutral-500">
             Confirm paid orders within 5 minutes, prepare items and verify payment before handover.
           </p>
@@ -169,7 +171,9 @@ function ShopOrdersPageContent() {
             </span>
             <div>
               <p className="text-xs font-medium text-neutral-500">Completed</p>
-              <p className="text-xl font-bold text-emerald-600">{data?.statusCounts?.Completed ?? 0}</p>
+              <p className="text-xl font-bold text-emerald-600">
+                {data?.statusCounts?.Completed ?? 0}
+              </p>
             </div>
           </div>
         </div>
@@ -235,7 +239,8 @@ function ShopOrdersPageContent() {
       </form>
       {/^\d{1,6}$/.test(input.trim()) && (
         <p className="text-xs text-neutral-500">
-          Pickup codes repeat daily. Select the order date in Vietnam time, especially for overnight pickups.
+          Pickup codes repeat daily. Select the order date in Vietnam time, especially for overnight
+          pickups.
         </p>
       )}
 

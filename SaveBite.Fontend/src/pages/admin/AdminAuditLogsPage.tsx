@@ -4,10 +4,7 @@ import {
   AuditLogFilterBar,
   AuditLogTable,
 } from "@/features/audit-logs/components";
-import {
-  AUDIT_LOG_PAGE_SIZE,
-  useAuditLogs,
-} from "@/features/audit-logs/hooks/useAuditLogs";
+import { AUDIT_LOG_PAGE_SIZE, useAuditLogs } from "@/features/audit-logs/hooks/useAuditLogs";
 import { ErrorModal } from "@/shared/components/modal/ErrorModal";
 import { Pagination } from "@/shared/components/pagination";
 
@@ -45,7 +42,7 @@ export function AdminAuditLogsPage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Audit log</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Audit Logs</h1>
           <p className="mt-1 text-sm text-neutral-500">
             Who did what, to which record, and when. Secrets are never shown.
           </p>
@@ -64,7 +61,9 @@ export function AdminAuditLogsPage() {
           disabled={loading}
           className="inline-flex items-center gap-1.5 self-start rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto"
         >
-          <RefreshCw className={`size-4 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
+          <RefreshCw
+            className={`size-4 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`}
+          />
           Refresh
         </button>
       </header>
