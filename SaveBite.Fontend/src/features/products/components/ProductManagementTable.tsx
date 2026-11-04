@@ -119,7 +119,7 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden overflow-x-auto rounded-3xl border border-border-default bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] md:block">
+      <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-xs text-text-secondary">
             <tr>
@@ -165,6 +165,7 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
                 <td className="px-4 py-4">
                   <EditSource product={product} />
                 </td>
+
                 <td className="whitespace-nowrap px-4 py-4 text-right font-semibold tabular-nums">
                   {formatPriceRange(product.minDealPrice, product.maxDealPrice)}
                 </td>
@@ -181,13 +182,10 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
         </table>
       </div>
 
-      {/* Mobile cards */}
-      <ul className="space-y-3 md:hidden">
+      {/* Mobile list */}
+      <ul className="divide-y divide-border-default md:hidden">
         {items.map((product) => (
-          <li
-            key={product.id}
-            className="space-y-4 rounded-3xl border border-border-default bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
-          >
+          <li key={product.id} className="space-y-4 p-4">
             <div className="flex items-start gap-3">
               <Thumbnail product={product} />
               <ProductMeta product={product} />
@@ -202,6 +200,7 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
               <span className="mb-1 block text-xs text-text-secondary">Edit source</span>
               <EditSource product={product} />
             </div>
+
             <div className="flex items-center justify-between gap-3 border-t border-border-default pt-3">
               <p className="text-sm font-semibold tabular-nums text-text-primary">
                 {formatPriceRange(product.minDealPrice, product.maxDealPrice)}

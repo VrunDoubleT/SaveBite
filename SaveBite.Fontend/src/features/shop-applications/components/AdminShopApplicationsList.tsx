@@ -86,15 +86,17 @@ export function AdminShopApplicationsList({
   const busy = openingId !== null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Store applications
-          </h1>
-          <p className="mt-1 max-w-xl text-sm text-slate-500">
-            Review submitted store registrations and look back at earlier decisions.
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+              Shop Applications
+            </h1>
+          </div>
+          <p className="text-sm text-text-secondary">
+            Review submitted shop registrations and look back at earlier decisions.
           </p>
         </div>
 
@@ -180,7 +182,7 @@ export function AdminShopApplicationsList({
       </div>
 
       {/* List */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-sm">
         {loading ? (
           <div
             className="divide-y divide-slate-100"
@@ -408,7 +410,11 @@ export function AdminShopApplicationsList({
           </>
         )}
         {/* Pagination */}
-        {pagination}
+        {pagination && (
+          <div className="flex w-full items-center justify-around border-t border-border-default bg-neutral-50/30 px-6 py-5">
+            {pagination}
+          </div>
+        )}
       </div>
     </div>
   );

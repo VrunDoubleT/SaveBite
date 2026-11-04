@@ -172,7 +172,7 @@ export function ManualReconciliationModal({
                 const norm = normalizeStatementStatus(stmt.status);
                 return (
                   <option key={stmt.id} value={stmt.id}>
-                    {stmt.shopName || "Shop"} • Tháng {stmt.billingMonth}/{stmt.billingYear} • {formatVnd(stmt.totalFeeAmount)} ({norm})
+                    {stmt.shopName || "Shop"} • Month {stmt.billingMonth}/{stmt.billingYear} • {formatVnd(stmt.totalFeeAmount)} ({norm})
                   </option>
                 );
               })}
@@ -201,7 +201,7 @@ export function ManualReconciliationModal({
           {/* Payment Amount */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Payment Amount (VNĐ):
+              Payment Amount (VND):
             </label>
             <input
               type="number"

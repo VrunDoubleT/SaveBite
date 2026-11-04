@@ -28,7 +28,7 @@ export function ShopManagementTable({ items }: { items: ShopListManagement[] }) 
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-3xl border border-border-default bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] md:block">
+      <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-xs text-text-secondary">
             <tr>
@@ -79,13 +79,10 @@ export function ShopManagementTable({ items }: { items: ShopListManagement[] }) 
         </table>
       </div>
 
-      {/* Mobile cards */}
-      <ul className="space-y-3 md:hidden">
+      {/* Mobile list */}
+      <ul className="divide-y divide-border-default md:hidden">
         {items.map((shop) => (
-          <li
-            key={shop.id}
-            className="space-y-4 rounded-3xl border border-border-default bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
-          >
+          <li key={shop.id} className="space-y-4 p-4">
             <ShopMeta shop={shop} />
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text-secondary">

@@ -31,17 +31,14 @@ export function StaffManagementPage() {
 
   // Edit
   const [editingStaff, setEditingStaff] = useState<ShopStaff | null>(null);
-
   const [updating, setUpdating] = useState(false);
 
   // Remove
   const [removingStaff, setRemovingStaff] = useState<ShopStaff | null>(null);
-
   const [removing, setRemoving] = useState(false);
 
   // Invite
   const [inviting, setInviting] = useState(false);
-
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
   // --------------------------------------------------
@@ -51,13 +48,10 @@ export function StaffManagementPage() {
   async function loadStaff() {
     try {
       setLoading(true);
-
       const result = await shopStaffApi.getStaffList();
-
       setStaffs(result);
     } catch (error) {
       console.error(error);
-
       toast.error(getApiErrorMessage(error) || "Unable to load the staff list.");
     } finally {
       setLoading(false);
@@ -79,17 +73,12 @@ export function StaffManagementPage() {
 
     try {
       setUpdating(true);
-
       const response = await shopStaffApi.updateStaff(editingStaff.id, data);
-
       setEditingStaff(null);
-
       toast.success(response.data.message ?? "Staff information updated successfully.");
-
       await loadStaff();
     } catch (error) {
       console.error(error);
-
       toast.error(getApiErrorMessage(error) || "Unable to update staff information.");
     } finally {
       setUpdating(false);
@@ -107,17 +96,12 @@ export function StaffManagementPage() {
 
     try {
       setRemoving(true);
-
       const response = await shopStaffApi.removeStaff(removingStaff.id);
-
       setRemovingStaff(null);
-
       toast.success(response.data.message ?? "Staff member removed successfully.");
-
       await loadStaff();
     } catch (error) {
       console.error(error);
-
       toast.error(getApiErrorMessage(error) || "Unable to remove this staff member.");
     } finally {
       setRemoving(false);
@@ -131,21 +115,15 @@ export function StaffManagementPage() {
   async function handleInviteStaff(userId: string) {
     try {
       setInviting(true);
-
       const response = await shopStaffApi.inviteStaff({
         userId,
       });
-
       setInviteModalOpen(false);
-
       toast.success(response.data.message ?? "Staff invitation sent successfully.");
     } catch (error) {
       console.error(error);
-
       const apiMessage = getApiErrorMessage(error);
-
       const status = getApiErrorStatus(error);
-
       const hasSpecificConflictMessage = /(already|exist|invite|staff member|member of)/i.test(
         apiMessage,
       );
@@ -199,7 +177,6 @@ export function StaffManagementPage() {
   // --------------------------------------------------
 
   const activeCount = staffs.filter((staff) => staff.status === "Active").length;
-
   const suspendedCount = staffs.filter((staff) => staff.status === "Suspended").length;
 
   // --------------------------------------------------
@@ -209,18 +186,17 @@ export function StaffManagementPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Staff Management</h1>
-
-          <p className="mt-1 text-sm text-gray-500">Manage staff members of your shop.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Staff Management</h1>
+          <p className="mt-1 text-sm text-neutral-500">Manage staff members of your shop.</p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => navigate(`${APP_PATHS.STORE_OWNER}/staff/invitations`)}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50"
           >
             <Mail size={18} />
             View Invitations
@@ -230,7 +206,7 @@ export function StaffManagementPage() {
             type="button"
             disabled={inviting}
             onClick={() => setInviteModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={18} />
             Invite Staff
@@ -239,49 +215,49 @@ export function StaffManagementPage() {
       </div>
 
       {/* Summary */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <StaffStatCard
           label="Total staff"
           value={staffs.length}
           icon={<Users size={20} />}
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-neutral-100 text-neutral-600"
         />
 
         <StaffStatCard
           label="Active"
           value={activeCount}
           icon={<UserCheck size={20} />}
-          accent="bg-emerald-100 text-emerald-600"
+          accent="bg-emerald-50 text-emerald-600"
         />
 
         <StaffStatCard
           label="Suspended"
           value={suspendedCount}
           icon={<UserX size={20} />}
-          accent="bg-amber-100 text-amber-600"
+          accent="bg-rose-50 text-rose-600"
         />
       </div>
 
       {/* Search */}
       <div className="relative max-w-sm">
         <Search
-          size={18}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          size={16}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
         />
 
         <input
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
           placeholder="Search by name or email"
-          className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+          className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
         />
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6">
+        <div className="space-y-3 rounded-xl border border-neutral-200 bg-white p-6 shadow-2xs">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-12 animate-pulse rounded-lg bg-gray-100" />
+            <div key={item} className="h-12 animate-pulse rounded-lg bg-neutral-100" />
           ))}
         </div>
       ) : (

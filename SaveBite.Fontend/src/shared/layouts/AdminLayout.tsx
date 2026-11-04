@@ -5,7 +5,6 @@ import {
   Package,
   ShieldCheck,
   ShoppingBag,
-  Star,
   Store,
   Users,
   Tags,
@@ -65,11 +64,6 @@ const navigation = [
     to: APP_PATHS.ADMIN_FEEDBACK,
     label: "Feedback",
     icon: MessageSquare,
-  },
-  {
-    to: APP_PATHS.ADMIN_REVIEWS,
-    label: "Feedbacks",
-    icon: Star,
   },
   {
     to: APP_PATHS.ADMIN_AUDIT_LOGS,

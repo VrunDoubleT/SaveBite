@@ -218,43 +218,57 @@ export function StoreOwnerFlashDealsPage() {
       </div>
 
       {/* 4 Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Running */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Running Deals</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{stats.running}</p>
-          <p className="mt-1 text-xs text-neutral-400">
-            {stats.pending} upcoming program{stats.pending !== 1 ? "s" : ""}
-          </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        {/* Card 1: Total Deals */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <Sparkles className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Total Deals</p>
+              <p className="text-xl font-bold text-neutral-900">{stats.totalDeals}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Card 2: Sold */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Total Sold</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{stats.sold}</p>
-          <p className="mt-1 text-xs text-neutral-400">
-            out of {stats.total} total items
-          </p>
+        {/* Card 2: Active Deals */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <span className="size-2 rounded-full bg-emerald-500" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Active Deals</p>
+              <p className="text-xl font-bold text-emerald-600">{stats.running}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Card 3: Remaining */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Remaining Inventory</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-600">{stats.remaining}</p>
-          <p className="mt-1 text-xs text-neutral-400">Available for customer orders</p>
+        {/* Card 3: Upcoming Deals */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <span className="size-2 rounded-full bg-amber-500" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Upcoming Deals</p>
+              <p className="text-xl font-bold text-amber-600">{stats.pending}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Card 4: Total Programs */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Total Deals</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{stats.totalDeals}</p>
-          <p className="mt-1 text-xs text-neutral-400">
-            {stats.hidden > 0 ? (
-              <span className="font-semibold text-amber-700">{stats.hidden} hidden from buyers</span>
-            ) : (
-              <span>{stats.ended} ended or closed</span>
-            )}
-          </p>
+        {/* Card 4: Hidden / Ended */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+              <EyeOff className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Hidden / Ended</p>
+              <p className="text-xl font-bold text-slate-700">{stats.hidden + stats.ended}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -288,10 +302,10 @@ export function StoreOwnerFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("all")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "all"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             All ({tabCounts.all})
@@ -299,10 +313,10 @@ export function StoreOwnerFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("pending")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "pending"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             Upcoming ({tabCounts.pending})
@@ -310,10 +324,10 @@ export function StoreOwnerFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("running")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "running"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             Running ({tabCounts.running})
@@ -321,10 +335,10 @@ export function StoreOwnerFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("ended")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "ended"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             Ended ({tabCounts.ended})
@@ -332,12 +346,12 @@ export function StoreOwnerFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("hidden")}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "hidden"
-                ? "bg-amber-600 text-white shadow-xs"
+                ? "bg-amber-600 text-white shadow-sm"
                 : tabCounts.hidden > 0
-                ? "bg-amber-100/70 text-amber-800 hover:bg-amber-200/70"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             <EyeOff className="size-3.5" />
@@ -353,13 +367,13 @@ export function StoreOwnerFlashDealsPage() {
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
             placeholder="Search deals or products..."
-            className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none"
           />
         </div>
       </div>
 
       {/* Deals Table */}
-      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xs">
+      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-neutral-200 text-left text-xs">
             <thead className="bg-neutral-50/75 text-neutral-500">
@@ -434,7 +448,7 @@ export function StoreOwnerFlashDealsPage() {
                       {/* Price */}
                       <td className="px-4 py-4 whitespace-nowrap">
                         <p className="font-bold text-red-600">
-                          {deal.minDealPrice.toLocaleString("vi-VN")}đ
+                          {deal.minDealPrice.toLocaleString("en-US")} VND
                         </p>
                         <p className="text-[11px] text-neutral-400">
                           up to {deal.maxDiscountPercent}% off

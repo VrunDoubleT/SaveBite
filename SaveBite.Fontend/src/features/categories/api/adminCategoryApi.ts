@@ -2,12 +2,12 @@ import { API_ENDPOINTS, httpClient } from "@/shared/api";
 import type { ApiResponse, PaginatedResponse, PaginationParams } from "@/shared/types";
 import type { Category, CategoryFormData } from "../types/adminCategory.types";
 
-// Định nghĩa khung dữ liệu thực tế C# trả về
+// Define actual data shape returned by C# API
 interface BackendPagedCategory {
   items: Category[];
   page: number;
   pageSize: number;
-  totalItems: number; // C# trả về trường này
+  totalItems: number; // C# API returns this field
   totalPages: number;
 }
 
@@ -21,12 +21,12 @@ export const categoryApi = {
     );
     const data = res.data.data;
 
-    // Map dữ liệu về đúng chuẩn api.types.ts của team
+    // Map data to match team api.types.ts specification
     return {
       items: data.items,
       page: data.page,
       pageSize: data.pageSize,
-      total: data.totalItems, // Chuyển totalItems -> total
+      total: data.totalItems, // Map totalItems -> total
       totalPages: data.totalPages,
     };
   },

@@ -8,6 +8,11 @@ import {
   EyeOff,
   Eye,
   XCircle,
+  CheckCircle2,
+  Clock,
+  DollarSign,
+  Layers,
+  Package,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
@@ -312,32 +317,66 @@ export function StoreOwnerFlashDealDetailPage() {
 
       {/* 5 Stats Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs text-neutral-500">Total Quantity</p>
-          <p className="mt-1 text-xl font-bold text-neutral-900">{summary.totalQty}</p>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <Package className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Total Quantity</p>
+              <p className="text-xl font-bold text-neutral-900">{summary.totalQty}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs text-neutral-500">Sold</p>
-          <p className="mt-1 text-xl font-bold text-neutral-900">{summary.soldQty}</p>
-          <p className="text-[10px] text-neutral-400">{summary.percent}% of total</p>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Sold ({summary.percent}%)</p>
+              <p className="text-xl font-bold text-emerald-600">{summary.soldQty}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs text-neutral-500">Reserved</p>
-          <p className="mt-1 text-xl font-bold text-neutral-900">{summary.reservedQty}</p>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <Layers className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Remaining</p>
+              <p className="text-xl font-bold text-blue-600">{summary.remainingQty}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs text-neutral-500">Remaining</p>
-          <p className="mt-1 text-xl font-bold text-emerald-600">{summary.remainingQty}</p>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <Clock className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Reserved</p>
+              <p className="text-xl font-bold text-amber-600">{summary.reservedQty}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs col-span-2 sm:col-span-1">
-          <p className="text-xs text-neutral-500">Estimated Revenue</p>
-          <p className="mt-1 text-xl font-bold text-neutral-900">
-            {summary.revenue.toLocaleString("vi-VN")}đ
-          </p>
+        <div className="col-span-2 rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs sm:col-span-1">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <DollarSign className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Est. Revenue</p>
+              <p className="text-xl font-bold text-neutral-900">
+                {summary.revenue.toLocaleString("en-US")} VND
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -417,10 +456,10 @@ export function StoreOwnerFlashDealDetailPage() {
                       {v.sku && <p className="text-[10px] text-neutral-400">{v.sku}</p>}
                     </td>
                     <td className="px-4 py-3.5 text-neutral-500">
-                      {v.originalPrice.toLocaleString("vi-VN")}đ
+                      {v.originalPrice.toLocaleString("en-US")} VND
                     </td>
                     <td className="px-4 py-3.5 font-bold text-red-600">
-                      {v.dealPrice.toLocaleString("vi-VN")}đ
+                      {v.dealPrice.toLocaleString("en-US")} VND
                     </td>
                     <td className="px-4 py-3.5 font-medium text-emerald-600">
                       {v.discountPercent}%

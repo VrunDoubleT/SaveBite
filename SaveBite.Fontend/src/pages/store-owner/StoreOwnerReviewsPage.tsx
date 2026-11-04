@@ -87,7 +87,7 @@ export function StoreOwnerReviewsPage() {
   };
 
   return (
-    <div className="py-2">
+    <div className="space-y-6">
       <ShopFeedbackManagementPanel
         title="Customer Feedback & Reviews"
         subtitle="Manage product ratings, read customer feedback, and reply to reviews."

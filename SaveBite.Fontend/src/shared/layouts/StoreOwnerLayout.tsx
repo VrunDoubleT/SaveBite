@@ -3,13 +3,13 @@ import {
   ClipboardList,
   CreditCard,
   Package,
+  Receipt,
   Settings2,
   ShieldAlert,
   Star,
   Store,
   Users,
   Zap,
-  Receipt,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
@@ -71,7 +71,7 @@ const navigation = [
     icon: Settings2,
   },
   {
-    to: "/store-owner/warnings",
+    to: APP_PATHS.STORE_OWNER_WARNINGS,
     label: "Warning History",
     end: false,
     icon: ShieldAlert,

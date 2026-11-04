@@ -90,7 +90,7 @@ export function PlatformFeeDetailPage() {
 
   if (!statement) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+      <div className="rounded-xl border border-neutral-200 bg-white p-12 text-center">
         <Receipt className="mx-auto h-12 w-12 text-slate-300 mb-3" />
         <h3 className="text-base font-bold text-slate-900">Fee Statement Not Found</h3>
         <p className="mt-1 text-xs text-slate-500">
@@ -122,7 +122,7 @@ export function PlatformFeeDetailPage() {
       </div>
 
       {/* Statement Header Card */}
-      <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-xs">
+      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 sm:p-8 text-white">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
@@ -140,7 +140,7 @@ export function PlatformFeeDetailPage() {
                 type="button"
                 onClick={() => void handleOpenPayment()}
                 disabled={isCreatingLink}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-98 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-98 disabled:opacity-50"
               >
                 {isCreatingLink ? (
                   <>

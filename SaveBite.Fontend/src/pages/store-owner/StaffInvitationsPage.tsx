@@ -186,8 +186,8 @@ export function StoreOwnerStaffInvitationsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Staff Invitations</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Staff Invitations</h1>
+          <p className="mt-1 text-sm text-neutral-500">
             View and manage staff invitations sent from your shop.
           </p>
         </div>
@@ -196,47 +196,47 @@ export function StoreOwnerStaffInvitationsPage() {
           type="button"
           disabled={loading}
           onClick={() => void loadInvitations()}
-          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3.5 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <Send size={20} />
-            </div>
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <Send className="size-5" />
+            </span>
             <div>
-              <p className="text-sm text-gray-500">Total invitations</p>
-              <p className="text-2xl font-bold text-gray-900">{invitations.length}</p>
+              <p className="text-xs font-medium text-neutral-500">Total invitations</p>
+              <p className="text-xl font-bold text-neutral-900">{invitations.length}</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-              <Mail size={20} />
-            </div>
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <RefreshCw className="size-5" />
+            </span>
             <div>
-              <p className="text-sm text-gray-500">Pending</p>
-              <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
+              <p className="text-xs font-medium text-neutral-500">Pending</p>
+              <p className="text-xl font-bold text-amber-600">{pendingCount}</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="col-span-2 rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs sm:col-span-1">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-              <Users size={20} />
-            </div>
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <Users className="size-5" />
+            </span>
             <div>
-              <p className="text-sm text-gray-500">Accepted</p>
-              <p className="text-2xl font-bold text-gray-900">{acceptedCount}</p>
+              <p className="text-xs font-medium text-neutral-500">Accepted</p>
+              <p className="text-xl font-bold text-emerald-600">{acceptedCount}</p>
             </div>
           </div>
         </div>
@@ -252,7 +252,7 @@ export function StoreOwnerStaffInvitationsPage() {
           </div>
         </div>
       ) : invitations.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white py-16 text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
             <Mail size={22} />
           </div>
@@ -262,7 +262,7 @@ export function StoreOwnerStaffInvitationsPage() {
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px]">
               <thead className="border-b border-gray-200 bg-gray-50">

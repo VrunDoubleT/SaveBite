@@ -2,20 +2,22 @@ import type { ReactNode } from "react";
 
 interface Props {
   label: string;
-  value: number;
+  value: number | string;
   icon: ReactNode;
-  accent: string; // e.g. "bg-emerald-100 text-emerald-600"
+  accent: string; // e.g. "bg-emerald-50 text-emerald-600"
 }
 
 export function StaffStatCard({ label, value, icon, accent }: Props) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${accent}`}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+    <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+      <div className="flex items-center gap-3">
+        <span className={`flex size-10 items-center justify-center rounded-lg ${accent}`}>
+          {icon}
+        </span>
+        <div>
+          <p className="text-xs font-medium text-neutral-500">{label}</p>
+          <p className="text-xl font-bold text-neutral-900">{value}</p>
+        </div>
       </div>
     </div>
   );

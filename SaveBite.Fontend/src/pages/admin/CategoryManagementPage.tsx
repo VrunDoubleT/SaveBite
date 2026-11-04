@@ -57,7 +57,7 @@ export function CategoryManagementPage() {
       {/* Header & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">Food Categories</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Food Categories</h2>
           <p className="text-sm text-text-secondary">Manage platform food categories.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">

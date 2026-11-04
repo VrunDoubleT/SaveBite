@@ -129,30 +129,81 @@ export function ShopFeedbackManagementPanel({
     }
   };
 
+  const needsReplyCount = feedbacks.filter((f) => !f.reply).length;
+  const repliedCount = feedbacks.filter((f) => Boolean(f.reply)).length;
+  const fiveStarsCount = feedbacks.filter((f) => f.rating === 5).length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-100 pb-4">
-          <div>
-            <h1 className="text-xl font-bold text-neutral-900">{title}</h1>
-            <p className="mt-1 text-xs text-neutral-500 sm:text-sm">{subtitle}</p>
-          </div>
-          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800">
-            <Star className="size-4 fill-amber-400 text-amber-500" />
-            <span>Total Reviews: {totalItems}</span>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">{title}</h1>
+          <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>
+        </div>
+      </div>
+
+      {/* 4 Stats Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <MessageSquare className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Total reviews</p>
+              <p className="text-xl font-bold text-neutral-900">{totalItems}</p>
+            </div>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <Pencil className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Needs reply</p>
+              <p className="text-xl font-bold text-amber-600">{needsReplyCount}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <MessageSquareQuote className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Replied</p>
+              <p className="text-xl font-bold text-emerald-600">{repliedCount}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+              <Star className="size-5 fill-amber-400" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">5-Star reviews</p>
+              <p className="text-xl font-bold text-neutral-900">{fiveStarsCount}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Status Filter */}
           <button
             type="button"
             onClick={() => onReplyFilterChange(null)}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeReplyFilter === null && !isToday
-                ? "bg-emerald-600 text-white"
+                ? "bg-emerald-600 text-white shadow-sm"
                 : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
@@ -161,9 +212,9 @@ export function ShopFeedbackManagementPanel({
           <button
             type="button"
             onClick={() => onReplyFilterChange(false)}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeReplyFilter === false
-                ? "bg-emerald-600 text-white"
+                ? "bg-emerald-600 text-white shadow-sm"
                 : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
@@ -172,9 +223,9 @@ export function ShopFeedbackManagementPanel({
           <button
             type="button"
             onClick={() => onReplyFilterChange(true)}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeReplyFilter === true
-                ? "bg-emerald-600 text-white"
+                ? "bg-emerald-600 text-white shadow-sm"
                 : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
@@ -184,9 +235,9 @@ export function ShopFeedbackManagementPanel({
             <button
               type="button"
               onClick={onTodayToggle}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
                 isToday
-                  ? "bg-emerald-600 text-white"
+                  ? "bg-emerald-600 text-white shadow-sm"
                   : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
               }`}
             >
@@ -194,13 +245,13 @@ export function ShopFeedbackManagementPanel({
             </button>
           )}
 
-          <span className="h-5 w-px bg-neutral-200 mx-1 hidden sm:block" />
+          <span className="mx-1 hidden h-5 w-px bg-neutral-200 sm:block" />
 
           {/* Star Filter */}
           <button
             type="button"
             onClick={() => onRatingChange(null)}
-            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition shadow-2xs ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeRating === null
                 ? "bg-neutral-900 text-white"
                 : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
@@ -213,7 +264,7 @@ export function ShopFeedbackManagementPanel({
               key={stars}
               type="button"
               onClick={() => onRatingChange(stars)}
-              className={`inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
                 activeRating === stars
                   ? "bg-neutral-900 text-white"
                   : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
@@ -232,7 +283,7 @@ export function ShopFeedbackManagementPanel({
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-44 animate-pulse rounded-2xl border border-neutral-200 bg-white p-5"
+              className="h-44 animate-pulse rounded-xl border border-neutral-200 bg-white p-5 shadow-2xs"
             />
           ))}
         </div>
@@ -241,7 +292,7 @@ export function ShopFeedbackManagementPanel({
           {feedbacks.map((item) => (
             <article
               key={item.id}
-              className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs transition hover:border-neutral-300"
+              className="rounded-xl border border-neutral-200 bg-white p-5 shadow-2xs transition hover:border-neutral-300"
             >
               {/* Header: Customer info & time */}
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -404,7 +455,7 @@ export function ShopFeedbackManagementPanel({
                   <button
                     type="button"
                     onClick={() => openReplyModal(item)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-700 transition"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-700 transition"
                   >
                     <Send size={12} />
                     Reply to customer
@@ -430,7 +481,7 @@ export function ShopFeedbackManagementPanel({
           )}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-white p-12 text-center shadow-xs">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-200 bg-white p-12 text-center shadow-2xs">
           <div className="flex size-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
             <MessageSquare size={28} />
           </div>

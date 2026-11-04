@@ -398,7 +398,7 @@ export function NearbyStoresMapSection({
 
         // Dynamic styling depending on whether the store has active flash deals:
         // - With deals: Vibrant emerald/white border + bright orange badge showing exact deal count
-        // - Without deals (0 deals): Always dimmed ("mờ mờ", opacity ~0.45) even when selected/clicked + soft gray border & '0' badge
+        // - Without deals (0 deals): Always dimmed (opacity ~0.45) even when selected/clicked + soft gray border & '0' badge
         const markerOpacity = hasDeals ? "1" : "0.45";
         const markerFilter = hasDeals ? "none" : "grayscale(35%)";
 

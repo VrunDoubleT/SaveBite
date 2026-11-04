@@ -23,7 +23,7 @@ export function TrustConfigurationPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="text-2xl font-bold text-text-primary">Trust Score configuration</h2>
+        <h2 className="text-2xl font-bold text-text-primary">Trust Score Configuration</h2>
         <p className="mt-1 text-sm text-text-secondary">
           Manage levels, the points customers earn or lose, and no-show penalties.
         </p>

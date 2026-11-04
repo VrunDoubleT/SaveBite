@@ -224,8 +224,8 @@ export function PlatformFeeManagementPage() {
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight sm:text-3xl">
-            Platform Fee Management
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+            Platform Fees Management
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Configure global commission rates and oversee periodic statement reconciliation

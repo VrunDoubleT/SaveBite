@@ -173,7 +173,9 @@ export function AdminShopApplicationsPage() {
             pageSize={pageSize}
             onPageChange={setCurrentPage}
             itemLabel="applications"
-            showFirstLast
+            showTotalItems={true}
+            showFirstLast={true}
+            className="w-full"
           />
         ) : null
       }
