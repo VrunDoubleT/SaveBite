@@ -22,6 +22,16 @@ public sealed class NotificationRepository : INotificationRepository
     {
         switch (target.Scope)
         {
+            case NotificationRecipientScope.ShopFollowers:
+            {
+                if (!target.EntityId.HasValue || !target.FollowedBefore.HasValue) return Array.Empty<Guid>();
+                return await _db.ShopFollows.AsNoTracking()
+                    .Where(f => f.ShopId == target.EntityId && f.NotificationStatus == ShopNotificationStatus.Enabled
+                        && f.FollowedAt <= target.FollowedBefore
+                        && f.Customer.Role != UserRole.Admin && f.Customer.Status == UserStatus.Active
+                        && f.Customer.CustomerStatus == CustomerStatus.Active)
+                    .Select(f => f.CustomerId).ToListAsync(ct);
+            }
             case NotificationRecipientScope.AccountStatusSubject:
                 return await _db.Users.AsNoTracking().Where(u => u.Id == target.EntityId)
                     .Select(u => u.Id).ToListAsync(ct);

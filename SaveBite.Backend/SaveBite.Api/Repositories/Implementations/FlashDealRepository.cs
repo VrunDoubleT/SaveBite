@@ -192,13 +192,18 @@ public sealed class FlashDealRepository : IFlashDealRepository
         Guid shopId,
         CancellationToken cancellationToken = default)
     {
+        // Compose the reusable predicate before the outer expression tree. Calling its
+        // factory inside Where leaves a method call where EF expects a quoted lambda.
+        var blockedProductIds = _context.ProductWarnings
+            .Where(WarningDealPolicy.BlockedAt(DateTime.UtcNow))
+            .Select(w => w.ProductId);
         return await _context.Set<Product>()
             .AsNoTracking()
             .Include(p => p.Category)
             .Include(p => p.Images)
             .Include(p => p.Variants).ThenInclude(v => v.VariantValues).ThenInclude(vv => vv.AttributeValue)
             .Where(p => p.ShopId == shopId && p.Status == ProductStatus.Active && p.Variants.Any(v => v.IsActive))
-            .Where(p => !_context.ProductWarnings.Where(WarningDealPolicy.BlockedAt(DateTime.UtcNow)).Any(w => w.ProductId == p.Id))
+            .Where(p => !blockedProductIds.Contains(p.Id))
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
     }

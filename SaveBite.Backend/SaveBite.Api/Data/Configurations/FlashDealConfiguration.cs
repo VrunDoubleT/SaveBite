@@ -45,6 +45,10 @@ public class FlashDealConfiguration : IEntityTypeConfiguration<FlashDeal>
             .HasMaxLength(30)
             .IsRequired();
 
+        builder.Property(x => x.OpenJobId).HasColumnName("open_job_id").HasMaxLength(100);
+        builder.Property(x => x.EndJobId).HasColumnName("end_job_id").HasMaxLength(100);
+        builder.Property(x => x.LifecycleSyncedAt).HasColumnName("lifecycle_synced_at");
+
         builder.Property(x => x.CreatedAt)
             .HasColumnName("created_at")
             .HasColumnType("timestamp with time zone")
@@ -65,6 +69,9 @@ public class FlashDealConfiguration : IEntityTypeConfiguration<FlashDeal>
             .HasForeignKey(x => x.ShopId)
             .OnDelete(DeleteBehavior.NoAction);
         
+        builder.HasIndex(x => new { x.Status, x.OrderEndTime });
+        builder.HasIndex(x => new { x.Status, x.SaleStartTime });
+
         builder.HasIndex(x => new { x.Status, x.CreatedAt })
             .HasDatabaseName("ix_flash_deals_status_created_at");
         

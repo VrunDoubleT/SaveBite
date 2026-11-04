@@ -23,7 +23,11 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
     {
         var dealKey = RedisKeys.Deal(dealId);
 
-        var entries = await Db.HashGetAllAsync(dealKey);
+        HashEntry[] entries;
+        try { entries = await Db.HashGetAllAsync(dealKey); }
+        catch (RedisServerException ex) when (ex.Message.StartsWith("WRONGTYPE", StringComparison.Ordinal))
+        { entries = []; } // Legacy JSON string; the fallback below handles it.
+
         if (entries.Length > 0)
         {
             var dict = entries.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString());
@@ -158,13 +162,17 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
             };
         }
 
-        var json = await Db.StringGetAsync(dealKey);
-        if (!json.IsNullOrEmpty)
+        try
         {
-            return JsonSerializer.Deserialize<FlashDealResponse>(json.ToString());
+            var json = await Db.StringGetAsync(dealKey);
+            return json.IsNullOrEmpty ? null : JsonSerializer.Deserialize<FlashDealResponse>(json.ToString());
         }
-
-        return null;
+        catch (RedisServerException ex) when (ex.Message.StartsWith("WRONGTYPE", StringComparison.Ordinal))
+        {
+            // A lifecycle writer may create the hash between our empty read and legacy fallback.
+            // Treat that transition as a cache miss instead of failing the customer's request.
+            return null;
+        }
     }
 
     public async Task<List<FlashDealResponse>> GetDealsByShopAsync(Guid shopId)
@@ -172,19 +180,17 @@ public sealed class FlashDealRedisService : IFlashDealRedisService
         var shopDealsKey = RedisKeys.ShopDeals(shopId);
 
         var nowScore = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var dealIds = await Db.SortedSetRangeByScoreAsync(
-            shopDealsKey,
-            start: nowScore,
-            stop: double.PositiveInfinity);
-
-        if (dealIds.Length == 0)
+        RedisValue[] dealIds;
+        try
         {
-            dealIds = await Db.SortedSetRangeByRankAsync(shopDealsKey);
+            dealIds = await Db.SortedSetRangeByScoreAsync(shopDealsKey, start: nowScore, stop: double.PositiveInfinity);
         }
-
-        if (dealIds.Length == 0)
+        catch (RedisServerException ex) when (ex.Message.StartsWith("WRONGTYPE", StringComparison.Ordinal))
         {
-            dealIds = await Db.SetMembersAsync(shopDealsKey);
+            // Older deployments stored the shop index as a SET. Do not run SET commands on a new sorted index.
+            try { dealIds = await Db.SetMembersAsync(shopDealsKey); }
+            catch (RedisServerException changed) when (changed.Message.StartsWith("WRONGTYPE", StringComparison.Ordinal))
+            { dealIds = []; }
         }
 
         if (dealIds.Length == 0) return new List<FlashDealResponse>();

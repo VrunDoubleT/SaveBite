@@ -61,6 +61,8 @@ public static class RabbitMqExtensions
             }
         });
 
+        services.AddSingleton<RabbitMqTopologyState>();
+
         // Initialize exchange, queues and bindings.
         services.AddHostedService<RabbitMqTopologyInitializer>();
 

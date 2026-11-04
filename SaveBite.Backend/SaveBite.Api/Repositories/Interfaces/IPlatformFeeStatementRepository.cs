@@ -28,6 +28,5 @@ public interface IPlatformFeeStatementRepository
     Task CancelPendingPaymentsForStatementAsync(Guid statementId, CancellationToken ct = default);
     Task AddFeeAdjustmentAsync(PlatformFeeAdjustment adjustment, CancellationToken ct = default);
     Task AddStatementAsync(PlatformFeeStatement statement, CancellationToken ct = default);
-    void AddAuditLog(AuditLog audit);
     Task SaveChangesAsync(CancellationToken ct = default);
 }

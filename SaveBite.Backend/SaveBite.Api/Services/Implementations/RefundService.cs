@@ -1,3 +1,4 @@
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
 using System.Globalization;
@@ -17,6 +18,7 @@ namespace SaveBite.Backend.Services.Implementations;
 // Keep refund reads separate from commands; all commands share the customer/order transaction lock.
 public class RefundService : IRefundService
 {
+    private readonly AppDbContext _db;
     private readonly IRefundRepository _refunds;
     private readonly INotificationQueue _notifications;
     private readonly ITrustNotificationService _trustNotifications;
@@ -30,10 +32,11 @@ public class RefundService : IRefundService
     private readonly ILogger<RefundService> _logger;
 
     public RefundService(IRefundRepository refunds, ICheckoutRepository orders, IShopOrderRepository shops,
-        ITrustOrderRepository trust, IEmailService email, TimeProvider clock, IConfiguration config, IRefundDeadlineScheduler deadlines, ILogger<RefundService> logger, INotificationQueue notifications, ITrustNotificationService trustNotifications)
+        ITrustOrderRepository trust, IEmailService email, TimeProvider clock, IConfiguration config, IRefundDeadlineScheduler deadlines, ILogger<RefundService> logger, INotificationQueue notifications, ITrustNotificationService trustNotifications, AppDbContext db)
     {
         _notifications = notifications; _trustNotifications = trustNotifications;
         _refunds = refunds; _orders = orders; _shops = shops; _trust = trust;
+        _db = db;
         _email = email; _clock = clock; _config = config; _deadlines = deadlines; _logger = logger;
     }
     private DateTime Now => _clock.GetUtcNow().UtcDateTime;
@@ -131,9 +134,9 @@ public class RefundService : IRefundService
             }
             Audit(f, null, userId, "Customer", order.Customer.FullName, "Requested", f.Reason);
             await _orders.SaveAsync(ct);
+            await NotifyRefundAsync(f.Id, true, ct);
             return Map(f);
         }, ct);
-        await NotifyRefundAsync(result.Id, true, ct);
         return result;
     }
 
@@ -253,8 +256,8 @@ public class RefundService : IRefundService
             if (request.ProofUrl != null) AddEvidence(f, userId, request.ProofUrl, RefundEvidenceType.TransferProof);
             Audit(f, before, userId, "StoreOwner", (await _refunds.UserAsync(userId, ct)).FullName,
                 "Transferred", $"Manual transfer of the full remaining {transferAmount} VND recorded; total transferred {f.TransferredAmount} VND.", request.ProofUrl);
-            await WaiveFeeAsync(f, ct);
-            await ReclaimValueAsync(f, ct);
+            f.FeeAdjustedAt = null; f.AccumulatedValueReclaimedAt = null;
+            LifecycleOutbox.RefundTransferred(_db, f, now);
         }, ct);
     }
 
@@ -338,6 +341,7 @@ public class RefundService : IRefundService
             else if (!RefundRules.Active(f.Status)) f.DeadlineJobId = null;
             if (oldJob != f.DeadlineJobId) deleteJob = oldJob;
             await _orders.SaveAsync(ct);
+            await NotifyRefundAsync(id, false, ct);
             return Map(f);
         }, ct);
         // Delete only after commit; a leftover job checks deadline and status before doing anything.
@@ -346,9 +350,6 @@ public class RefundService : IRefundService
             try { if (!_deadlines.Delete(deleteJob)) _logger.LogWarning("Could not delete refund deadline job {JobId}.", deleteJob); }
             catch (Exception ex) { _logger.LogWarning(ex, "Could not delete refund deadline job {JobId}.", deleteJob); }
         }
-        await NotifyRefundAsync(id, false, ct);
-        if (result.Status is nameof(RefundStatus.Transferred) or nameof(RefundStatus.Completed))
-            await _trustNotifications.PublishForOrderAsync(result.OrderId, ct);
         return result;
     }
 
@@ -442,47 +443,6 @@ public class RefundService : IRefundService
         return selected;
     }
 
-    private async Task WaiveFeeAsync(Refund f, CancellationToken ct)
-    {
-        var adjustment = RefundFeePolicy.Waive(f.Order, f, await _refunds.FeeAsync(f.OrderId, ct), Now);
-        if (adjustment != null) _refunds.Add(adjustment);
-    }
-    private async Task ReclaimValueAsync(Refund f, CancellationToken ct)
-    {
-        if (f.AccumulatedValueReclaimedAt.HasValue || f.Order.Status != OrderStatus.Completed) return;
-        var receipt = await _refunds.ProcessingAsync(f.OrderId, ct);
-        var credited = receipt?.CreditedOrderValue ?? (await _refunds.LegacyCreditAsync(f.OrderId, ct) ? f.Order.TotalAmount : 0);
-        var reclaimed = Math.Min(credited, f.TransferredAmount);
-        var progress = await _trust.ProgressAsync(f.Order.CustomerId, ct);
-        if (credited > 0 && progress == null) throw AppException.ServiceUnavailable("Accumulated progress is missing; refund processing requires review.");
-        if (progress != null)
-        {
-            progress.AccumulatedOrderValue = Math.Max(0, progress.AccumulatedOrderValue - reclaimed);
-            progress.UpdatedAt = Now;
-            var score = await _trust.ScoreAsync(f.Order.CustomerId, ct);
-            var levels = await _trust.LevelsAsync(ct);
-            if (score == null || levels.Count == 0) throw AppException.ServiceUnavailable("Trust data is not ready for refund processing.");
-            var level = levels.Where(x => x.Requirement != null && x.Requirement.MinScore <= score.CurrentScore
-                && x.Requirement.MinCompletedOrders <= progress.CompletedOrdersCount
-                && x.Requirement.MinTotalOrderValue <= progress.AccumulatedOrderValue).OrderByDescending(x => x.Rank).FirstOrDefault() ?? levels[0];
-            if (level.Id != score.TrustLevelId)
-            {
-                _refunds.Add(new UserTrustLevelHistory
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = score.UserId,
-                    PreviousTrustLevelId = score.TrustLevelId,
-                    NewTrustLevelId = level.Id,
-                    Reason = TrustLevelChangeReason.RefundTransferred,
-                    OrderId = f.OrderId,
-                    CreatedAt = Now
-                });
-                score.TrustLevelId = level.Id; score.UpdatedAt = Now;
-            }
-        }
-        if (receipt != null) receipt.CreditedOrderValue = credited - reclaimed;
-        f.AccumulatedValueReclaimedAt = Now;
-    }
     private void Audit(Refund f, RefundStatus? before, Guid? actorId, string role, string name, string decision, string? note, string? proof = null)
     {
         f.UpdatedAt = Now;

@@ -217,6 +217,44 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("categories", (string)null);
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.EmailDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("DeliveryKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("delivery_key");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeliveryKey")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "UpdatedAt");
+
+                    b.ToTable("email_deliveries", (string)null);
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.FlashDeal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -228,6 +266,20 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("EndJobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("end_job_id");
+
+                    b.Property<DateTime?>("LifecycleSyncedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lifecycle_synced_at");
+
+                    b.Property<string>("OpenJobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("open_job_id");
 
                     b.Property<DateTime>("OrderEndTime")
                         .HasColumnType("timestamp with time zone")
@@ -267,6 +319,10 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.HasIndex("Status", "CreatedAt")
                         .HasDatabaseName("ix_flash_deals_status_created_at");
+
+                    b.HasIndex("Status", "OrderEndTime");
+
+                    b.HasIndex("Status", "SaleStartTime");
 
                     b.ToTable("flash_deals", (string)null);
                 });
@@ -651,6 +707,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("payment_review_required");
 
+                    b.Property<DateTime?>("PickupReminderEmailQueuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("pickup_reminder_email_queued_at");
+
                     b.Property<DateTime?>("PickupReminderEmailSentAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("pickup_reminder_email_sent_at");
@@ -675,6 +735,15 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("required_online_amount");
+
+                    b.Property<DateTime?>("ResaleDecisionDeadlineAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resale_decision_deadline_at");
+
+                    b.Property<string>("ResaleDecisionJobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("resale_decision_job_id");
 
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
@@ -706,10 +775,16 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasIndex("CheckoutQuoteId")
                         .IsUnique();
 
+                    b.HasIndex("ResaleDecisionDeadlineAt");
+
                     b.HasIndex("CustomerId", "CheckoutRequestId")
                         .IsUnique();
 
                     b.HasIndex("InventoryReservationActive", "PaymentExpiresAt");
+
+                    b.HasIndex("Status", "HardDeadlineAt");
+
+                    b.HasIndex("Status", "PaymentExpiresAt");
 
                     b.HasIndex("ShopId", "OrderDate", "OrderCode")
                         .IsUnique()
@@ -729,7 +804,13 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<Guid>("OrderId")
+                    b.Property<string>("EventKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("event_key");
+
+                    b.Property<Guid?>("OrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("order_id");
 
@@ -750,10 +831,14 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrderId", "RoutingKey")
+                    b.HasIndex("EventKey")
                         .IsUnique();
 
-                    b.ToTable("order_event_outbox", (string)null);
+                    b.HasIndex("Id")
+                        .HasDatabaseName("ix_event_outbox_pending")
+                        .HasFilter("\"published_at\" IS NULL");
+
+                    b.ToTable("event_outbox", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.OrderItem", b =>
@@ -792,6 +877,24 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("quantity");
 
+                    b.Property<DateTime?>("ResaleDecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resale_decided_at");
+
+                    b.Property<Guid?>("ResaleDecidedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resale_decided_by");
+
+                    b.Property<string>("ResaleDecisionStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("resale_decision_status");
+
+                    b.Property<int>("ResaleQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("resale_quantity");
+
                     b.Property<decimal?>("Subtotal")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
@@ -801,6 +904,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("unit_price");
+
+                    b.Property<int>("UnsellableQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("unsellable_quantity");
 
                     b.Property<string>("VariantNameSnapshot")
                         .HasMaxLength(200)
@@ -815,6 +922,8 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.ToTable("order_items", null, t =>
                         {
+                            t.HasCheckConstraint("ck_order_item_resale_quantities", "resale_quantity >= 0 AND unsellable_quantity >= 0 AND resale_quantity + unsellable_quantity <= quantity");
+
                             t.HasCheckConstraint("order_items_valid", "\"unit_price\" >= 0 AND \"quantity\" > 0 AND (\"subtotal\" IS NULL OR \"subtotal\" >= 0)");
                         });
                 });
@@ -1099,8 +1208,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.HasIndex("OrderFeeId");
 
-                    b.HasIndex("RefundId")
-                        .IsUnique();
+                    b.HasIndex("RefundId");
 
                     b.HasIndex("ShopId");
 
@@ -2063,6 +2171,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("destination_confirmed_at");
 
+                    b.Property<DateTime?>("FeeAdjustedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fee_adjusted_at");
+
                     b.Property<Guid>("InitiatedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("initiated_by");
@@ -2456,6 +2568,12 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
+                    b.Property<bool>("SuspendedForPlatformFees")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("suspended_for_platform_fees");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -2727,6 +2845,42 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("shop_application_review_logs", null, t =>
                         {
                             t.HasCheckConstraint("ck_shop_application_review_revision", "\"revision_number\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.ShopFollow", b =>
+                {
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTime>("FollowedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("followed_at");
+
+                    b.Property<string>("NotificationStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("notification_status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("CustomerId", "ShopId");
+
+                    b.HasIndex("CustomerId", "FollowedAt");
+
+                    b.HasIndex("ShopId", "NotificationStatus", "FollowedAt");
+
+                    b.ToTable("shop_follows", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_shop_follows_notification_status", "notification_status IN ('Disabled', 'Enabled')");
                         });
                 });
 
@@ -3065,6 +3219,94 @@ namespace SaveBite.Backend.Data.Migrations
                             t.HasCheckConstraint("ck_deposit_range_amount", "deposit_amount > 0 AND deposit_amount <= from_order_amount");
 
                             t.HasCheckConstraint("ck_deposit_range_bounds", "from_order_amount >= 0 AND to_order_amount > from_order_amount");
+                        });
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustLevelHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<int>("AffectedUserCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("affected_user_count");
+
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("change_type");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("changed_at");
+
+                    b.Property<Guid?>("ChangedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("changed_by_user_id");
+
+                    b.Property<string>("DepositPolicySnapshotJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("deposit_policy_snapshot");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<int>("MinCompletedOrders")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_completed_orders");
+
+                    b.Property<int>("MinScore")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_score");
+
+                    b.Property<decimal>("MinTotalOrderValue")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("min_total_order_value");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Rank")
+                        .HasColumnType("integer")
+                        .HasColumnName("rank");
+
+                    b.Property<Guid>("TrustLevelId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trust_level_id");
+
+                    b.Property<int>("VersionNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_no");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("TrustLevelId", "ChangedAt")
+                        .HasDatabaseName("ix_trust_level_histories_level_changed_at");
+
+                    b.HasIndex("TrustLevelId", "VersionNo")
+                        .IsUnique()
+                        .HasDatabaseName("ux_trust_level_histories_level_version");
+
+                    b.ToTable("trust_level_histories", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_trust_level_history_affected_users", "\"affected_user_count\" >= 0");
+
+                            t.HasCheckConstraint("ck_trust_level_history_version", "\"version_no\" >= 1");
                         });
                 });
 
@@ -3835,8 +4077,8 @@ namespace SaveBite.Backend.Data.Migrations
                         .IsRequired();
 
                     b.HasOne("SaveBite.Backend.Models.Entities.Refund", "Refund")
-                        .WithOne("PlatformFeeAdjustment")
-                        .HasForeignKey("SaveBite.Backend.Models.Entities.PlatformFeeAdjustment", "RefundId")
+                        .WithMany("PlatformFeeAdjustments")
+                        .HasForeignKey("RefundId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
@@ -4315,6 +4557,25 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("Application");
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.ShopFollow", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.Shop", "Shop")
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Shop");
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.ShopPaymentConfig", b =>
                 {
                     b.HasOne("SaveBite.Backend.Models.Entities.Shop", "Shop")
@@ -4418,6 +4679,24 @@ namespace SaveBite.Backend.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("DepositPolicy");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustLevelHistory", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", "ChangedByUser")
+                        .WithMany("ChangedTrustLevelHistories")
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.TrustLevel", "TrustLevel")
+                        .WithMany("Histories")
+                        .HasForeignKey("TrustLevelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChangedByUser");
+
+                    b.Navigation("TrustLevel");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustLevelRequirement", b =>
@@ -4708,7 +4987,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.Navigation("Items");
 
-                    b.Navigation("PlatformFeeAdjustment");
+                    b.Navigation("PlatformFeeAdjustments");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Shop", b =>
@@ -4749,6 +5028,8 @@ namespace SaveBite.Backend.Data.Migrations
                 {
                     b.Navigation("DepositPolicy");
 
+                    b.Navigation("Histories");
+
                     b.Navigation("NewLevelHistories");
 
                     b.Navigation("PreviousLevelHistories");
@@ -4781,6 +5062,8 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("CancelledOrders");
 
                     b.Navigation("CartItems");
+
+                    b.Navigation("ChangedTrustLevelHistories");
 
                     b.Navigation("CreatedPlatformFeeConfigs");
 

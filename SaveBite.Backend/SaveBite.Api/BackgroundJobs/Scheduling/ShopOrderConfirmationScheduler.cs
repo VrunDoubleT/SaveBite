@@ -4,19 +4,15 @@ using SaveBite.Backend.BackgroundJobs.Jobs;
 
 namespace SaveBite.Backend.BackgroundJobs.Scheduling;
 
-// Manage Hangfire jobs for overdue shop confirmation.
-public sealed class ShopOrderConfirmationScheduler : IShopOrderConfirmationScheduler
+public sealed class ShopOrderConfirmationScheduler(IBackgroundJobClient jobs, ILogger<ShopOrderConfirmationScheduler> logger) : IShopOrderConfirmationScheduler
 {
-    private readonly IBackgroundJobClient _jobs;
-    public ShopOrderConfirmationScheduler(IBackgroundJobClient jobs) { _jobs = jobs; }
+    public string? Schedule(Guid orderId, DateTime deadline)
+        => SafeSchedule.Try(() => jobs.Schedule<ShopOrderConfirmationJob>(job => job.ExecuteAsync(orderId, CancellationToken.None),
+            new DateTimeOffset(DateTime.SpecifyKind(deadline, DateTimeKind.Utc))), logger, "confirmation-expiration", orderId);
 
-    // Schedule the confirmation timeout at the recorded absolute deadline.
-    public string Schedule(Guid orderId, DateTime deadline)
+    public bool Delete(string jobId)
     {
-        var id = _jobs.Schedule<ShopOrderConfirmationJob>(job => job.ExecuteAsync(orderId, CancellationToken.None),
-            new DateTimeOffset(DateTime.SpecifyKind(deadline, DateTimeKind.Utc)));
-        return !string.IsNullOrWhiteSpace(id) ? id : throw new InvalidOperationException("Shop confirmation expiry could not be scheduled.");
+        try { return jobs.Delete(jobId); }
+        catch (Exception ex) { logger.LogWarning(ex, "Could not delete job {JobId}.", jobId); return false; }
     }
-    // Delete the saved confirmation job after the order has been processed.
-    public bool Delete(string jobId) => _jobs.Delete(jobId);
 }

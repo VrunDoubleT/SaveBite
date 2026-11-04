@@ -14,6 +14,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class UserService : IUserService
 {
+    private readonly IAdminAuditWriter _audit;
     private readonly INotificationQueue _notifications;
     private readonly IUserRepository _repository;
     private readonly IRefreshTokenService _refreshTokenService;
@@ -27,8 +28,9 @@ public sealed class UserService : IUserService
         TimeProvider timeProvider,
         ILogger<UserService> logger,
         ICloudinaryService cloudinaryService,
-        INotificationQueue notifications)
+        INotificationQueue notifications, IAdminAuditWriter audit)
     {
+        _audit = audit;
         _notifications = notifications;
         _repository = repository;
         _refreshTokenService = refreshTokenService;
@@ -214,7 +216,7 @@ public sealed class UserService : IUserService
 
     private void LogAudit(Guid adminId, Guid targetId, string action, string reason, string newValues, DateTime now)
     {
-        _repository.AddAuditLog(new AuditLog
+        _audit.Record(new AuditLog
         {
             Id = Guid.NewGuid(),
             ActorUserId = adminId,

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Hangfire;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.Caching.Interfaces;
@@ -46,6 +47,38 @@ public sealed class FlashDealService : IFlashDealService
         _logger = logger;
         _backgroundJobClient = backgroundJobClient;
         _publisher = publisher;
+    }
+
+    private async Task TryPublishLifecycleAsync(string routingKey, FlashDealEvent payload, CancellationToken ct)
+    {
+        try { await _publisher.PublishAsync(routingKey, payload, ct); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Flash Deal {Id} event deferred to recovery.", payload.FlashDealId); }
+    }
+
+    private async Task RefreshScheduleAsync(FlashDeal deal, CancellationToken ct)
+    {
+        foreach (var oldId in new[] { deal.OpenJobId, deal.EndJobId }.Where(id => !string.IsNullOrWhiteSpace(id)))
+        {
+            try { _backgroundJobClient.Delete(oldId!); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Could not delete old Flash Deal job {JobId}; deadline checks invalidate it.", oldId); }
+        }
+        deal.OpenJobId = null;
+        var start = deal.SaleStartTime;
+        var end = deal.OrderEndTime;
+        if (deal.Status == FlashDealStatus.Pending && start > DateTime.UtcNow)
+            deal.OpenJobId = SaveBite.Backend.BackgroundJobs.Scheduling.SafeSchedule.Try(() =>
+                _backgroundJobClient.Schedule<IFlashDealJobService>(job => job.PublishDealOpenedAtAsync(deal.Id, start),
+                    new DateTimeOffset(DateTime.SpecifyKind(start, DateTimeKind.Utc))), _logger, "flash-open", deal.Id);
+        deal.EndJobId = SaveBite.Backend.BackgroundJobs.Scheduling.SafeSchedule.Try(() =>
+            _backgroundJobClient.Schedule<IFlashDealJobService>(job => job.PublishDealExpiredAtAsync(deal.Id, end),
+                new DateTimeOffset(DateTime.SpecifyKind(end, DateTimeKind.Utc))), _logger, "flash-end", deal.Id);
+        await _dealRepository.UpdateAsync(deal, ct);
+        if (start <= DateTime.UtcNow && end > DateTime.UtcNow && deal.Status is FlashDealStatus.Pending or FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
+        {
+            try { await _publisher.PublishAsync(RabbitMqRoutingKeys.FlashDealOpened,
+                new FlashDealEvent { FlashDealId = deal.Id, ExpectedDeadline = start }, ct); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Flash Deal {Id} opening deferred to recovery.", deal.Id); }
+        }
     }
 
     public async Task<FlashDealCursorListResponse> GetNearbyAsync(
@@ -257,13 +290,6 @@ public sealed class FlashDealService : IFlashDealService
         {
             var response = MapToResponse(deal);
             responses.Add(response);
-            if (deal.Shop != null)
-            {
-                await _redisService.SaveDealAsync(
-                    response,
-                    deal.Shop.Latitude,
-                    deal.Shop.Longitude);
-            }
         }
 
         return responses;
@@ -287,13 +313,7 @@ public sealed class FlashDealService : IFlashDealService
 
         var response = MapToResponse(deal);
 
-        if (deal.Shop != null)
-        {
-            await _redisService.SaveDealAsync(
-                response,
-                deal.Shop.Latitude,
-                deal.Shop.Longitude);
-        }
+        // Read fallbacks do not write cache: only locked lifecycle/inventory writers may do so.
 
         return response;
     }
@@ -524,31 +544,7 @@ public sealed class FlashDealService : IFlashDealService
             });
         }
         await _dealRepository.AddAsync(deal, cancellationToken);
-        // --- SCHEDULING AND EVENT DISPATCHING ---
-        if (isOpenNow)
-        {
-            // 1. Open now: Publish flash sale.opened
-            await _publisher.PublishAsync(
-                RabbitMqRoutingKeys.FlashDealOpened,
-                new FlashDealEvent { FlashDealId = deal.Id },
-                cancellationToken);
-        }
-        else if (!request.IsImmediate && effectiveStartTime > now)
-        {
-            // 2. Future opening: Schedule Hangfire to run at SaleStartTime
-            var delayToStart = effectiveStartTime - now;
-            _backgroundJobClient.Schedule<IFlashDealJobService>(
-                job => job.PublishDealOpenedAsync(deal.Id),
-                delayToStart);
-        }
-        // 3. Always schedule the end time at OrderEndTime
-        var delayToEnd = request.OrderEndTime - now;
-        if (delayToEnd > TimeSpan.Zero)
-        {
-            _backgroundJobClient.Schedule<IFlashDealJobService>(
-                job => job.PublishDealExpiredAsync(deal.Id),
-                delayToEnd);
-        }
+        await RefreshScheduleAsync(deal, cancellationToken);
         var createdDeal = await _dealRepository.GetShopDealByIdAsync(shop.Id, deal.Id, cancellationToken);
         return MapToShopDetailResponse(createdDeal!);
     }
@@ -560,6 +556,8 @@ public sealed class FlashDealService : IFlashDealService
         UpdateFlashDealRequest request,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE id = {dealId} FOR UPDATE", cancellationToken);
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
             ?? throw AppException.NotFound("Flash deal not found.");
@@ -613,7 +611,7 @@ public sealed class FlashDealService : IFlashDealService
 
             deal.SaleStartTime = request.SaleStartTime;
         }
-        else if (deal.Status == FlashDealStatus.OnSale)
+        else if (deal.Status is FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
         {
             if (request.OrderEndTime - deal.SaleStartTime > TimeSpan.FromMinutes(120))
             {
@@ -625,6 +623,7 @@ public sealed class FlashDealService : IFlashDealService
             }
         }
 
+        deal.LifecycleSyncedAt = null;
         deal.OrderEndTime = request.OrderEndTime;
         deal.ShopClosingTime = request.ShopClosingTime;
         deal.UpdatedAt = now;
@@ -676,27 +675,17 @@ public sealed class FlashDealService : IFlashDealService
         }
         await _dealRepository.UpdateAsync(deal, cancellationToken);
 
-        // New completion timer with Hangfire
-        var delayToEnd = request.OrderEndTime - DateTime.UtcNow;
-        if (delayToEnd > TimeSpan.Zero)
-        {
-            _backgroundJobClient.Schedule<IFlashDealJobService>(
-                job => job.PublishDealExpiredAsync(deal.Id),
-                delayToEnd);
-        }
-        // If the deal is OnSale, update the Redis cache by publishing an event
-        if (deal.Status == FlashDealStatus.OnSale)
-        {
-            await _publisher.PublishAsync(
-                RabbitMqRoutingKeys.FlashDealOpened,
-                new FlashDealEvent { FlashDealId = deal.Id },
-                cancellationToken);
-        }
+        await RefreshScheduleAsync(deal, cancellationToken);
+        LifecycleOutbox.InventoryDeals(_db, new[] { deal.Id }, null, DateTime.UtcNow);
+        await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return MapToShopDetailResponse(deal);
     }
     // 5. Cancel Flash Deal
     public async Task CancelDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE id = {dealId} FOR UPDATE", cancellationToken);
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
             ?? throw AppException.NotFound("Flash deal not found.");
@@ -707,10 +696,12 @@ public sealed class FlashDealService : IFlashDealService
         }
 
         deal.Status = FlashDealStatus.Cancelled;
+        deal.LifecycleSyncedAt = null;
         deal.UpdatedAt = DateTime.UtcNow;
         await _dealRepository.UpdateAsync(deal, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         // Fire an event to have the Consumer remove the deal from Redis
-        await _publisher.PublishAsync(
+        await TryPublishLifecycleAsync(
             RabbitMqRoutingKeys.FlashDealClosed,
             new FlashDealEvent { FlashDealId = deal.Id },
             cancellationToken);
@@ -719,18 +710,22 @@ public sealed class FlashDealService : IFlashDealService
     // 6. Hide Flash Deal
     public async Task HideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE id = {dealId} FOR UPDATE", cancellationToken);
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
             ?? throw AppException.NotFound("Flash deal not found.");
-        if (deal.Status != FlashDealStatus.OnSale && deal.Status != FlashDealStatus.Pending)
+        if (deal.Status != FlashDealStatus.OnSale && deal.Status != FlashDealStatus.Pending && deal.Status != FlashDealStatus.SoldOut)
         {
             throw AppException.BadRequest("Only active or pending deals can be hidden.");
         }
         deal.Status = FlashDealStatus.Hidden;
+        deal.LifecycleSyncedAt = null;
         deal.UpdatedAt = DateTime.UtcNow;
         await _dealRepository.UpdateAsync(deal, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         // Emit an event for the Consumer to remove the temporary deal from Redis
-        await _publisher.PublishAsync(
+        await TryPublishLifecycleAsync(
             RabbitMqRoutingKeys.FlashDealHidden,
             new FlashDealEvent { FlashDealId = deal.Id },
             cancellationToken);
@@ -738,6 +733,8 @@ public sealed class FlashDealService : IFlashDealService
     // 7. Unhide Flash Deal
     public async Task UnhideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE id = {dealId} FOR UPDATE", cancellationToken);
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
             ?? throw AppException.NotFound("Flash deal not found.");
@@ -754,12 +751,14 @@ public sealed class FlashDealService : IFlashDealService
         if (await WarningDealPolicy.IsBlockedAsync(_db, deal.ProductId, cancellationToken))
             throw AppException.Conflict("Product has an overdue warning and cannot reopen deals.");
         deal.Status = now >= deal.SaleStartTime ? FlashDealStatus.OnSale : FlashDealStatus.Pending;
+        deal.LifecycleSyncedAt = null;
         deal.UpdatedAt = now;
         await _dealRepository.UpdateAsync(deal, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         // If the sale start time has been reached, publish the event so that the Consumer can reload data into Redis
         if (deal.Status == FlashDealStatus.OnSale)
         {
-            await _publisher.PublishAsync(
+            await TryPublishLifecycleAsync(
                 RabbitMqRoutingKeys.FlashDealOpened,
                 new FlashDealEvent { FlashDealId = deal.Id },
                 cancellationToken);

@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using SaveBite.Backend.Models.Common;
@@ -16,24 +18,26 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class ShopService : IShopService
 {
+    private readonly AppDbContext _db;
     private readonly INotificationQueue _notifications;
     private readonly IShopRepository _shopRepository;
     private readonly IUserAddressRepository _userAddressRepository;
     private readonly ICloudinaryService _cloudinaryService;
-    private readonly IRabbitMqPublisher _publisher;
+    private readonly IAdminAuditWriter _audit;
 
     public ShopService(
         IShopRepository shopRepository,
         IUserAddressRepository userAddressRepository,
         ICloudinaryService cloudinaryService,
-        IRabbitMqPublisher publisher,
-        INotificationQueue notifications)
+        IAdminAuditWriter audit,
+        INotificationQueue notifications, AppDbContext db)
     {
+        _db = db;
         _notifications = notifications;
         _shopRepository = shopRepository;
         _userAddressRepository = userAddressRepository;
         _cloudinaryService = cloudinaryService;
-        _publisher = publisher;
+        _audit = audit;
     }
 
     public async Task<ShopSummaryResponse> GetOwnerShopAsync(
@@ -493,6 +497,8 @@ public sealed class ShopService : IShopService
     // Manage Shops.
     public async Task<ModerationActionResponse> UpdateShopStatusAsync(Guid adminId, Guid shopId, UpdateShopModerationStatusRequest request, CancellationToken ct)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
         var targetStatus = Enum.Parse<ShopStatus>(request.Status.Trim(), ignoreCase: true);
         
         var shop = await _shopRepository.GetShopForStatusUpdateAsync(shopId, ct);
@@ -526,11 +532,10 @@ public sealed class ShopService : IShopService
             Status = currentStatus.ToString()
         };
 
+        shop.SuspendedForPlatformFees = false; // An administrator decision must never be undone by fee payment.
         shop.Status = targetStatus;
         shop.UpdatedAt = DateTime.UtcNow;
-        await _shopRepository.SaveChangesAsync(ct);
-
-        var moderationEvent = new ModerationEvent
+        var auditEntry = _audit.Record(new AuditLog
         {
             Id = Guid.NewGuid(),
             ActorUserId = adminId,
@@ -541,12 +546,14 @@ public sealed class ShopService : IShopService
             OldValuesJson = JsonSerializer.Serialize(oldValues),
             NewValuesJson = JsonSerializer.Serialize(new { Status = targetStatus.ToString() }),
             CreatedAt = DateTime.UtcNow
-        };
+        });
+        await _shopRepository.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
         await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
             NotificationType.ShopStatusChanged, "Shop status updated",
             $"{shop.Name}: {currentStatus} → {targetStatus}." + (string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}"),
-            "/account/workspace", $"shop-status:{moderationEvent.Id}"), ct);
-        await _publisher.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, moderationEvent, ct);
+            "/account/workspace", $"shop-status:{auditEntry.Id}"), ct);
 
         return new ModerationActionResponse
         {

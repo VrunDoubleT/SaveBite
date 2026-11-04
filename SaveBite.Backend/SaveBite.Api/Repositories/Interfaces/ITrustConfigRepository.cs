@@ -88,7 +88,6 @@ public interface ITrustConfigRepository
     void AddScoreRule(TrustScoreRule rule);
 
     // Shared
-    void AddAuditLog(AuditLog log);
 
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

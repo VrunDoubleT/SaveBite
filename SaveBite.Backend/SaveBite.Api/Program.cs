@@ -1,4 +1,4 @@
-using SaveBite.Backend.Messaging.Consumer;
+using SaveBite.Backend.Messaging.Consumer.ProductWarnings;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.BackgroundJobs.Extensions;
 using SaveBite.Backend.Data;

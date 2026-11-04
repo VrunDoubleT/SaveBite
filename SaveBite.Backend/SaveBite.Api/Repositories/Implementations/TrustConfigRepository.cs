@@ -231,7 +231,7 @@ public sealed class TrustConfigRepository : ITrustConfigRepository
 
     // ---------------------------------------------------------------- Shared
 
-    public void AddAuditLog(AuditLog log) => _dbContext.Set<AuditLog>().Add(log);
+
 
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         => _dbContext.SaveChangesAsync(cancellationToken);

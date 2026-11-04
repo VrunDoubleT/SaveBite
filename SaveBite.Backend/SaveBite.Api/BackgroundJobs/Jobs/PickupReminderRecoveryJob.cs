@@ -10,7 +10,7 @@ public sealed class PickupReminderRecoveryJob(AppDbContext db, PickupDeadlineRem
     public async Task ExecuteAsync(CancellationToken ct)
     {
         var now = clock.GetUtcNow().UtcDateTime;
-        var candidates = await db.Orders.AsNoTracking().Where(o => o.PickupReminderEmailSentAt == null
+        var candidates = await db.Orders.AsNoTracking().Where(o => o.PickupReminderEmailSentAt == null && o.PickupReminderEmailQueuedAt == null
             && o.HardDeadlineAt > now && o.HardDeadlineAt <= now.AddMinutes(10)
             && (o.Status == OrderStatus.Confirmed || o.Status == OrderStatus.Preparing || o.Status == OrderStatus.ReadyForPickup))
             .Select(o => new { o.Id, o.HardDeadlineAt, o.ConfirmedAt, o.CreatedAt }).ToListAsync(ct);

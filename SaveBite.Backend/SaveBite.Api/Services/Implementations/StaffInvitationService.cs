@@ -18,9 +18,16 @@ public sealed class StaffInvitationService(
     IStaffInvitationRepository invitationRepository,
     IShopStaffRepository staffRepository,
     IStaffInvitationScheduler scheduler,
-    StaffInvitationNotificationService notifications
+    StaffInvitationNotificationService notifications,
+    ILogger<StaffInvitationService> logger
 ) : IStaffInvitationService
 {
+    private async Task TryNotifyAsync(Guid invitationId, StaffInvitationStatus status, CancellationToken ct)
+    {
+        try { await notifications.NotifyAsync(invitationId, status, ct); }
+        catch (Exception ex) { logger.LogWarning(ex, "Invitation {Id} notification deferred to recovery.", invitationId); }
+    }
+
     private const string StatusPending =
         nameof(StaffInvitationStatus.Pending);
 
@@ -234,9 +241,9 @@ public sealed class StaffInvitationService(
             );
         }
 
-        if (pendingInvitation != null) await notifications.NotifyAsync(pendingInvitation.Id, StaffInvitationStatus.Expired, cancellationToken);
+        if (pendingInvitation != null) await TryNotifyAsync(pendingInvitation.Id, StaffInvitationStatus.Expired, cancellationToken);
         scheduler.ScheduleExpiration(created.Id, created.InvitedAt.AddDays(InvitationLifetimeDays));
-        await notifications.NotifyAsync(created.Id, StaffInvitationStatus.Pending, cancellationToken);
+        await TryNotifyAsync(created.Id, StaffInvitationStatus.Pending, cancellationToken);
         return MapToInvitationResponse(created);
     }
 
@@ -278,7 +285,7 @@ public sealed class StaffInvitationService(
         if (IsExpired(invitation))
         {
             await invitationRepository.TryTransitionPendingAsync(invitation.Id, StatusExpired, DateTime.UtcNow, cancellationToken);
-            await notifications.NotifyAsync(invitation.Id, StaffInvitationStatus.Expired, cancellationToken);
+            await TryNotifyAsync(invitation.Id, StaffInvitationStatus.Expired, cancellationToken);
             throw AppException.BadRequest("Invitation has expired", ErrorCodes.InvitationInvalidOrExpired);
         }
 
@@ -390,7 +397,7 @@ public sealed class StaffInvitationService(
         if (IsExpired(invitation))
         {
             await invitationRepository.TryTransitionPendingAsync(invitation.Id, StatusExpired, DateTime.UtcNow, cancellationToken);
-            await notifications.NotifyAsync(invitation.Id, StaffInvitationStatus.Expired, cancellationToken);
+            await TryNotifyAsync(invitation.Id, StaffInvitationStatus.Expired, cancellationToken);
             throw AppException.BadRequest("Invitation has expired", ErrorCodes.InvitationInvalidOrExpired);
         }
 
@@ -527,7 +534,7 @@ public sealed class StaffInvitationService(
         await transaction.CommitAsync(
             cancellationToken
         );
-        await notifications.NotifyAsync(invitation.Id, StaffInvitationStatus.Accepted, cancellationToken);
+        await TryNotifyAsync(invitation.Id, StaffInvitationStatus.Accepted, cancellationToken);
     }
 
 
@@ -555,7 +562,7 @@ public sealed class StaffInvitationService(
         if (IsExpired(invitation))
         {
             await invitationRepository.TryTransitionPendingAsync(invitation.Id, StatusExpired, DateTime.UtcNow, cancellationToken);
-            await notifications.NotifyAsync(invitation.Id, StaffInvitationStatus.Expired, cancellationToken);
+            await TryNotifyAsync(invitation.Id, StaffInvitationStatus.Expired, cancellationToken);
             throw AppException.BadRequest("Invitation has expired", ErrorCodes.InvitationInvalidOrExpired);
         }
 
@@ -569,7 +576,7 @@ public sealed class StaffInvitationService(
 
         if (!await invitationRepository.TryTransitionPendingAsync(invitation.Id, StatusDeclined, DateTime.UtcNow, cancellationToken))
             throw AppException.Conflict("Invitation has already been answered or expired.");
-        await notifications.NotifyAsync(invitation.Id, StaffInvitationStatus.Declined, cancellationToken);
+        await TryNotifyAsync(invitation.Id, StaffInvitationStatus.Declined, cancellationToken);
     }
 
 

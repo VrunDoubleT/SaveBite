@@ -43,11 +43,15 @@ public class Order
     public Guid? CancelledBy { get; set; }
 
     public DateTime? PickupReminderEmailSentAt { get; set; }
+    public DateTime? PickupReminderEmailQueuedAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public DateTime? ReadyAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public DateTime? ExpiredAt { get; set; }
+
+    public DateTime? ResaleDecisionDeadlineAt { get; set; }
+    public string? ResaleDecisionJobId { get; set; }
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

@@ -1,3 +1,7 @@
+using Npgsql;
+using System.Text.Json;
+using SaveBite.Backend.Messaging.Constants;
+using SaveBite.Backend.Messaging.Events;
 using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
@@ -41,13 +45,24 @@ public sealed class AuthRepository : IAuthRepository
         CancellationToken cancellationToken = default)
     {
         _dbContext.Users.Add(user);
+        OrderEventOutbox? verifiedEvent = null;
+        if (user.EmailVerifiedAt.HasValue)
+        {
+            verifiedEvent = new OrderEventOutbox { Id = Guid.NewGuid(), EventKey = $"user:{user.Id}:verified",
+                RoutingKey = RabbitMqRoutingKeys.UserVerified,
+                PayloadJson = JsonSerializer.Serialize(new UserVerifiedEvent(user.Id, user.EmailVerifiedAt.Value)),
+                CreatedAt = user.CreatedAt };
+            _dbContext.Add(verifiedEvent);
+        }
         try
         {
             await _dbContext.SaveChangesAsync(cancellationToken);
             return true;
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
+            _dbContext.Entry(user).State = EntityState.Detached;
+            if (verifiedEvent != null) _dbContext.Entry(verifiedEvent).State = EntityState.Detached;
             return false;
         }
     }

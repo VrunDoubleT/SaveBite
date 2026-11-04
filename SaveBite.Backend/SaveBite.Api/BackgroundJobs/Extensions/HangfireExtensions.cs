@@ -22,7 +22,6 @@ public static class HangfireExtensions
         services.AddScoped<RefundDeadlineJob>();
         services.AddScoped<RefundDeadlineRecoveryJob>();
         services.AddScoped<ICheckoutPaymentExpirationScheduler, CheckoutPaymentExpirationScheduler>();
-        services.AddScoped<IOrderEventDispatchScheduler, OrderEventDispatchScheduler>();
         services.AddScoped<IShopOrderConfirmationScheduler, ShopOrderConfirmationScheduler>();
         services.AddScoped<IShopOrderNoShowScheduler, ShopOrderNoShowScheduler>();
         // Register scoped job classes here as they are added.
@@ -33,7 +32,13 @@ public static class HangfireExtensions
         services.AddScoped<ShopOrderConfirmationJob>();
         services.AddScoped<ShopOrderNoShowJob>();
         services.AddScoped<PickupDeadlineReminderJob>();
-        services.AddScoped<PickupReminderRecoveryJob>();
+        services.AddScoped<ResaleDecisionExpirationJob>();
+        services.AddScoped<OrderDeadlineRecoveryJob>();
+        services.AddScoped<OrderOutboxRecoveryJob>();
+        services.AddScoped<RabbitFailureRecoveryJob>();
+        services.AddScoped<CartAvailabilityRecoveryJob>();
+        services.AddScoped<FlashDealRecoveryJob>();
+        services.AddScoped<PlatformFeeRecoveryJob>();
         services.AddScoped<PlatformFeeOverdueJob>();
         services.AddScoped<PlatformFeeMonthlyStatementJob>();
 
@@ -80,36 +85,36 @@ public static class HangfireExtensions
 
     public static WebApplication UseBackgroundJobs(this WebApplication app)
     {
-        app.Services.GetRequiredService<IBackgroundJobClient>().Enqueue<RefundDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None));
-        app.Services.GetRequiredService<IBackgroundJobClient>().Enqueue<StaffInvitationRecoveryJob>(job => job.ExecuteAsync(true, CancellationToken.None));
-        app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<StaffInvitationRecoveryJob>(
-            "staff-invitation-recovery", job => job.ExecuteAsync(false, CancellationToken.None), Cron.Minutely());
-        app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<PickupReminderRecoveryJob>(
-            "pickup-deadline-reminder-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        var recurring = app.Services.GetRequiredService<IRecurringJobManager>();
+        recurring.AddOrUpdate<OrderDeadlineRecoveryJob>("order-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<OrderOutboxRecoveryJob>("order-outbox-dispatch", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<RabbitFailureRecoveryJob>("rabbit-failure-recovery", job => job.ExecuteAsync(CancellationToken.None), "*/5 * * * *");
+        recurring.AddOrUpdate<CartAvailabilityRecoveryJob>("cart-availability-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<RefundDeadlineRecoveryJob>("refund-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<FlashDealRecoveryJob>("flash-deal-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<StaffInvitationRecoveryJob>("staff-invitation-recovery", job => job.ExecuteAsync(false, CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<PlatformFeeRecoveryJob>("platform-fee-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Hourly());
+        recurring.RemoveIfExists("pickup-deadline-reminder-recovery");
+        var jobs = app.Services.GetRequiredService<IBackgroundJobClient>();
+        var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("BackgroundJobStartup");
+        SafeSchedule.Try(() => jobs.Enqueue<RefundDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "refund-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<StaffInvitationRecoveryJob>(job => job.ExecuteAsync(true, CancellationToken.None)), logger, "invitation-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<OrderDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "order-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<FlashDealRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "flash-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<OrderOutboxRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "outbox-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<PlatformFeeRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "fee-startup", Guid.Empty);
         var options = app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value;
         if (app.Environment.IsDevelopment() && options.DashboardEnabled)
         {
             // Hangfire's default dashboard authorization only permits local requests.
             app.UseHangfireDashboard("/hangfire");
         }
-        using (var scope = app.Services.CreateScope())
-               {
-                   var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
-                   // Monthly calculation: Runs on the 1st of every month at midnight (12:00 AM / 00:00) to calculate statements for previous month (BR-093, BR-192)
-                   recurringJobs.AddOrUpdate<PlatformFeeMonthlyStatementJob>(
-                       "platform-fee-monthly-statement-generation",
-                       job => job.ExecuteAsync(CancellationToken.None),
-                       Cron.Monthly(1, 0)); // 00:00 on day-of-month 1
+        recurring.AddOrUpdate<PlatformFeeMonthlyStatementJob>("platform-fee-monthly-statement-generation",
+            job => job.ExecuteAsync(CancellationToken.None), Cron.Monthly(1, 0)); // UTC: 07:00 Vietnam
+        recurring.AddOrUpdate<PlatformFeeOverdueJob>("platform-fee-overdue-check",
+            job => job.ExecuteAsync(CancellationToken.None), Cron.Hourly());
 
-                   // Check hourly for fees due within 24 hours and suspend overdue shops (BR-095, BR-193).
-                   recurringJobs.AddOrUpdate<PlatformFeeOverdueJob>(
-                       "platform-fee-overdue-check",
-                       job => job.ExecuteAsync(CancellationToken.None),
-                       Cron.Hourly()); // Check overdue fees and the 24-hour reminder window every hour
-               }
-
-
-        // Stop the legacy notification recovery schedule; notifications now publish directly to RabbitMQ.
+        // Shared event_outbox recovery now dispatches notifications as well.
         app.Services.GetRequiredService<IRecurringJobManager>().RemoveIfExists("notification-outbox-recovery");
         return app;
     }

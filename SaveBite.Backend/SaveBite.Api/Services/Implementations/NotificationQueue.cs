@@ -1,3 +1,8 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Events;
 using SaveBite.Backend.Messaging.Interfaces;
@@ -6,18 +11,19 @@ using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Services.Implementations;
 
-// Publish notification requests directly; only the consumer persists notifications and sends realtime events.
+// Persist requests before broker delivery. Ambient business transactions own their commit.
 public class NotificationQueue : INotificationQueue
 {
-    private readonly IRabbitMqPublisher _publisher;
+    private readonly AppDbContext _db;
+    private readonly TimeProvider _clock;
 
-    public NotificationQueue(IRabbitMqPublisher publisher)
+    public NotificationQueue(AppDbContext db, TimeProvider clock)
     {
-        _publisher = publisher;
+        _db = db; _clock = clock;
     }
 
-    // Await broker confirmation and propagate publish failures so each caller can log or handle them.
-    public Task EnqueueAsync(NotificationTarget target, CreateNotificationCommand command, CancellationToken ct = default)
+    // Persist a durable request; the shared outbox dispatcher handles broker delivery later.
+    public async Task EnqueueAsync(NotificationTarget target, CreateNotificationCommand command, CancellationToken ct = default)
     {
         var id = Guid.NewGuid();
         var body = command.Body.Trim();
@@ -35,9 +41,16 @@ public class NotificationQueue : INotificationQueue
                 : command.DeduplicationKey.Trim()
         };
 
-        return _publisher.PublishAsync(
-            RabbitMqRoutingKeys.NotificationRequested,
-            new NotificationRequestedEvent(id, target, command),
-            ct);
+        var keyMaterial = JsonSerializer.Serialize(target) + ":" + command.DeduplicationKey;
+        var key = "notification:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(keyMaterial)));
+        var json = JsonSerializer.Serialize(new NotificationRequestedEvent(id, target, command));
+        var now = _clock.GetUtcNow().UtcDateTime;
+        // ON CONFLICT avoids aborting a caller's transaction during duplicate/concurrent requests.
+        // Raw insert deliberately does not SaveChanges on unrelated tracked business entities.
+        await _db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO event_outbox (id, order_id, event_key, routing_key, payload_json, created_at)
+            VALUES ({id}, NULL, {key}, {RabbitMqRoutingKeys.NotificationRequested}, CAST({json} AS jsonb), {now})
+            ON CONFLICT (event_key) DO NOTHING
+            """, ct);
     }
 }

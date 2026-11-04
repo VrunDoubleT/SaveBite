@@ -37,6 +37,25 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
     // Opt-in dead-letter storage keeps rejected feature messages available for inspection and replay.
     protected virtual string? DeadLetterQueueName => null;
 
+    // Existing queues cannot change x-dead-letter arguments in place. Opt-in consumers
+    // park failures with confirmed publishing, preserving their current queue declarations.
+    protected virtual bool ParkFailures => false;
+    protected virtual int RetryAttempts => 0;
+
+    protected async Task ExecuteWithRetryAsync(RabbitMessage<T> message, CancellationToken ct)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            try { await HandleMessageAsync(message, ct); return; }
+            catch (Exception ex) when (attempt < RetryAttempts && ex is not ArgumentException && !ct.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "Retry {Attempt} on {QueueName}.", attempt + 1, QueueName);
+                await Task.Delay(TimeSpan.FromSeconds(1 << attempt), ct);
+            }
+        }
+    }
+
     // Business logic executed when a message is received.
     protected abstract Task HandleMessageAsync(
         RabbitMessage<T> message,
@@ -85,7 +104,7 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
         {
             await _channel.QueueDeclareAsync(queue: DeadLetterQueueName, durable: true,
                 exclusive: false, autoDelete: false, cancellationToken: cancellationToken);
-            queueArguments = new Dictionary<string, object?>
+            if (!ParkFailures) queueArguments = new Dictionary<string, object?>
             {
                 ["x-dead-letter-exchange"] = "",
                 ["x-dead-letter-routing-key"] = DeadLetterQueueName
@@ -161,9 +180,7 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
                 message.MessageId);
 
             // Execute business logic.
-            await HandleMessageAsync(
-                message,
-                cancellationToken);
+            await ExecuteWithRetryAsync(message, cancellationToken);
 
             // Message processed successfully.
             await _channel.BasicAckAsync(
@@ -186,12 +203,33 @@ public abstract class RabbitMqConsumer<T> : IRabbitMqConsumer
                 QueueName,
                 eventArgs.DeliveryTag);
 
-            // Message will be handled by retry/DLQ strategy.
-            await _channel.BasicNackAsync(
-                deliveryTag: eventArgs.DeliveryTag,
-                multiple: false,
-                requeue: false,
-                cancellationToken: cancellationToken);
+            if (ParkFailures && DeadLetterQueueName != null)
+            {
+                try
+                {
+                    // A failed parking publish must leave the source message unacknowledged/requeued.
+                    await using var failureChannel = await _connection!.CreateChannelAsync(new CreateChannelOptions(
+                        publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), cancellationToken);
+                    var failureHeaders = eventArgs.BasicProperties.Headers == null
+                        ? new Dictionary<string, object?>() : new Dictionary<string, object?>(eventArgs.BasicProperties.Headers);
+                    failureHeaders["failed-queue"] = QueueName;
+                    failureHeaders["original-routing-key"] = eventArgs.RoutingKey;
+                    await failureChannel.BasicPublishAsync(exchange: "", routingKey: DeadLetterQueueName, mandatory: true,
+                        basicProperties: new BasicProperties { Persistent = true, ContentType = "application/json",
+                            Headers = failureHeaders },
+                        body: eventArgs.Body, cancellationToken: cancellationToken);
+                    await _channel.BasicAckAsync(eventArgs.DeliveryTag, false, cancellationToken);
+                }
+                catch (Exception parkingError)
+                {
+                    _logger.LogError(parkingError, "Could not park failed message from {QueueName}; requeueing.", QueueName);
+                    if (_channel.IsOpen) await _channel.BasicNackAsync(eventArgs.DeliveryTag, false, true, cancellationToken);
+                }
+            }
+            else
+            {
+                await _channel.BasicNackAsync(eventArgs.DeliveryTag, false, false, cancellationToken);
+            }
         }
     }
 

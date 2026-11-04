@@ -21,6 +21,10 @@ public class CartFlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         _scopes = scopes;
     }
 
+    protected override string? DeadLetterQueueName => RabbitMqQueues.CartFlashDealDeadLetterQueueName;
+    protected override bool ParkFailures => true;
+    protected override int RetryAttempts => 3;
+
     protected override string QueueName => RabbitMqQueues.CartFlashDealQueueName;
     protected override string RoutingKey => RabbitMqRoutingKeys.FlashDealClosed;
     

@@ -170,7 +170,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
         return await _context.Set<OrderPlatformFee>()
             .Include(f => f.Order)
             .ThenInclude(o => o.Refunds)
-            .Where(f => f.StatementId == null && f.CalculatedAt >= startOfMonth && f.CalculatedAt < endOfMonth)
+            .Where(f => f.StatementId == null && f.CalculatedAt < endOfMonth)
             .ToListAsync(ct);
     }
     
@@ -179,7 +179,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
         var startOfMonth = new DateTime(billingYear, billingMonth, 1, 0, 0, 0, DateTimeKind.Utc);
         var endOfMonth = startOfMonth.AddMonths(1);
         return await _context.Set<PlatformFeeAdjustment>()
-            .Where(a => a.StatementId == null && a.CreatedAt >= startOfMonth && a.CreatedAt < endOfMonth)
+            .Where(a => a.StatementId == null && a.CreatedAt < endOfMonth)
             .ToListAsync(ct);
     }
 
@@ -192,7 +192,8 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
     public async Task<bool> HasOtherOverdueStatementsAsync(Guid shopId, Guid currentStatementId, CancellationToken ct = default)
     {
         return await _context.PlatformFeeStatements
-            .AnyAsync(s => s.ShopId == shopId && s.Id != currentStatementId && s.Status == PlatformFeeStatementStatus.Overdue, ct);
+            .AnyAsync(s => s.ShopId == shopId && s.Id != currentStatementId && (s.Status == PlatformFeeStatementStatus.Overdue
+                    || (s.Status == PlatformFeeStatementStatus.Issued && s.TotalFeeAmount > 0 && s.DueAt <= DateTime.UtcNow)), ct);
     }
     public async Task<PlatformFeeStatement?> GetShopStatementForPeriodAsync(Guid shopId, int billingYear, short billingMonth, CancellationToken ct = default)
     {
@@ -220,10 +221,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
     {
         await _context.Set<PlatformFeeAdjustment>().AddAsync(adjustment, ct);
     }
-    public void AddAuditLog(AuditLog audit)
-    {
-        _context.Set<AuditLog>().Add(audit);
-    }
+
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {

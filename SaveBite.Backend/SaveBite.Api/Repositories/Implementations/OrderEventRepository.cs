@@ -22,7 +22,7 @@ public sealed class OrderEventRepository : IOrderEventRepository
     {
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
         var message = await _db.Set<OrderEventOutbox>()
-            .FromSqlInterpolated($"SELECT * FROM order_event_outbox WHERE id = {messageId} FOR UPDATE")
+            .FromSqlInterpolated($"SELECT * FROM event_outbox WHERE id = {messageId} FOR UPDATE")
             .SingleOrDefaultAsync(ct);
         if (message == null) throw new InvalidOperationException("The pending order event has not committed or was rolled back.");
         if (!message.PublishedAt.HasValue)

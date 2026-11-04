@@ -49,6 +49,7 @@ public class AppDbContext : DbContext
     public DbSet<TrustLevelHistory> TrustLevelHistories => Set<TrustLevelHistory>();
     // Shops.
     public DbSet<Shop> Shops => Set<Shop>();
+    public DbSet<ShopFollow> ShopFollows => Set<ShopFollow>();
     public DbSet<ShopApplication> ShopApplications => Set<ShopApplication>();
     public DbSet<ShopApplicationDocument> ShopApplicationDocuments => Set<ShopApplicationDocument>();
     public DbSet<ShopApplicationReviewLog> ShopApplicationReviewLogs => Set<ShopApplicationReviewLog>();

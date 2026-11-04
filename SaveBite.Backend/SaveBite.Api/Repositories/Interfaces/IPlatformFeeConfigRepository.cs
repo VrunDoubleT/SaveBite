@@ -11,6 +11,5 @@ public interface IPlatformFeeConfigRepository
     Task<PlatformFeeConfig?> GetUpcomingConfigAsync(DateTime asOf, CancellationToken ct = default);
     Task AddConfigAsync(PlatformFeeConfig config, CancellationToken ct = default);
     void RemoveConfig(PlatformFeeConfig config);
-    void AddAuditLog(AuditLog audit);
     Task SaveChangesAsync(CancellationToken ct = default);
 }
