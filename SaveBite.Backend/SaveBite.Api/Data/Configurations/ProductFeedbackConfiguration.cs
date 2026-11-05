@@ -63,6 +63,10 @@ public class ProductFeedbackConfiguration
 
         builder.Property(x => x.HiddenAt)
             .HasColumnName("hidden_at");
+
+        builder.Property(x => x.EditCount)
+            .HasColumnName("edit_count")
+            .HasDefaultValue(0);
         
         builder.HasIndex(x => x.OrderItemId)
             .IsUnique();

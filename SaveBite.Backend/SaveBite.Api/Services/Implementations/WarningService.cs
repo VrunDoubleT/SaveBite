@@ -107,6 +107,15 @@ public sealed class WarningService : IWarningService
             revision.ReviewedByUserId = adminId;
             revision.ReviewedAt = now;
             revision.ReviewNote = requiredCorrection;
+            var activeDeals = await _db.FlashDeals
+                .Where(x => x.ProductId == productId && (x.Status == FlashDealStatus.Pending || x.Status == FlashDealStatus.OnSale || x.Status == FlashDealStatus.Hidden))
+                .ToListAsync(ct);
+            foreach (var deal in activeDeals)
+            {
+                deal.Status = FlashDealStatus.Cancelled;
+                deal.UpdatedAt = now;
+            }
+
             var warningId = Guid.NewGuid();
             _db.ProductWarnings.Add(new ProductWarning
             {
@@ -119,7 +128,8 @@ public sealed class WarningService : IWarningService
                 Reason = reason,
                 RequiredCorrection = requiredCorrection,
                 CreatedAt = now,
-                DueAt = now.AddDays(7)
+                DueAt = now.AddDays(7),
+                DealBlocked = true
             });
             _audit.Record(new AuditLog
             {
@@ -136,7 +146,8 @@ public sealed class WarningService : IWarningService
                     revision.Id,
                     Status = revision.Status.ToString(),
                     RequiredCorrection = requiredCorrection,
-                    DueAt = now.AddDays(7)
+                    DueAt = now.AddDays(7),
+                DealBlocked = true
                 }),
                 CreatedAt = now
             });

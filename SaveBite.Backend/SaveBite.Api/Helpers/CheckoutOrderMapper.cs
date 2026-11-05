@@ -82,7 +82,8 @@ public static class CheckoutOrderMapper
             CreatedAt = order.CreatedAt,
             CompletedAt = order.CompletedAt,
             PaidAmount = paidAmount,
-            OutstandingAmount = outstandingAmount
+            OutstandingAmount = outstandingAmount,
+            CancelReason = order.CancelReason
         };
     }
 }

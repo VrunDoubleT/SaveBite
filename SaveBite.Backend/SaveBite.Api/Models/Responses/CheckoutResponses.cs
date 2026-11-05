@@ -116,6 +116,7 @@ public sealed record CheckoutOrderResponse
     public DateTime? CompletedAt { get; init; }
     public decimal PaidAmount { get; init; }
     public decimal OutstandingAmount { get; init; }
+    public string? CancelReason { get; init; }
 
 }
 

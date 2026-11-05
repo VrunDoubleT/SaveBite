@@ -27,5 +27,6 @@ public interface IFeedbackRepository
     Task<PagedResult<ProductFeedback>> GetShopFeedbacksAsync(Guid shopId, FeedbackRequests.ShopFeedbacksQueryRequest request, CancellationToken ct = default);
     Task<PagedResult<ProductFeedback>> GetAdminFeedbacksAsync(FeedbackRequests.ShopFeedbacksQueryRequest request, CancellationToken ct = default);
     Task<Guid?> GetShopIdForUserAsync(Guid userId, CancellationToken ct = default);
-    Task<bool> CanManageFeedbackReplyAsync(Guid userId, Guid feedbackId, CancellationToken ct = default);
+    Task<bool> CanManageFeedbackReplyAsync(Guid userId, Guid feedbackId, CancellationToken ct = default);
+    Task<bool> IsShopOwnerForFeedbackAsync(Guid userId, Guid feedbackId, CancellationToken ct = default);
 }

@@ -12,7 +12,7 @@ public static class FlashDealReadQuery
         .AsNoTrackingWithIdentityResolution()
         .Where(d => (d.Status == FlashDealStatus.OnSale || d.Status == FlashDealStatus.SoldOut)
             && d.SaleStartTime <= now && d.OrderEndTime > now && d.ShopClosingTime > now
-            && d.Shop.Status == ShopStatus.Active && d.Product.Status == ProductStatus.Active);
+            && d.Shop.Status == ShopStatus.Active && (d.Product.Status == ProductStatus.Active || d.Product.Status == ProductStatus.Hidden) && d.Product.DeletedAt == null);
 
     public static IQueryable<FlashDeal> WithDetails(IQueryable<FlashDeal> query) => query
         .Include(d => d.Shop)

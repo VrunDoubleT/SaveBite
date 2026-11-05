@@ -151,6 +151,10 @@ public sealed class FlashDealService : IFlashDealService
                 || (under5 && shop.Distance < 5) || (over5 && shop.Distance >= 5 && shop.Distance <= 10));
         }
         query = query.Where(d => nearbyShops.Select(shop => shop.Id).Contains(d.ShopId));
+        if (userId.HasValue)
+        {
+            query = query.Where(d => d.Shop.OwnerUserId != userId.Value);
+        }
         if (!string.IsNullOrWhiteSpace(request.Keyword))
         {
             var kw = request.Keyword.Trim().ToLowerInvariant();
@@ -435,6 +439,16 @@ public sealed class FlashDealService : IFlashDealService
         {
             throw AppException.BadRequest("Sale start time must be before order end time.");
         }
+        if (shop.OpeningTime.HasValue && shop.ClosingTime.HasValue)
+        {
+            var startLocalTime = TimeOnly.FromDateTime(effectiveStartTime.AddHours(7));
+            var endLocalTime = TimeOnly.FromDateTime(request.OrderEndTime.AddHours(7));
+            if (!IsWithinOperatingHours(shop.OpeningTime.Value, shop.ClosingTime.Value, startLocalTime) ||
+                !IsWithinOperatingHours(shop.OpeningTime.Value, shop.ClosingTime.Value, endLocalTime))
+            {
+                throw AppException.BadRequest($"Flash deal timing must fall within shop operating hours ({shop.OpeningTime.Value:HH\\:mm} - {shop.ClosingTime.Value:HH\\:mm}).");
+            }
+        }
         if (request.OrderEndTime > request.ShopClosingTime)
         {
             throw AppException.BadRequest("Order end time cannot exceed shop closing time.");
@@ -569,6 +583,16 @@ public sealed class FlashDealService : IFlashDealService
         {
             throw AppException.BadRequest("Another flash deal already overlaps with the updated schedule.");
         }
+        if (shop.OpeningTime.HasValue && shop.ClosingTime.HasValue)
+        {
+            var startLocalTime = TimeOnly.FromDateTime(request.SaleStartTime.AddHours(7));
+            var endLocalTime = TimeOnly.FromDateTime(request.OrderEndTime.AddHours(7));
+            if (!IsWithinOperatingHours(shop.OpeningTime.Value, shop.ClosingTime.Value, startLocalTime) ||
+                !IsWithinOperatingHours(shop.OpeningTime.Value, shop.ClosingTime.Value, endLocalTime))
+            {
+                throw AppException.BadRequest($"Flash deal timing must fall within shop operating hours ({shop.OpeningTime.Value:HH\\:mm} - {shop.ClosingTime.Value:HH\\:mm}).");
+            }
+        }
 
         var now = DateTime.UtcNow;
 
@@ -827,12 +851,18 @@ public sealed class FlashDealService : IFlashDealService
     {
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var products = await _dealRepository.GetShopEligibleProductsAsync(shop.Id, cancellationToken);
+        var activeProductIds = await _db.FlashDeals
+            .Where(d => d.ShopId == shop.Id && (d.Status == FlashDealStatus.OnSale || d.Status == FlashDealStatus.Pending))
+            .Select(d => d.ProductId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
 
         return products.Select(p => new ShopEligibleProductResponse
         {
             Id = p.Id,
             Name = p.Name,
             Description = p.Description,
+            HasActiveDeal = activeProductIds.Contains(p.Id),
             CategoryName = p.Category?.Name,
             ImageUrl = p.Images?.FirstOrDefault()?.ImageUrl,
             Variants = p.Variants.Where(v => v.IsActive).Select(v => new ShopEligibleProductVariantResponse
@@ -903,5 +933,12 @@ public sealed class FlashDealService : IFlashDealService
     {
         return await _shopRepository.GetShopByOwnerUserIdAsync(userId, cancellationToken)
             ?? throw AppException.Forbidden("You do not own any shop.");
+    }
+
+    private static bool IsWithinOperatingHours(TimeOnly opening, TimeOnly closing, TimeOnly time)
+    {
+        return opening <= closing
+            ? time >= opening && time <= closing
+            : time >= opening || time <= closing;
     }
 }

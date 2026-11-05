@@ -1,3 +1,4 @@
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using FluentValidation;
@@ -118,6 +119,17 @@ public sealed class ShopApplicationService : IShopApplicationService
         await _repository.AddAsync(application, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
 
+        await _notifications.EnqueueAsync(
+            NotificationTarget.Admins(),
+            new CreateNotificationCommand(
+                NotificationType.ShopApplicationSubmitted,
+                "New shop registration application",
+                $"A new shop registration application has been submitted for '{application.Name}'. Please review the application.",
+                NotificationActionUrls.AdminShopApplications(),
+                $"shop-application:{application.Id}:revision:{application.RevisionNumber}:submitted"
+            ),
+            cancellationToken);
+
         return Map(application);
     }
 
@@ -196,6 +208,17 @@ public sealed class ShopApplicationService : IShopApplicationService
         });
 
         await _repository.SaveChangesAsync(cancellationToken);
+
+        await _notifications.EnqueueAsync(
+            NotificationTarget.Admins(),
+            new CreateNotificationCommand(
+                NotificationType.ShopApplicationSubmitted,
+                "Shop registration application resubmitted",
+                $"Shop registration application for '{application.Name}' has been resubmitted for review.",
+                NotificationActionUrls.AdminShopApplications(),
+                $"shop-application:{application.Id}:revision:{application.RevisionNumber}:resubmitted"
+            ),
+            cancellationToken);
 
         return Map(application);
     }

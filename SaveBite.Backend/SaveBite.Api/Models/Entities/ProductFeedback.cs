@@ -22,7 +22,9 @@ public class ProductFeedback
 
     public DateTime UpdatedAt { get; set; }
 
-    public DateTime? HiddenAt { get; set; }
+    public DateTime? HiddenAt { get; set; }
+
+    public int EditCount { get; set; } = 0;
 
     public OrderItem OrderItem { get; set; } = null!;
     public Product Product { get; set; } = null!;
