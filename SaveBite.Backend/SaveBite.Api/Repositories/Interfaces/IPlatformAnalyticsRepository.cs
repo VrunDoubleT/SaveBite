@@ -22,6 +22,9 @@ public interface IPlatformAnalyticsRepository
         AnalyticsPeriod period, CancellationToken ct = default);
     Task<IReadOnlyList<OrderStatusCountRow>> GetOrderStatusCountsAsync(
         AnalyticsPeriod period, CancellationToken ct = default);
+    // FIX-45: names/logos for the per-shop revenue table
+    Task<IReadOnlyList<ShopIdentityRow>> GetShopIdentitiesAsync(
+        IReadOnlyCollection<Guid> shopIds, CancellationToken ct = default);
 
     // UC-143
     Task<DealStateCountsRow> GetDealStateCountsAsync(

@@ -67,6 +67,21 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
         return PagedResult<TrustScoreHistory>.Create(items, request.Page, request.PageSize, total);
     }
 
+    // FIX-17: level transitions linked to the orders shown on a history page (initial assignment excluded).
+    public async Task<IReadOnlyList<UserTrustLevelHistory>> GetLevelChangesForOrdersAsync(
+        Guid userId, IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default)
+    {
+        if (orderIds.Count == 0) return Array.Empty<UserTrustLevelHistory>();
+        return await _dbContext.UserTrustLevelHistories.AsNoTracking()
+            .Include(x => x.PreviousTrustLevel)
+            .Include(x => x.NewTrustLevel)
+            .Where(x => x.UserId == userId
+                && x.OrderId != null && orderIds.Contains(x.OrderId.Value)
+                && x.PreviousTrustLevelId != null)
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     // Penalty history of the user, newest first.
     public async Task<PagedResult<NoShowPenalty>> GetPenaltiesPagedAsync(
         Guid userId, GetPenaltiesRequest request, CancellationToken cancellationToken = default)

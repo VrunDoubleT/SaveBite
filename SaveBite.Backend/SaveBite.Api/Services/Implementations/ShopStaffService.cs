@@ -244,7 +244,8 @@ public class ShopStaffService(
                     log.OrderId,
                     log.CreatedAt,
                     log.ActorNameSnapshot ?? staff.DisplayName,
-                    log.ActorRoleSnapshot ?? "Staff"
+                    log.ActorRoleSnapshot ?? "Staff",
+                    log.Order?.OrderCode
                 ))
             .ToList();
 

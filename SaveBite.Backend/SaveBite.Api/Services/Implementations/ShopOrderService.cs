@@ -284,7 +284,7 @@ public sealed class ShopOrderService : IShopOrderService
         {
             Id = Guid.NewGuid(), ShopId = order.ShopId, OrderId = order.Id, ActionBy = actor.Id,
             ActorNameSnapshot = actor.Name, ActorRoleSnapshot = actor.Role,
-            Action = order.Status, Note = note, CreatedAt = Now
+            Action = Enum.Parse<StaffActivityAction>(order.Status.ToString()), Note = note, CreatedAt = Now
         });
     }
     // Change order state and capture the acting operator in history and staff activity.
