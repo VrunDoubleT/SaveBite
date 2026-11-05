@@ -2,7 +2,6 @@ using SaveBite.Backend.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Helpers;
 using Microsoft.Extensions.Options;
-using SaveBite.Backend.Caching.Interfaces;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.Messaging.Configuration;
@@ -21,6 +20,7 @@ namespace SaveBite.Backend.Messaging.Consumer.FlashDeal;
 public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<FlashDealConsumer> _logger;
 
     protected override string? DeadLetterQueueName => "flashdeal_dead_letter_queue";
     protected override bool ParkFailures => true;
@@ -38,6 +38,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         : base(options, logger)
     {
         _scopeFactory = scopeFactory;
+        _logger = logger;
     }
 
     protected override async Task HandleMessageAsync(
@@ -51,7 +52,6 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         await using var scope = _scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var dealRepository = scope.ServiceProvider.GetRequiredService<IFlashDealRepository>();
-        var redisService = scope.ServiceProvider.GetRequiredService<IFlashDealRedisService>();
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE id = {dealEvent.FlashDealId} FOR UPDATE", cancellationToken);
         var current = await db.FlashDeals.AsNoTracking().SingleOrDefaultAsync(d => d.Id == dealEvent.FlashDealId, cancellationToken);
@@ -68,39 +68,58 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         if (routingKey == RabbitMqRoutingKeys.FlashDealClosed && current.Status is not (FlashDealStatus.Closed or FlashDealStatus.Cancelled)) return;
 
 
+        Guid? openingMessageId = null;
         switch (routingKey)
         {
             case RabbitMqRoutingKeys.FlashDealOpened:
-                await HandleDealOpenedAsync(dealEvent.FlashDealId, db, dealRepository, redisService, cancellationToken);
+                openingMessageId = await HandleDealOpenedAsync(dealEvent.FlashDealId, db, dealRepository, cancellationToken);
                 break;
 
             case RabbitMqRoutingKeys.FlashDealClosed:
             case RabbitMqRoutingKeys.FlashDealExpired:
-                await HandleDealClosedOrExpiredAsync(dealEvent.FlashDealId, dealRepository, redisService, cancellationToken);
+                await HandleDealClosedOrExpiredAsync(dealEvent.FlashDealId, dealRepository, cancellationToken);
                 break;
 
             case RabbitMqRoutingKeys.FlashDealHidden:
-                await HandleDealHiddenAsync(dealEvent.FlashDealId, dealRepository, redisService, cancellationToken);
+                // The command already persisted Hidden; DB reads exclude it immediately.
                 break;
         }
         await db.FlashDeals.Where(d => d.Id == dealEvent.FlashDealId)
             .ExecuteUpdateAsync(set => set.SetProperty(d => d.LifecycleSyncedAt, (DateTime?)DateTime.UtcNow), cancellationToken);
+        FlashDealRealtimeOutbox.Stage(db, current.Id, current.ShopId);
+        await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        if (openingMessageId.HasValue)
+        {
+            // Best-effort fast path after commit. A fresh scope avoids reusing the lifecycle transaction.
+            // The same dispatcher/row lock is used by Hangfire recovery.
+            try
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeout.CancelAfter(TimeSpan.FromSeconds(5));
+                await using var deliveryScope = _scopeFactory.CreateAsyncScope();
+                await deliveryScope.ServiceProvider.GetRequiredService<SaveBite.Backend.BackgroundJobs.Jobs.OrderEventDispatchJob>()
+                    .ExecuteAsync(openingMessageId.Value, timeout.Token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Immediate deal notification publish failed for {MessageId}; outbox recovery will retry.", openingMessageId.Value);
+            }
+        }
     }
 
-    private async Task HandleDealOpenedAsync(
+    private async Task<Guid?> HandleDealOpenedAsync(
         Guid flashDealId,
         AppDbContext db,
         IFlashDealRepository dealRepository,
-        IFlashDealRedisService redisService,
         CancellationToken cancellationToken)
     {
         var deal = await dealRepository.GetActiveDealByIdAsync(flashDealId, cancellationToken);
-        if (deal == null) return;
+        if (deal == null) return null;
 
         if (deal.Status == FlashDealStatus.Pending && (deal.Shop.Status != ShopStatus.Active
             || deal.Product.Status != ProductStatus.Active || await WarningDealPolicy.IsBlockedAsync(db, deal.ProductId, cancellationToken)))
-            return;
+            return null;
         // Update DB to 'OnSale'  if currently 'Pending'
         if (deal.Status == FlashDealStatus.Pending)
         {
@@ -116,21 +135,16 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
             await dealRepository.UpdateStatusAsync(deal.Id, inventoryStatus, cancellationToken);
         }
 
-        // Push deal information into Redis Cache for customer searches
+        // Stage the opening notification in the same DB transaction.
         var customerResponse = FlashDealService.MapToResponse(deal);
-        if (deal.Shop != null)
-        {
-            await redisService.SaveDealAsync(customerResponse, deal.Shop.Latitude, deal.Shop.Longitude);
-
-            if (customerResponse.IsPurchasable)
-                await ShopDealOpenedOutbox.StageAsync(db, deal.Id, deal.ShopId, DateTime.UtcNow, cancellationToken);
-        }
+        if (customerResponse.IsPurchasable)
+            return await ShopDealOpenedOutbox.StageAsync(db, deal.Id, deal.ShopId, DateTime.UtcNow, cancellationToken);
+        return null;
     }
 
     private async Task HandleDealClosedOrExpiredAsync(
         Guid flashDealId,
         IFlashDealRepository dealRepository,
-        IFlashDealRedisService redisService,
         CancellationToken cancellationToken)
     {
         var deal = await dealRepository.GetActiveDealByIdAsync(flashDealId, cancellationToken);
@@ -141,21 +155,6 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
             deal.Status = FlashDealStatus.Closed;
             await dealRepository.UpdateStatusAsync(deal.Id, FlashDealStatus.Closed, cancellationToken);
         }
-
-        // Remove from Redis Cache
-        await redisService.DeleteDealAsync(deal.Id, deal.ShopId);
     }
 
-    private async Task HandleDealHiddenAsync(
-        Guid flashDealId,
-        IFlashDealRepository dealRepository,
-        IFlashDealRedisService redisService,
-        CancellationToken cancellationToken)
-    {
-        var deal = await dealRepository.GetActiveDealByIdAsync(flashDealId, cancellationToken);
-        if (deal == null) return;
-
-        // When a deal is temporarily hidden: Remove from Redis Cache
-        await redisService.DeleteDealAsync(deal.Id, deal.ShopId);
-    }
 }

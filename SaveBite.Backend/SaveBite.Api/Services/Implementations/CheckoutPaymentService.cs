@@ -20,7 +20,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     private readonly ICheckoutRepository _checkoutRepository;
     private readonly INotificationQueue _notifications;
     private readonly ICheckoutPaymentGateway _paymentGateway;
-    private readonly ICheckoutStockCache _stockCache;
+    private readonly IOrderInventorySynchronizer _inventorySync;
     private readonly TimeProvider _clock;
     private readonly OrderConfirmationScheduling _confirmation;
     private readonly ICheckoutPaymentExpirationScheduler _paymentExpirationScheduler;
@@ -30,7 +30,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     public CheckoutPaymentService(
         ICheckoutRepository repository,
         ICheckoutPaymentGateway gateway,
-        ICheckoutStockCache stockCache,
+        IOrderInventorySynchronizer inventorySync,
         TimeProvider clock,
         ICheckoutPaymentExpirationScheduler paymentExpirationScheduler,
         ILogger<CheckoutPaymentService> logger,
@@ -42,7 +42,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         _checkoutRepository = repository;
         _notifications = notifications;
         _paymentGateway = gateway;
-        _stockCache = stockCache;
+        _inventorySync = inventorySync;
         _clock = clock;
         _confirmation = confirmation;
         _paymentExpirationScheduler = paymentExpirationScheduler;
@@ -239,8 +239,8 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                 _logger.LogWarning(ex, "Could not delete payment expiration job {JobId} for order {OrderId}.", expirationJobId, orderId);
             }
         }
-        // Refresh Redis stock only after the payment transaction has committed.
-        await _stockCache.SyncAsync(orderId, ct);
+        // Reconcile deal status only after the payment transaction has committed.
+        await _inventorySync.SyncAsync(orderId, ct);
         return result;
     }
 

@@ -2,6 +2,9 @@ import { API_ENDPOINTS, httpClient } from "@/shared/api";
 import type { ApiResponse } from "@/shared/types";
 import type {
   PlatformFeeConfigResponse,
+  PlatformPayOsConfigResponse,
+  PlatformPayOsConfigHistoryItem,
+  UpdatePlatformPayOsConfigRequest,
   UpdatePlatformFeeConfigRequest,
   PlatformFeeStatementSummary,
   PlatformFeeStatementDetail,
@@ -13,6 +16,25 @@ import type {
 } from "../types/platformFee.types";
 
 export const platformFeeApi = {
+  async getPayOsConfig(): Promise<PlatformPayOsConfigResponse> {
+    const response = await httpClient.get<ApiResponse<PlatformPayOsConfigResponse>>(
+      API_ENDPOINTS.PLATFORM_FEES.ADMIN_PAYOS_CONFIG,
+    );
+    return response.data.data;
+  },
+  async updatePayOsConfig(payload: UpdatePlatformPayOsConfigRequest): Promise<PlatformPayOsConfigResponse> {
+    const response = await httpClient.put<ApiResponse<PlatformPayOsConfigResponse>>(
+      API_ENDPOINTS.PLATFORM_FEES.ADMIN_PAYOS_CONFIG,
+      payload,
+    );
+    return response.data.data;
+  },
+  async getPayOsConfigHistory(): Promise<PlatformPayOsConfigHistoryItem[]> {
+    const response = await httpClient.get<ApiResponse<PlatformPayOsConfigHistoryItem[]>>(
+      API_ENDPOINTS.PLATFORM_FEES.ADMIN_PAYOS_CONFIG_HISTORY,
+    );
+    return response.data.data;
+  },
   // UC-148: View active platform fee config
   async getActiveConfig(): Promise<PlatformFeeConfigResponse> {
     const response = await httpClient.get<ApiResponse<PlatformFeeConfigResponse>>(

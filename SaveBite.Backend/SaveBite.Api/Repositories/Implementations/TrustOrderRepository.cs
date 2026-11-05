@@ -8,7 +8,8 @@ namespace SaveBite.Backend.Repositories.Implementations;
 public sealed class TrustOrderRepository : ITrustOrderRepository
 {
     private readonly AppDbContext _db;
-    public TrustOrderRepository(AppDbContext db) { _db = db; }
+    private readonly SaveBite.Backend.Services.Interfaces.ITrustNotificationService _notifications;
+    public TrustOrderRepository(AppDbContext db, SaveBite.Backend.Services.Interfaces.ITrustNotificationService notifications) { _db = db; _notifications = notifications; }
 
     // Serialize terminal-order processing by customer, then commit progress, histories and receipt together.
     public async Task ExecuteAsync(Guid orderId, Func<Order, Task> handle, CancellationToken ct)
@@ -22,6 +23,7 @@ public sealed class TrustOrderRepository : ITrustOrderRepository
         var order = await _db.Orders.Include(x => x.StatusHistories).Include(x => x.Refunds).SingleAsync(x => x.Id == orderId, ct);
         await handle(order);
         await _db.SaveChangesAsync(ct);
+        await _notifications.PublishForOrderAsync(orderId, ct);
         await tx.CommitAsync(ct);
     }
     // Read the idempotency receipt independently of whether an earning or penalty rule existed.

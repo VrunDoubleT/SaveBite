@@ -49,7 +49,8 @@ public interface IPlatformFeeStatementService
 
     // BR-095, BR-193: Automatically mark overdue statements and suspend delinquent shops
     Task<int> CheckAndSuspendOverdueShopsAsync(
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        Guid? initiatedByAdminId = null);
 
     // BR-096, BR-194, BR-195: Admin records external payment reconciliation and reactivates shop
     Task RecordExternalPaymentAsync(
@@ -62,5 +63,6 @@ public interface IPlatformFeeStatementService
     Task<int> GenerateMonthlyStatementsAsync(
         int billingYear,
         short billingMonth,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        Guid? initiatedByAdminId = null);
 }

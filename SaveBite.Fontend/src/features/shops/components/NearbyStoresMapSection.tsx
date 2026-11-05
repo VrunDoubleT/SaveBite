@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   Store,
+  Search,
   MapPin,
   Navigation,
   RefreshCw,
@@ -27,7 +28,8 @@ import {
 } from "../utils/vietmapUtils";
 import type { LocationMode } from "@/features/flash-deals/hooks/useNearbyFlashDeals";
 
-interface NearbyStoresMapSectionProps {
+export interface NearbyStoresMapSectionProps {
+  focusShop?: NearbyShop;
   latitude?: number | null;
   longitude?: number | null;
   radiusInKm?: number;
@@ -49,6 +51,7 @@ interface NearbyStoresMapSectionProps {
 let cachedNearbyShops: NearbyShop[] = [];
 
 export function NearbyStoresMapSection({
+  focusShop,
   latitude,
   longitude,
   radiusInKm = 10,
@@ -77,6 +80,11 @@ export function NearbyStoresMapSection({
   const [showStepDetails, setShowStepDetails] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
 
+  const [searchText, setSearchText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const shopsAbortRef = useRef<AbortController | null>(null);
+
+
   // Filter mode: "all" stores vs "deals_only"
   const [storeFilter, setStoreFilter] = useState<"all" | "deals_only">("all");
   const [allStoresCount, setAllStoresCount] = useState<number>(() => cachedNearbyShops.length);
@@ -84,7 +92,8 @@ export function NearbyStoresMapSection({
     () => cachedNearbyShops.filter((s) => (s.flashDealCount ?? 0) > 0).length,
   );
 
-  const filteredShops = shops;
+  const filteredShops = !searchQuery && storeFilter === "all" && focusShop && !shops.some((shop) => shop.id === focusShop.id) ? [...shops, focusShop] : shops;
+  const appliedFocusRef = useRef<string | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -103,6 +112,9 @@ export function NearbyStoresMapSection({
       const targetLng = lng ?? longitude;
       if (!isLocationReady) return;
       if (!isSavedAddress && (targetLat == null || targetLng == null)) return;
+      shopsAbortRef.current?.abort();
+      const controller = new AbortController();
+      shopsAbortRef.current = controller;
       setIsLoading(true);
       setError(null);
       const activeFilter = filterOverride ?? storeFilter;
@@ -113,8 +125,11 @@ export function NearbyStoresMapSection({
           radiusInKm: Math.min(radiusInKm, 10),
           page: 1,
           pageSize: 50,
+          keyword: searchQuery || undefined,
           onlyWithFlashDeals: activeFilter === "deals_only",
-        });
+        }, controller.signal);
+        if (controller.signal.aborted) return;
+        setSelectedShop((current) => current && res.shops.some((shop) => shop.id === current.id) ? current : null);
         const list = res.shops || [];
         setShops(list);
         if (res.allStoresCount !== undefined) {
@@ -127,16 +142,16 @@ export function NearbyStoresMapSection({
         } else {
           setDealsStoresCount(list.filter((s) => (s.flashDealCount ?? 0) > 0).length);
         }
-        if (activeFilter === "all") {
+        if (activeFilter === "all" && !searchQuery) {
           cachedNearbyShops = list;
         }
       } catch {
-        setError("Unable to load nearby stores.");
+        if (!controller.signal.aborted) setError("Unable to load nearby stores.");
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     },
-    [isLocationReady, latitude, longitude, locationMode, radiusInKm, storeFilter],
+    [isLocationReady, latitude, longitude, locationMode, radiusInKm, storeFilter, searchQuery],
   );
 
   const handleFilterChange = (filter: "all" | "deals_only") => {
@@ -152,7 +167,6 @@ export function NearbyStoresMapSection({
         routePolylineRef.current = null;
       }
     }
-    void fetchShops(latitude, longitude, filter);
   };
 
   // Fetch shops when location, mode, or version changes
@@ -162,6 +176,7 @@ export function NearbyStoresMapSection({
         void fetchShops(latitude, longitude);
       }
     }
+    return () => shopsAbortRef.current?.abort();
   }, [isLocationReady, latitude, longitude, locationMode, locationVersion, radiusInKm, fetchShops]);
 
   // 2. Initialize VietMap Leaflet map instance ONCE (never destroy on prop change, only on unmount)
@@ -531,6 +546,19 @@ export function NearbyStoresMapSection({
     }
   };
 
+  // Wait for map initialization before applying the selection from the list.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!isMapReady || !map || !focusShop || appliedFocusRef.current === focusShop.id) return;
+    appliedFocusRef.current = focusShop.id;
+    setSelectedShop(focusShop);
+    map.invalidateSize();
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    map.flyTo([focusShop.latitude, focusShop.longitude], 16, { animate: !reducedMotion, duration: 0.8 });
+    mapContainerRef.current?.scrollIntoView({ behavior: reducedMotion ? "instant" : "smooth", block: "center" });
+    mapContainerRef.current?.focus({ preventScroll: true });
+  }, [isMapReady, focusShop]);
+
   // 5. Motorbike routing via VietMap API
   const handleStartRouting = async () => {
     if (!selectedShop || latitude == null || longitude == null) return;
@@ -679,6 +707,47 @@ export function NearbyStoresMapSection({
         </div>
       </div>
 
+      <form className="mb-4 flex items-start gap-2" onSubmit={(event) => {
+        event.preventDefault();
+        const nextQuery = searchText.trim();
+        setSelectedShop(null);
+        setRouteResult(null);
+        setRouteError(null);
+        routeAbortControllerRef.current?.abort();
+        if (routePolylineRef.current && mapInstanceRef.current) {
+          mapInstanceRef.current.removeLayer(routePolylineRef.current);
+          routePolylineRef.current = null;
+        }
+        if (nextQuery === searchQuery) void fetchShops(latitude, longitude);
+        else setSearchQuery(nextQuery);
+      }}>
+      <label className="relative block min-w-0 flex-1">
+        <span className="sr-only">Search nearby stores by name</span>
+        <Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-text-muted" aria-hidden="true" />
+        <input
+          type="search"
+          value={searchText}
+          maxLength={120}
+          placeholder="Search stores by name…"
+          onChange={(event) => setSearchText(event.target.value)}
+          onBlur={(event) => {
+            if (!event.currentTarget.value.trim() && searchQuery) {
+              setSearchText("");
+              setSearchQuery("");
+            }
+          }}
+          className="min-h-11 w-full rounded-md border border-border-default bg-bg-surface pl-10 pr-3 text-body text-text-primary focus-visible:outline-2 focus-visible:outline-primary-700"
+        />
+      </label>
+      <Button type="submit" className="min-h-11" loading={isLoading}>Search</Button>
+      </form>
+
+      {!isLoading && !error && searchQuery && shops.length === 0 && (
+        <p role="status" className="mb-4 rounded-md bg-neutral-100 p-3 text-body text-text-secondary">
+          No nearby stores match “{searchQuery}”. Try another name or clear the search.
+        </p>
+      )}
+
       {/* 2. Map Section Title & Filter Toggle */}
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
@@ -752,7 +821,7 @@ export function NearbyStoresMapSection({
       {/* 2. VietMap Leaflet Map Container */}
       <div className="relative h-[380px] sm:h-[420px] md:h-[460px] w-full overflow-hidden rounded-3xl border border-border-default/90 bg-neutral-100 shadow-2xs">
         {/* Leaflet render container */}
-        <div ref={mapContainerRef} className="h-full w-full" style={{ zIndex: 1 }} />
+        <div ref={mapContainerRef} tabIndex={-1} aria-label="Nearby stores map" className="h-full w-full" style={{ zIndex: 1 }} />
 
         {/* Loading overlay when fetching shops */}
         {isLoading && (

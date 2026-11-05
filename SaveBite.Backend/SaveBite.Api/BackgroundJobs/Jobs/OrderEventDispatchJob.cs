@@ -13,19 +13,30 @@ public sealed class OrderEventDispatchJob
     private readonly IOrderEventRepository _events;
     private readonly IRabbitMqPublisher _publisher;
     private readonly TimeProvider _clock;
+    private readonly Microsoft.AspNetCore.SignalR.IHubContext<SaveBite.Backend.Hubs.FlashDealsHub, SaveBite.Backend.Hubs.IApplicationClient>? _dealHub;
     private readonly SaveBite.Backend.Services.Interfaces.IRealtimePublisher? _realtime;
 
-    public OrderEventDispatchJob(IOrderEventRepository events, IRabbitMqPublisher publisher, TimeProvider clock, SaveBite.Backend.Messaging.Configuration.RabbitMqTopologyState topology, SaveBite.Backend.Services.Interfaces.IRealtimePublisher? realtime = null)
-    { _realtime = realtime; _topology = topology; _events = events; _publisher = publisher; _clock = clock; }
+    public OrderEventDispatchJob(IOrderEventRepository events, IRabbitMqPublisher publisher, TimeProvider clock, SaveBite.Backend.Messaging.Configuration.RabbitMqTopologyState topology, SaveBite.Backend.Services.Interfaces.IRealtimePublisher? realtime = null, Microsoft.AspNetCore.SignalR.IHubContext<SaveBite.Backend.Hubs.FlashDealsHub, SaveBite.Backend.Hubs.IApplicationClient>? dealHub = null)
+    { _dealHub = dealHub; _realtime = realtime; _topology = topology; _events = events; _publisher = publisher; _clock = clock; }
 
     // Broker failures bubble up to Hangfire retry; a duplicate delivery remains safe for the consumer.
     public async Task ExecuteAsync(Guid messageId, CancellationToken ct)
     {
-        await _topology.Ready.WaitAsync(ct);
         await _events.DispatchAsync(messageId, async message =>
         {
+            if (!message.RoutingKey.StartsWith("internal.", StringComparison.Ordinal))
+                await _topology.Ready.WaitAsync(ct);
             switch (message.RoutingKey)
             {
+                case SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Route:
+                    var change = JsonSerializer.Deserialize<SaveBite.Backend.Services.Implementations.FlashDealChanged>(message.PayloadJson)
+                        ?? throw new InvalidOperationException("Invalid deal change.");
+                    var envelope = new SaveBite.Backend.Models.DTOs.RealtimeEvent(Guid.NewGuid(),
+                        SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Event, 1, _clock.GetUtcNow().UtcDateTime, change);
+                    var hub = _dealHub ?? throw new InvalidOperationException("Public deal hub required.");
+                    await hub.Clients.Groups(new[] { SaveBite.Backend.Hubs.FlashDealsHub.DealGroup(change.DealId),
+                        SaveBite.Backend.Hubs.FlashDealsHub.ShopGroup(change.ShopId) }).ReceiveEvent(envelope).WaitAsync(ct);
+                    break;
                 case RabbitMqRoutingKeys.ShopDealOpened:
                     await _publisher.PublishAsync(message.RoutingKey,
                         JsonSerializer.Deserialize<ShopDealOpenedEvent>(message.PayloadJson)

@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
+import { ShopFollowControls } from "@/features/shop-follows/components/ShopFollowControls";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { isAxiosError } from "axios";
 import {
@@ -76,6 +78,10 @@ function ShopContent({ shopId }: { shopId: string }) {
   const [reviewPage, setReviewPage] = useState(1);
   const [activeTab, setActiveTab] = useState("deals");
   const [isStoreInfoExpanded, setIsStoreInfoExpanded] = useState(false);
+  const dealRealtimeStatus = useFlashDealRealtime("shop", shopId, () => {
+    setIsDealsLoading(true);
+    setDealsAttempt((value) => value + 1);
+  });
 
   useEffect(() => {
     let active = true;
@@ -147,15 +153,6 @@ function ShopContent({ shopId }: { shopId: string }) {
     };
   }, [shopId, reviewRatingFilter, reviewPage, reviewsAttempt]);
 
-  const shopCategories = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          deals.map((deal) => deal.categoryName).filter((name): name is string => Boolean(name)),
-        ),
-      ),
-    [deals],
-  );
   const {
     paginatedItems: paginatedDeals,
     currentPage: dealsPage,
@@ -207,7 +204,7 @@ function ShopContent({ shopId }: { shopId: string }) {
             <Skeleton className="h-12" />
           </div>
         </div>
-        <DealGrid deals={[]} isLoading />
+        <DealGrid deals={[]} desktopColumns={4} isLoading />
       </div>
     );
   if (profileError)
@@ -297,14 +294,21 @@ function ShopContent({ shopId }: { shopId: string }) {
                 <h1 className="text-page font-semibold text-text-primary [overflow-wrap:anywhere]">
                   {shopName}
                 </h1>
-                <div className="flex flex-wrap gap-2">
-                  {shopCategories.map((category) => (
-                    <Badge key={category} className="max-w-full bg-secondary-50 text-secondary-700">
-                      <span title={category} className="truncate">
-                        {category}
-                      </span>
-                    </Badge>
-                  ))}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <a
+                    href="#store-content"
+                    onClick={() => setActiveTab("reviews")}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-sm text-caption text-text-secondary transition-colors hover:text-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
+                  >
+                    <Star
+                      className="size-4 shrink-0 fill-accent-700 text-accent-700"
+                      aria-hidden="true"
+                    />
+                    <strong className="tabular-nums text-text-primary">
+                      {totalReviewsCount > 0 ? averageRating.toFixed(1) : "—"}
+                    </strong>
+                    <span>({totalReviewsCount} reviews)</span>
+                  </a>
                   <Badge tone={isDealsLoading ? "neutral" : "warning"}>
                     {isDealsLoading ? (
                       "Loading deals…"
@@ -318,17 +322,9 @@ function ShopContent({ shopId }: { shopId: string }) {
                 </div>
               </div>
             </div>
-            <a
-              href="#store-content"
-              onClick={() => setActiveTab("reviews")}
-              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-accent-100 bg-accent-50 px-3 py-2 text-body text-text-secondary transition-colors hover:bg-accent-100"
-            >
-              <Star className="size-4 shrink-0 text-accent-700" aria-hidden="true" />
-              <strong className="text-text-primary tabular-nums">
-                {totalReviewsCount > 0 ? averageRating.toFixed(1) : "—"}
-              </strong>
-              <span>/ 5 · {totalReviewsCount} reviews</span>
-            </a>
+            <div className="flex w-full flex-col gap-3 sm:w-64 sm:shrink-0">
+              <ShopFollowControls shopId={shopId} shopName={shopName} />
+            </div>
           </div>
           <div className="grid gap-3 border-t border-border-default pt-4 text-body text-text-secondary md:grid-cols-[2fr_1fr_1fr]">
             <p className="flex min-w-0 items-start gap-2">
@@ -391,6 +387,14 @@ function ShopContent({ shopId }: { shopId: string }) {
         </div>
       </Card>
 
+      {dealRealtimeStatus === "disconnected" && (
+        <p
+          role="status"
+          className="rounded-md border border-accent-100 bg-accent-50 p-3 text-body text-accent-700"
+        >
+          Live updates are disconnected. Reconnecting… Use Refresh to load the latest deals.
+        </p>
+      )}
       <div id="store-content" className="scroll-mt-24">
         <Tabs
           label="Store sections"
@@ -444,7 +448,12 @@ function ShopContent({ shopId }: { shopId: string }) {
                       action={<ButtonLink to="/">Explore nearby deals</ButtonLink>}
                     />
                   ) : (
-                    <DealGrid deals={paginatedDeals} isSameShop isLoading={isDealsLoading} />
+                    <DealGrid
+                      deals={paginatedDeals}
+                      desktopColumns={4}
+                      isSameShop
+                      isLoading={isDealsLoading}
+                    />
                   )}
                   {!isDealsLoading && dealsTotalPages > 1 && (
                     <Pagination

@@ -161,6 +161,7 @@ public sealed class TrustConfigService : ITrustConfigService
                     _repository.AddDepositRanges(rangeEntities);
 
                 WriteLevelHistory(newLevel, 1, TrustLevelChangeType.Created, affectedUserCount: 0, adminId, now);
+                WriteAudit(adminId, "CreateTrustLevel", "TrustLevel", newLevel.Id, null, SnapshotTrustLevel(newLevel), now);
 
                 await _repository.SaveChangesAsync(ct);
                 _logger.LogInformation("New Trust Level created. LevelId: {LevelId}, Name: {Name}, Rank: {Rank}",
@@ -190,6 +191,7 @@ public sealed class TrustConfigService : ITrustConfigService
         if (await _repository.LevelNameExistsAsync(name, level.Id, cancellationToken))
             throw AppException.Conflict("Another trust level with this name already exists.");
 
+        var oldValues = SnapshotTrustLevel(level);
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var nextVersion = await _repository.GetNextLevelHistoryVersionAsync(level.Id, cancellationToken);
 
@@ -203,6 +205,7 @@ public sealed class TrustConfigService : ITrustConfigService
             counts.GetValueOrDefault(level.Id),
             adminId,
             now);
+        WriteAudit(adminId, "UpdateTrustLevelInfo", "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
         try
         {
@@ -269,6 +272,7 @@ public sealed class TrustConfigService : ITrustConfigService
                             MinTotalOrderValue = lowestRemaining.Requirement?.MinTotalOrderValue ?? 0m
                         });
 
+                    var oldValues = SnapshotTrustLevel(level);
                     level.IsActive = false;
                     level.UpdatedAt = now;
 
@@ -320,6 +324,8 @@ public sealed class TrustConfigService : ITrustConfigService
                         affectedScores.Count,
                         adminId,
                         now);
+                    WriteAudit(adminId, "DeactivateTrustLevel", "TrustLevel", level.Id, oldValues,
+                        new { Level = SnapshotTrustLevel(level), AffectedUserCount = affectedScores.Count }, now);
 
                     await _repository.SaveChangesAsync(ct);
 
@@ -351,6 +357,7 @@ public sealed class TrustConfigService : ITrustConfigService
                             MinTotalOrderValue = level.Requirement.MinTotalOrderValue
                         });
 
+                    var oldValues = SnapshotTrustLevel(level);
                     level.IsActive = true;
                     level.UpdatedAt = now;
 
@@ -361,19 +368,20 @@ public sealed class TrustConfigService : ITrustConfigService
                         affectedUserCount: 0,
                         adminId,
                         now);
+                    WriteAudit(adminId, "ReactivateTrustLevel", "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
                     await _repository.SaveChangesAsync(ct);
 
                     _logger.LogInformation("Trust level reactivated. LevelId: {LevelId}", level.Id);
                 }
 
+                foreach (var notice in notices)
+                    await _notifications.EnqueueAsync(NotificationTarget.User(notice.UserId), new CreateNotificationCommand(
+                        NotificationType.TrustLevelChanged, "Trust level updated", $"Your trust level is now {notice.Name} after an administrator updated the level configuration.",
+                        "/account/trust-score", $"trust-level:{notice.HistoryId}"), ct);
                 var updatedCounts = await _repository.GetUserCountsByLevelAsync(ct);
                 return ToLevelResponse(level, updatedCounts);
             }, lockLevelsAndScores: true, cancellationToken);
-            foreach (var notice in notices)
-                await _notifications.EnqueueAsync(NotificationTarget.User(notice.UserId), new CreateNotificationCommand(
-                    NotificationType.TrustLevelChanged, "Trust level updated", $"Your trust level is now {notice.Name} after an administrator updated the level configuration.",
-                    "/account/trust-score", $"trust-level:{notice.HistoryId}"), cancellationToken);
             return result;
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
@@ -396,6 +404,7 @@ public sealed class TrustConfigService : ITrustConfigService
 
         if (!IsBenefitsUnchanged(level, description, request.RequireFullOnlinePayment, freeAmount, maxAmount, orderedRanges))
         {
+            var oldValues = SnapshotTrustLevel(level);
             var now = _timeProvider.GetUtcNow().UtcDateTime;
             var nextVersion = await _repository.GetNextLevelHistoryVersionAsync(level.Id, cancellationToken);
 
@@ -433,6 +442,7 @@ public sealed class TrustConfigService : ITrustConfigService
                 counts.GetValueOrDefault(level.Id),
                 adminId,
                 now);
+            WriteAudit(adminId, "UpdateTrustLevelBenefits", "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
             try
             {
@@ -635,6 +645,23 @@ public sealed class TrustConfigService : ITrustConfigService
                 .ToList()
         };
 
+    private static object SnapshotTrustLevel(TrustLevel level) => new
+    {
+        level.Name,
+        level.Description,
+        level.Rank,
+        level.IsActive,
+        Requirement = level.Requirement is null
+            ? null
+            : new
+            {
+                level.Requirement.MinScore,
+                level.Requirement.MinCompletedOrders,
+                level.Requirement.MinTotalOrderValue
+            },
+        DepositPolicy = SnapshotDepositPolicy(level.DepositPolicy)
+    };
+
     // UC-132: the thresholds a customer must reach to be on a level.
     public async Task<AdminTrustLevelResponse> UpdateLevelRequirementAsync(
         Guid adminId, Guid levelId, UpdateTrustLevelRequirementRequest request, CancellationToken cancellationToken = default)
@@ -655,6 +682,7 @@ public sealed class TrustConfigService : ITrustConfigService
 
         if (!unchanged)
         {
+            var oldValues = SnapshotTrustLevel(level);
             var now = _timeProvider.GetUtcNow().UtcDateTime;
             var nextVersion = await _repository.GetNextLevelHistoryVersionAsync(level.Id, cancellationToken);
 
@@ -680,6 +708,7 @@ public sealed class TrustConfigService : ITrustConfigService
                 counts.GetValueOrDefault(level.Id),
                 adminId,
                 now);
+            WriteAudit(adminId, "UpdateTrustLevelRequirement", "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
             try
             {

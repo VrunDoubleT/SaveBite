@@ -113,6 +113,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
             .Include(s => s.Adjustments)
             .Include(s => s.Payments)
             .Include(s => s.Histories)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(s => s.Id == statementId, ct);
     }
 

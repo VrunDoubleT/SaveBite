@@ -6,6 +6,7 @@ import { Button, EmptyState, Skeleton } from "@/shared/components/ui";
 
 interface DealGridProps {
   deals: FlashDeal[];
+  desktopColumns?: 3 | 4;
   isSameShop?: boolean;
   isLoading?: boolean;
   emptyMessage?: string;
@@ -15,20 +16,18 @@ interface DealGridProps {
 
 export function DealGrid({
   deals,
+  desktopColumns = 3,
   isSameShop = false,
   isLoading = false,
   emptyMessage = "No flash deals found within this radius.",
   onRefresh,
   onClearSearch,
 }: DealGridProps) {
+  const gridClassName = `grid grid-cols-1 gap-4 sm:grid-cols-2 ${desktopColumns === 4 ? "lg:grid-cols-3 xl:grid-cols-4" : "xl:grid-cols-3"}`;
   if (isLoading) {
     return (
-      <div
-        role="status"
-        aria-label="Loading flash deals"
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
-      >
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div role="status" aria-label="Loading flash deals" className={gridClassName}>
+        {Array.from({ length: desktopColumns === 4 ? 8 : 6 }).map((_, i) => (
           <div
             key={i}
             className="overflow-hidden rounded-lg border border-border-default bg-bg-surface"
@@ -66,7 +65,7 @@ export function DealGrid({
     );
   }
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className={gridClassName}>
       {deals.map((deal) => (
         <DealCard key={deal.id} deal={deal} isSameShop={isSameShop} />
       ))}

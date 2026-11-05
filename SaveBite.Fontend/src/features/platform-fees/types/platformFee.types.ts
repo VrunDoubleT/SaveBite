@@ -10,6 +10,32 @@ export interface PlatformFeeConfigResponse {
   createdAt: string;
 }
 
+export interface PlatformPayOsConfigResponse {
+  maskedClientId: string | null;
+  hasClientId: boolean;
+  hasApiKey: boolean;
+  hasChecksumKey: boolean;
+  updatedAt: string | null;
+  updatedByUserId: string | null;
+  updatedByName: string | null;
+}
+
+export interface UpdatePlatformPayOsConfigRequest {
+  clientId?: string;
+  apiKey?: string;
+  checksumKey?: string;
+}
+
+export interface PlatformPayOsConfigHistoryItem {
+  id: string;
+  changedByUserId: string;
+  changedByName: string;
+  changedFields: string[];
+  previousMaskedClientId: string | null;
+  maskedClientId: string;
+  changedAt: string;
+}
+
 export interface GetAdminPlatformFeesParams {
   year?: number;
   month?: number;

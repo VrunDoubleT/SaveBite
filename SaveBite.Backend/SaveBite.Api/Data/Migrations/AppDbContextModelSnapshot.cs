@@ -1449,6 +1449,88 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("platform_fee_statement_histories", (string)null);
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.PlatformPayOsConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("client_id");
+
+                    b.Property<string>("ProtectedApiKey")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("protected_api_key");
+
+                    b.Property<string>("ProtectedChecksumKey")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("protected_checksum_key");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.ToTable("platform_payos_configs", (string)null);
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.PlatformPayOsConfigHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("changed_at");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("changed_by_user_id");
+
+                    b.Property<string>("ChangedFieldsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("changed_fields_json");
+
+                    b.Property<string>("MaskedClientId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("masked_client_id");
+
+                    b.Property<string>("PreviousMaskedClientId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("previous_masked_client_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangedAt");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.ToTable("platform_payos_config_history", (string)null);
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4152,6 +4234,28 @@ namespace SaveBite.Backend.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Statement");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.PlatformPayOsConfig", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("UpdatedByUser");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.PlatformPayOsConfigHistory", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", "ChangedByUser")
+                        .WithMany()
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ChangedByUser");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Product", b =>

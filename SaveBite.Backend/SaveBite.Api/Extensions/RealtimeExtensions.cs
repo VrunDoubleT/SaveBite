@@ -22,6 +22,10 @@ public static class RealtimeExtensions
     // Expose the authenticated hub at the shared realtime endpoint.
     public static IEndpointRouteBuilder MapRealtime(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapHub<FlashDealsHub>(FlashDealsHub.Path, options =>
+        {
+            options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents;
+        });
         endpoints.MapHub<ApplicationHub>(ApplicationHub.Path, options =>
         {
             options.CloseOnAuthenticationExpiration = true;

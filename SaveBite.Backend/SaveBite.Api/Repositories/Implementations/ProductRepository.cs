@@ -192,15 +192,18 @@ public sealed class ProductRepository : IProductRepository
     // Manage Products.
     public async Task RemoveProductForViolationAndCancelDealsAsync(Product product, CancellationToken ct)
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await using var transaction = _db.Database.CurrentTransaction == null ? await _db.Database.BeginTransactionAsync(ct) : null;
 
         await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE product_id = {product.Id} ORDER BY id FOR UPDATE", ct);
         var affectedDeals = await _db.FlashDeals.Where(d => d.ProductId == product.Id
             && d.Status != FlashDealStatus.Cancelled && d.Status != FlashDealStatus.Closed).Select(d => d.Id).ToListAsync(ct);
         foreach (var id in affectedDeals)
+        {
+            SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(_db, id, product.ShopId);
             _db.Add(new OrderEventOutbox { Id = Guid.NewGuid(), EventKey = $"product-removal:{product.Id}:deal:{id}",
                 RoutingKey = RabbitMqRoutingKeys.FlashDealClosed,
                 PayloadJson = JsonSerializer.Serialize(new FlashDealEvent { FlashDealId = id }), CreatedAt = DateTime.UtcNow });
+        }
 
         await _db.FlashDeals
             .Where(x =>
@@ -219,7 +222,7 @@ public sealed class ProductRepository : IProductRepository
                 ct);
 
         await _db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
     }
 
     // Manage Products.

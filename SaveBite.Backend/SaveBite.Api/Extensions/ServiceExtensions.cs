@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using SaveBite.Backend.Services.Implementations;
 using SaveBite.Backend.Services.Interfaces;
 
@@ -8,10 +9,13 @@ public static class ServiceExtensions
     public static IServiceCollection AddServices(
         this IServiceCollection services)
     {
+        services.AddDataProtection().SetApplicationName("SaveBite");
         services.AddScoped<OrderConfirmationScheduling>();
         services.AddScoped<OrderResaleService>();
         services.AddScoped<RefundEventEffects>();
+        services.AddScoped<NotificationOutboxDelivery>();
         services.AddScoped<DealInventoryService>();
+        services.AddScoped<IOrderInventorySynchronizer, OrderInventorySynchronizer>();
         services.AddScoped<IShopFollowService, ShopFollowService>();
         services.AddScoped<ShopDealNotificationService>();
         services.AddScoped<IProductService, ProductService>();
@@ -82,6 +86,7 @@ public static class ServiceExtensions
         services.AddScoped<ICartDealEventService, CartDealEventService>();
         services.AddScoped<IPlatformFeeConfigService, PlatformFeeConfigService>();
         services.AddScoped<IPlatformFeeStatementService, PlatformFeeStatementService>();
+        services.AddScoped<IPlatformPayOsConfigService, PlatformPayOsConfigService>();
         
         services.AddScoped<IWarningService, WarningService>();
         services.AddScoped<IFeedbackService, FeedbackService>();

@@ -1,3 +1,5 @@
+import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
+import { ShopFollowControls } from "@/features/shop-follows/components/ShopFollowControls";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
@@ -40,9 +42,7 @@ import { toast } from "@/shared/stores/toastStore";
 import { APP_PATHS } from "@/app/router/paths";
 
 const formatVnd = (value: number) => {
-  return Number.isFinite(value)
-    ? `${Math.round(value).toLocaleString("en-US")} VND`
-    : "—";
+  return Number.isFinite(value) ? `${Math.round(value).toLocaleString("en-US")} VND` : "—";
 };
 
 const formatTime = (iso?: string) => {
@@ -69,6 +69,7 @@ export function CustomerDealDetailPage() {
 
 function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }) {
   const navigate = useNavigate();
+  const [revision, setRevision] = useState(0);
   const [deal, setDeal] = useState<FlashDeal | null>(null);
   const [reviewSummary, setReviewSummary] = useState<StoreReviewsSummary | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<FlashDealVariant | null>(null);
@@ -80,6 +81,10 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
   const [addedSuccess, setAddedSuccess] = useState<boolean>(false);
   const addCartItem = useCartStore((state) => state.addItem);
   const isAdding = useCartStore((state) => state.isMutating);
+  useFlashDealRealtime("deal", id, () => {
+    setIsLoading(true);
+    setRevision((value) => value + 1);
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -161,7 +166,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
     return () => {
       isMounted = false;
     };
-  }, [id]);
+  }, [id, revision]);
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -758,19 +763,29 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
         </Card>
 
         <Card className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-3">
-          <div className="flex items-center gap-3">
+          <div className="grid grid-cols-[48px_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[56px_minmax(0,1fr)] sm:gap-4">
             <MediaImage
               src={deal.shopLogoUrl}
               alt=""
               fallbackIcon={Store}
               showFallbackLabel={false}
-              className="size-12 shrink-0 rounded-md"
+              className="size-12 rounded-lg border border-border-default sm:size-14"
             />
-            <div className="min-w-0">
-              <p className="text-caption text-text-secondary">Your pickup store</p>
-              <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
-                {deal.shopName}
-              </h2>
+            <div className="min-w-0 space-y-3">
+              <div className="space-y-1">
+                <p className="text-caption text-text-secondary">Your pickup store</p>
+                <h2 className="text-section font-semibold leading-snug [overflow-wrap:anywhere]">
+                  <Link
+                    to={`/shops/${deal.shopId}`}
+                    className="rounded-sm text-primary-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
+                  >
+                    {deal.shopName}
+                  </Link>
+                </h2>
+              </div>
+              <div className="w-full max-w-64">
+                <ShopFollowControls compact shopId={deal.shopId} shopName={deal.shopName} />
+              </div>
             </div>
           </div>
           <p className="flex items-start gap-2 text-body text-text-secondary">
@@ -792,10 +807,6 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
               <dd className="font-medium text-text-primary">{formatTime(deal.shopClosingTime)}</dd>
             </div>
           </dl>
-          <ButtonLink to={`/shops/${deal.shopId}`} variant="secondary" className="min-h-11 w-full">
-            View store
-            <ChevronRight className="size-4" aria-hidden="true" />
-          </ButtonLink>
         </Card>
       </div>
       <DealStoreReviews

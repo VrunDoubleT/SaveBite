@@ -22,7 +22,7 @@ public class NotificationQueue : INotificationQueue
         _db = db; _clock = clock;
     }
 
-    // Persist a durable request; the shared outbox dispatcher handles broker delivery later.
+    // Persist in the ambient transaction; deliver after commit, or immediately for standalone requests.
     public async Task EnqueueAsync(NotificationTarget target, CreateNotificationCommand command, CancellationToken ct = default)
     {
         var id = Guid.NewGuid();
@@ -52,5 +52,9 @@ public class NotificationQueue : INotificationQueue
             VALUES ({id}, NULL, {key}, {RabbitMqRoutingKeys.NotificationRequested}, CAST({json} AS jsonb), {now})
             ON CONFLICT (event_key) DO NOTHING
             """, ct);
+        var messageId = await _db.Set<SaveBite.Backend.Models.Entities.OrderEventOutbox>()
+            .Where(e => e.EventKey == key && e.PublishedAt == null).Select(e => (Guid?)e.Id).SingleOrDefaultAsync(ct);
+        if (messageId.HasValue) _db.TrackNotificationOutbox(messageId.Value);
+        if (_db.Database.CurrentTransaction == null) await _db.FlushNotificationOutboxAsync();
     }
 }

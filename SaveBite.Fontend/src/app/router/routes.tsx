@@ -1,3 +1,4 @@
+import { FollowedShopsPage } from "@/pages/customer/FollowedShopsPage";
 import { CustomerRefundDetailPage } from "@/pages/customer/RefundDetailPage";
 import { ShopRefundDetailPage } from "@/pages/store-owner/RefundDetailPage";
 import { ShopRefundsPage } from "@/pages/store-owner/RefundsPage";
@@ -74,6 +75,7 @@ import { AdminReviewsPage } from "@/pages/admin/AdminReviewsPage";
 import { ShopOrdersPage } from "@/pages/shop/ShopOrdersPage";
 import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
 import { PlatformFeeManagementPage } from "@/pages/admin/PlatformFeeManagementPage";
+import { AdminPlatformPayOsConfigPage } from "@/pages/admin/AdminPlatformPayOsConfigPage";
 import { PlatformFeesPage } from "@/pages/store-owner/PlatformFeesPage";
 import { PlatformFeeDetailPage } from "@/pages/store-owner/PlatformFeeDetailPage";
 import { ShopManagementPage } from "@/pages/admin/ShopManagementPage";
@@ -210,11 +212,15 @@ export const routes: RouteObject[] = [
                     element: <PaymentDetailPage />,
                   },
                   {
+                    path: APP_PATHS.ACCOUNT_FOLLOWED_SHOPS,
+                    element: <FollowedShopsPage />,
+                  },
+                  {
                     path: APP_PATHS.ACCOUNT_REVIEWS,
                     element: <ReviewsPage />,
                   },
                   {
-                    path: APP_PATHS.ACCOUNT_TRUST_SCORES,
+                    path: APP_PATHS.ACCOUNT_TRUST_SCORE_TAB,
                     element: <TrustScorePage />,
                   },
                   {
@@ -307,6 +313,10 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.ADMIN_PLATFORM_FEE,
             element: <PlatformFeeManagementPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_PLATFORM_PAYOS_CONFIG,
+            element: <AdminPlatformPayOsConfigPage />,
           },
           {
             path: APP_PATHS.ADMIN_FEEDBACK,

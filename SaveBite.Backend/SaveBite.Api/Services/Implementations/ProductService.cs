@@ -411,36 +411,66 @@ public sealed class ProductService : IProductService
 
     public async Task<ModerationActionResponse> ApproveContentAsync(Guid adminId, Guid productId, Guid revisionId, CancellationToken ct)
     {
-        var product = await _repository.GetProductForViolationRemovalAsync(productId, ct)
-            ?? throw AppException.NotFound("Product not found.");
-        if (product.DeletedAt != null)
-            throw AppException.Conflict("Product has been removed.");
-        var revision = await _repository.GetLatestRevisionForReviewAsync(productId, ct)
-            ?? throw AppException.NotFound("Product content revision not found.");
-        if (revision.Id != revisionId)
-            throw AppException.Conflict("A newer content revision exists. Reload the product.");
-        if (revision.Status == ProductReviewStatus.Approved)
-            throw AppException.Conflict("This revision has already been approved.");
-        if (revision.Status == ProductReviewStatus.Suspended)
-            throw AppException.Conflict("This revision is suspended.");
-        var warning = await _db.ProductWarnings.SingleOrDefaultAsync(w => w.ProductId == productId && w.ResolvedAt == null, ct);
-        if (warning != null)
+        return await NotificationTransaction.RunAsync(_db, async () =>
         {
-            if (warning.FirstEditedAt == null)
-                throw AppException.Conflict("The shop must submit corrections before this warning can be resolved.");
-            warning.ResolvedAt = Now();
-            warning.DealBlocked = false;
-        }
-        revision.Status = ProductReviewStatus.Approved;
-        revision.ReviewedByUserId = adminId;
-        revision.ReviewedAt = Now();
-        revision.ReviewNote = null;
-        await _repository.SaveChangesAsync(ct);
-        await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
-            NotificationType.ProductContentApproved, "Product content approved",
-            $"The content of {product.Name} has been approved by an administrator.",
-            $"/store-owner/products/{productId}", $"product:{productId}:revision:{revisionId}:approved"), ct);
-        return new ModerationActionResponse { TargetId = productId, Action = "PRODUCT_CONTENT_APPROVED", Message = "Current content revision approved." };
+            var product = await _repository.GetProductForViolationRemovalAsync(productId, ct)
+                ?? throw AppException.NotFound("Product not found.");
+            if (product.DeletedAt != null)
+                throw AppException.Conflict("Product has been removed.");
+            var revision = await _repository.GetLatestRevisionForReviewAsync(productId, ct)
+                ?? throw AppException.NotFound("Product content revision not found.");
+            if (revision.Id != revisionId)
+                throw AppException.Conflict("A newer content revision exists. Reload the product.");
+            if (revision.Status == ProductReviewStatus.Approved)
+                throw AppException.Conflict("This revision has already been approved.");
+            if (revision.Status == ProductReviewStatus.Suspended)
+                throw AppException.Conflict("This revision is suspended.");
+            var oldValues = new
+            {
+                RevisionId = revision.Id,
+                Status = revision.Status.ToString(),
+                revision.ReviewedByUserId,
+                revision.ReviewedAt
+            };
+            var warning = await _db.ProductWarnings.SingleOrDefaultAsync(w => w.ProductId == productId && w.ResolvedAt == null, ct);
+            if (warning != null)
+            {
+                if (warning.FirstEditedAt == null)
+                    throw AppException.Conflict("The shop must submit corrections before this warning can be resolved.");
+                warning.ResolvedAt = Now();
+                warning.DealBlocked = false;
+            }
+            var now = Now();
+            revision.Status = ProductReviewStatus.Approved;
+            revision.ReviewedByUserId = adminId;
+            revision.ReviewedAt = now;
+            revision.ReviewNote = null;
+            _audit.Record(new AuditLog
+            {
+                ActorUserId = adminId,
+                Action = "PRODUCT_CONTENT_APPROVED",
+                TargetType = "ProductRevision",
+                TargetId = revision.Id,
+                OldValuesJson = JsonSerializer.Serialize(oldValues),
+                NewValuesJson = JsonSerializer.Serialize(new
+                {
+                    ProductId = product.Id,
+                    RevisionId = revision.Id,
+                    Status = revision.Status.ToString(),
+                    revision.ReviewedByUserId,
+                    revision.ReviewedAt,
+                    WarningResolved = warning is not null
+                }),
+                CreatedAt = now
+            });
+            await _repository.SaveChangesAsync(ct);
+            await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
+                NotificationType.ProductContentApproved, "Product content approved",
+                $"The content of {product.Name} has been approved by an administrator.",
+                $"/store-owner/products/{productId}", $"product:{productId}:revision:{revisionId}:approved"), ct);
+            return new ModerationActionResponse { TargetId = productId, Action = "PRODUCT_CONTENT_APPROVED", Message = "Current content revision approved." };
+
+        }, ct);
     }
 
     private DateTime Now() => _clock.GetUtcNow().UtcDateTime;
@@ -598,56 +628,60 @@ public sealed class ProductService : IProductService
     // Manage Products.
     public async Task<ModerationActionResponse> RemoveProductAsync(Guid adminId, Guid productId, RemoveViolatingProductRequest request, CancellationToken ct)
     {
-        var product = await _repository.GetProductForViolationRemovalAsync(productId, ct);
-        if (product == null)
-            throw AppException.NotFound("Product not found.");
-
-        if (product.DeletedAt != null)
-            throw AppException.Conflict("Product already removed.");
-
-        var reason = request.Reason.Trim();
-
-        var oldValues = new
+        return await NotificationTransaction.RunAsync(_db, async () =>
         {
-            Status = product.Status.ToString(),
-            product.DeletedAt
-        };
+            var product = await _repository.GetProductForViolationRemovalAsync(productId, ct);
+            if (product == null)
+                throw AppException.NotFound("Product not found.");
 
-        var now = DateTime.UtcNow;
+            if (product.DeletedAt != null)
+                throw AppException.Conflict("Product already removed.");
 
-        product.DeletedAt = now;
-        product.Status = ProductStatus.Hidden;
-        product.UpdatedAt = now;
+            var reason = request.Reason.Trim();
 
-        var auditEntry = _audit.Record(new AuditLog
-        {
-            Id = Guid.NewGuid(),
-            ActorUserId = adminId,
-            Action = "PRODUCT_REMOVED_VIOLATION",
-            TargetType = "Product",
-            TargetId = productId,
-            Reason = reason,
-            OldValuesJson = JsonSerializer.Serialize(oldValues),
-            NewValuesJson = JsonSerializer.Serialize(new
+            var oldValues = new
             {
                 Status = product.Status.ToString(),
-                product.DeletedAt,
-                product.ShopId
-            }),
-            CreatedAt = DateTime.UtcNow
-        });
-        await _repository.RemoveProductForViolationAndCancelDealsAsync(product, ct);
+                product.DeletedAt
+            };
 
-        await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
-            NotificationType.ProductRemoved, "Product removed for a violation",
-            $"{product.Name} was removed by an administrator. Reason: {reason}",
-            "/store-owner/products", $"product-removed:{auditEntry.Id}"), ct);
+            var now = DateTime.UtcNow;
 
-        return new ModerationActionResponse
-        {
-            TargetId = productId,
-            Action = "PRODUCT_REMOVED_VIOLATION",
-            Message = "Product removed and associated flash deals cancelled."
-        };
+            product.DeletedAt = now;
+            product.Status = ProductStatus.Hidden;
+            product.UpdatedAt = now;
+
+            var auditEntry = _audit.Record(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                ActorUserId = adminId,
+                Action = "PRODUCT_REMOVED_VIOLATION",
+                TargetType = "Product",
+                TargetId = productId,
+                Reason = reason,
+                OldValuesJson = JsonSerializer.Serialize(oldValues),
+                NewValuesJson = JsonSerializer.Serialize(new
+                {
+                    Status = product.Status.ToString(),
+                    product.DeletedAt,
+                    product.ShopId
+                }),
+                CreatedAt = DateTime.UtcNow
+            });
+            await _repository.RemoveProductForViolationAndCancelDealsAsync(product, ct);
+
+            await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
+                NotificationType.ProductRemoved, "Product removed for a violation",
+                $"{product.Name} was removed by an administrator. Reason: {reason}",
+                "/store-owner/products", $"product-removed:{auditEntry.Id}"), ct);
+
+            return new ModerationActionResponse
+            {
+                TargetId = productId,
+                Action = "PRODUCT_REMOVED_VIOLATION",
+                Message = "Product removed and associated flash deals cancelled."
+            };
+
+        }, ct);
     }
 }

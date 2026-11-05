@@ -5,9 +5,35 @@ namespace SaveBite.Backend.Data;
 
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options)
+    private readonly SaveBite.Backend.Services.Implementations.NotificationOutboxDelivery? _notificationDelivery;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options,
+        SaveBite.Backend.Services.Implementations.NotificationOutboxDelivery? notificationDelivery = null)
         : base(options)
     {
+        _notificationDelivery = notificationDelivery;
+    }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.AddInterceptors(new NotificationOutboxCommitInterceptor());
+        base.OnConfiguring(optionsBuilder);
+    }
+
+    public void TrackNotificationOutbox(Guid id) => _notificationDelivery?.Track(id);
+    public void ClearNotificationOutbox() => _notificationDelivery?.Clear();
+    public Task FlushNotificationOutboxAsync() => _notificationDelivery?.FlushAsync() ?? Task.CompletedTask;
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        foreach (var entry in ChangeTracker.Entries<FlashDeal>().Where(e => e.State is EntityState.Added or EntityState.Modified).ToArray())
+            SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(this, entry.Entity.Id, entry.Entity.ShopId);
+        foreach (var entry in ChangeTracker.Entries<OrderEventOutbox>().Where(e => e.State == EntityState.Added))
+            TrackNotificationOutbox(entry.Entity.Id);
+        var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        // Single-command SaveChanges may not create an explicit/implicit transaction.
+        if (Database.CurrentTransaction == null) await FlushNotificationOutboxAsync();
+        return result;
     }
 
     // Users.
@@ -67,6 +93,8 @@ public class AppDbContext : DbContext
     public DbSet<PlatformFeeAdjustment> PlatformFeeAdjustments => Set<PlatformFeeAdjustment>();
     public DbSet<PlatformFeePayment> PlatformFeePayments => Set<PlatformFeePayment>();
     public DbSet<PlatformFeeStatementHistory> PlatformFeeStatementHistories => Set<PlatformFeeStatementHistory>();
+    public DbSet<PlatformPayOsConfig> PlatformPayOsConfigs => Set<PlatformPayOsConfig>();
+    public DbSet<PlatformPayOsConfigHistory> PlatformPayOsConfigHistories => Set<PlatformPayOsConfigHistory>();
     // Notifications.
     public DbSet<Notification> Notifications => Set<Notification>();
     // Feedbacks.

@@ -140,6 +140,7 @@ public sealed class ShopRepository : IShopRepository
             .Include(f => f.Images)
             .Include(f => f.Product).ThenInclude(p => p.Images)
             .Include(f => f.Reply).ThenInclude(r => r!.RepliedByUser)
+            .AsSplitQuery()
             .OrderByDescending(f => f.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)

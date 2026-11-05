@@ -55,8 +55,8 @@ public sealed class ShopService : IShopService
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
-        var page = request.Page <= 0 ? 1 : request.Page;
-        var pageSize = request.PageSize <= 0 ? 6 : request.PageSize;
+        var page = Math.Clamp(request.Page, 1, 100_000);
+        var pageSize = Math.Clamp(request.PageSize <= 0 ? 6 : request.PageSize, 1, 100);
 
         double userLat;
         double userLon;
@@ -120,6 +120,7 @@ public sealed class ShopService : IShopService
         var totalItems = matchingShops.Count;
         var pagedShops = matchingShops
             .OrderBy(x => x.Distance)
+            .ThenBy(x => x.Shop.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToList();
@@ -548,12 +549,12 @@ public sealed class ShopService : IShopService
             CreatedAt = DateTime.UtcNow
         });
         await _shopRepository.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
 
         await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
             NotificationType.ShopStatusChanged, "Shop status updated",
             $"{shop.Name}: {currentStatus} → {targetStatus}." + (string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}"),
             "/account/workspace", $"shop-status:{auditEntry.Id}"), ct);
+        await transaction.CommitAsync(ct);
 
         return new ModerationActionResponse
         {

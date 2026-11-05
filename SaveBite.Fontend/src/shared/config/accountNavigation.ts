@@ -60,6 +60,13 @@ export const ACCOUNT_NAV_GROUPS: readonly AccountNavGroup[] = [
         icon: RotateCcw,
       },
       {
+        to: APP_PATHS.ACCOUNT_FOLLOWED_SHOPS,
+        label: "Followed shops",
+        title: "Followed shops",
+        description: "Manage the stores you follow and their deal notifications",
+        icon: Store,
+      },
+      {
         to: APP_PATHS.ACCOUNT_REVIEWS,
         label: "Reviews",
         title: "Reviews",

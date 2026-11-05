@@ -114,8 +114,8 @@ public sealed class RefundEventEffects(AppDbContext db, TimeProvider clock, ITru
             }
             refund.AccumulatedValueReclaimedAt = now;
             await db.SaveChangesAsync(ct);
+            await notifications.PublishForOrderAsync(orderId, ct);
             await transaction.CommitAsync(ct);
         }
-        await notifications.PublishForOrderAsync(orderId, ct);
     }
 }

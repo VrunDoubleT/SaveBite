@@ -4,6 +4,7 @@ import {
   CreditCard,
   Package,
   Receipt,
+  RotateCcw,
   Settings2,
   ShieldAlert,
   Star,
@@ -33,6 +34,12 @@ const navigation = [
     end: false,
     icon: ClipboardList,
     badge: <ShopOrderWorkspaceNotifications ordersPath={`${APP_PATHS.STORE_OWNER}/orders`} />,
+  },
+  {
+    to: APP_PATHS.STORE_OWNER_REFUNDS,
+    label: "Refunds",
+    end: false,
+    icon: RotateCcw,
   },
   {
     to: APP_PATHS.STORE_OWNER_STAFF,

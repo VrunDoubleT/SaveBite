@@ -1,7 +1,7 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { LogOut, type LucideIcon } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { AppLogo } from "@/shared/components/AppLogo";
+import { APP_LOGO_URL, AppLogo } from "@/shared/components/AppLogo";
 import { NavItem } from "@/shared/components/navigation/NavItem";
 import { Button, Drawer } from "@/shared/components/ui";
 import { useAuthStore } from "@/shared/stores/authStore";
@@ -58,9 +58,9 @@ export function WorkspaceSidebar({
             to="/"
             aria-label="SaveBite - Home"
             title="SaveBite"
-            className="flex size-9 items-center justify-center rounded-md bg-primary-700 text-section font-semibold text-text-inverse"
+            className="flex size-9 items-center justify-center overflow-hidden rounded-md"
           >
-            S
+            <img src={APP_LOGO_URL} alt="" aria-hidden="true" className="size-full object-cover" />
           </Link>
         ) : (
           <AppLogo />

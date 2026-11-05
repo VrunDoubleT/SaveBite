@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useHomePreferencesStore } from "@/features/shops/stores/homePreferencesStore";
 import {
   SlidersHorizontal,
   Navigation,
@@ -7,13 +8,15 @@ import {
   MapPin,
   Map,
   ChevronDown,
-  Leaf,
+  ArrowRight,
+  Pause,
+  Play,
 } from "lucide-react";
-import { Badge, Button, ErrorState, PageHeader } from "@/shared/components/ui";
+import { Badge, Button, ErrorState } from "@/shared/components/ui";
 import { useNearbyFlashDeals } from "@/features/flash-deals/hooks/useNearbyFlashDeals";
 import { FilterSidebar } from "@/features/flash-deals/components/FilterSidebar";
 import { DealSection } from "@/features/flash-deals/components/DealSection";
-import { NearbyStoresMapSection } from "@/features/shops/components/NearbyStoresMapSection";
+import { NearbyStoresBrowser } from "@/features/shops/components/NearbyStoresBrowser";
 
 export function CustomerHomePage() {
   const {
@@ -53,8 +56,11 @@ export function CustomerHomePage() {
     userDefaultAddress,
   } = useNearbyFlashDeals();
 
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const [isMapOpen, setIsMapOpen] = useState(false);
+  const isMobileFilterOpen = useHomePreferencesStore((state) => state.mobileFiltersExpanded);
+  const setIsMobileFilterOpen = useHomePreferencesStore((state) => state.setMobileFiltersExpanded);
+  const isMapOpen = useHomePreferencesStore((state) => state.storesExpanded);
+  const setIsMapOpen = useHomePreferencesStore((state) => state.setStoresExpanded);
+  const [isCategoryAnimationPaused, setIsCategoryAnimationPaused] = useState(false);
 
   const activeFilterCount =
     filters.category.length +
@@ -62,95 +68,172 @@ export function CustomerHomePage() {
     filters.price.length +
     (selectedShop ? 1 : 0);
 
-  const homeIntro = (
-    <div className="flex items-start justify-between gap-4 border-l-4 border-primary-300 pl-4">
-      <PageHeader
-        title="A little less waste. A lot more taste."
-        description="Discover nearby flash deals. Find your next bite at a better price."
-      />
-      <span className="hidden size-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 sm:flex">
-        <Leaf className="size-6" aria-hidden="true" />
-      </span>
-    </div>
-  );
-
   if (!isLocationReady) {
     return (
-      <div className="grid min-h-[calc(100svh-4rem)] w-full place-items-center bg-bg-body px-4 py-8 sm:p-6">
-        <section
-          aria-labelledby="location-welcome-heading"
-          className="w-full max-w-2xl text-center"
-        >
-          <LocationWelcomeIllustration />
-          <h1
-            id="location-welcome-heading"
-            className="mt-2 text-3xl font-bold tracking-tight text-text-primary sm:text-4xl"
+      <div className="relative isolate h-[calc(100dvh-4rem)] w-full overflow-hidden">
+        <div
+          className="pointer-events-none absolute inset-0 -z-10 bg-cover bg-center"
+          style={{
+            backgroundImage:
+              "linear-gradient(180deg,rgba(8,50,33,.52),rgba(8,50,33,.34) 48%,rgba(8,50,33,.58)),url(https://res.cloudinary.com/qhd4t4qt/image/upload/f_auto,q_auto,w_1920/v1793859170/IMG_6341.png)",
+          }}
+          aria-hidden="true"
+        />
+        <div className="mx-auto flex h-full w-full max-w-320 flex-col gap-3 px-4 py-3 sm:gap-4 sm:py-5 md:px-6">
+          <section
+            aria-labelledby="location-welcome-heading"
+            className="grid min-h-0 flex-1 grid-rows-[auto_minmax(180px,1fr)] items-center gap-3 overflow-hidden rounded-[1.75rem] border border-white/50 bg-white/[0.88] p-5 shadow-[0_24px_70px_rgba(16,33,26,.22)] backdrop-blur-xl sm:grid-cols-[1.05fr_.95fr] sm:grid-rows-1 sm:gap-5 sm:rounded-[2rem] sm:p-7 lg:gap-8 lg:px-14 lg:py-[clamp(2rem,6vh,4rem)]"
           >
-            Good food is closer than you think
-          </h1>
-          <p className="mx-auto mt-3 max-w-md text-body leading-relaxed text-text-secondary">
-            Choose your location to find flash deals and stores nearby.
-          </p>
-          <div className="mx-auto mt-8 flex max-w-md flex-col justify-center gap-3 sm:max-w-none sm:flex-row">
-            <Button
-              size="lg"
-              className="whitespace-normal"
-              onClick={requestGpsLocation}
-              loading={isGpsLoading}
-            >
-              <Navigation className="size-4 shrink-0" aria-hidden="true" />
-              {isGpsLoading
-                ? "Finding your location…"
-                : gpsError
-                  ? "Try my location again"
-                  : "Use my location"}
-            </Button>
-            {userDefaultAddress && (
-              <Button
-                size="lg"
-                variant="secondary"
-                className="whitespace-normal"
-                onClick={selectSavedAddress}
+            <div className="relative z-10 min-w-0">
+              <span className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[.08em] text-primary-800 shadow-sm sm:mb-4 sm:px-3 sm:text-xs">
+                <span className="flex size-6 items-center justify-center rounded-full bg-primary-700 text-white">
+                  <MapPin className="size-3.5" aria-hidden="true" />
+                </span>
+                Flash deals near you
+              </span>
+              <h1
+                id="location-welcome-heading"
+                className="max-w-[13ch] text-[clamp(1.75rem,4.4vw,3.75rem)] font-extrabold leading-[1.02] tracking-[-.04em] text-slate-950"
               >
-                <Home className="size-4 shrink-0" aria-hidden="true" />
-                Use saved address
-              </Button>
-            )}
-          </div>
-          <p className="mx-auto mt-4 max-w-md text-caption leading-relaxed text-text-muted">
-            Allow location access in your browser to use GPS. You can change your browsing location
-            later.
-          </p>
-          {isGpsLoading && (
-            <p role="status" className="mt-3 text-caption text-primary-700">
-              Waiting for your browser's location response…
-            </p>
-          )}
-          {gpsError && (
-            <div
-              role="alert"
-              className="mx-auto mt-5 max-w-xl rounded-md border border-accent-100 bg-accent-50 p-4 text-left text-body text-accent-700"
-            >
-              <p className="flex items-start gap-2 font-medium">
-                <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 [overflow-wrap:anywhere]">{gpsError}</span>
+                Good food is <span className="text-primary-700">closer</span> than you think
+              </h1>
+              <p className="mt-2 max-w-[44ch] text-xs leading-5 text-slate-700 sm:mt-4 sm:text-sm sm:leading-6">
+                Find discounted dishes from nearby shops in the last hours before closing. Reserve
+                and pick up in time.
               </p>
-              <p className="mt-2 leading-relaxed">
-                Allow Location in your browser's site settings, then try again
-                {userDefaultAddress ? ", or use your saved address." : "."}
+              <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-6 sm:gap-3">
+                <Button
+                  size="lg"
+                  className="min-h-11 rounded-full bg-primary-700 px-5 text-white shadow-lg shadow-primary-700/25 hover:bg-primary-800 sm:min-h-13 sm:px-7"
+                  onClick={requestGpsLocation}
+                  loading={isGpsLoading}
+                >
+                  <Navigation className="size-4 shrink-0" aria-hidden="true" />
+                  {isGpsLoading
+                    ? "Finding your location…"
+                    : gpsError
+                      ? "Try my location again"
+                      : "Use my location"}
+                  {!isGpsLoading && <ArrowRight className="size-4" aria-hidden="true" />}
+                </Button>
+                {userDefaultAddress && (
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="min-h-11 rounded-full border border-slate-200 bg-white/80 px-4 sm:min-h-13"
+                    onClick={selectSavedAddress}
+                  >
+                    <Home className="size-4 shrink-0" aria-hidden="true" />
+                    Use saved address
+                  </Button>
+                )}
+              </div>
+              <p className="mt-2 max-w-md text-[11px] leading-4 text-slate-600 sm:mt-3 sm:text-xs sm:leading-5">
+                Allow location access in your browser to use GPS. You can change your browsing
+                location later.
               </p>
+              {isGpsLoading && (
+                <p role="status" className="mt-1 text-xs font-medium text-primary-800">
+                  Waiting for your browser&apos;s location response…
+                </p>
+              )}
+              {gpsError && (
+                <div
+                  role="alert"
+                  className="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50/95 p-2.5 text-xs leading-5 text-red-800 sm:mt-3 sm:p-3"
+                >
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0 [overflow-wrap:anywhere]">
+                    {gpsError} Allow Location in your browser settings, then try again
+                    {userDefaultAddress ? " or use your saved address." : "."}
+                  </span>
+                </div>
+              )}
+              <div className="mt-3 hidden max-w-md border-t border-slate-900/10 pt-3 sm:flex sm:gap-0 sm:pt-4">
+                <HomeStat value="30–120′" label="Before closing" />
+                <HomeStat value="Pick-up" label="Collect in store" />
+                <HomeStat value="Per dish" label="Photo & price" />
+              </div>
             </div>
-          )}
-        </section>
+            <HomeFoodVisual />
+          </section>
+
+          <section aria-label="Browse food categories" className="shrink-0">
+            <div className="mb-1.5 flex items-center justify-between px-1 text-white sm:mb-2">
+              <h2 className="text-xs font-bold tracking-wide drop-shadow sm:text-sm">
+                Explore categories
+              </h2>
+              {isLoadingCategories && (
+                <span role="status" className="text-[11px] text-white/90">
+                  Loading…
+                </span>
+              )}
+              {categories.length > 0 && (
+                <button
+                  type="button"
+                  aria-label={
+                    isCategoryAnimationPaused
+                      ? "Play category animation"
+                      : "Pause category animation"
+                  }
+                  onClick={() => setIsCategoryAnimationPaused((paused) => !paused)}
+                  className="inline-flex min-h-8 items-center gap-1 rounded-full px-2 text-[11px] font-semibold text-white/90 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  {isCategoryAnimationPaused ? (
+                    <Play className="size-3.5" aria-hidden="true" />
+                  ) : (
+                    <Pause className="size-3.5" aria-hidden="true" />
+                  )}
+                  {isCategoryAnimationPaused ? "Play" : "Pause"}
+                </button>
+              )}
+            </div>
+            {categories.length > 0 ? (
+              <div className="overflow-hidden pb-1 [mask-image:linear-gradient(90deg,transparent,#000_5%,#000_95%,transparent)]">
+                <div
+                  className={`flex w-max animate-[categoryScroll_38s_linear_infinite] motion-reduce:animate-none hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] ${
+                    isCategoryAnimationPaused ? "[animation-play-state:paused]" : ""
+                  }`}
+                >
+                  {[0, 1].map((copy) => (
+                    <div
+                      key={copy}
+                      aria-hidden={copy === 1 ? true : undefined}
+                      className="flex shrink-0 gap-4 pr-4"
+                    >
+                      {categories.map((category) => (
+                        <span
+                          key={category}
+                          className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-white/60 bg-white/95 px-5 text-sm font-semibold text-slate-800 shadow-md backdrop-blur-md"
+                        >
+                          {category}
+                        </span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                <style>{`
+                  @keyframes categoryScroll {
+                    to { transform: translateX(-50%); }
+                  }
+                `}</style>
+              </div>
+            ) : (
+              !isLoadingCategories && (
+                <p className="rounded-full bg-black/30 px-4 py-2 text-xs text-white">
+                  No food categories are available right now.
+                </p>
+              )
+            )}
+          </section>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-320 px-4 py-4 md:p-6">
-      <div className="space-y-6 py-6 sm:space-y-8 sm:py-8">
-        {homeIntro}
-
+      <div className="space-y-6 pb-6 sm:space-y-8 sm:pb-8">
         <section
           aria-label="Browsing location"
           className="rounded-lg border border-border-default bg-bg-surface shadow-sm"
@@ -211,13 +294,14 @@ export function CustomerHomePage() {
             </p>
           )}
           <details
+            open={isMapOpen}
             onToggle={(event) => setIsMapOpen(event.currentTarget.open)}
             className="border-t border-border-default"
           >
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 rounded-b-lg px-4 text-body font-medium text-primary-700 transition-colors hover:bg-primary-50">
               <span className="flex items-center gap-2">
                 <Map className="size-4" aria-hidden="true" />
-                Explore nearby stores on the map
+                Explore nearby stores
               </span>
               <ChevronDown
                 className={`size-4 shrink-0 transition-transform ${isMapOpen ? "rotate-180" : ""}`}
@@ -226,7 +310,7 @@ export function CustomerHomePage() {
             </summary>
             {isMapOpen && (
               <div className="border-t border-border-default p-4">
-                <NearbyStoresMapSection
+                <NearbyStoresBrowser
                   latitude={coords?.latitude}
                   longitude={coords?.longitude}
                   radiusInKm={radiusInKm}
@@ -263,7 +347,7 @@ export function CustomerHomePage() {
             {activeFilterCount > 0 && <Badge tone="primary">{activeFilterCount} active</Badge>}
           </Button>
         </div>
-        <div className="grid items-start gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <div className="grid items-start gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
           <div
             id="home-filters"
             className={isMobileFilterOpen ? "min-w-0" : "hidden min-w-0 lg:block"}
@@ -321,48 +405,69 @@ export function CustomerHomePage() {
   );
 }
 
-function LocationWelcomeIllustration() {
+function HomeStat({ value, label }: { value: string; label: string }) {
   return (
-    <svg
-      viewBox="0 0 320 300"
-      className="mx-auto w-full max-w-60 sm:max-w-72"
-      fill="none"
-      aria-hidden="true"
-    >
-      <ellipse cx="160" cy="252" rx="118" ry="14" className="fill-neutral-900/8" />
-      <circle
-        cx="160"
-        cy="150"
-        r="118"
-        className="fill-bg-surface stroke-primary-700/15"
-        strokeWidth="2"
-      />
-      <circle
-        cx="160"
-        cy="150"
-        r="92"
-        className="fill-primary-50/60 stroke-primary-700/15"
-        strokeWidth="1.5"
-      />
-      <g
-        transform="translate(118 87) scale(3.5)"
-        className="fill-primary-600 stroke-primary-600"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+    <div className="min-w-0 flex-1 px-3 first:pl-0 last:pr-0 [&+div]:border-l [&+div]:border-slate-900/10">
+      <strong className="block text-lg font-extrabold tracking-tight text-primary-700">
+        {value}
+      </strong>
+      <span className="block text-[11px] leading-4 text-slate-600">{label}</span>
+    </div>
+  );
+}
+
+function HomeFoodVisual() {
+  return (
+    <div className="relative flex h-full min-h-[11.25rem] items-center justify-center sm:h-[clamp(15rem,42vh,24rem)]">
+      <div className="absolute aspect-square h-[92%] max-h-[24rem] rounded-full border-[10px] border-white/60 bg-[radial-gradient(circle_at_35%_30%,#fff,#d9f1e3_60%,#bfe5cf)] shadow-[0_28px_60px_rgba(20,128,79,.24)] sm:border-[14px]" />
+      <span
+        className="relative z-10 select-none text-[clamp(3.25rem,10vh,6.5rem)] leading-none drop-shadow-[0_14px_14px_rgba(16,33,26,.22)] [--sway:6deg] animate-[homeSway_5.5s_ease-in-out_infinite] motion-reduce:animate-none"
+        aria-hidden="true"
       >
-        <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
-        <circle cx="12" cy="10" r="3" className="fill-bg-surface stroke-bg-surface" />
-      </g>
-      <g transform="translate(90 150) rotate(-28)" className="fill-primary-800 stroke-primary-800">
-        <rect x="-3.5" y="-6" width="7" height="70" rx="3.5" stroke="none" />
-        <path d="M-10-6v-22M-3.5-6v-26M3.5-6v-26M10-6v-22" strokeWidth="4" strokeLinecap="round" />
-        <path d="M-10-28q0 12 10 12t10-12" fill="none" strokeWidth="4" strokeLinecap="round" />
-      </g>
-      <g transform="translate(232 150) rotate(28)" className="fill-primary-800">
-        <rect x="-3.5" y="10" width="7" height="55" rx="3.5" />
-        <path d="M-6 8c0-30 16-42 16-48 0 10-6 48-6 48Z" />
-      </g>
-    </svg>
+        🍗
+      </span>
+      <span
+        className="absolute left-[14%] top-[8%] select-none text-[clamp(2.5rem,8vh,5rem)] leading-none drop-shadow-[0_14px_14px_rgba(16,33,26,.22)] [--sway:9deg] animate-[homeSway_4.6s_ease-in-out_-1s_infinite] motion-reduce:animate-none"
+        aria-hidden="true"
+      >
+        🥖
+      </span>
+      <span
+        className="absolute right-[14%] top-[8%] select-none text-[clamp(2.6rem,8.5vh,5.25rem)] leading-none drop-shadow-[0_14px_14px_rgba(16,33,26,.22)] [--sway:8deg] animate-[homeSway_5s_ease-in-out_-2s_infinite] motion-reduce:animate-none"
+        aria-hidden="true"
+      >
+        🍛
+      </span>
+      <span
+        className="absolute left-[2%] top-1/2 -translate-y-1/2 select-none text-[clamp(2.35rem,7.8vh,4.75rem)] leading-none drop-shadow-[0_14px_14px_rgba(16,33,26,.22)] [--sway:10deg] animate-[homeSway_4.8s_ease-in-out_-.5s_infinite] motion-reduce:animate-none"
+        aria-hidden="true"
+      >
+        🍜
+      </span>
+      <span
+        className="absolute right-[2%] top-1/2 -translate-y-1/2 select-none text-[clamp(2.5rem,8.5vh,5rem)] leading-none drop-shadow-[0_14px_14px_rgba(16,33,26,.22)] [--sway:7deg] animate-[homeSway_5.2s_ease-in-out_-3s_infinite] motion-reduce:animate-none"
+        aria-hidden="true"
+      >
+        🧋
+      </span>
+      <span
+        className="absolute bottom-[6%] left-[20%] select-none text-[clamp(2.2rem,7vh,4.5rem)] leading-none drop-shadow-[0_14px_14px_rgba(16,33,26,.22)] [--sway:9deg] animate-[homeSway_4.4s_ease-in-out_-1.6s_infinite] motion-reduce:animate-none"
+        aria-hidden="true"
+      >
+        🥐
+      </span>
+      <span
+        className="absolute bottom-[6%] right-[20%] select-none text-[clamp(2.35rem,7.5vh,4.75rem)] leading-none drop-shadow-[0_14px_14px_rgba(16,33,26,.22)] [--sway:7deg] animate-[homeSway_5.2s_ease-in-out_-2.2s_infinite] motion-reduce:animate-none"
+        aria-hidden="true"
+      >
+        🍰
+      </span>
+      <style>{`
+        @keyframes homeSway {
+          0%, 100% { transform: rotate(calc(var(--sway) * -1)) translateY(0); }
+          50% { transform: rotate(var(--sway)) translateY(-10px); }
+        }
+      `}</style>
+    </div>
   );
 }

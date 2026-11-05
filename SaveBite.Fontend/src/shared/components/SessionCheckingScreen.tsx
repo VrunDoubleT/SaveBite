@@ -1,4 +1,5 @@
 import { ShieldCheck } from "lucide-react";
+import { APP_LOGO_URL } from "@/shared/components/AppLogo";
 
 interface SessionCheckingScreenProps {
   message?: string;
@@ -43,23 +44,12 @@ export function SessionCheckingScreen({
 
           {/* Glowing central squircle with SaveBite Logo */}
           <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 text-white shadow-xl shadow-emerald-600/30 transition-transform">
-            <svg
-              width="26"
-              height="26"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="animate-[pulse_2s_ease-in-out_infinite]"
+            <img
+              src={APP_LOGO_URL}
+              alt=""
               aria-hidden="true"
-            >
-              <path d="M11 20A7 7 0 0 1 4 13H2a10 10 0 0 0 10 10 9.7 9.7 0 0 0 6.6-2.5" />
-              <path d="M15.7 4.2a10 10 0 0 1 3.8 8.8" />
-              <path d="M11 20A7 7 0 0 0 18 13" />
-              <path d="M4 13a7 7 0 0 1 7-7V2c-6 0-11 5-11 11z" />
-            </svg>
+              className="size-[34px] animate-[pulse_2s_ease-in-out_infinite] rounded-lg object-cover"
+            />
           </div>
 
           {/* Security Shield Badge */}

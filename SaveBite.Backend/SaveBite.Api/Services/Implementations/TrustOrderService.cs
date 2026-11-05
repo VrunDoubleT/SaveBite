@@ -106,7 +106,7 @@ public sealed class TrustOrderService : ITrustOrderService
             score.UpdatedAt = now;
             _repository.Add(new TrustOrderProcessing { OrderId = order.Id, ProcessedAt = now, CreditedOrderValue = creditedValue });
         }, ct);
-        await _notifications.PublishForOrderAsync(orderId, ct);
+
     }
 
     // Both independent recovery requirements must be met; a zero requirement is already satisfied.

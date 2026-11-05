@@ -1,4 +1,5 @@
 using SaveBite.Backend.Models.DTOs;
+using System.Text.Json;
 using FluentValidation;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -13,8 +14,10 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class ShopApplicationService : IShopApplicationService
 {
+    private readonly SaveBite.Backend.Data.AppDbContext _db;
     private readonly IShopApplicationRepository _repository;
     private readonly INotificationQueue _notifications;
+    private readonly IAdminAuditWriter _audit;
     private readonly ICloudinaryService _cloudinary;
     private readonly IValidator<CreateShopApplicationRequest> _createValidator;
     private readonly IValidator<ResubmitShopApplicationRequest> _resubmitValidator;
@@ -28,10 +31,13 @@ public sealed class ShopApplicationService : IShopApplicationService
         IValidator<ResubmitShopApplicationRequest> resubmitValidator,
         IValidator<ShopApplicationDocumentsValidationRequest> documentsValidator,
         IValidator<ShopApplicationLogoValidationRequest> logoValidator,
-        INotificationQueue notifications)
+        INotificationQueue notifications, SaveBite.Backend.Data.AppDbContext db,
+        IAdminAuditWriter audit)
     {
         _repository = repository;
         _notifications = notifications;
+        _db = db;
+        _audit = audit;
         _cloudinary = cloudinary;
         _createValidator = createValidator;
         _resubmitValidator = resubmitValidator;
@@ -139,7 +145,7 @@ public sealed class ShopApplicationService : IShopApplicationService
 
         await _logoValidator.ValidateAndThrowAsync(
             new ShopApplicationLogoValidationRequest(logo, IsRequired: string.IsNullOrWhiteSpace(application.LogoUrl)), cancellationToken);
-        
+
         var now = DateTime.UtcNow;
 
         application.Name = request.Name.Trim();
@@ -379,73 +385,96 @@ public sealed class ShopApplicationService : IShopApplicationService
         ReviewShopApplicationRequest request,
         CancellationToken cancellationToken = default)
     {
-        var application = await _repository.GetByIdAsync(applicationId, cancellationToken)
-            ?? throw AppException.NotFound("Shop application was not found.");
-
-        if (application.Status != ShopApplicationStatus.Pending)
-            throw AppException.Conflict("Only pending applications can be approved or rejected.");
-
-        var decision = request.Decision.Trim();
-        ShopApplicationStatus nextStatus;
-        if (decision.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+        return await NotificationTransaction.RunAsync(_db, async () =>
         {
-            nextStatus = ShopApplicationStatus.Approved;
-        }
-        else if (decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
-        {
-            if (string.IsNullOrWhiteSpace(request.Note))
-                throw AppException.BadRequest("A rejection reason is required.");
-            nextStatus = ShopApplicationStatus.Rejected;
-        }
-        else if (decision.Equals("NeedsRevision", StringComparison.OrdinalIgnoreCase))
-        {
-            if (string.IsNullOrWhiteSpace(request.Note)) throw AppException.BadRequest("A correction note is required.");
-            nextStatus = ShopApplicationStatus.NeedsRevision;
-        }
-        else
-        {
-            throw AppException.BadRequest("Decision must be Approved, Rejected or NeedsRevision.");
-        }
-        if (nextStatus == ShopApplicationStatus.Approved)
-        {
-            if (application.Shop is not null)
-                throw AppException.Conflict("A shop has already been created for this application.");
+            var application = await _repository.GetByIdAsync(applicationId, cancellationToken)
+                ?? throw AppException.NotFound("Shop application was not found.");
 
-            if (application.ApplicantUser is null)
-                throw AppException.Conflict("The applicant account could not be found.");
-            
-            if (application.ApplicantUser.Role is not (UserRole.User or UserRole.StoreOwner))
-                throw AppException.Conflict("Only an eligible user account can become a store owner.");
-        }
+            if (application.Status != ShopApplicationStatus.Pending)
+                throw AppException.Conflict("Only pending applications can be approved or rejected.");
 
-        var now = DateTime.UtcNow;
-        application.Status = nextStatus;
-        application.UpdatedAt = now;
-        application.ReviewLogs.Add(new ShopApplicationReviewLog
-        {
-            ApplicationId = application.Id,
-            AdminId = adminId,
-            FromStatus = ShopApplicationStatus.Pending,
-            ToStatus = nextStatus,
-            RevisionNumber = application.RevisionNumber,
-            Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
-            CreatedAt = now
-        });
+            var decision = request.Decision.Trim();
+            ShopApplicationStatus nextStatus;
+            if (decision.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                nextStatus = ShopApplicationStatus.Approved;
+            }
+            else if (decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(request.Note))
+                    throw AppException.BadRequest("A rejection reason is required.");
+                nextStatus = ShopApplicationStatus.Rejected;
+            }
+            else if (decision.Equals("NeedsRevision", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(request.Note)) throw AppException.BadRequest("A correction note is required.");
+                nextStatus = ShopApplicationStatus.NeedsRevision;
+            }
+            else
+            {
+                throw AppException.BadRequest("Decision must be Approved, Rejected or NeedsRevision.");
+            }
+            if (nextStatus == ShopApplicationStatus.Approved)
+            {
+                if (application.Shop is not null)
+                    throw AppException.Conflict("A shop has already been created for this application.");
 
-        if (nextStatus == ShopApplicationStatus.Approved)
-            await _repository.SaveApprovedApplicationAsync(application, cancellationToken);
-        else
-            await _repository.SaveChangesAsync(cancellationToken);
+                if (application.ApplicantUser is null)
+                    throw AppException.Conflict("The applicant account could not be found.");
 
-        var notificationType = nextStatus switch {
-            ShopApplicationStatus.Approved => NotificationType.ShopApplicationApproved,
-            ShopApplicationStatus.Rejected => NotificationType.ShopApplicationRejected,
-            _ => NotificationType.ShopApplicationNeedsRevision
-        };
-        await _notifications.EnqueueAsync(NotificationTarget.User(application.ApplicantUserId), new CreateNotificationCommand(
-            notificationType, "Shop application reviewed",
-            $"Your application for {application.Name} is now {nextStatus}. {request.Note?.Trim()}",
-            "/account/shop-application", $"shop-application:{application.Id}:revision:{application.RevisionNumber}:{nextStatus}"), cancellationToken);
-        return Map(application);
+                if (application.ApplicantUser.Role is not (UserRole.User or UserRole.StoreOwner))
+                    throw AppException.Conflict("Only an eligible user account can become a store owner.");
+            }
+
+            var now = DateTime.UtcNow;
+            application.Status = nextStatus;
+            application.UpdatedAt = now;
+            application.ReviewLogs.Add(new ShopApplicationReviewLog
+            {
+                ApplicationId = application.Id,
+                AdminId = adminId,
+                FromStatus = ShopApplicationStatus.Pending,
+                ToStatus = nextStatus,
+                RevisionNumber = application.RevisionNumber,
+                Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
+                CreatedAt = now
+            });
+
+            _audit.Record(new AuditLog
+            {
+                ActorUserId = adminId,
+                Action = "SHOP_APPLICATION_REVIEWED",
+                TargetType = "ShopApplication",
+                TargetId = application.Id,
+                OldValuesJson = JsonSerializer.Serialize(new
+                {
+                    Status = ShopApplicationStatus.Pending.ToString(),
+                    application.RevisionNumber
+                }),
+                NewValuesJson = JsonSerializer.Serialize(new
+                {
+                    Status = nextStatus.ToString(),
+                    application.RevisionNumber
+                }),
+                CreatedAt = now
+            });
+
+            if (nextStatus == ShopApplicationStatus.Approved)
+                await _repository.SaveApprovedApplicationAsync(application, cancellationToken);
+            else
+                await _repository.SaveChangesAsync(cancellationToken);
+
+            var notificationType = nextStatus switch {
+                ShopApplicationStatus.Approved => NotificationType.ShopApplicationApproved,
+                ShopApplicationStatus.Rejected => NotificationType.ShopApplicationRejected,
+                _ => NotificationType.ShopApplicationNeedsRevision
+            };
+            await _notifications.EnqueueAsync(NotificationTarget.User(application.ApplicantUserId), new CreateNotificationCommand(
+                notificationType, "Shop application reviewed",
+                $"Your application for {application.Name} is now {nextStatus}. {request.Note?.Trim()}",
+                "/account/shop-application", $"shop-application:{application.Id}:revision:{application.RevisionNumber}:{nextStatus}"), cancellationToken);
+            return Map(application);
+
+        }, cancellationToken);
     }
 }

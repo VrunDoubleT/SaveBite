@@ -95,24 +95,24 @@ export function FilterSidebar({
   }, [activeCategories, categoryCounts]);
 
   return (
-    <Card aria-label="Deal filters" className="lg:sticky lg:top-24">
-      <div className="flex items-center justify-between gap-2 border-b border-border-default pb-4">
-        <h2 className="flex items-center gap-2 text-section font-semibold text-text-primary">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
+    <Card aria-label="Deal filters" className="!p-3 lg:sticky lg:top-20">
+      <div className="flex items-center justify-between gap-2 border-b border-border-default pb-2">
+        <h2 className="flex items-center gap-2 text-body font-semibold text-text-primary">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
             <Filter className="size-4" aria-hidden="true" />
           </span>
           Filters
         </h2>
-        <Button variant="ghost" className="min-h-11 px-2" onClick={clearAll}>
+        <Button variant="ghost" size="sm" className="min-h-9 px-2" onClick={clearAll}>
           <RotateCcw className="size-4" aria-hidden="true" />
           Reset
         </Button>
       </div>
-      <fieldset className="border-b border-border-default py-4" disabled={isSearching}>
-        <legend className="float-left mb-3 w-full text-body font-semibold text-text-primary">
+      <fieldset className="border-b border-border-default py-3" disabled={isSearching}>
+        <legend className="float-left mb-2 w-full text-caption font-semibold text-text-primary">
           Categories
         </legend>
-        <div className="clear-both space-y-1">
+        <div className="clear-both space-y-0.5">
           {isSearching ? (
             <p className="text-caption text-text-secondary">Clear search to browse categories.</p>
           ) : isCategoriesLoading && !categoryList.length ? (
@@ -127,9 +127,9 @@ export function FilterSidebar({
             categoryList.map((cat) => (
               <label
                 key={cat}
-                className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-md px-2 text-body text-text-secondary transition-colors hover:bg-primary-50 has-checked:bg-primary-50 has-checked:text-primary-700"
+                className="flex min-h-11 lg:min-h-8 cursor-pointer items-center justify-between gap-2 rounded-md px-2 text-caption text-text-secondary transition-colors hover:bg-primary-50 has-checked:bg-primary-50 has-checked:text-primary-700"
               >
-                <span className="flex min-w-0 items-center gap-3">
+                <span className="flex min-w-0 items-center gap-2">
                   <Checkbox
                     checked={filters.category.includes(cat)}
                     onChange={() => toggle("category", cat)}
@@ -152,15 +152,15 @@ export function FilterSidebar({
           { key: "price", title: "Price range", options: PRICE_OPTIONS },
         ] as const
       ).map((group) => (
-        <fieldset key={group.key} className="border-b border-border-default py-4 last:border-b-0">
-          <legend className="float-left mb-3 w-full text-body font-semibold text-text-primary">
+        <fieldset key={group.key} className="border-b border-border-default py-3 last:border-b-0">
+          <legend className="float-left mb-2 w-full text-caption font-semibold text-text-primary">
             {group.title}
           </legend>
-          <div className="clear-both space-y-1">
+          <div className="clear-both space-y-0.5">
             {group.options.map((option) => (
               <label
                 key={option}
-                className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 text-body text-text-secondary transition-colors hover:bg-primary-50 has-checked:bg-primary-50 has-checked:text-primary-700"
+                className="flex min-h-11 lg:min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-caption text-text-secondary transition-colors hover:bg-primary-50 has-checked:bg-primary-50 has-checked:text-primary-700"
               >
                 <Checkbox
                   checked={filters[group.key].includes(option)}
@@ -173,7 +173,7 @@ export function FilterSidebar({
         </fieldset>
       ))}
       {selectedShop && (
-        <div className="mt-4 flex min-w-0 items-center justify-between gap-2 rounded-md bg-primary-50 p-2 text-primary-700">
+        <div className="mt-3 flex min-w-0 items-center justify-between gap-2 rounded-md bg-primary-50 p-2 text-primary-700">
           <span className="truncate" title={selectedShop}>
             Store: {selectedShop}
           </span>

@@ -16,13 +16,17 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class FeedbackService : IFeedbackService
 {
+    private readonly SaveBite.Backend.Data.AppDbContext _db;
     private readonly IFeedbackRepository _feedbackRepo;
     private readonly INotificationQueue _notifications;
+    private readonly IAdminAuditWriter _audit;
 
-    public FeedbackService(IFeedbackRepository feedbackRepo, INotificationQueue notifications)
+    public FeedbackService(IFeedbackRepository feedbackRepo, INotificationQueue notifications, SaveBite.Backend.Data.AppDbContext db, IAdminAuditWriter audit)
     {
         _feedbackRepo = feedbackRepo;
         _notifications = notifications;
+        _db = db;
+        _audit = audit;
     }
 
     public async Task<PagedResult<FeedbackResponse>> ListAsync(int page, int pageSize, FeedbackStatus? status, string? search, CancellationToken ct = default)
@@ -49,103 +53,127 @@ public sealed class FeedbackService : IFeedbackService
 
     private async Task<ModerationActionResponse> ModerateAsync(Guid adminId, Guid feedbackId, bool restore, string? reason, CancellationToken ct)
     {
-        var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct)
-            ?? throw AppException.NotFound("Feedback not found.");
-        if (restore ? feedback.Status != FeedbackStatus.HiddenByAdmin : feedback.Status != FeedbackStatus.Visible)
-            throw AppException.Conflict(restore ? "Only feedback hidden by an admin can be restored." : "Only visible feedback can be removed.");
-        if (!restore && string.IsNullOrWhiteSpace(reason))
-            throw AppException.BadRequest("A reason is required.");
-        var now = DateTime.UtcNow;
-        var newStatus = restore ? FeedbackStatus.Visible : FeedbackStatus.HiddenByAdmin;
-        var moderationId = Guid.NewGuid();
-        feedback.ModerationLogs.Add(new ProductFeedbackModerationLog
+        return await NotificationTransaction.RunAsync(_db, async () =>
         {
-            Id = moderationId, ProductFeedbackId = feedbackId, AdminUserId = adminId,
-            Action = restore ? FeedbackModerationAction.Restore : FeedbackModerationAction.Hide,
-            PreviousStatus = feedback.Status, NewStatus = newStatus,
-            Reason = reason?.Trim() ?? string.Empty, CreatedAt = now
-        });
-        feedback.Status = newStatus;
-        feedback.HiddenAt = restore ? null : now;
-        feedback.UpdatedAt = now;
-        await _feedbackRepo.UpdateAsync(feedback, ct);
-        if (!restore)
-            await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
-                NotificationType.FeedbackRemovedByAdmin, "Your review was removed",
-                $"An administrator removed your review of {feedback.Product.Name}. Reason: {reason!.Trim()}",
-                "/account/reviews", $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
-        return new ModerationActionResponse
-        {
-            TargetId = feedbackId, Action = restore ? "FEEDBACK_RESTORED" : "FEEDBACK_HIDDEN",
-            Message = restore ? "Feedback restored." : "Feedback removed."
-        };
+            var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct)
+                ?? throw AppException.NotFound("Feedback not found.");
+            if (restore ? feedback.Status != FeedbackStatus.HiddenByAdmin : feedback.Status != FeedbackStatus.Visible)
+                throw AppException.Conflict(restore ? "Only feedback hidden by an admin can be restored." : "Only visible feedback can be removed.");
+            if (!restore && string.IsNullOrWhiteSpace(reason))
+                throw AppException.BadRequest("A reason is required.");
+            var now = DateTime.UtcNow;
+            var oldStatus = feedback.Status;
+            var newStatus = restore ? FeedbackStatus.Visible : FeedbackStatus.HiddenByAdmin;
+            var moderationId = Guid.NewGuid();
+            feedback.ModerationLogs.Add(new ProductFeedbackModerationLog
+            {
+                Id = moderationId, ProductFeedbackId = feedbackId, AdminUserId = adminId,
+                Action = restore ? FeedbackModerationAction.Restore : FeedbackModerationAction.Hide,
+                PreviousStatus = feedback.Status, NewStatus = newStatus,
+                Reason = reason?.Trim() ?? string.Empty, CreatedAt = now
+            });
+            feedback.Status = newStatus;
+            feedback.HiddenAt = restore ? null : now;
+            feedback.UpdatedAt = now;
+            _audit.Record(new AuditLog
+            {
+                ActorUserId = adminId,
+                Action = restore ? "FEEDBACK_RESTORED" : "FEEDBACK_HIDDEN",
+                TargetType = "ProductFeedback",
+                TargetId = feedbackId,
+                Reason = reason?.Trim(),
+                OldValuesJson = JsonSerializer.Serialize(new { Status = oldStatus.ToString() }),
+                NewValuesJson = JsonSerializer.Serialize(new
+                {
+                    Status = feedback.Status.ToString(),
+                    ModerationLogId = moderationId
+                }),
+                CreatedAt = now
+            });
+            await _feedbackRepo.UpdateAsync(feedback, ct);
+            if (!restore)
+                await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
+                    NotificationType.FeedbackRemovedByAdmin, "Your review was removed",
+                    $"An administrator removed your review of {feedback.Product.Name}. Reason: {reason!.Trim()}",
+                    "/account/reviews", $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
+            return new ModerationActionResponse
+            {
+                TargetId = feedbackId, Action = restore ? "FEEDBACK_RESTORED" : "FEEDBACK_HIDDEN",
+                Message = restore ? "Feedback restored." : "Feedback removed."
+            };
+
+        }, ct);
     }
 
     // Add Feedback
     public async Task<FeedbackResponses.FeedbackItemResponse> AddFeedbackAsync(Guid userId, FeedbackRequests.CreateFeedbackRequest request, CancellationToken ct = default)
     {
-        var orderItem = await _feedbackRepo.GetOrderItemWithOrderAsync(request.OrderItemId, ct);
-        if (orderItem is null)
-            throw AppException.NotFound("Order item not found.");
-
-        if (orderItem.Order.CustomerId != userId)
-            throw AppException.Forbidden("You do not have permission to review this order item.");
-
-        if (orderItem.Order.Status != OrderStatus.Completed)
-            throw AppException.BadRequest("You can only submit feedback for completed orders.");
-
-        var hasFeedback = await _feedbackRepo.HasFeedbackForOrderItemAsync(request.OrderItemId, ct);
-        if (hasFeedback)
-            throw AppException.Conflict("Feedback has already been submitted for this item.");
-
-        var productId = orderItem.FlashDealVariant?.Variant?.ProductId;
-        if (productId is null || productId == Guid.Empty)
-            throw AppException.BadRequest("Unable to resolve product from this order item.");
-
-        var now = DateTime.UtcNow;
-        var feedback = new ProductFeedback
+        return await NotificationTransaction.RunAsync(_db, async () =>
         {
-            Id = Guid.NewGuid(),
-            OrderItemId = orderItem.Id,
-            ProductId = productId.Value,
-            UserId = userId,
-            Rating = request.Rating,
-            Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
-            Status = FeedbackStatus.Visible,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
+            var orderItem = await _feedbackRepo.GetOrderItemWithOrderAsync(request.OrderItemId, ct);
+            if (orderItem is null)
+                throw AppException.NotFound("Order item not found.");
 
-        if (request.Images is { Count: > 0 })
-        {
-            var sort = 0;
-            foreach (var imgUrl in request.Images.Take(5))
+            if (orderItem.Order.CustomerId != userId)
+                throw AppException.Forbidden("You do not have permission to review this order item.");
+
+            if (orderItem.Order.Status != OrderStatus.Completed)
+                throw AppException.BadRequest("You can only submit feedback for completed orders.");
+
+            var hasFeedback = await _feedbackRepo.HasFeedbackForOrderItemAsync(request.OrderItemId, ct);
+            if (hasFeedback)
+                throw AppException.Conflict("Feedback has already been submitted for this item.");
+
+            var productId = orderItem.FlashDealVariant?.Variant?.ProductId;
+            if (productId is null || productId == Guid.Empty)
+                throw AppException.BadRequest("Unable to resolve product from this order item.");
+
+            var now = DateTime.UtcNow;
+            var feedback = new ProductFeedback
             {
-                if (!string.IsNullOrWhiteSpace(imgUrl))
+                Id = Guid.NewGuid(),
+                OrderItemId = orderItem.Id,
+                ProductId = productId.Value,
+                UserId = userId,
+                Rating = request.Rating,
+                Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
+                Status = FeedbackStatus.Visible,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+
+            if (request.Images is { Count: > 0 })
+            {
+                var sort = 0;
+                foreach (var imgUrl in request.Images.Take(5))
                 {
-                    feedback.Images.Add(new ProductFeedbackImage
+                    if (!string.IsNullOrWhiteSpace(imgUrl))
                     {
-                        Id = Guid.NewGuid(),
-                        ProductFeedbackId = feedback.Id,
-                        ImageUrl = imgUrl.Trim(),
-                        SortOrder = sort++,
-                        CreatedAt = now
-                    });
+                        feedback.Images.Add(new ProductFeedbackImage
+                        {
+                            Id = Guid.NewGuid(),
+                            ProductFeedbackId = feedback.Id,
+                            ImageUrl = imgUrl.Trim(),
+                            SortOrder = sort++,
+                            CreatedAt = now
+                        });
+                    }
                 }
             }
-        }
 
-        var created = await _feedbackRepo.CreateAsync(feedback, ct);
-        var shopId = orderItem.Order.ShopId;
-        var body = $"{created.User.FullName} left a {created.Rating}-star review for {created.Product.Name}.";
-        await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(shopId), new CreateNotificationCommand(
-            NotificationType.FeedbackReceived, "New customer review", body,
-            "/store-owner/reviews", $"feedback:{created.Id}:created:owner"), ct);
-        await _notifications.EnqueueAsync(NotificationTarget.ShopStaff(shopId), new CreateNotificationCommand(
-            NotificationType.FeedbackReceived, "New customer review", body,
-            $"/staff/shops/{shopId}/reviews", $"feedback:{created.Id}:created:staff"), ct);
+            var created = await _feedbackRepo.CreateAsync(feedback, ct);
+            var shopId = orderItem.Order.ShopId;
+            var body = $"{created.User.FullName} left a {created.Rating}-star review for {created.Product.Name}.";
+            await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(shopId), new CreateNotificationCommand(
+                NotificationType.FeedbackReceived, "New customer review", body,
+                "/store-owner/reviews", $"feedback:{created.Id}:created:owner"), ct);
+            await _notifications.EnqueueAsync(NotificationTarget.ShopStaff(shopId), new CreateNotificationCommand(
+                NotificationType.FeedbackReceived, "New customer review", body,
+                $"/staff/shops/{shopId}/reviews", $"feedback:{created.Id}:created:staff"), ct);
 
-        return MapToResponse(created);
+            return MapToResponse(created);
+
+        }, ct);
     }
 
     // View Feedback History (Customer)
@@ -223,7 +251,7 @@ public sealed class FeedbackService : IFeedbackService
             throw AppException.Forbidden("You do not have permission to delete this feedback.");
 
         if (feedback.Status != FeedbackStatus.Visible)
-            return; 
+            return;
 
         var now = DateTime.UtcNow;
         feedback.Status = FeedbackStatus.HiddenByCustomer;
@@ -236,42 +264,46 @@ public sealed class FeedbackService : IFeedbackService
     // Reply Feedback (Shop & Admin)
     public async Task<FeedbackResponses.FeedbackReplyResponse> ReplyFeedbackAsync(Guid userId, Guid feedbackId, FeedbackRequests.CreateFeedbackReplyRequest request, CancellationToken ct = default)
     {
-        var canManage = await _feedbackRepo.CanManageFeedbackReplyAsync(userId, feedbackId, ct);
-        if (!canManage)
-            throw AppException.Forbidden("You do not have permission to reply to this shop's feedback.");
-
-        var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct);
-        if (feedback is null || feedback.Status != FeedbackStatus.Visible)
-            throw AppException.NotFound("Feedback not found or is no longer visible.");
-
-        var existingReply = await _feedbackRepo.GetReplyByFeedbackIdAsync(feedbackId, ct);
-        if (existingReply != null)
-            throw AppException.Conflict("A reply already exists for this feedback. You can edit the existing reply instead.");
-
-        var now = DateTime.UtcNow;
-        var reply = new ProductFeedbackReply
+        return await NotificationTransaction.RunAsync(_db, async () =>
         {
-            Id = Guid.NewGuid(),
-            ProductFeedbackId = feedbackId,
-            RepliedByUserId = userId,
-            Content = request.Content.Trim(),
-            CreatedAt = now,
-            UpdatedAt = now
-        };
+            var canManage = await _feedbackRepo.CanManageFeedbackReplyAsync(userId, feedbackId, ct);
+            if (!canManage)
+                throw AppException.Forbidden("You do not have permission to reply to this shop's feedback.");
 
-        var created = await _feedbackRepo.CreateReplyAsync(reply, ct);
-        await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
-            NotificationType.FeedbackReplied, "Your review has a reply",
-            $"{feedback.OrderItem.Order.Shop.Name} replied to your review of {feedback.Product.Name}.",
-            $"/account/reviews?feedbackId={feedbackId}", $"feedback:{feedbackId}:reply:{created.Id}"), ct);
+            var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct);
+            if (feedback is null || feedback.Status != FeedbackStatus.Visible)
+                throw AppException.NotFound("Feedback not found or is no longer visible.");
 
-        return new FeedbackResponses.FeedbackReplyResponse(
-            created.Id,
-            created.Content,
-            created.CreatedAt,
-            created.UpdatedAt,
-            created.RepliedByUser?.FullName ?? "Shop"
-        );
+            var existingReply = await _feedbackRepo.GetReplyByFeedbackIdAsync(feedbackId, ct);
+            if (existingReply != null)
+                throw AppException.Conflict("A reply already exists for this feedback. You can edit the existing reply instead.");
+
+            var now = DateTime.UtcNow;
+            var reply = new ProductFeedbackReply
+            {
+                Id = Guid.NewGuid(),
+                ProductFeedbackId = feedbackId,
+                RepliedByUserId = userId,
+                Content = request.Content.Trim(),
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+
+            var created = await _feedbackRepo.CreateReplyAsync(reply, ct);
+            await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
+                NotificationType.FeedbackReplied, "Your review has a reply",
+                $"{feedback.OrderItem.Order.Shop.Name} replied to your review of {feedback.Product.Name}.",
+                $"/account/reviews?feedbackId={feedbackId}", $"feedback:{feedbackId}:reply:{created.Id}"), ct);
+
+            return new FeedbackResponses.FeedbackReplyResponse(
+                created.Id,
+                created.Content,
+                created.CreatedAt,
+                created.UpdatedAt,
+                created.RepliedByUser?.FullName ?? "Shop"
+            );
+
+        }, ct);
     }
 
     // Edit Reply (Shop & Admin)

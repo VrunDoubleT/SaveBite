@@ -10,6 +10,7 @@ import {
   Tags,
   Receipt,
   MessageSquare,
+  KeyRound,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
@@ -59,6 +60,11 @@ const navigation = [
     to: APP_PATHS.ADMIN_PLATFORM_FEE,
     label: "Platform Fees",
     icon: Receipt,
+  },
+  {
+    to: APP_PATHS.ADMIN_PLATFORM_PAYOS_CONFIG,
+    label: "PayOS Settings",
+    icon: KeyRound,
   },
   {
     to: APP_PATHS.ADMIN_FEEDBACK,

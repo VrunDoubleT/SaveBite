@@ -27,7 +27,7 @@ public sealed class ShopOrderService : IShopOrderService
     private readonly ICheckoutRepository _orders;
     private readonly ICheckoutPaymentService _payments;
     private readonly ICheckoutPaymentGateway _gateway;
-    private readonly ICheckoutStockCache _stock;
+    private readonly IOrderInventorySynchronizer _inventorySync;
     private readonly IEmailService _email;
     private readonly TimeProvider _clock;
     private readonly ILogger<ShopOrderService> _logger;
@@ -41,7 +41,7 @@ public sealed class ShopOrderService : IShopOrderService
         ICheckoutRepository orders,
         ICheckoutPaymentService payments,
         ICheckoutPaymentGateway gateway,
-        ICheckoutStockCache stock,
+        IOrderInventorySynchronizer inventorySync,
         IEmailService email,
         TimeProvider clock,
         ILogger<ShopOrderService> logger,
@@ -58,7 +58,7 @@ public sealed class ShopOrderService : IShopOrderService
         _orders = orders;
         _payments = payments;
         _gateway = gateway;
-        _stock = stock;
+        _inventorySync = inventorySync;
         _email = email;
         _clock = clock;
         _logger = logger;
@@ -172,7 +172,7 @@ public sealed class ShopOrderService : IShopOrderService
             try { _confirmationScheduler.Delete(confirmationJobId); }
             catch (Exception ex) { _logger.LogWarning(ex, "Could not delete confirmation job {JobId} for order {OrderId}.", confirmationJobId, orderId); }
         }
-        if (action == "reject") await _stock.SyncAsync(orderId, ct);
+        if (action == "reject") await _inventorySync.SyncAsync(orderId, ct);
         await _orderEvents.NotifyAsync(shopId, orderId, action, ct);
         return await GetAsync(userId, shopId, orderId, ct);
     }
@@ -404,7 +404,7 @@ public sealed class ShopOrderService : IShopOrderService
         }, ct);
         if (shopId.HasValue)
         {
-            await _stock.SyncAsync(orderId, ct);
+            await _inventorySync.SyncAsync(orderId, ct);
             await _orderEvents.NotifyAsync(shopId.Value, orderId, RealtimeEvents.OrderReasons.ConfirmationExpired, ct);
         }
     }

@@ -21,6 +21,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
     public async Task<FlashDeal?> GetActiveDealByIdAsync(Guid dealId, CancellationToken cancellationToken = default)
     {
         return await _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .AsNoTrackingWithIdentityResolution()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
@@ -34,6 +35,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
     {
         var now = DateTime.UtcNow;
         return await _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .AsNoTrackingWithIdentityResolution()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
@@ -49,6 +51,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
     {
         var now = DateTime.UtcNow;
         return await _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .AsNoTrackingWithIdentityResolution()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
@@ -68,6 +71,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
         CancellationToken cancellationToken = default)
     {
         var query = _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .AsNoTracking()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
@@ -86,6 +90,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
 
         var items = await query
             .OrderByDescending(d => d.CreatedAt)
+            .ThenBy(d => d.Id)
             .Take(limit)
             .ToListAsync(cancellationToken);
 
@@ -104,6 +109,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
         CancellationToken cancellationToken = default)
     {
         var query = _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .AsNoTracking()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
@@ -129,6 +135,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
         var pageSize = request.PageSize > 0 ? request.PageSize : 10;
         var items = await query
             .OrderByDescending(d => d.CreatedAt)
+            .ThenBy(d => d.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
@@ -147,6 +154,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
         CancellationToken cancellationToken = default)
     {
         return await _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
             .Include(d => d.Product).ThenInclude(p => p.Category)
@@ -198,6 +206,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
             .Where(WarningDealPolicy.BlockedAt(DateTime.UtcNow))
             .Select(w => w.ProductId);
         return await _context.Set<Product>()
+            .AsSplitQuery()
             .AsNoTracking()
             .Include(p => p.Category)
             .Include(p => p.Images)

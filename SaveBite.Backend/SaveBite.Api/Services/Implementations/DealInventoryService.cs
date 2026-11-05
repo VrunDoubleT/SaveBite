@@ -1,12 +1,11 @@
 using Microsoft.EntityFrameworkCore;
-using SaveBite.Backend.Caching.Interfaces;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
 namespace SaveBite.Backend.Services.Implementations;
 
-public sealed class DealInventoryService(AppDbContext db, IFlashDealRepository deals, IFlashDealRedisService redis, TimeProvider clock)
+public sealed class DealInventoryService(AppDbContext db, IFlashDealRepository deals, TimeProvider clock)
 {
     public async Task ReconcileAsync(Guid dealId, CancellationToken ct)
     {
@@ -23,9 +22,10 @@ public sealed class DealInventoryService(AppDbContext db, IFlashDealRepository d
         if (deal.Status != target)
             await db.FlashDeals.Where(d => d.Id == dealId).ExecuteUpdateAsync(set => set.SetProperty(d => d.Status, target).SetProperty(d => d.UpdatedAt, now), ct);
         deal.Status = target;
-        // Keep SoldOut deals in Redis; IsPurchasable will be false. Never use a stale cached response as the source.
-        await redis.SaveDealAsync(FlashDealService.MapToResponse(deal), deal.Shop.Latitude, deal.Shop.Longitude);
+        // Both status and inventory are read directly from PostgreSQL by customers.
         await db.FlashDeals.Where(d => d.Id == dealId).ExecuteUpdateAsync(set => set.SetProperty(d => d.LifecycleSyncedAt, (DateTime?)now), ct);
+        FlashDealRealtimeOutbox.Stage(db, deal.Id, deal.ShopId);
+        await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
     }
 }

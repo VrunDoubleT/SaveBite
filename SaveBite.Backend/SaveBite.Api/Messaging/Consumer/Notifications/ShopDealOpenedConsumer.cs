@@ -21,8 +21,13 @@ public sealed class ShopDealOpenedConsumer(IOptions<RabbitMqOptions> options, IL
         if (message.EventType != RoutingKey || data == null || data.FlashDealId == Guid.Empty || data.ShopId == Guid.Empty
             || data.OpenedAt == default || data.OpenedAt.Kind != DateTimeKind.Utc)
             throw new ArgumentException("A valid shop deal opening event is required.");
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        logger.LogInformation("Deal notification received {DealId}, message {MessageId}: sincePublish={SincePublishMs}ms, sinceOpening={SinceOpeningMs}ms.",
+            data.FlashDealId, message.MessageId, (DateTime.UtcNow - message.CreatedAt).TotalMilliseconds,
+            (DateTime.UtcNow - data.OpenedAt).TotalMilliseconds);
         await using var scope = scopes.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<SaveBite.Backend.Services.Implementations.ShopDealNotificationService>()
             .HandleAsync(data, ct);
+        logger.LogInformation("Deal notification handled {DealId}: {ElapsedMs}ms.", data.FlashDealId, timer.ElapsedMilliseconds);
     }
 }

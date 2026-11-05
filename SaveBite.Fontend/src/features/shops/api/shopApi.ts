@@ -17,7 +17,10 @@ import type { ShopStatus } from "../types/ownerShop.types";
 import type { ModerationActionResult } from "@/shared/types/moderationAction.types";
 
 export const shopApi = {
-  async getNearbyShops(params: NearbyShopsRequest): Promise<{
+  async getNearbyShops(
+    params: NearbyShopsRequest,
+    signal?: AbortSignal,
+  ): Promise<{
     shops: NearbyShop[];
     totalItems: number;
     totalPages: number;
@@ -29,7 +32,7 @@ export const shopApi = {
   }> {
     const response = await httpClient.get<ApiResponse<NearbyShopsPagedResponse>>(
       API_ENDPOINTS.SHOPS.NEARBY,
-      { params },
+      { params, signal },
     );
 
     const data = response.data.data;

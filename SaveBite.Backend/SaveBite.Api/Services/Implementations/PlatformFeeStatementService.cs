@@ -20,6 +20,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
     private readonly AppDbContext _db;
     private readonly INotificationQueue _notifications;
     private readonly IPlatformFeeStatementRepository _repository;
+    private readonly IPlatformPayOsConfigService _payOsConfig;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<PlatformFeeStatementService> _logger;
     // more
@@ -33,9 +34,11 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         ILogger<PlatformFeeStatementService> logger,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
-        INotificationQueue notifications, AppDbContext db, IAdminAuditWriter audit)
+        INotificationQueue notifications, AppDbContext db, IAdminAuditWriter audit,
+        IPlatformPayOsConfigService payOsConfig)
     {
         _audit = audit;
+        _payOsConfig = payOsConfig;
         _db = db;
         _notifications = notifications;
         _repository = repository;
@@ -310,18 +313,13 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 
         if (paymentProvider == "PayOS")
         {
-            var clientId = _configuration["PlatformPayOS:ClientId"];
-            var apiKey = _configuration["PlatformPayOS:ApiKey"];
-            var checksumKey = _configuration["PlatformPayOS:ChecksumKey"];
-            var frontend = _configuration["PlatformPayOS:FrontendBaseUrl"]
-                           ?? _configuration["Checkout:FrontendBaseUrl"]
-                           ?? "http://localhost:5173";
+            var credentials = await _payOsConfig.GetCredentialsAsync(ct);
+            var clientId = credentials.ClientId;
+            var apiKey = credentials.ApiKey;
+            var checksumKey = credentials.ChecksumKey;
+            var frontend = _configuration["Checkout:FrontendBaseUrl"] ?? "http://localhost:5173";
             var returnUrl = $"{frontend.TrimEnd('/')}/shop/platform-fees";
             var cancelUrl = $"{frontend.TrimEnd('/')}/shop/platform-fees?cancelled=1";
-            if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(checksumKey))
-            {
-                throw AppException.ServiceUnavailable("Platform PayOS account is not configured. Please check PlatformPayOS in .env or switch Checkout__PaymentProvider to Simulated.");
-            }
             var amount = (long)statement.TotalFeeAmount;
             
             var description = $"FEE{orderCode % 10000000:0000000}";
@@ -396,14 +394,11 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         var paymentProvider = _configuration["Checkout:PaymentProvider"] ?? "PayOS";
         if (paymentProvider == "PayOS")
         {
-            var checksumKey = _configuration["PlatformPayOS:ChecksumKey"];
-            if (!string.IsNullOrWhiteSpace(checksumKey))
+            var credentials = await _payOsConfig.GetCredentialsAsync(ct);
+            if (!PayOsCheckoutGateway.VerifyWebhookData(body, credentials.ChecksumKey))
             {
-                if (!PayOsCheckoutGateway.VerifyWebhookData(body, checksumKey))
-                {
-                    _logger.LogWarning("Invalid PayOS webhook signature for platform fee.");
-                    throw AppException.BadRequest("Invalid webhook signature.");
-                }
+                _logger.LogWarning("Invalid PayOS webhook signature for platform fee.");
+                throw AppException.BadRequest("Invalid webhook signature.");
             }
         }
         
@@ -509,11 +504,25 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
     }
 
     // BR-095, BR-193: Automatically mark overdue statements and suspend delinquent shops
-    public async Task<int> CheckAndSuspendOverdueShopsAsync(CancellationToken ct = default)
+    public async Task<int> CheckAndSuspendOverdueShopsAsync(CancellationToken ct = default, Guid? initiatedByAdminId = null)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
         var result = await CheckAndSuspendOverdueShopsCoreAsync(ct);
+        if (initiatedByAdminId.HasValue)
+        {
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            _audit.Record(new AuditLog
+            {
+                ActorUserId = initiatedByAdminId,
+                Action = "PROCESS_OVERDUE_PLATFORM_FEES",
+                TargetType = "PlatformFeeOverdueProcessingRun",
+                TargetId = Guid.NewGuid(),
+                NewValuesJson = JsonSerializer.Serialize(new { SuspendedShopCount = result, TriggeredAt = now }),
+                CreatedAt = now
+            });
+            await _db.SaveChangesAsync(ct);
+        }
         await transaction.CommitAsync(ct);
         return result;
     }
@@ -656,13 +665,34 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
     }
     
     // BR-093, BR-192: Aggregate unbilled order fees into monthly fee statements.
-    public async Task<int> GenerateMonthlyStatementsAsync(int billingYear, short billingMonth, CancellationToken ct = default)
+    public async Task<int> GenerateMonthlyStatementsAsync(
+        int billingYear, short billingMonth, CancellationToken ct = default, Guid? initiatedByAdminId = null)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
         var result = await GenerateMonthlyStatementsCoreAsync(billingYear, billingMonth, ct);
-        await transaction.CommitAsync(ct);
         await NotifyMonthlyStatementsAsync(billingYear, billingMonth, ct);
+        if (initiatedByAdminId.HasValue)
+        {
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            _audit.Record(new AuditLog
+            {
+                ActorUserId = initiatedByAdminId,
+                Action = "GENERATE_MONTHLY_PLATFORM_FEE_STATEMENTS",
+                TargetType = "PlatformFeeStatementGenerationRun",
+                TargetId = Guid.NewGuid(),
+                NewValuesJson = JsonSerializer.Serialize(new
+                {
+                    BillingYear = billingYear,
+                    BillingMonth = billingMonth,
+                    StatementCount = result,
+                    TriggeredAt = now
+                }),
+                CreatedAt = now
+            });
+            await _db.SaveChangesAsync(ct);
+        }
+        await transaction.CommitAsync(ct);
         return result;
     }
 
@@ -789,8 +819,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 
     private async Task TryNotifyAsync(NotificationTarget target, CreateNotificationCommand command, CancellationToken ct)
     {
-        try { await _notifications.EnqueueAsync(target, command, ct); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Platform fee notification {Key} failed.", command.DeduplicationKey); }
+        await _notifications.EnqueueAsync(target, command, ct);
     }
 
     private async Task NotifyFeePaidAsync(Guid statementId, CancellationToken ct)

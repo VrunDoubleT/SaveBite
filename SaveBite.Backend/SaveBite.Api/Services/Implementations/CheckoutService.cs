@@ -26,7 +26,7 @@ public sealed class CheckoutService : ICheckoutService
     private readonly ITravelTimeService _travelTimeService;
     private readonly ICheckoutPaymentGateway _paymentGateway;
     private readonly ICheckoutPaymentService _paymentService;
-    private readonly ICheckoutStockCache _stockCache;
+    private readonly IOrderInventorySynchronizer _inventorySync;
     private readonly TimeProvider _clock;
     private readonly ICheckoutQuoteStore _quoteStore;
     private readonly OrderConfirmationScheduling _confirmation;
@@ -38,7 +38,7 @@ public sealed class CheckoutService : ICheckoutService
         ITravelTimeService travel,
         ICheckoutPaymentGateway gateway,
         ICheckoutPaymentService payments,
-        ICheckoutStockCache stockCache,
+        IOrderInventorySynchronizer inventorySync,
         TimeProvider clock,
         ICheckoutQuoteStore quotes,
         ICheckoutPaymentExpirationScheduler paymentExpirationScheduler,
@@ -51,7 +51,7 @@ public sealed class CheckoutService : ICheckoutService
         _travelTimeService = travel;
         _paymentGateway = gateway;
         _paymentService = payments;
-        _stockCache = stockCache;
+        _inventorySync = inventorySync;
         _clock = clock;
         _quoteStore = quotes;
         _confirmation = confirmation;
@@ -257,8 +257,8 @@ public sealed class CheckoutService : ICheckoutService
         }, ct), ct);
         if (notifyShopPending)
             await _shopOrderEvents.NotifyAsync(shopId, orderId, RealtimeEvents.OrderReasons.Pending, ct);
-        // After the transaction commits, refresh Redis stock and create or reuse the payment link.
-        await _stockCache.SyncAsync(orderId, ct);
+        // After commit, reconcile deal status and create or reuse the payment link.
+        await _inventorySync.SyncAsync(orderId, ct);
         var result = await _paymentService.StartAsync(userId, orderId, ct);
         return result;
     }

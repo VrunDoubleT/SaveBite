@@ -149,6 +149,8 @@ export const API_ENDPOINTS = {
   PLATFORM_FEES: {
     ADMIN_CONFIG: "/admin/platform-fee-config",
     ADMIN_CONFIGS: "/admin/platform-fee-configs",
+    ADMIN_PAYOS_CONFIG: "/admin/platform-payos-config",
+    ADMIN_PAYOS_CONFIG_HISTORY: "/admin/platform-payos-config/history",
     ADMIN_CANCEL_SCHEDULED_CONFIG: (configId: string) =>
       `/admin/platform-fee-configs/scheduled/${configId}`,
     ADMIN_STATEMENTS: "/admin/platform-fee-statements",
