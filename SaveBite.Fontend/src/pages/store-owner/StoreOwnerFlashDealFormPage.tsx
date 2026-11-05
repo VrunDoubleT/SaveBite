@@ -20,6 +20,7 @@ import {
   type ShopFlashDealDetail,
 } from "@/features/flash-deals/types/flashDeal.types";
 import { toast } from "@/shared/stores/toastStore";
+import { MIN_AMOUNT_VND, MIN_AMOUNT_TEXT } from "@/shared/config/money";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 
 interface FormVariantState {
@@ -165,7 +166,7 @@ export function StoreOwnerFlashDealFormPage() {
                     sku: pv.sku,
                     variantName: pv.variantName || pv.sku || "Default",
                     originalPrice: pv.originalPrice,
-                    dealPrice: Math.round(pv.originalPrice * 0.7),
+                    dealPrice: Math.max(MIN_AMOUNT_VND, Math.round(pv.originalPrice * 0.7)),
                     totalQuantity: 50,
                     status: FlashDealVariantStatusEnum.Active,
                     isSelected: false,
@@ -327,7 +328,8 @@ export function StoreOwnerFlashDealFormPage() {
 
   // Start time quick offset (+15m, +30m, etc.)
   function handleSetStartOffset(offsetMins: number) {
-    const target = new Date(Date.now() + offsetMins * 60 * 1000);
+    const now = new Date();
+    const target = new Date(now.getTime() + offsetMins * 60 * 1000);
     const newStartStr = formatTime(target);
     setStartTime(newStartStr);
     const end = new Date(target.getTime() + (durationMins || 60) * 60 * 1000);
@@ -367,7 +369,7 @@ export function StoreOwnerFlashDealFormPage() {
         sku: v.sku,
         variantName: v.variantName || v.sku || "Default",
         originalPrice: v.originalPrice,
-        dealPrice: Math.round(v.originalPrice * 0.7), // Suggest 30% discount default
+        dealPrice: Math.max(MIN_AMOUNT_VND, Math.round(v.originalPrice * 0.7)), // Suggest 30% discount default (never below the system minimum)
         totalQuantity: 50,
         isSelected: true,
         status: FlashDealVariantStatusEnum.Active,
@@ -448,8 +450,8 @@ export function StoreOwnerFlashDealFormPage() {
         toast.error(`Deal price for ${v.variantName} must be greater than 0.`);
         return;
       }
-      if (priceNum < 1000) {
-        toast.error(`Deal price for ${v.variantName} must be at least 1,000 VND.`);
+      if (priceNum < MIN_AMOUNT_VND) {
+        toast.error(`Deal price for ${v.variantName} must be at least ${MIN_AMOUNT_TEXT} VND.`);
         return;
       }
       if (priceNum % 1000 !== 0) {
@@ -982,11 +984,11 @@ export function StoreOwnerFlashDealFormPage() {
               const isPriceEntered = v.dealPrice !== "" && !isNaN(priceNum);
               const isNotMultipleOf1000 = isPriceEntered && priceNum > 0 && priceNum % 1000 !== 0;
               const isPriceGteOriginal = isPriceEntered && priceNum >= v.originalPrice;
-              const isPriceTooLow = isPriceEntered && priceNum < 1000;
+              const isPriceTooLow = isPriceEntered && priceNum < MIN_AMOUNT_VND;
               const hasPriceError = isNotMultipleOf1000 || isPriceGteOriginal || isPriceTooLow;
 
-              const nearestFloor = isPriceEntered ? Math.max(1000, Math.floor(priceNum / 1000) * 1000) : 1000;
-              const nearestCeil = isPriceEntered ? Math.ceil(priceNum / 1000) * 1000 : 1000;
+              const nearestFloor = isPriceEntered ? Math.max(MIN_AMOUNT_VND, Math.floor(priceNum / 1000) * 1000) : MIN_AMOUNT_VND;
+              const nearestCeil = isPriceEntered ? Math.max(MIN_AMOUNT_VND, Math.ceil(priceNum / 1000) * 1000) : MIN_AMOUNT_VND;
 
               const discountPercent =
                 isPriceEntered && v.originalPrice > 0 && priceNum < v.originalPrice && priceNum > 0
@@ -1051,7 +1053,7 @@ export function StoreOwnerFlashDealFormPage() {
                         <div className="relative">
                           <input
                             type="number"
-                            min="1000"
+                            min={MIN_AMOUNT_VND}
                             step="1000"
                             required
                             value={v.dealPrice}
@@ -1098,7 +1100,7 @@ export function StoreOwnerFlashDealFormPage() {
                           </p>
                         ) : isPriceTooLow ? (
                           <p className="mt-1 text-[10px] font-medium text-red-500">
-                            Must be at least 1,000 VND
+                            Must be at least {MIN_AMOUNT_TEXT} VND
                           </p>
                         ) : discountPercent > 0 ? (
                           <p className="mt-1 text-[10px] font-semibold text-emerald-600">

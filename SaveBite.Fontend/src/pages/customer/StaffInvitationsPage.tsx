@@ -105,13 +105,14 @@ export function CustomerStaffInvitationsPage() {
   const respond = async (invitation: StaffInvitation, accept: boolean) => {
     try {
       setProcessingId(invitation.id);
-      if (accept) await staffInvitationApi.acceptInvitation(invitation.id);
-      else await staffInvitationApi.declineInvitation(invitation.id);
-      toast.success(
-        accept
-          ? `You have joined ${invitation.shopName}. Welcome to the team!`
-          : "Invitation declined.",
-      );
+      if (accept) {
+        // The backend already sends a "Welcome to the team" notification (shown by the bell),
+        // so no extra toast here — otherwise the user sees the same message twice (FIX-41).
+        await staffInvitationApi.acceptInvitation(invitation.id);
+      } else {
+        await staffInvitationApi.declineInvitation(invitation.id);
+        toast.success("Invitation declined.");
+      }
       await loadInvitations();
       if (accept) await refreshUser();
     } catch (err) {

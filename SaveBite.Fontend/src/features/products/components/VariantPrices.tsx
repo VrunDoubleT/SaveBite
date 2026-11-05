@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Combination, PriceInput, PriceMap } from "../types/product.types";
 import { Alert, inputClass, secondaryButton } from "./ProductUi";
 import { validatePrices } from "../utils/productForm";
+import { MIN_AMOUNT_VND } from "@/shared/config/money";
 
 export function VariantPrices({
   rows,
@@ -37,8 +38,8 @@ export function VariantPrices({
           <input
             className={inputClass}
             type="number"
-            min="0.01"
-            step="0.01"
+            min={MIN_AMOUNT_VND}
+            step="1"
             placeholder="E.g. 50000"
             value={bulk.originalPrice}
             onChange={(e) => setBulk({ ...bulk, originalPrice: e.target.value })}
@@ -49,8 +50,8 @@ export function VariantPrices({
           <input
             className={inputClass}
             type="number"
-            min="0"
-            step="0.01"
+            min={MIN_AMOUNT_VND}
+            step="1"
             placeholder="E.g. 30000"
             value={bulk.dealPrice}
             onChange={(e) => setBulk({ ...bulk, dealPrice: e.target.value })}
@@ -89,8 +90,8 @@ export function VariantPrices({
                       aria-label={`${field === "originalPrice" ? "Original price" : "Deal price"} ${row.label}`}
                       className={`${inputClass} mt-0! text-right`}
                       type="number"
-                      step="0.01"
-                      min={field === "originalPrice" ? "0.01" : "0"}
+                      step="1"
+                      min={MIN_AMOUNT_VND}
                       required
                       value={prices[row.key]?.[field] ?? ""}
                       onChange={(e) =>

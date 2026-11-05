@@ -477,15 +477,6 @@ function ShopContent({ shopId }: { shopId: string }) {
                 >
                   Customer reviews
                 </h2>
-                <Button
-                  variant="secondary"
-                  className="min-h-11"
-                  aria-label="Refresh store reviews"
-                  loading={isReviewsLoading}
-                  onClick={retryReviews}
-                >
-                  {!isReviewsLoading && <RefreshCw className="size-4" aria-hidden="true" />}Refresh
-                </Button>
               </header>
               {reviewsError ? (
                 <ErrorState

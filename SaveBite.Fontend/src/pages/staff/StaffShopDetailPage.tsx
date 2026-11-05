@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { staffApi } from "@/features/staff-shops/api/staffApi";
 import type { StaffShopDetail } from "@/features/staff-shops/types/staff.types";
 import { APP_PATHS } from "@/app/router/paths";
+import { formatStaffName } from "@/features/shop-staffs/utils/formatStaffName";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
@@ -54,34 +55,38 @@ export function StaffShopDetailPage() {
   const navigate = useNavigate();
 
   const [data, setData] = useState<StaffShopDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  // no shopId don't need loading
+  const [loading, setLoading] = useState(Boolean(shopId));
   const [error, setError] = useState("");
 
-  async function loadShopDetail() {
-    if (!shopId) {
-      setError("Store not found.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await staffApi.getShopDetail(shopId);
-
-      setData(response.data.data);
-    } catch (error) {
-      console.error(error);
-
-      setError("Unable to load store information.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    void loadShopDetail();
+    if (!shopId) return;
+
+    let cancelled = false;
+
+    async function loadShopDetail(id: string) {
+      try {
+        const response = await staffApi.getShopDetail(id);
+
+        if (cancelled) return;
+
+        setData(response.data.data);
+        setError("");
+      } catch (err) {
+        if (cancelled) return;
+
+        console.error(err);
+        setError("Unable to load store information.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadShopDetail(shopId);
+
+    return () => {
+      cancelled = true;
+    };
   }, [shopId]);
 
   if (loading) {
@@ -331,7 +336,9 @@ export function StaffShopDetailPage() {
 
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-semibold text-neutral-900">{staff.displayName}</h3>
+                  <h3 className="text-lg font-semibold text-neutral-900">
+                    {formatStaffName(staff.displayName, staff.staffNickname)}
+                  </h3>
 
                   <span
                     className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyle(

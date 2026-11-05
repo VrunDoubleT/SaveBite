@@ -14,6 +14,7 @@ import { StaffActivityLog } from "@/features/shop-staffs/components/StaffActivit
 
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
+import { formatStaffName } from "@/features/shop-staffs/utils/formatStaffName";
 
 export function StaffDetailPage() {
   const navigate = useNavigate();
@@ -33,34 +34,38 @@ export function StaffDetailPage() {
 
   const [logs, setLogs] = useState<StaffActivityLogType[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  // No staffId don't need loading
+  const [loading, setLoading] = useState(Boolean(staffId));
 
   useEffect(() => {
-    if (!staffId) {
-      setLoading(false);
-      return;
+    if (!staffId) return;
+
+    let cancelled = false;
+
+    async function loadActivityLogs(id: string) {
+      try {
+        const activityLogs = await shopStaffApi.getStaffActivityLogs(id);
+
+        if (!cancelled) setLogs(activityLogs);
+      } catch (error) {
+        if (cancelled) return;
+
+        console.error(error);
+
+        toast.error(getApiErrorMessage(error) || "Unable to load staff activity logs.");
+
+        setLogs([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
     void loadActivityLogs(staffId);
+
+    return () => {
+      cancelled = true;
+    };
   }, [staffId]);
-
-  async function loadActivityLogs(id: string) {
-    try {
-      setLoading(true);
-
-      const activityLogs = await shopStaffApi.getStaffActivityLogs(id);
-
-      setLogs(activityLogs);
-    } catch (error) {
-      console.error(error);
-
-      toast.error(getApiErrorMessage(error) || "Unable to load staff activity logs.");
-
-      setLogs([]);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -115,11 +120,9 @@ export function StaffDetailPage() {
             </div>
 
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{staff.displayName}</h1>
-
-              {staff.staffNickname && (
-                <p className="mt-0.5 text-sm text-gray-400">{staff.staffNickname}</p>
-              )}
+              <h1 className="text-xl font-bold text-gray-900">
+                {formatStaffName(staff.displayName, staff.staffNickname)}
+              </h1>
 
               <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
                 <Mail size={15} />

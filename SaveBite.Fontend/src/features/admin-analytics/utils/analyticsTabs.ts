@@ -5,6 +5,7 @@ import { APP_PATHS } from "@/app/router/paths";
 export const PLATFORM_ANALYTICS_TABS = [
   "overview",
   "revenue-orders",
+  "shop-revenue",
   "fees",
   "users-shops",
   "deals",

@@ -25,6 +25,7 @@ export interface StaffActivityLog {
   description: string;
   orderId?: string | null;
   order_id?: string | null;
+  orderCode?: string | null;
   createdAt: string;
 }
 

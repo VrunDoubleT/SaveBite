@@ -20,6 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useNotificationStore } from "../stores/notificationStore";
 import type { NotificationItem } from "../types/notification.types";
+import { resolveNotificationUrl } from "../utils/resolveNotificationUrl";
 
 function formatRelativeTime(isoDate: string): string {
   const date = new Date(isoDate);
@@ -147,8 +148,9 @@ export function NotificationBell() {
     }
     dismissLivePreview(item.id);
     setOpen(false);
-    if (item.actionUrl) {
-      navigate(item.actionUrl);
+    const target = resolveNotificationUrl(item);
+    if (target) {
+      navigate(target);
     }
   }
 

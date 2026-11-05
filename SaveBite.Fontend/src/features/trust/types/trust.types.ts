@@ -97,6 +97,9 @@ export interface TrustScoreHistoryItem {
   orderId?: string | null;
   orderCode?: string | null;
   createdAt: string;
+  /** Set only when this event also moved the customer to another level. */
+  previousLevelName?: string | null;
+  newLevelName?: string | null;
 }
 
 export type PenaltyStatus = "Recovering" | "Recovered";
