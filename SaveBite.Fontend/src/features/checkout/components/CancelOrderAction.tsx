@@ -25,6 +25,8 @@ export function CancelOrderAction({
   const close = () => {
     if (!busy) setConfirming(false);
   };
+  if (!canCancel) return null;
+
   return (
     <>
       <Button

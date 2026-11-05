@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
+import { ownerShopApi } from "@/features/shops/api/ownerShopApi";
 import {
   FlashDealStatusEnum,
   FlashDealVariantStatusEnum,
@@ -46,6 +47,10 @@ export function StoreOwnerFlashDealFormPage() {
 
   // Eligible products for creation
   const [eligibleProducts, setEligibleProducts] = useState<ShopEligibleProduct[]>([]);
+  const [shopOperatingHours, setShopOperatingHours] = useState<{
+    openingTime: string | null;
+    closingTime: string | null;
+  } | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
   const productDropdownRef = useRef<HTMLDivElement>(null);
@@ -77,6 +82,28 @@ export function StoreOwnerFlashDealFormPage() {
 
   // Whether current deal is already OnSale
   const isDealOnSale = isEditMode && existingDeal?.status === FlashDealStatusEnum.OnSale;
+
+  function parseTimeToMinutes(timeStr: string): number {
+    const [h, m] = timeStr.split(":").map(Number);
+    return h * 60 + (m || 0);
+  }
+
+  function isWithinShopHours(
+    timeStr: string,
+    openingTime: string | null | undefined,
+    closingTime: string | null | undefined
+  ): boolean {
+    if (!openingTime || !closingTime) return true;
+    const timeMins = parseTimeToMinutes(timeStr);
+    const openMins = parseTimeToMinutes(openingTime);
+    const closeMins = parseTimeToMinutes(closingTime);
+
+    if (openMins <= closeMins) {
+      return timeMins >= openMins && timeMins <= closeMins;
+    } else {
+      return timeMins >= openMins || timeMins <= closeMins;
+    }
+  }
 
   // Time format helper
   function formatTime(d: Date): string {
@@ -124,6 +151,18 @@ export function StoreOwnerFlashDealFormPage() {
         setInitialLoading(true);
         const products = await flashDealApi.getEligibleProducts();
         setEligibleProducts(products);
+
+        try {
+          const shopProfile = await ownerShopApi.getMyShopProfile();
+          if (shopProfile) {
+            setShopOperatingHours({
+              openingTime: shopProfile.openingTime ?? null,
+              closingTime: shopProfile.closingTime ?? null,
+            });
+          }
+        } catch {
+          // Shop profile load failure is non-blocking
+        }
 
         if (isEditMode && id) {
           // Edit mode: fetch deal detail
@@ -263,8 +302,20 @@ export function StoreOwnerFlashDealFormPage() {
       durationErrorMessage = `Deal duration must be between 30 and 120 minutes (currently ${computedDurationMins} mins).`;
     }
 
-    const isValid = diffMs > 0 && isDurationValid && isAdvanceValid;
-    const errorMessage = advanceErrorMessage || durationErrorMessage || (diffMs <= 0 ? "End time must be after start time." : "");
+    let operatingHoursErrorMessage = "";
+    if (shopOperatingHours?.openingTime && shopOperatingHours?.closingTime) {
+      const startHM = formatTime(start);
+      const endHM = formatTime(end);
+      if (
+        !isWithinShopHours(startHM, shopOperatingHours.openingTime, shopOperatingHours.closingTime) ||
+        !isWithinShopHours(endHM, shopOperatingHours.openingTime, shopOperatingHours.closingTime)
+      ) {
+        operatingHoursErrorMessage = `Flash deal time must be within shop operating hours (${shopOperatingHours.openingTime} - ${shopOperatingHours.closingTime}).`;
+      }
+    }
+
+    const isValid = diffMs > 0 && isDurationValid && isAdvanceValid && !operatingHoursErrorMessage;
+    const errorMessage = advanceErrorMessage || durationErrorMessage || operatingHoursErrorMessage || (diffMs <= 0 ? "End time must be after start time." : "");
 
     const hours = Math.floor(computedDurationMins / 60);
     const minutes = computedDurationMins % 60;
@@ -635,23 +686,40 @@ export function StoreOwnerFlashDealFormPage() {
 
         {/* Product preview card */}
         {currentProduct && (
-          <div className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50/70 p-3">
-            <img
-              src={currentProduct.imageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"}
-              alt={currentProduct.name}
-              className="size-14 rounded-lg object-cover"
-            />
-            <div>
-              <p className="font-semibold text-xs text-neutral-900">{currentProduct.name}</p>
-              <p className="text-[11px] text-neutral-400">
-                {currentProduct.categoryName || "Food"}
-              </p>
-              {currentProduct.description && (
-                <p className="mt-0.5 text-[11px] text-neutral-500 line-clamp-1">
-                  {currentProduct.description}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50/70 p-3">
+              <img
+                src={currentProduct.imageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"}
+                alt={currentProduct.name}
+                className="size-14 rounded-lg object-cover"
+              />
+              <div>
+                <p className="font-semibold text-xs text-neutral-900">{currentProduct.name}</p>
+                <p className="text-[11px] text-neutral-400">
+                  {currentProduct.categoryName || "Food"}
                 </p>
-              )}
+                {currentProduct.description && (
+                  <p className="mt-0.5 text-[11px] text-neutral-500 line-clamp-1">
+                    {currentProduct.description}
+                  </p>
+                )}
+              </div>
             </div>
+
+            {/* Warning banner when product has active deal (FIX-35) */}
+            {currentProduct.hasActiveDeal && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-2xs">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="size-5 shrink-0 text-amber-600 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-bold text-amber-900">Active Flash Deal Notice</h4>
+                    <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                      This product currently has an active flash deal running. Creating or scheduling a new deal will take effect alongside or after the existing deal.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -663,6 +731,11 @@ export function StoreOwnerFlashDealFormPage() {
             <h2 className="text-sm font-bold text-neutral-900">Sale Mode & Schedule</h2>
             <p className="mt-0.5 text-xs text-neutral-500">
               Choose to sell immediately or schedule sale opening ahead (15m - 90m). Deal runs for 30m to 120m.
+              {shopOperatingHours?.openingTime && shopOperatingHours?.closingTime && (
+                <span className="block mt-1 font-semibold text-emerald-700">
+                  Shop operating hours: {shopOperatingHours.openingTime} - {shopOperatingHours.closingTime}
+                </span>
+              )}
             </p>
           </div>
 

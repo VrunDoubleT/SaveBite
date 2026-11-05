@@ -189,6 +189,8 @@ export function ReviewCard({
               onSave={saveEdit}
               onCancel={cancelEdit}
               reply={review.reply}
+              editCount={review.editCount}
+              canEdit={review.canEdit}
             />
           </div>
         ) : (
@@ -207,6 +209,11 @@ export function ReviewCard({
                 ))}
               </div>
               <span className="text-body font-semibold text-text-primary">{review.rating}/5</span>
+              {typeof review.editCount === "number" && review.editCount > 0 && (
+                <span className="rounded bg-neutral-100 px-2 py-0.5 text-caption font-medium text-text-secondary">
+                  Edited {review.editCount}/3 times
+                </span>
+              )}
             </div>
             <p className="whitespace-pre-wrap text-body leading-relaxed text-text-secondary [overflow-wrap:anywhere]">
               {review.comment || "No written comment provided."}
@@ -249,7 +256,18 @@ export function ReviewCard({
               </section>
             )}
             <div className="flex flex-wrap justify-end gap-2 border-t border-border-default pt-4">
-              <Button variant="primary" ref={editButton} onClick={startEdit} className="min-h-11">
+              <Button
+                variant="primary"
+                ref={editButton}
+                onClick={startEdit}
+                disabled={review.canEdit === false || (review.editCount ?? 0) >= 3}
+                title={
+                  review.canEdit === false || (review.editCount ?? 0) >= 3
+                    ? "This review cannot be edited (limit of 3 edits or 30 days reached)"
+                    : undefined
+                }
+                className="min-h-11 disabled:opacity-50"
+              >
                 <Pencil size={16} aria-hidden="true" />
                 Edit review
               </Button>

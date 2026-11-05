@@ -4,6 +4,7 @@ export interface FeedbackReply {
   createdAt: string;
   updatedAt?: string;
   repliedByName?: string;
+  repliedByUserId?: string;
 }
 
 export interface FeedbackItem {
@@ -27,6 +28,8 @@ export interface FeedbackItem {
   shopId?: string;
   customerName?: string;
   customerAvatarUrl?: string | null;
+  editCount?: number;
+  canEdit?: boolean;
 }
 
 export interface CreateFeedbackInput {

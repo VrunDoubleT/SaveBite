@@ -125,6 +125,12 @@ export function OrderStatusPanel({
             {payment.label}
           </span>
         </section>
+        {order.cancelReason && (
+          <section aria-label="Cancellation reason" className="flex w-full items-center gap-1.5 text-xs text-danger-strong">
+            <span className="font-semibold">Reason:</span>
+            <span>{order.cancelReason}</span>
+          </section>
+        )}
       </div>
     );
   return (
@@ -141,6 +147,12 @@ export function OrderStatusPanel({
           {state.label}
         </span>
         {!compact && <p className="mt-2 text-body text-text-secondary">{state.description}</p>}
+        {order.cancelReason && (
+          <div className="mt-2.5 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-800">
+            <p className="font-semibold">Reason:</p>
+            <p className="mt-0.5">{order.cancelReason}</p>
+          </div>
+        )}
       </section>
       <section
         aria-label="Payment status"

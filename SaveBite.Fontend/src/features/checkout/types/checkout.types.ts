@@ -82,6 +82,7 @@ export interface CheckoutOrder {
   paymentExpiresAt?: string;
   paymentReviewRequired: boolean;
   canCancel: boolean;
+  cancelReason?: string;
   cancellationUnavailableReason?: string;
   cancellationPolicy?: string;
   checkoutUrl?: string;

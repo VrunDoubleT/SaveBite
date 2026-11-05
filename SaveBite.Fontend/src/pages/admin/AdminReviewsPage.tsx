@@ -4,6 +4,7 @@ import { ShopFeedbackManagementPanel } from "@/features/feedbacks/components/Sho
 import type { FeedbackItem } from "@/features/feedbacks/types/feedback.types";
 import { getApiErrorMessage } from "@/shared/api";
 import { toast } from "@/shared/stores/toastStore";
+import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 
 export function AdminReviewsPage() {
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
@@ -39,6 +40,13 @@ export function AdminReviewsPage() {
 
   useEffect(() => {
     void fetchFeedbacks();
+  }, [fetchFeedbacks]);
+
+  // Auto-refresh when feedback status changes or user focuses this tab
+  useEffect(() => {
+    return subscribeFeedbackSync(() => {
+      void fetchFeedbacks();
+    });
   }, [fetchFeedbacks]);
 
   const handleRatingChange = (rating: number | null) => {

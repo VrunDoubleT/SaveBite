@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
 import { API_ENDPOINTS } from "@/shared/api/endpoints";
 import type { ApiErrorResponse, ApiResponse } from "@/shared/types";
+import { useAccountSuspensionStore } from "@/shared/stores/accountSuspensionStore";
 
 interface TokenPair {
   accessToken: string;
@@ -103,6 +104,23 @@ httpClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<ApiErrorResponse>) => {
     const originalRequest = error.config as RetryableRequestConfig | undefined;
+
+    if (error.response?.status === 403) {
+      const errorMsg = (error.response.data?.message ?? "").toLowerCase();
+      const errorCode = (error.response.data as { code?: string } | undefined)?.code ?? "";
+      if (
+        errorCode === "ACCOUNT_INACTIVE" ||
+        errorCode === "ACCOUNT_SUSPENDED" ||
+        errorMsg.includes("suspended") ||
+        errorMsg.includes("inactive")
+      ) {
+        useAccountSuspensionStore.getState().showSuspensionModal({
+          reason: error.response.data?.message,
+        });
+        notifyUnauthorized();
+        return Promise.reject(error);
+      }
+    }
 
     if (error.response?.status !== 401 || !originalRequest) {
       return Promise.reject(error);

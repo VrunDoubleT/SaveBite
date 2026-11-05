@@ -182,9 +182,18 @@ export function CartPage() {
                     </span>
                   </div>
                 </Link>
-                <Badge tone="primary">
-                  {shop.totalQuantity} {shop.totalQuantity === 1 ? "item" : "items"}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to={`/shops/${shop.shopId}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 shadow-sm transition hover:bg-primary-50"
+                  >
+                    <Store className="size-3.5" aria-hidden="true" />
+                    <span>Visit Store</span>
+                  </Link>
+                  <Badge tone="primary">
+                    {shop.totalQuantity} {shop.totalQuantity === 1 ? "item" : "items"}
+                  </Badge>
+                </div>
               </header>
               <div className="grid lg:grid-cols-[minmax(0,1fr)_17rem]">
                 <ul className="min-w-0 px-4 sm:px-5" aria-label={`Items from ${shop.shopName}`}>

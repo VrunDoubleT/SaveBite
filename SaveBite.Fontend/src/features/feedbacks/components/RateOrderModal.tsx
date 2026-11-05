@@ -43,6 +43,11 @@ export function RateOrderModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [photoWarning, setPhotoWarning] = useState<{
+    isOpen: boolean;
+    selectedCount: number;
+    maxAllowed: number;
+  }>({ isOpen: false, selectedCount: 0, maxAllowed: 0 });
 
   useEffect(() => {
     if (!order || !isOpen) return;
@@ -100,15 +105,24 @@ export function RateOrderModal({
     const currentImages = drafts[orderItemId]?.images ?? [];
     const remainingSlots = 5 - currentImages.length;
 
+    if (files.length > remainingSlots) {
+      setPhotoWarning({
+        isOpen: true,
+        selectedCount: files.length,
+        maxAllowed: Math.max(0, remainingSlots),
+      });
+      if (fileInputRefs.current[orderItemId]) {
+        fileInputRefs.current[orderItemId]!.value = "";
+      }
+      return;
+    }
+
     if (remainingSlots <= 0) {
       toast.info("You can only upload a maximum of 5 images per review.");
       return;
     }
 
     const filesToUpload = Array.from(files).slice(0, remainingSlots);
-    if (files.length > remainingSlots) {
-      toast.info(`Only the first ${remainingSlots} images were uploaded (maximum 5).`);
-    }
 
     try {
       setUploadingItemId(orderItemId);
@@ -197,6 +211,7 @@ export function RateOrderModal({
   };
 
   return (
+    <>
     <SharedModal
       isOpen={isOpen}
       onClose={onClose}
@@ -305,6 +320,11 @@ export function RateOrderModal({
                         onChange={(rating) => updateDraft(itemId, { rating })}
                         disabled={isSubmitting}
                       />
+                      {draft.rating <= 2 && (
+                        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                          We're sorry to hear about your experience. Please describe what went wrong below so the store can improve!
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -426,5 +446,32 @@ export function RateOrderModal({
         </div>
       </form>
     </SharedModal>
+
+      {/* Warning popup when selecting > 5 images (FIX-38) */}
+      <SharedModal
+        isOpen={photoWarning.isOpen}
+        onClose={() => setPhotoWarning({ isOpen: false, selectedCount: 0, maxAllowed: 0 })}
+        title="Photo Limit Exceeded"
+        maxWidthClass="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-body text-text-secondary">
+            You selected <strong>{photoWarning.selectedCount}</strong> photos, but only <strong>{photoWarning.maxAllowed}</strong> more photo{photoWarning.maxAllowed === 1 ? "" : "s"} can be added (maximum 5 photos per review).
+          </p>
+          <p className="text-caption text-text-muted">
+            Please choose up to {photoWarning.maxAllowed} photo{photoWarning.maxAllowed === 1 ? "" : "s"}.
+          </p>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setPhotoWarning({ isOpen: false, selectedCount: 0, maxAllowed: 0 })}
+              className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-primary-700 transition"
+            >
+              Understand
+            </button>
+          </div>
+        </div>
+      </SharedModal>
+    </>
   );
 }
