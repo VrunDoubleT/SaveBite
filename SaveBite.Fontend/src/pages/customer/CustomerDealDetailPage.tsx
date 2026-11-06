@@ -91,8 +91,15 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
   useEffect(() => {
     const handleShopStatus = (e: Event) => {
       const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
-      if (detail?.shopId && deal?.shopId && detail.shopId.toLowerCase() === deal.shopId.toLowerCase()) {
-        if (detail.status !== "Active" || detail.isBlocked) {
+      const rawShopId = detail?.shopId || (detail as any)?.ShopId;
+      const rawStatus = detail?.status || (detail as any)?.Status;
+      const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
+      const targetShopId = rawShopId?.toLowerCase();
+      const currentDealShopId = (deal?.shopId || (deal as any)?.ShopId)?.toLowerCase();
+
+      if (targetShopId && currentDealShopId && targetShopId === currentDealShopId) {
+        const isInactive = !rawStatus || rawStatus.toLowerCase() !== "active" || Boolean(isBlocked);
+        if (isInactive) {
           setDeal(null);
           setError("This flash deal is unavailable because the store has been suspended or is currently inactive.");
         } else {

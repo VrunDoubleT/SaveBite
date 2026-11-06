@@ -179,6 +179,46 @@ export function NearbyStoresMapSection({
     return () => shopsAbortRef.current?.abort();
   }, [isLocationReady, latitude, longitude, locationMode, locationVersion, radiusInKm, fetchShops]);
 
+  // Real-time update: remove suspended store marker and selection from map
+  useEffect(() => {
+    const handleShopStatus = (e: Event) => {
+      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
+      const rawShopId = detail?.shopId || (detail as any)?.ShopId;
+      const rawStatus = detail?.status || (detail as any)?.Status;
+      const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
+      const blockedShopId = rawShopId?.toLowerCase();
+      if (!blockedShopId) return;
+
+      const isInactive = !rawStatus || rawStatus.toLowerCase() !== "active" || Boolean(isBlocked);
+      if (isInactive) {
+        setShops((prev) => {
+          const hasBlocked = prev.some(
+            (s) => ((s.id || (s as any).shopId) as string)?.toLowerCase() === blockedShopId,
+          );
+          if (!hasBlocked) return prev;
+          const next = prev.filter(
+            (s) => ((s.id || (s as any).shopId) as string)?.toLowerCase() !== blockedShopId,
+          );
+          cachedNearbyShops = next;
+          return next;
+        });
+        setSelectedShop((prev) => {
+          if (!prev) return null;
+          const isSelectedBlocked =
+            ((prev.id || (prev as any).shopId) as string)?.toLowerCase() === blockedShopId;
+          return isSelectedBlocked ? null : prev;
+        });
+      } else {
+        if (latitude != null && longitude != null) {
+          void fetchShops(latitude, longitude);
+        }
+      }
+    };
+
+    window.addEventListener("shop:status-changed", handleShopStatus);
+    return () => window.removeEventListener("shop:status-changed", handleShopStatus);
+  }, [latitude, longitude, fetchShops]);
+
   // 2. Initialize VietMap Leaflet map instance ONCE (never destroy on prop change, only on unmount)
   const hasCoords = latitude != null && longitude != null;
   useEffect(() => {

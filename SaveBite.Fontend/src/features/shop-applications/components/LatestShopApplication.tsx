@@ -251,6 +251,14 @@ export default function LatestShopApplication({
     };
   }, []);
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      void loadApplication();
+    };
+    window.addEventListener("shop-application:updated", handleUpdate);
+    return () => window.removeEventListener("shop-application:updated", handleUpdate);
+  }, []);
+
   async function loadApplication() {
     try {
       setLoading(true);

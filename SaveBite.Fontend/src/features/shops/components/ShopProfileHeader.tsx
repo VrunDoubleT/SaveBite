@@ -88,6 +88,7 @@ export function isOpenNow(open?: string | null, close?: string | null, now = new
   const start = toMinutes(open);
   const end = toMinutes(close);
   if (start === null || end === null) return null;
+  if (start === end || (start === 0 && end === 0)) return true;
   const current = now.getHours() * 60 + now.getMinutes();
   return start <= end ? current >= start && current < end : current >= start || current < end;
 }

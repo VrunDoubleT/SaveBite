@@ -7,6 +7,7 @@ import {
   History,
   RefreshCw,
   FileText,
+  Store,
 } from "lucide-react";
 import { platformFeeApi } from "../api/platformFeeApi";
 import type { PlatformFeeStatementDetail } from "../types/platformFee.types";
@@ -94,9 +95,17 @@ export function AdminStatementDetailModal({
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-4">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-              <Receipt className="h-5 w-5" />
-            </span>
+            {statement?.shopLogoUrl ? (
+              <img
+                src={statement.shopLogoUrl}
+                alt={statement.shopName}
+                className="size-9 rounded-xl object-cover border border-slate-200 shadow-2xs"
+              />
+            ) : (
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                <Store className="h-5 w-5" />
+              </span>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900">

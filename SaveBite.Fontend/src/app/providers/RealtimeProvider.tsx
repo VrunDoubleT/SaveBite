@@ -31,8 +31,19 @@ export function RealtimeProvider({ children }: PropsWithChildren) {
     const unsubscribeShopStatus = client.on(REALTIME_EVENTS.SHOP_STATUS_CHANGED, (event) => {
       window.dispatchEvent(new CustomEvent("shop:status-changed", { detail: event.data }));
     });
+    const unsubscribeShopApp = client.on("shop.application.reviewed", () => {
+      void useAuthStore.getState().refreshUser();
+      window.dispatchEvent(new CustomEvent("shop-application:updated"));
+      window.dispatchEvent(new CustomEvent("user:role-changed"));
+    });
+    const unsubscribeRole = client.on("user.role.changed", () => {
+      void useAuthStore.getState().refreshUser();
+      window.dispatchEvent(new CustomEvent("user:role-changed"));
+    });
     void client.start();
     return () => {
+      unsubscribeRole();
+      unsubscribeShopApp();
       unsubscribeShopStatus();
       unsubscribeFeedback();
       unsubscribeNotifications();

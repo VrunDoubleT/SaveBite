@@ -567,15 +567,18 @@ export function useNearbyFlashDeals() {
   useEffect(() => {
     const handleShopStatus = (e: Event) => {
       const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
-      const blockedShopId = detail?.shopId?.toLowerCase();
+      const rawShopId = detail?.shopId || (detail as any)?.ShopId;
+      const rawStatus = detail?.status || (detail as any)?.Status;
+      const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
+      const blockedShopId = rawShopId?.toLowerCase();
       if (!blockedShopId) return;
 
-      const isInactive = detail.status !== "Active" || detail.isBlocked;
+      const isInactive = !rawStatus || rawStatus.toLowerCase() !== "active" || Boolean(isBlocked);
       if (isInactive) {
         setDeals((prev) => {
-          const hasBlocked = prev.some((d) => d.shopId?.toLowerCase() === blockedShopId);
+          const hasBlocked = prev.some((d) => (d.shopId || (d as any).ShopId)?.toLowerCase() === blockedShopId);
           if (!hasBlocked) return prev;
-          const next = prev.filter((d) => d.shopId?.toLowerCase() !== blockedShopId);
+          const next = prev.filter((d) => (d.shopId || (d as any).ShopId)?.toLowerCase() !== blockedShopId);
           cachedDeals = next;
           return next;
         });
@@ -584,12 +587,12 @@ export function useNearbyFlashDeals() {
           if (!prev) return null;
           const wasBlocked = dealsRef.current.some(
             (d) =>
-              d.shopId?.toLowerCase() === blockedShopId &&
+              (d.shopId || (d as any).ShopId)?.toLowerCase() === blockedShopId &&
               d.shopName?.toLowerCase() === prev.toLowerCase(),
           );
           return wasBlocked ? null : prev;
         });
-        setPendingNewDeals((prev) => prev.filter((d) => d.shopId?.toLowerCase() !== blockedShopId));
+        setPendingNewDeals((prev) => prev.filter((d) => (d.shopId || (d as any).ShopId)?.toLowerCase() !== blockedShopId));
       } else {
         void checkNewerDeals();
       }

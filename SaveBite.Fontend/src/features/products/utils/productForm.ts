@@ -73,12 +73,14 @@ export function validatePrices(rows: Combination[], prices: PriceMap) {
   if (!rows.length) return "Add attribute values to create variants.";
   for (const row of rows) {
     const p = prices[row.key];
-    if (!p || !p.originalPrice?.trim() || !p.dealPrice?.trim())
+    const origStr = String(p?.originalPrice ?? "").trim();
+    const dealStr = String(p?.dealPrice ?? "").trim();
+    if (!origStr || !dealStr)
       return `Please enter both original price and deal price for ${row.label}.`;
-    if (!/^\d+$/.test(p.originalPrice.trim()) || !/^\d+$/.test(p.dealPrice.trim()))
+    if (!/^\d+$/.test(origStr) || !/^\d+$/.test(dealStr))
       return `Enter both prices as whole VND amounts for ${row.label}.`;
-    const original = Number(p.originalPrice),
-      deal = Number(p.dealPrice);
+    const original = Number(origStr),
+      deal = Number(dealStr);
     if (original < MIN_AMOUNT_VND || deal < MIN_AMOUNT_VND)
       return `Prices must be at least ${MIN_AMOUNT_TEXT} VND for ${row.label}.`;
     if (original >= 10_000_000_000 || deal >= 10_000_000_000)

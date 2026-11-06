@@ -688,9 +688,24 @@ export function PlatformFeeManagementPage() {
                     return (
                       <tr key={stmt.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="px-5 py-4 font-bold text-slate-900">
-                          {stmt.shopName || "Shop"}
-                          <div className="font-mono text-[10px] text-slate-400 font-normal">
-                            {stmt.id.substring(0, 18)}...
+                          <div className="flex items-center gap-3">
+                            {stmt.shopLogoUrl ? (
+                              <img
+                                src={stmt.shopLogoUrl}
+                                alt={stmt.shopName || "Shop"}
+                                className="size-8 rounded-lg object-cover border border-slate-200"
+                              />
+                            ) : (
+                              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 border border-primary-100">
+                                <Store className="size-4" />
+                              </div>
+                            )}
+                            <div>
+                              <div>{stmt.shopName || "Shop"}</div>
+                              <div className="font-mono text-[10px] text-slate-400 font-normal">
+                                {stmt.id.substring(0, 18)}...
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className="px-5 py-4 font-medium text-slate-700">

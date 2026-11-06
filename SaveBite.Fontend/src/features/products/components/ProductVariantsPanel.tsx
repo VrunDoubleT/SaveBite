@@ -269,6 +269,10 @@ function EditVariantModal({
       setError("Deal price must be less than original price.");
       return;
     }
+    if (op >= 10_000_000_000 || dp >= 10_000_000_000) {
+      setError("Prices must be less than 10,000,000,000 VND.");
+      return;
+    }
     if (!isActive && product.status === 0) {
       const hasOtherActive = product.variants.some((v) => v.id !== variant.id && v.isActive);
       if (!hasOtherActive) {

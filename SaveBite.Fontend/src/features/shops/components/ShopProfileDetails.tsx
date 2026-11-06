@@ -116,8 +116,10 @@ function Hours({ open, close }: { open: string | null; close: string | null }) {
     return <Empty />;
   }
 
-  const segments =
-    start <= end
+  const isFullDay = (start === 0 && end === 0) || start === end;
+  const segments = isFullDay
+    ? [{ from: 0, to: DAY }]
+    : start <= end
       ? [{ from: start, to: end }]
       : [
           { from: start, to: DAY },
@@ -133,6 +135,11 @@ function Hours({ open, close }: { open: string | null; close: string | null }) {
             to
           </span>
           <span>{close}</span>
+          {isFullDay && (
+            <span className="text-xs font-normal text-primary-700">
+              (Open 24/7)
+            </span>
+          )}
         </p>
 
         <OpenStateBadge open={open} close={close} />

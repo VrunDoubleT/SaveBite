@@ -21,6 +21,13 @@ export function subscribeNotificationEvents(
     if (notiType === 31 || notiType === 25 || notiType === 26 || notiType === "FeedbackRemovedByAdmin") {
       window.dispatchEvent(new CustomEvent("feedback:invalidated"));
     }
+    // Realtime role and shop application changes: 12, 13, 14, 15, 16, 24, 29, 30, 37, 38, 42
+    const roleAppTypes = [12, 13, 14, 15, 16, 24, 29, 30, 37, 38, 42, "ShopApplicationApproved", "ShopApplicationRejected", "ShopApplicationNeedsRevision", "RoleChanged", "CustomerStatusChanged"];
+    if (roleAppTypes.includes(notiType as any)) {
+      void useAuthStore.getState().refreshUser();
+      window.dispatchEvent(new CustomEvent("shop-application:updated"));
+      window.dispatchEvent(new CustomEvent("user:role-changed"));
+    }
   });
 
   const offRead = client.on(REALTIME_EVENTS.NOTIFICATION_READ, (event) => {

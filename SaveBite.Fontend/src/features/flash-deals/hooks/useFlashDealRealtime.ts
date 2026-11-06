@@ -40,6 +40,7 @@ export function useFlashDealRealtime(
         if (!stopped) callback.current();
       }, 100);
     };
+    let hasJoinedOnce = false;
     const join = async () => {
       if (kind === "shop" && id) {
         await connection.invoke("WatchShop", id);
@@ -47,8 +48,12 @@ export function useFlashDealRealtime(
         await connection.invoke("WatchDeal", id);
       }
       if (!stopped) setConnectionStatus("connected");
-      // Close the race between initial HTTP read and group registration, including reconnect.
-      refreshSoon();
+      // Only refresh on reconnect (not on initial mount when component already fetches data)
+      if (hasJoinedOnce) {
+        refreshSoon();
+      } else {
+        hasJoinedOnce = true;
+      }
     };
     connection.on("ReceiveEvent", (event: RealtimeEvent<any>) => {
       if (event.version !== 1) return;
@@ -67,10 +72,13 @@ export function useFlashDealRealtime(
       } else if (event.type === "shop.status.changed") {
         const changedShopId = event.data?.shopId;
         window.dispatchEvent(new CustomEvent("shop:status-changed", { detail: event.data }));
+        const isInactive = !event.data?.status || event.data?.status.toLowerCase() !== "active" || Boolean(event.data?.isBlocked);
         if (kind === "all") {
           refreshSoon();
         } else if (kind === "shop" && id && changedShopId?.toLowerCase() === id.toLowerCase()) {
-          refreshSoon();
+          if (!isInactive) {
+            refreshSoon();
+          }
         } else if (kind === "deal") {
           refreshSoon();
         }

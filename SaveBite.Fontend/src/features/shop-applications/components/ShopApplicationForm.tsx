@@ -592,6 +592,9 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                 error={fieldErrors.closingTime}
               />
             </div>
+            <p className="mt-2 text-xs text-text-muted">
+              Use 00:00 – 00:00 if your store is open all day (24/7).
+            </p>
           </Section>
 
           {/* Documents */}
@@ -1085,7 +1088,7 @@ function DocumentUploader({ onAdd }: { onAdd: (type: ShopDocumentType, files: Fi
       </div>
 
       <p className="mt-3 text-xs text-text-secondary">
-        PDF, JPG, PNG or WebP. Tối đa 10 tài liệu cho tất cả các loại. Với "Other document", bạn có thể chọn nhiều file.
+        PDF, JPG, PNG or WebP. Up to 10 documents in total across all types. For "Other document", you can select multiple files.
       </p>
     </div>
   );

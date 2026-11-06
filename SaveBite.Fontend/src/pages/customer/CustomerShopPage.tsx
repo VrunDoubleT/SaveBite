@@ -1,4 +1,3 @@
-import { useAuthStore } from "@/shared/stores/authStore";
 import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
 import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 import { ShopFollowControls } from "@/features/shop-follows/components/ShopFollowControls";
@@ -59,9 +58,8 @@ function StoreUnavailable() {
 
 export function CustomerShopPage() {
   const { id } = useParams<{ id: string }>();
-  const viewerId = useAuthStore((state) => state.user?.id);
   return id ? (
-    <ShopContent key={`${id}:${viewerId ?? "guest"}`} shopId={id} />
+    <ShopContent key={id} shopId={id} />
   ) : (
     <StoreUnavailable />
   );
@@ -115,6 +113,14 @@ function ShopContent({ shopId }: { shopId: string }) {
               sumCount += c;
             }
             const newAvg = sumCount > 0 ? sumRating / sumCount : 0;
+            setProfile((prevProf) => {
+              if (!prevProf) return prevProf;
+              return {
+                ...prevProf,
+                averageRating: newAvg,
+                totalReviews: newTotal,
+              };
+            });
             return {
               ...prev,
               averageRating: newAvg,
@@ -138,13 +144,21 @@ function ShopContent({ shopId }: { shopId: string }) {
   useEffect(() => {
     const handleShopStatus = (e: Event) => {
       const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
-      if (detail?.shopId && detail.shopId.toLowerCase() === shopId.toLowerCase()) {
-        if (detail.status !== "Active" || detail.isBlocked) {
+      const rawShopId = detail?.shopId || (detail as any)?.ShopId;
+      const rawStatus = detail?.status || (detail as any)?.Status;
+      const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
+      const targetShopId = rawShopId?.toLowerCase();
+      if (targetShopId && targetShopId === shopId.toLowerCase()) {
+        const isInactive = !rawStatus || rawStatus.toLowerCase() !== "active" || Boolean(isBlocked);
+        if (isInactive) {
           setProfile(null);
           setDeals([]);
+          setIsProfileLoading(false);
+          setIsDealsLoading(false);
+        } else {
+          setProfileAttempt((v) => v + 1);
+          setDealsAttempt((v) => v + 1);
         }
-        setProfileAttempt((v) => v + 1);
-        setDealsAttempt((v) => v + 1);
       }
     };
     window.addEventListener("shop:status-changed", handleShopStatus);
@@ -302,7 +316,7 @@ function ShopContent({ shopId }: { shopId: string }) {
   const operatingHours =
     profile.openingTime && profile.closingTime
       ? (profile.openingTime.slice(0, 5) === profile.closingTime.slice(0, 5)
-          ? "00:00 – 00:00 (Mở cả ngày / 24/7)"
+          ? "00:00 – 00:00 (Open 24/7)"
           : `${profile.openingTime.slice(0, 5)} – ${profile.closingTime.slice(0, 5)}`)
       : "Opening hours not provided";
   const averageRating = reviewsSummary?.averageRating ?? profile.averageRating;

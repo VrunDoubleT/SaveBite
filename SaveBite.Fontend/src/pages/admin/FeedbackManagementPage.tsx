@@ -214,7 +214,11 @@ export function FeedbackManagementPage() {
         };
       });
 
-      emitFeedbackSync(isRestoring ? "restore" : "hide", targetFeedback.id);
+      emitFeedbackSync(isRestoring ? "restore" : "hide", targetFeedback.id, {
+        shopId: targetFeedback.shopId,
+        productId: targetFeedback.productId,
+        rating: targetFeedback.rating,
+      });
 
       setSelected(null);
       retry();

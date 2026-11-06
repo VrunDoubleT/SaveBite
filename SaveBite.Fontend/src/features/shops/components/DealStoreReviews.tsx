@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import { Card, ErrorState } from "@/shared/components/ui";
 import { shopApi } from "../api/shopApi";
+import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 import type { StoreReviewsSummary } from "../types/shop.types";
 import { StoreReviewList } from "./StoreReviewList";
 
@@ -23,6 +24,15 @@ export function DealStoreReviews({
   const [hasImagesOnly, setHasImagesOnly] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<ReviewResult | null>(null);
+  // Real-time synchronization when admin hides or restores feedback
+  useEffect(() => {
+    return subscribeFeedbackSync((detail) => {
+      if (!detail?.shopId || detail.shopId.toLowerCase() === shopId.toLowerCase()) {
+        setAttempt((v) => v + 1);
+      }
+    });
+  }, [shopId]);
+
   const { rating, page } = query;
   const key = `${shopId}:${rating}:${page}:${attempt}`;
   const isLoading = result?.key !== key;

@@ -131,6 +131,43 @@ function NearbyStoresList({
     page,
     attempt,
   ]);
+
+  // Real-time update: remove suspended store from nearby stores list
+  useEffect(() => {
+    const handleShopStatus = (e: Event) => {
+      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
+      const rawShopId = detail?.shopId || (detail as any)?.ShopId;
+      const rawStatus = detail?.status || (detail as any)?.Status;
+      const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
+      const blockedShopId = rawShopId?.toLowerCase();
+      if (!blockedShopId) return;
+
+      const isInactive = !rawStatus || rawStatus.toLowerCase() !== "active" || Boolean(isBlocked);
+      if (isInactive) {
+        setResult((prev) => {
+          if (!prev) return null;
+          const hasBlocked = prev.shops.some(
+            (s) => ((s.id || (s as any).shopId) as string)?.toLowerCase() === blockedShopId,
+          );
+          if (!hasBlocked) return prev;
+          const nextShops = prev.shops.filter(
+            (s) => ((s.id || (s as any).shopId) as string)?.toLowerCase() !== blockedShopId,
+          );
+          return {
+            ...prev,
+            shops: nextShops,
+            totalItems: Math.max(0, prev.totalItems - 1),
+          };
+        });
+      } else {
+        setAttempt((v) => v + 1);
+      }
+    };
+
+    window.addEventListener("shop:status-changed", handleShopStatus);
+    return () => window.removeEventListener("shop:status-changed", handleShopStatus);
+  }, []);
+
   const waiting = loading;
   return (
     <div className="space-y-4">

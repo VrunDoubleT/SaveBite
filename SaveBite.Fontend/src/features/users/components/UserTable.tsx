@@ -18,7 +18,7 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
           <th className="px-6 py-4 font-semibold">User Profile</th>
           <th className="px-6 py-4 font-semibold">Role</th>
           <th className="px-6 py-4 font-semibold">Account Status</th>
-          <th className="px-6 py-4 font-semibold">Chức năng Customer</th>
+          <th className="px-6 py-4 font-semibold">Customer Status</th>
           <th className="px-6 py-4 font-semibold text-right">Actions</th>
         </tr>
       </thead>
@@ -92,7 +92,7 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
 
                       <button
                         onClick={() => onAction(u, true)}
-                        title={`${u.customerStatus === "Active" ? "Cấm" : "Mở"} chức năng Customer`}
+                        title={`${u.customerStatus === "Active" ? "Suspend" : "Activate"} Customer Account`}
                         className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold shadow-2xs transition ${
                           u.customerStatus === "Active"
                             ? "border-red-200 bg-red-50 text-red-800 hover:bg-red-100"
@@ -100,7 +100,7 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
                         }`}
                       >
                         <ShoppingBag className="size-3.5" />
-                        <span>{u.customerStatus === "Active" ? "Cấm chức năng Customer" : "Mở chức năng Customer"}</span>
+                        <span>{u.customerStatus === "Active" ? "Suspend Customer" : "Activate Customer"}</span>
                       </button>
                     </>
                   ) : (

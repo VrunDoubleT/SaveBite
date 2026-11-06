@@ -55,6 +55,7 @@ export interface PlatformFeeStatementSummary {
   id: string;
   shopId: string;
   shopName?: string;
+  shopLogoUrl?: string | null;
   billingYear: number;
   billingMonth: number;
   status: PlatformFeeStatementStatus;
@@ -109,6 +110,7 @@ export interface PlatformFeeStatementDetail {
   id: string;
   shopId: string;
   shopName: string;
+  shopLogoUrl?: string | null;
   billingYear: number;
   billingMonth: number;
   status: PlatformFeeStatementStatus;
