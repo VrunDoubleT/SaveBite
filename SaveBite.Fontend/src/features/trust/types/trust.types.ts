@@ -85,7 +85,8 @@ export interface TrustLevelInfo {
   depositPolicy?: TrustLevelDepositPolicy | null;
 }
 
-export type TrustScoreEventType = "OrderCompleted" | "NoShow";
+// RefundReclaimed: a refund took accumulated order value back (score unchanged).
+export type TrustScoreEventType = "OrderCompleted" | "NoShow" | "RefundReclaimed";
 
 export interface TrustScoreHistoryItem {
   id: string;
@@ -93,6 +94,10 @@ export interface TrustScoreHistoryItem {
   scoreBefore: number;
   scoreDelta: number;
   scoreAfter: number;
+  /** Accumulated order value (VND) before / change / after this event. */
+  valueBefore: number;
+  valueDelta: number;
+  valueAfter: number;
   reason?: string | null;
   orderId?: string | null;
   orderCode?: string | null;

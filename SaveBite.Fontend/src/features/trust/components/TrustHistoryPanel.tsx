@@ -5,7 +5,7 @@ import { trustApi } from "../api/trustApi";
 import { useApiResource } from "../hooks/useApiResource";
 import { TRUST_PAGE_SIZE, useListParams } from "../hooks/useListParams";
 import type { TrustScoreEventType } from "../types/trust.types";
-import { formatDateTime, formatSignedPoints } from "../utils/format";
+import { formatCurrency, formatDateTime, formatSignedCurrency, formatSignedPoints } from "../utils/format";
 import { Badge, Card, FilterBar } from "@/shared/components/ui";
 import { APP_PATHS } from "@/app/router/paths";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
@@ -13,9 +13,10 @@ import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
 const EVENT_LABELS: Record<TrustScoreEventType, string> = {
   OrderCompleted: "Order completed",
   NoShow: "No-show",
+  RefundReclaimed: "Refund adjustment",
 };
 
-const EVENT_FILTERS = ["OrderCompleted", "NoShow"] as const;
+const EVENT_FILTERS = ["OrderCompleted", "NoShow", "RefundReclaimed"] as const;
 const EVENT_OPTIONS = EVENT_FILTERS.map((value) => ({ value, label: EVENT_LABELS[value] }));
 
 export function TrustHistoryPanel() {
@@ -66,14 +67,14 @@ export function TrustHistoryPanel() {
         <PanelSkeleton rows={4} />
       ) : data.items.length === 0 ? (
         <PanelEmpty
-          title="No score changes yet"
-          description="Your score changes will appear here after you complete an order."
+          title="No history yet"
+          description="Your score and accumulated order value changes will appear here after you complete an order."
         />
       ) : (
         <>
           <div
             role="region"
-            aria-label="Score changes"
+            aria-label="Score and value changes"
             className={`space-y-4 ${isLoading ? "opacity-60" : ""}`}
           >
             {data.items.map((item) => (
@@ -87,14 +88,30 @@ export function TrustHistoryPanel() {
                       {formatDateTime(item.createdAt)}
                     </p>
                   </div>
-                  <Badge
-                    tone={item.scoreDelta >= 0 ? "primary" : "danger"}
-                    className="!text-body tabular-nums"
-                  >
-                    {formatSignedPoints(item.scoreDelta)} points
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Hide a zero change so a refund row shows only the money badge (and vice versa). */}
+                    {item.scoreDelta !== 0 && (
+                      <Badge
+                        tone={item.scoreDelta > 0 ? "primary" : "danger"}
+                        className="!text-body tabular-nums"
+                      >
+                        {formatSignedPoints(item.scoreDelta)} points
+                      </Badge>
+                    )}
+                    {item.valueDelta !== 0 && (
+                      <Badge
+                        tone={item.valueDelta > 0 ? "primary" : "danger"}
+                        className="!text-body tabular-nums"
+                      >
+                        {formatSignedCurrency(item.valueDelta)}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                {/* FIX-17: accumulated score before -> after this event */}
+                {/* Trust score: before -> after this event */}
+                <p className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
+                  Trust score
+                </p>
                 <div className="grid grid-cols-3 gap-2 rounded-lg bg-neutral-50 p-3 text-center">
                   <div>
                     <p className="text-caption text-text-secondary">Before</p>
@@ -116,6 +133,34 @@ export function TrustHistoryPanel() {
                     <p className="text-caption text-text-secondary">After</p>
                     <p className="text-body font-semibold tabular-nums text-text-primary">
                       {item.scoreAfter}
+                    </p>
+                  </div>
+                </div>
+                {/* Accumulated order value (money): before -> after this event */}
+                <p className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
+                  Accumulated order value
+                </p>
+                <div className="grid grid-cols-3 gap-2 rounded-lg bg-neutral-50 p-3 text-center">
+                  <div>
+                    <p className="text-caption text-text-secondary">Before</p>
+                    <p className="text-body font-semibold tabular-nums text-text-primary">
+                      {formatCurrency(item.valueBefore)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-caption text-text-secondary">Change</p>
+                    <p
+                      className={`text-body font-semibold tabular-nums ${
+                        item.valueDelta >= 0 ? "text-primary-700" : "text-red-700"
+                      }`}
+                    >
+                      {formatSignedCurrency(item.valueDelta)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-caption text-text-secondary">After</p>
+                    <p className="text-body font-semibold tabular-nums text-text-primary">
+                      {formatCurrency(item.valueAfter)}
                     </p>
                   </div>
                 </div>

@@ -5,7 +5,7 @@ import { APP_PATHS } from "@/app/router/paths";
 export const CUSTOMER_TRUST_TABS = [
   { id: "overview", label: "Overview" },
   { id: "levels", label: "Levels & benefits" },
-  { id: "history", label: "Score history" },
+  { id: "history", label: "Score & value history" },
   { id: "penalties", label: "Penalties" },
 ] as const;
 

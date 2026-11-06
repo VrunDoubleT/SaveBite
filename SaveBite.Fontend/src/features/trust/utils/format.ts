@@ -18,6 +18,12 @@ export function formatDate(value: string | null | undefined): string {
   return new Date(value).toLocaleDateString("vi-VN");
 }
 
+/** +35.000 VND / -35.000 VND / 0 VND */
+export function formatSignedCurrency(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  return value > 0 ? `+${formatCurrency(value)}` : formatCurrency(value);
+}
+
 /** +5 / -20 / 0 */
 export function formatSignedPoints(value: number): string {
   return value > 0 ? `+${value}` : `${value}`;
