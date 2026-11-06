@@ -141,3 +141,32 @@ export interface PlatformDashboardAnalytics {
   selected: PlatformAnalyticsSnapshot;
   overall: PlatformAnalyticsSnapshot;
 }
+
+// FIX-45 (UC-142): revenue per shop. netRevenue = paidRevenue - refundedAmount; the per-shop figures add up to the
+// platform's netPlatformOrderRevenue for the same period.
+export interface ShopRevenueItem {
+  shopId: string;
+  shopName: string;
+  logoUrl: string | null;
+  completedOrders: number;
+  paidRevenue: number;
+  collectedOnlineAmount: number;
+  collectedCashAmount: number;
+  refundedAmount: number;
+  netRevenue: number;
+  averageOrderValue: number;
+  platformFeeAmount: number;
+  sharePercent: number;
+}
+
+export interface PlatformShopRevenue {
+  period: AnalyticsPeriodInfo;
+  shopsWithRevenue: number;
+  completedOrders: number;
+  paidRevenue: number;
+  refundedAmount: number;
+  netRevenue: number;
+  platformFeeAmount: number;
+  shops: ShopRevenueItem[];
+}
+

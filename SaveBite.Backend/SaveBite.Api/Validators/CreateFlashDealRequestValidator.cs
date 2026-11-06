@@ -1,4 +1,5 @@
 using FluentValidation;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.Requests;
 
 namespace SaveBite.Backend.Validators;
@@ -48,7 +49,7 @@ public sealed class CreateFlashDealRequestValidator : AbstractValidator<CreateFl
         {
             v.RuleFor(x => x.VariantId).NotEmpty().WithMessage("Variant ID is required.");
             v.RuleFor(x => x.DealPrice)
-                .GreaterThanOrEqualTo(1000).WithMessage("Deal price must be at least 1,000 VND.")
+                .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd).WithMessage($"Deal price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
                 .Must(p => p % 1000 == 0).WithMessage("Deal price must be a multiple of 1,000 VND.");
             v.RuleFor(x => x.TotalQuantity).GreaterThan(0).WithMessage("Total quantity must be greater than 0.");
         });
@@ -78,7 +79,7 @@ public sealed class UpdateFlashDealRequestValidator : AbstractValidator<UpdateFl
         {
             v.RuleFor(x => x.VariantId).NotEmpty().WithMessage("Variant ID is required.");
             v.RuleFor(x => x.DealPrice)
-                .GreaterThanOrEqualTo(1000).WithMessage("Deal price must be at least 1,000 VND.")
+                .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd).WithMessage($"Deal price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
                 .Must(p => p % 1000 == 0).WithMessage("Deal price must be a multiple of 1,000 VND.");
             v.RuleFor(x => x.TotalQuantity).GreaterThan(0).WithMessage("Total quantity must be greater than 0.");
         });

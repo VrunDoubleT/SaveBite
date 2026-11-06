@@ -1,4 +1,5 @@
 import { getApiErrorMessage, getApiValidationErrors } from "@/shared/api";
+import { MIN_AMOUNT_VND, MIN_AMOUNT_TEXT } from "@/shared/config/money";
 import type {
   Combination,
   DraftAttribute,
@@ -71,12 +72,14 @@ export function validatePrices(rows: Combination[], prices: PriceMap) {
   if (!rows.length) return "Add attribute values to create variants.";
   for (const row of rows) {
     const p = prices[row.key];
-    if (!p || !/^\d+(\.\d{1,2})?$/.test(p.originalPrice) || !/^\d+(\.\d{1,2})?$/.test(p.dealPrice))
-      return `Enter both prices with up to 2 decimal places for ${row.label}.`;
+    if (!p || !/^\d+$/.test(p.originalPrice) || !/^\d+$/.test(p.dealPrice))
+      return `Enter both prices as whole VND amounts for ${row.label}.`;
     const original = Number(p.originalPrice),
       deal = Number(p.dealPrice);
-    if (original <= 0 || original >= 10_000_000_000 || deal < 0 || deal >= original)
-      return `Original price must be positive and deal price must be lower for ${row.label}.`;
+    if (original < MIN_AMOUNT_VND || deal < MIN_AMOUNT_VND)
+      return `Prices must be at least ${MIN_AMOUNT_TEXT} VND for ${row.label}.`;
+    if (original >= 10_000_000_000 || deal >= original)
+      return `Deal price must be lower than original price for ${row.label}.`;
   }
   return "";
 }

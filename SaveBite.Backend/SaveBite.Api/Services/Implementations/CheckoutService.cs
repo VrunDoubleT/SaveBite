@@ -195,6 +195,8 @@ public sealed class CheckoutService : ICheckoutService
             notifyShopPending = online == 0;
             if (total < 0 || total > 9999999999.99m || online < 0 || decimal.Truncate(online) != online)
                 throw AppException.Conflict("This order does not have valid VND payment amounts.");
+            if (total < MoneyLimits.MinAmountVnd || (online > 0 && online < MoneyLimits.MinAmountVnd))
+                throw AppException.Conflict($"Order and payment amounts must be at least {MoneyLimits.MinAmountVnd:N0} VND.");
             if (online > 0 && !_paymentGateway.IsConfigured(state.PaymentConfig))
                 throw AppException.ServiceUnavailable("This shop has not configured online payments yet. No order was created.");
             // Persist the agreed amounts and absolute pickup deadlines; payment expires within 120 seconds or the hard deadline.

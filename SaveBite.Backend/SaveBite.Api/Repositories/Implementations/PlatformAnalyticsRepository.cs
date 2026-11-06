@@ -193,6 +193,19 @@ public sealed class PlatformAnalyticsRepository : IPlatformAnalyticsRepository
         AnalyticsPeriod period, CancellationToken ct = default)
         => OrderStatusCountsAsync(null, period, ct);
 
+    public async Task<IReadOnlyList<ShopIdentityRow>> GetShopIdentitiesAsync(
+        IReadOnlyCollection<Guid> shopIds, CancellationToken ct = default)
+    {
+        var ids = shopIds.ToList();
+        if (ids.Count == 0) return Array.Empty<ShopIdentityRow>();
+
+        var rows = await _db.Shops.AsNoTracking()
+            .Where(s => ids.Contains(s.Id))
+            .Select(s => new { s.Id, s.Name, s.LogoUrl })
+            .ToListAsync(ct);
+        return rows.Select(s => new ShopIdentityRow(s.Id, s.Name, s.LogoUrl)).ToList();
+    }
+
     // ------------------------------------------------------------------------------------------ UC-143
 
     public Task<DealStateCountsRow> GetDealStateCountsAsync(

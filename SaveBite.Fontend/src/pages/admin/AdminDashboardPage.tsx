@@ -5,6 +5,7 @@ import {
   History,
   Landmark,
   LayoutDashboard,
+  Store,
   Users,
   Zap,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import {
   PlatformFlashDealStatsSection,
   PlatformPaymentRefundSection,
   PlatformRevenueOrderSection,
+  PlatformShopRevenueSection,
   PlatformShopStatsSection,
   PlatformSummaryComparison,
   PlatformUserStatsSection,
@@ -42,13 +44,14 @@ import { ErrorModal } from "@/shared/components/modal/ErrorModal";
 const SECTION_TABS: TabItem<PlatformAnalyticsTab>[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "revenue-orders", label: "Revenue and orders", icon: Banknote },
+  { id: "shop-revenue", label: "Revenue by shop", icon: Store },
   { id: "fees", label: "Fees", icon: Landmark },
   { id: "users-shops", label: "Users and shops", icon: Users },
   { id: "deals", label: "Flash Deals", icon: Zap },
   { id: "payments-refunds", label: "Payments and refunds", icon: CreditCard },
 ];
 
-// Routes: /admin/analytics/:tab (overview | revenue-orders | fees | users-shops | deals | payments-refunds)
+// Routes: /admin/analytics/:tab (overview | revenue-orders | shop-revenue | fees | users-shops | deals | payments-refunds)
 // The period and the "all time" switch stay in the query string (?preset=month&month=2026-10&view=all-time).
 export function AdminDashboardPage() {
   const { tab } = useParams();
@@ -141,6 +144,16 @@ function PlatformDashboard({ activeTab }: { activeTab: PlatformAnalyticsTab }) {
             <PlatformRevenueOrderSection
               revenueAndOrders={snapshot.revenueAndOrders}
               granularity={granularity}
+              scopeLabel={scopeLabel}
+            />
+          )}
+
+          {/* FIX-45: own tab only (not part of the overview); it loads its own per-shop data. */}
+          {activeTab === "shop-revenue" && (
+            <PlatformShopRevenueSection
+              query={analytics.query}
+              allTime={view === "overall"}
+              rangeError={analytics.rangeError}
               scopeLabel={scopeLabel}
             />
           )}

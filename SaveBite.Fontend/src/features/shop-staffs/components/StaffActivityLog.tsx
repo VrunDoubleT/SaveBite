@@ -1,8 +1,7 @@
-import { useState } from "react";
-import { Check, Clock, Copy, Package } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Clock, MessageSquare, Package } from "lucide-react";
 import type { StaffActivityLog as StaffActivityLogType } from "@/features/shop-staffs/types/shopStaff.types";
 import { Pagination, usePagination } from "@/shared/components/pagination";
-import { toast } from "@/shared/stores/toastStore";
 
 interface StaffActivityLogProps {
   logs: StaffActivityLogType[];
@@ -19,32 +18,25 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function OrderIdBadge({ orderId }: { orderId: string }) {
-  const [copied, setCopied] = useState(false);
+const ACTION_LABELS: Record<string, string> = {
+  FeedbackReplied: "Replied to customer review",
+};
 
-  const handleCopy = () => {
-    void navigator.clipboard.writeText(orderId);
-    setCopied(true);
-    toast.success("Order ID copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
-  };
+function OrderLink({ orderId, orderCode }: { orderId: string; orderCode?: string | null }) {
+  const label = orderCode ? `#${orderCode}` : `#${orderId.slice(0, 8).toUpperCase()}`;
 
   return (
-    <div className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 px-2.5 py-1 text-xs text-blue-900">
+    <Link
+      to={`/store-owner/orders/${orderId}`}
+      title="View order details"
+      className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 px-2.5 py-1 text-xs text-blue-900 transition hover:border-blue-300 hover:bg-blue-100"
+    >
       <Package size={13} className="shrink-0 text-blue-600" />
-      <span className="font-medium text-blue-700">Order ID:</span>
-      <span className="truncate font-mono font-semibold text-blue-950" title={orderId}>
-        {orderId}
+      <span className="font-medium text-blue-700">Order</span>
+      <span className="truncate font-mono font-semibold text-blue-950 underline-offset-2 hover:underline">
+        {label}
       </span>
-      <button
-        type="button"
-        onClick={handleCopy}
-        title="Copy order ID"
-        className="ml-0.5 rounded p-0.5 text-blue-500 transition hover:bg-blue-100 hover:text-blue-800"
-      >
-        {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
-      </button>
-    </div>
+    </Link>
   );
 }
 
@@ -109,19 +101,19 @@ export function StaffActivityLog({ logs, loading = false }: StaffActivityLogProp
             {paginatedLogs.map((log) => (
               <div key={log.id} className="relative flex gap-4">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                  <Clock size={16} />
+                  {log.action === "FeedbackReplied" ? <MessageSquare size={16} /> : <Clock size={16} />}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900">{log.action}</p>
+                  <p className="text-sm font-semibold text-gray-900">{ACTION_LABELS[log.action] ?? log.action}</p>
                   {log.actorName && (
                     <p className="mt-1 text-xs font-medium text-gray-600">
                       Performed by {log.actorRole === "StoreOwner" ? "Shop owner" : log.actorName}
                     </p>
                   )}
 
-                  {/* Display Order ID directly from API */}
-                  {log.orderId && <OrderIdBadge orderId={log.orderId} />}
+                  {/* Link to the order instead of showing a raw ID */}
+                  {log.orderId && <OrderLink orderId={log.orderId} orderCode={log.orderCode} />}
 
                   {log.description && (
                     <p className="mt-1 text-sm text-gray-500">{log.description}</p>

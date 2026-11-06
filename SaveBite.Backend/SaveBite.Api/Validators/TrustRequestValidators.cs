@@ -1,3 +1,4 @@
+using SaveBite.Backend.Constants;
 using FluentValidation;
 using SaveBite.Backend.Models.Requests;
 
@@ -50,8 +51,8 @@ public sealed class TrustLevelDepositRangeRequestValidator : AbstractValidator<T
             .WithMessage("Range end amount must be a whole VND amount.");
 
         RuleFor(x => x.DepositAmount)
-            .GreaterThan(0)
-            .WithMessage("Deposit amount must be greater than 0.")
+            .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
+            .WithMessage($"Deposit amount must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
             .LessThanOrEqualTo(x => x.FromOrderAmount)
             .WithMessage("Deposit amount cannot exceed the range start amount.")
             .PrecisionScale(12, 2, false)

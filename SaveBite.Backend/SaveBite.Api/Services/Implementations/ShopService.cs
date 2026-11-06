@@ -556,7 +556,7 @@ public sealed class ShopService : IShopService
         await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
             NotificationType.ShopStatusChanged, "Shop status updated",
             $"{shop.Name}: {currentStatus} → {targetStatus}." + (string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}"),
-            "/account/workspace", $"shop-status:{auditEntry.Id}"), ct);
+            "/store-owner/profile", $"shop-status:{auditEntry.Id}"), ct);
         await transaction.CommitAsync(ct);
 
         return new ModerationActionResponse

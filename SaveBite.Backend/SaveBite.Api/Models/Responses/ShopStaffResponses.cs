@@ -33,7 +33,8 @@ public sealed record StaffActivityLogResponse(
     Guid? OrderId,
     DateTime CreatedAt,
     string? ActorName = null,
-    string? ActorRole = null
+    string? ActorRole = null,
+    string? OrderCode = null
 );
 
 public sealed record StaffShopInfoResponse(

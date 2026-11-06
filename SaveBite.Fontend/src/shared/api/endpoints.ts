@@ -204,6 +204,7 @@ export const API_ENDPOINTS = {
     USERS: "/admin/analytics/users",
     SHOPS: "/admin/analytics/shops",
     REVENUE_ORDERS: "/admin/analytics/revenue-orders",
+    SHOP_REVENUE: "/admin/analytics/shop-revenue",
     FLASH_DEALS: "/admin/analytics/flash-deals",
     PAYMENTS_REFUNDS: "/admin/analytics/payments-refunds",
   },

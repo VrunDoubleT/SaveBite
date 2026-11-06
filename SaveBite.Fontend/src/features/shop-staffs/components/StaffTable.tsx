@@ -2,6 +2,7 @@ import { Eye, Pencil, Trash2, Users } from "lucide-react";
 
 import type { ShopStaff } from "../types/shopStaff.types";
 import { StaffStatusBadge } from "./StaffStatusBadge";
+import { formatStaffName } from "@/features/shop-staffs/utils/formatStaffName";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
@@ -64,11 +65,9 @@ export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
                       {getInitials(staff.displayName)}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-neutral-900">{staff.displayName}</p>
-
-                      {staff.staffNickname && (
-                        <p className="truncate text-xs text-neutral-400">{staff.staffNickname}</p>
-                      )}
+                      <p className="truncate font-medium text-neutral-900">
+                        {formatStaffName(staff.displayName, staff.staffNickname)}
+                      </p>
 
                       <p className="truncate text-sm text-neutral-500">{staff.userEmail}</p>
                     </div>

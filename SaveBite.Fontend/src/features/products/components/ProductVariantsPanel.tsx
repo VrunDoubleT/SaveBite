@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Pencil, Plus, X } from "lucide-react";
+import { MIN_AMOUNT_VND, MIN_AMOUNT_TEXT } from "@/shared/config/money";
 import { productApi } from "../api/productApi";
 import type { DraftAttribute, PriceMap, Product, ProductVariant } from "../types/product.types";
 import {
@@ -256,12 +257,12 @@ function EditVariantModal({
     const op = Number(originalPrice);
     const dp = Number(dealPrice);
 
-    if (isNaN(op) || op <= 0) {
-      setError("Original price must be greater than 0.");
+    if (isNaN(op) || !Number.isInteger(op) || op < MIN_AMOUNT_VND) {
+      setError(`Original price must be a whole amount of at least ${MIN_AMOUNT_TEXT} VND.`);
       return;
     }
-    if (isNaN(dp) || dp < 0) {
-      setError("Deal price must be greater than or equal to 0.");
+    if (isNaN(dp) || !Number.isInteger(dp) || dp < MIN_AMOUNT_VND) {
+      setError(`Deal price must be a whole amount of at least ${MIN_AMOUNT_TEXT} VND.`);
       return;
     }
     if (dp >= op) {
@@ -308,8 +309,8 @@ function EditVariantModal({
             Original price (VND) <span className="text-red-500">*</span>
             <input
               type="number"
-              step="any"
-              min="1"
+              step="1"
+              min={MIN_AMOUNT_VND}
               required
               className={inputClass}
               value={originalPrice}
@@ -323,8 +324,8 @@ function EditVariantModal({
             Deal price (VND) <span className="text-red-500">*</span>
             <input
               type="number"
-              step="any"
-              min="0"
+              step="1"
+              min={MIN_AMOUNT_VND}
               required
               className={inputClass}
               value={dealPrice}
@@ -332,7 +333,7 @@ function EditVariantModal({
             />
           </label>
           {Number(originalPrice) > 0 &&
-            Number(dealPrice) >= 0 &&
+            Number(dealPrice) >= MIN_AMOUNT_VND &&
             Number(dealPrice) < Number(originalPrice) && (
               <p className="mt-1 text-xs font-medium text-primary-600">
                 Discount:{" "}

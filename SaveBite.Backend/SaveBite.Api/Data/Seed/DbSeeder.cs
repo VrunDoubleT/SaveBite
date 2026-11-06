@@ -1120,7 +1120,7 @@ public static class DbSeeder
                 ShopId = Id(22),
                 ActionBy = Id(3),
                 OrderId = Id(50),
-                Action = OrderStatus.Completed,
+                Action = StaffActivityAction.Completed,
                 Note = "Xac nhan giao mon thanh cong.",
                 CreatedAt = now.AddDays(-10).AddMinutes(28)
             });
@@ -1876,7 +1876,7 @@ public static class DbSeeder
                 ShopId = Id(22),
                 ActionBy = Id(3),
                 OrderId = Id(51),
-                Action = OrderStatus.NoShow,
+                Action = StaffActivityAction.NoShow,
                 Note = "Danh dau khach khong den nhan mon.",
                 CreatedAt = now.AddDays(-8).AddHours(1)
             },
@@ -1886,7 +1886,7 @@ public static class DbSeeder
                 ShopId = Id(22),
                 ActionBy = Id(3),
                 OrderId = Id(52),
-                Action = OrderStatus.Completed,
+                Action = StaffActivityAction.Completed,
                 Note = "Don phuc hoi da hoan thanh.",
                 CreatedAt = now.AddDays(-3).AddMinutes(25)
             },
@@ -1896,7 +1896,7 @@ public static class DbSeeder
                 ShopId = Id(22),
                 ActionBy = Id(3),
                 OrderId = Id(140),
-                Action = OrderStatus.Completed,
+                Action = StaffActivityAction.Completed,
                 Note = "Khach den tre 7 phut.",
                 CreatedAt = orderAt.AddMinutes(42)
             });

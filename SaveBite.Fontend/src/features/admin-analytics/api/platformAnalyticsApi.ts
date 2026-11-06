@@ -7,6 +7,7 @@ import type {
   PlatformFlashDealStatistics,
   PlatformPaymentAndRefundStatistics,
   PlatformRevenueAndOrderStatistics,
+  PlatformShopRevenue,
   PlatformShopStatistics,
   PlatformUserStatistics,
 } from "../types/platformAnalytics.types";
@@ -48,6 +49,17 @@ export const platformAnalyticsApi = {
     const res = await httpClient.get<ApiResponse<PlatformRevenueAndOrderStatistics>>(
       API_ENDPOINTS.ADMIN_ANALYTICS.REVENUE_ORDERS,
       { params },
+    );
+    return res.data.data;
+  },
+
+  async getShopRevenue(
+    params?: AnalyticsPeriodQuery,
+    allTime = false,
+  ): Promise<PlatformShopRevenue> {
+    const res = await httpClient.get<ApiResponse<PlatformShopRevenue>>(
+      API_ENDPOINTS.ADMIN_ANALYTICS.SHOP_REVENUE,
+      { params: { ...params, allTime } },
     );
     return res.data.data;
   },

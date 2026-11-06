@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { MessageSquareText, RefreshCw } from "lucide-react";
-import { Button, Card, ErrorState } from "@/shared/components/ui";
+import { MessageSquareText } from "lucide-react";
+import { Card, ErrorState } from "@/shared/components/ui";
 import { shopApi } from "../api/shopApi";
 import type { StoreReviewsSummary } from "../types/shop.types";
 import { StoreReviewList } from "./StoreReviewList";
@@ -65,15 +65,6 @@ export function DealStoreReviews({
             What customers say about {shopName}. These reviews cover all products at this store.
           </p>
         </div>
-        <Button
-          variant="secondary"
-          className="min-h-11"
-          aria-label="Refresh reviews"
-          loading={isLoading}
-          onClick={() => setAttempt((value) => value + 1)}
-        >
-          {!isLoading && <RefreshCw className="size-4" aria-hidden="true" />}Refresh
-        </Button>
       </header>
       {!isLoading && result?.error ? (
         <ErrorState

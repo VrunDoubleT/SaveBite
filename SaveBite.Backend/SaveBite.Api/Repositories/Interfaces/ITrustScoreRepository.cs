@@ -20,6 +20,10 @@ public interface ITrustScoreRepository
     Task<PagedResult<TrustScoreHistory>> GetHistoryPagedAsync(
         Guid userId, GetTrustScoreHistoryRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>Level transitions (excluding the initial assignment) caused by the given orders.</summary>
+    Task<IReadOnlyList<UserTrustLevelHistory>> GetLevelChangesForOrdersAsync(
+        Guid userId, IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default);
+
     Task<PagedResult<NoShowPenalty>> GetPenaltiesPagedAsync(
         Guid userId, GetPenaltiesRequest request, CancellationToken cancellationToken = default);
 

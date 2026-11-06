@@ -35,9 +35,17 @@ public sealed class ProductVariantPriceRequestValidator : AbstractValidator<Prod
             .Must(x => x.Count <= ProductLimits.Attributes && x.Distinct().Count() == x.Count)
             .WithMessage("Variant value IDs must be unique and within the attribute limit.");
         RuleForEach(x => x.ValueIds).NotEmpty();
-        RuleFor(x => x.OriginalPrice).GreaterThan(0).PrecisionScale(12, 2, false);
-        RuleFor(x => x.DealPrice).GreaterThanOrEqualTo(0)
-            .LessThan(x => x.OriginalPrice).PrecisionScale(12, 2, false);
+        RuleFor(x => x.OriginalPrice)
+            .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
+            .WithMessage($"Original price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
+            .Must(MoneyLimits.IsWholeVnd).WithMessage("Original price must be a whole VND amount.")
+            .PrecisionScale(12, 2, false);
+        RuleFor(x => x.DealPrice)
+            .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
+            .WithMessage($"Deal price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
+            .Must(MoneyLimits.IsWholeVnd).WithMessage("Deal price must be a whole VND amount.")
+            .LessThan(x => x.OriginalPrice).WithMessage("Deal price must be less than original price.")
+            .PrecisionScale(12, 2, false);
     }
 }
 
@@ -157,11 +165,17 @@ public sealed class UpdateProductVariantRequestValidator : AbstractValidator<Upd
 {
     public UpdateProductVariantRequestValidator()
     {
-        RuleFor(x => x.OriginalPrice).GreaterThan(0).PrecisionScale(12, 2, false)
-            .WithMessage("Original price must be greater than 0.");
-        RuleFor(x => x.DealPrice).GreaterThanOrEqualTo(0)
-            .LessThan(x => x.OriginalPrice).PrecisionScale(12, 2, false)
-            .WithMessage("Deal price must be greater than or equal to 0 and less than original price.");
+        RuleFor(x => x.OriginalPrice)
+            .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
+            .WithMessage($"Original price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
+            .Must(MoneyLimits.IsWholeVnd).WithMessage("Original price must be a whole VND amount.")
+            .PrecisionScale(12, 2, false);
+        RuleFor(x => x.DealPrice)
+            .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
+            .WithMessage($"Deal price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
+            .Must(MoneyLimits.IsWholeVnd).WithMessage("Deal price must be a whole VND amount.")
+            .LessThan(x => x.OriginalPrice).WithMessage("Deal price must be less than original price.")
+            .PrecisionScale(12, 2, false);
     }
 }
 public sealed class UpdateProductStatusRequestValidator : AbstractValidator<UpdateProductStatusRequest>

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using SaveBite.Backend.Exceptions;
@@ -291,6 +292,7 @@ public sealed class FeedbackService : IFeedbackService
             };
 
             var created = await _feedbackRepo.CreateReplyAsync(reply, ct);
+            await AddReplyActivityLogAsync(userId, feedback, now, ct);
             await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
                 NotificationType.FeedbackReplied, "Your review has a reply",
                 $"{feedback.OrderItem.Order.Shop.Name} replied to your review of {feedback.Product.Name}.",
@@ -305,6 +307,51 @@ public sealed class FeedbackService : IFeedbackService
             );
 
         }, ct);
+    }
+
+    // FIX-42: record in the shop's staff activity log that a staff member replied to a customer review.
+    // Admins replying from the admin side are not shop members, so they are skipped.
+    private async Task AddReplyActivityLogAsync(Guid userId, ProductFeedback feedback, DateTime now, CancellationToken ct)
+    {
+        var shop = feedback.OrderItem.Order.Shop;
+
+        string role;
+        string name;
+        var staff = await _db.ShopStaffMembers.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.ShopId == shop.Id && m.UserId == userId && m.Status == ShopStaffStatus.Active, ct);
+        if (staff != null)
+        {
+            role = "Staff";
+            name = staff.DisplayName;
+        }
+        else if (shop.OwnerUserId == userId)
+        {
+            role = "StoreOwner";
+            name = string.Empty;
+        }
+        else
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            name = await _db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.FullName).FirstAsync(ct);
+        }
+
+        _db.StaffActivityLogs.Add(new StaffActivityLog
+        {
+            Id = Guid.NewGuid(),
+            ShopId = shop.Id,
+            ActionBy = userId,
+            OrderId = feedback.OrderItem.OrderId,
+            Action = StaffActivityAction.FeedbackReplied,
+            Note = $"Replied to a customer review of {feedback.Product.Name}.",
+            ActorNameSnapshot = name.Trim(),
+            ActorRoleSnapshot = role,
+            CreatedAt = now
+        });
+        await _db.SaveChangesAsync(ct);
     }
 
     // Edit Reply (Shop & Admin)

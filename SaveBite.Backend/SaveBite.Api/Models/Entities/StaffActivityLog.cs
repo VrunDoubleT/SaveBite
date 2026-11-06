@@ -9,7 +9,7 @@ public class StaffActivityLog
     public Guid ActionBy { get; set; }
     public Guid? OrderId { get; set; }
 
-    public OrderStatus Action { get; set; } = OrderStatus.Confirmed;
+    public StaffActivityAction Action { get; set; } = StaffActivityAction.Confirmed;
     public string? Note { get; set; }
     public string? ActorNameSnapshot { get; set; }
     public string? ActorRoleSnapshot { get; set; }

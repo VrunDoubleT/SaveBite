@@ -94,6 +94,38 @@ export function TrustHistoryPanel() {
                     {formatSignedPoints(item.scoreDelta)} points
                   </Badge>
                 </div>
+                {/* FIX-17: accumulated score before -> after this event */}
+                <div className="grid grid-cols-3 gap-2 rounded-lg bg-neutral-50 p-3 text-center">
+                  <div>
+                    <p className="text-caption text-text-secondary">Before</p>
+                    <p className="text-body font-semibold tabular-nums text-text-primary">
+                      {item.scoreBefore}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-caption text-text-secondary">Change</p>
+                    <p
+                      className={`text-body font-semibold tabular-nums ${
+                        item.scoreDelta >= 0 ? "text-primary-700" : "text-red-700"
+                      }`}
+                    >
+                      {formatSignedPoints(item.scoreDelta)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-caption text-text-secondary">After</p>
+                    <p className="text-body font-semibold tabular-nums text-text-primary">
+                      {item.scoreAfter}
+                    </p>
+                  </div>
+                </div>
+                {item.previousLevelName && item.newLevelName && (
+                  <p className="text-caption text-text-secondary">
+                    Level changed:{" "}
+                    <strong className="text-text-primary">{item.previousLevelName}</strong> →{" "}
+                    <strong className="text-text-primary">{item.newLevelName}</strong>
+                  </p>
+                )}
                 {item.reason && (
                   <p className="text-body text-text-secondary [overflow-wrap:anywhere]">
                     {item.reason}
@@ -115,13 +147,6 @@ export function TrustHistoryPanel() {
                     ) : (
                       (item.orderCode ?? "—")
                     )}
-                  </p>
-                  <p>
-                    Score{" "}
-                    <span className="tabular-nums">
-                      {item.scoreBefore} →{" "}
-                      <strong className="text-text-primary">{item.scoreAfter}</strong>
-                    </span>
                   </p>
                 </div>
               </Card>
