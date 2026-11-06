@@ -11,7 +11,7 @@ public interface IShopStaffService
     Task UpdateStaffInfoAsync(Guid currentUserId, Guid staffId, UpdateStaffInfoRequest request, CancellationToken cancellationToken = default);
 
     Task RemoveStaffAsync(Guid currentUserId, Guid staffId, CancellationToken cancellationToken = default);
-    Task<PagedResult<StaffActivityLogResponse>> GetStaffActivityLogsAsync(Guid currentUserId, Guid staffId, int page, int pageSize, CancellationToken cancellationToken = default);
+    Task<PagedResult<StaffActivityLogResponse>> GetStaffActivityLogsAsync(Guid currentUserId, Guid staffId, int page, int pageSize, DateOnly? fromDate, DateOnly? toDate, CancellationToken cancellationToken = default);
     Task<IEnumerable<AssociatedShopResponse>> GetAssociatedShopsAsync(Guid currentUserId, CancellationToken cancellationToken = default);
     Task<StaffShopInfoResponse> GetShopAndStaffInfoAsync(Guid currentUserId, Guid shopId, CancellationToken cancellationToken = default);
    

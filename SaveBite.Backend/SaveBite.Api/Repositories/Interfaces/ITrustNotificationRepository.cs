@@ -3,7 +3,7 @@ namespace SaveBite.Backend.Repositories.Interfaces;
 
 public interface ITrustNotificationRepository
 {
-    Task<List<TrustScoreHistory>> ScoreChangesAsync(Guid orderId, CancellationToken ct);
+    Task<List<TrustProgressHistory>> ScoreChangesAsync(Guid orderId, CancellationToken ct);
     Task<List<NoShowPenalty>> PenaltiesAsync(Guid orderId, CancellationToken ct);
     Task<List<UserTrustLevelHistory>> LevelChangesAsync(Guid orderId, CancellationToken ct);
 }

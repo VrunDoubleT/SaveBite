@@ -16,4 +16,6 @@ export const REALTIME_EVENTS = {
   NOTIFICATION_RECEIVED: "notification.received",
   NOTIFICATION_READ: "notification.read",
   NOTIFICATION_DELETED: "notification.deleted",
+  // Admin changed the shop status (Active / Paused / Suspended); sent to the shop owner.
+  SHOP_STATUS_CHANGED: "shop.status.changed",
 } as const;

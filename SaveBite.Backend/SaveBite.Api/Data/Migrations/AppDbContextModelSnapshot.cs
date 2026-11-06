@@ -3466,7 +3466,7 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("trust_order_processing", (string)null);
                 });
 
-            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustScoreHistory", b =>
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustProgressHistory", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -3516,6 +3516,27 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<decimal>("ValueAfter")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("value_after");
+
+                    b.Property<decimal>("ValueBefore")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("value_before");
+
+                    b.Property<decimal>("ValueDelta")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("value_delta");
+
                     b.HasKey("Id");
 
                     b.HasIndex("NoShowPenaltyId");
@@ -3526,7 +3547,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("trust_score_history", (string)null);
+                    b.ToTable("trust_progress_history", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustScoreRule", b =>
@@ -4855,15 +4876,15 @@ namespace SaveBite.Backend.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustScoreHistory", b =>
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustProgressHistory", b =>
                 {
                     b.HasOne("SaveBite.Backend.Models.Entities.NoShowPenalty", "NoShowPenalty")
-                        .WithMany("TrustScoreHistories")
+                        .WithMany("TrustProgressHistories")
                         .HasForeignKey("NoShowPenaltyId")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SaveBite.Backend.Models.Entities.Order", "Order")
-                        .WithMany("TrustScoreHistories")
+                        .WithMany("TrustProgressHistories")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.NoAction);
 
@@ -4873,7 +4894,7 @@ namespace SaveBite.Backend.Data.Migrations
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SaveBite.Backend.Models.Entities.User", "User")
-                        .WithMany("TrustScoreHistories")
+                        .WithMany("TrustProgressHistories")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
@@ -5017,7 +5038,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.Navigation("TrustLevelHistories");
 
-                    b.Navigation("TrustScoreHistories");
+                    b.Navigation("TrustProgressHistories");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Order", b =>
@@ -5040,7 +5061,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.Navigation("TrustLevelHistories");
 
-                    b.Navigation("TrustScoreHistories");
+                    b.Navigation("TrustProgressHistories");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.OrderItem", b =>
@@ -5255,7 +5276,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.Navigation("TrustScore");
 
-                    b.Navigation("TrustScoreHistories");
+                    b.Navigation("TrustProgressHistories");
 
                     b.Navigation("UploadedRefundEvidenceImages");
 

@@ -58,7 +58,7 @@ public class RefundRepository : IRefundRepository
     public Task<TrustOrderProcessing?> ProcessingAsync(Guid orderId, CancellationToken ct)
         => _db.Set<TrustOrderProcessing>().SingleOrDefaultAsync(x => x.OrderId == orderId, ct);
     public Task<bool> LegacyCreditAsync(Guid orderId, CancellationToken ct)
-        => _db.TrustScoreHistories.AnyAsync(x => x.OrderId == orderId && x.EventType == TrustScoreEventType.OrderCompleted, ct);
+        => _db.TrustProgressHistories.AnyAsync(x => x.OrderId == orderId && x.EventType == TrustScoreEventType.OrderCompleted, ct);
     public Task<OrderPlatformFee?> FeeAsync(Guid orderId, CancellationToken ct)
         => _db.Set<OrderPlatformFee>().Include(x => x.Adjustments).SingleOrDefaultAsync(x => x.OrderId == orderId, ct);
     public void Add<T>(T entity) where T : class => _db.Set<T>().Add(entity);

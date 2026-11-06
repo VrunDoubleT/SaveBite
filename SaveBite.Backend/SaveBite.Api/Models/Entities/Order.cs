@@ -65,7 +65,7 @@ public class Order
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
     public ICollection<Refund> Refunds { get; set; } = new List<Refund>();
     public ICollection<StaffActivityLog> StaffActivityLogs { get; set; } = new List<StaffActivityLog>();
-    public ICollection<TrustScoreHistory> TrustScoreHistories { get; set; } = new List<TrustScoreHistory>();
+    public ICollection<TrustProgressHistory> TrustProgressHistories { get; set; } = new List<TrustProgressHistory>();
     public ICollection<UserTrustLevelHistory> TrustLevelHistories { get; set; } = new List<UserTrustLevelHistory>();
 
     public NoShowPenalty? NoShowPenalty { get; set; }

@@ -231,6 +231,8 @@ public class ShopStaffRepository(AppDbContext context)
             Guid staffUserId,
             int page,
             int pageSize,
+            DateTime? fromUtc,
+            DateTime? toUtcExclusive,
             CancellationToken cancellationToken = default)
     {
         var query =
@@ -243,6 +245,16 @@ public class ShopStaffRepository(AppDbContext context)
                     && l.ActionBy ==
                         staffUserId
                 );
+
+        if (fromUtc.HasValue)
+        {
+            query = query.Where(l => l.CreatedAt >= fromUtc.Value);
+        }
+
+        if (toUtcExclusive.HasValue)
+        {
+            query = query.Where(l => l.CreatedAt < toUtcExclusive.Value);
+        }
 
         var totalItems =
             await query.CountAsync(

@@ -68,7 +68,7 @@ public class AppDbContext : DbContext
     public DbSet<TrustLevelDepositPolicy> TrustLevelDepositPolicies => Set<TrustLevelDepositPolicy>();
     public DbSet<TrustLevelDepositRange> TrustLevelDepositRanges => Set<TrustLevelDepositRange>();
     public DbSet<TrustLevelRequirement> TrustLevelRequirements => Set<TrustLevelRequirement>();
-    public DbSet<TrustScoreHistory> TrustScoreHistories => Set<TrustScoreHistory>();
+    public DbSet<TrustProgressHistory> TrustProgressHistories => Set<TrustProgressHistory>();
     public DbSet<TrustScoreRule> TrustScoreRules => Set<TrustScoreRule>();
     public DbSet<UserLevelProgress> UserLevelProgresses => Set<UserLevelProgress>();
     public DbSet<UserTrustLevelHistory> UserTrustLevelHistories => Set<UserTrustLevelHistory>();

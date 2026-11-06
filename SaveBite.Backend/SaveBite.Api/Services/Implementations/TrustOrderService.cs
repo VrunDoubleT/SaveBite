@@ -57,7 +57,8 @@ public sealed class TrustOrderService : ITrustOrderService
                         Status = NoShowPenaltyStatus.Recovering, CreatedAt = at };
                     _repository.Add(penalty);
                     score.IsOfflineLockedPermanently |= rule.PermanentOfflineLock;
-                    ChangeScore(score, order, -penalty.ScoreDeducted, null, penalty.Id, TrustScoreEventType.NoShow, at);
+                    ChangeScore(score, order, -penalty.ScoreDeducted, null, penalty.Id, TrustScoreEventType.NoShow, at,
+                        progress.AccumulatedOrderValue, 0m);
                 }
             }
             // Reconcile eligible historical completions too, so delayed NoShow events do not lose recovery progress.
@@ -88,12 +89,15 @@ public sealed class TrustOrderService : ITrustOrderService
                 progress.CompletedOrdersCount = checked(progress.CompletedOrdersCount + 1);
                 // A transfer can precede delayed completion delivery; refunded orders never earn accumulated value.
                 creditedValue = Math.Max(0, order.TotalAmount - order.RefundedAmount);
+                var valueBefore = progress.AccumulatedOrderValue;
                 progress.AccumulatedOrderValue += creditedValue;
                 progress.UpdatedAt = now;
                 var type = order.PaymentMethod == PaymentMethod.OnlinePayment
                     ? TrustScoreRuleType.OnlineOrderCompleted : TrustScoreRuleType.PayAtShopOrderCompleted;
                 var rule = await _repository.EarningAsync(type, at, ct);
-                if (rule != null) ChangeScore(score, order, rule.ScoreDelta, rule.Id, null, TrustScoreEventType.OrderCompleted, at);
+                // Always write one ledger row: even without an active score rule the accumulated money still changed.
+                ChangeScore(score, order, rule?.ScoreDelta ?? 0, rule?.Id, null, TrustScoreEventType.OrderCompleted, at,
+                    valueBefore, creditedValue);
             }
             // Retain accumulated totals and choose the highest active level meeting all three requirements.
             // A NoShow with no applicable penalty rule has no trust/level consequence.
@@ -121,7 +125,8 @@ public sealed class TrustOrderService : ITrustOrderService
 
     // Save the actual clamped delta and immutable source order/rule links for audit and support.
     // Save the actual clamped delta and immutable source order/rule links for audit and support.
-    private void ChangeScore(UserTrustScore score, Order order, int delta, Guid? ruleId, Guid? penaltyId, TrustScoreEventType type, DateTime at, NoShowPenalty? penalty = null)
+    private void ChangeScore(UserTrustScore score, Order order, int delta, Guid? ruleId, Guid? penaltyId, TrustScoreEventType type, DateTime at,
+        decimal valueBefore, decimal valueDelta, NoShowPenalty? penalty = null)
     {
         var before = score.CurrentScore;
         score.CurrentScore = checked((int)Math.Max(0L, (long)before + delta));
@@ -131,9 +136,10 @@ public sealed class TrustOrderService : ITrustOrderService
                 : $"No-show penalty on order {order.OrderCode}.")
             : $"Completed {order.PaymentMethod} order {order.OrderCode}.";
 
-        _repository.Add(new TrustScoreHistory { Id = Guid.NewGuid(), UserId = score.UserId, OrderId = order.Id,
+        _repository.Add(new TrustProgressHistory { Id = Guid.NewGuid(), UserId = score.UserId, OrderId = order.Id,
             RuleId = ruleId, NoShowPenaltyId = penaltyId, EventType = type, ScoreBefore = before,
             ScoreDelta = score.CurrentScore - before, ScoreAfter = score.CurrentScore,
+            ValueBefore = valueBefore, ValueDelta = valueDelta, ValueAfter = valueBefore + valueDelta,
             Reason = reason, CreatedAt = at });
     }
     // Link level transitions to their source order and penalty without resetting earned totals.

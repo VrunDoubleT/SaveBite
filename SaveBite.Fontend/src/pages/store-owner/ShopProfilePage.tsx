@@ -5,6 +5,8 @@ import { ShopProfileHeader } from "@/features/shops/components/ShopProfileHeader
 import { ShopProfileDetails } from "@/features/shops/components/ShopProfileDetails";
 import { ShopBusinessInfoForm } from "@/features/shops/components/ShopBusinessInfoForm";
 import type { OwnerShop, UpdateBusinessInfo } from "@/features/shops/types/ownerShop.types";
+import { subscribeShopStatusEvents } from "@/features/shops/realtime/subscribeShopStatusEvents";
+import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
@@ -15,9 +17,11 @@ export function ShopProfilePage() {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const realtime = useRealtimeSubscriptions();
 
-  const loadProfile = useCallback(async () => {
-    setLoading(true);
+  // Reloads the profile on demand: after a realtime status change, on "Try again",
+  // and after saving. It is intentionally not called directly inside a useEffect.
+  const reloadProfile = useCallback(async () => {
     try {
       setShop(await ownerShopApi.getMyShopProfile());
     } catch (error) {
@@ -27,9 +31,33 @@ export function ShopProfilePage() {
     }
   }, []);
 
+  // Initial load: setState is only called inside promise callbacks,
+  // so the react-hooks/set-state-in-effect rule is satisfied.
   useEffect(() => {
-    void loadProfile();
-  }, [loadProfile]);
+    let cancelled = false;
+    ownerShopApi
+      .getMyShopProfile()
+      .then((data) => {
+        if (!cancelled) setShop(data);
+      })
+      .catch((error) => {
+        if (!cancelled)
+          toast.error(getApiErrorMessage(error) || "Unable to load your shop profile.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true; // Ignore the result if the component unmounts mid-request.
+    };
+  }, []);
+
+  // SignalR: when an admin locks/unlocks the shop, silently reload the profile
+  // so the status and reason update immediately without a page refresh.
+  useEffect(
+    () => subscribeShopStatusEvents(realtime, () => void reloadProfile()),
+    [realtime, reloadProfile],
+  );
 
   async function saveBusinessInfo(
     input: UpdateBusinessInfo,
@@ -41,7 +69,7 @@ export function ShopProfilePage() {
     try {
       await ownerShopApi.updateBusinessInfo(input);
       if (logo || coverImage) await ownerShopApi.updateImages({ logo, coverImage });
-      await loadProfile();
+      await reloadProfile();
       setIsEditing(false);
       toast.success("Shop profile updated successfully.");
     } catch (error) {
@@ -67,7 +95,10 @@ export function ShopProfilePage() {
           We couldn't load the shop associated with your account.
         </p>
         <button
-          onClick={() => void loadProfile()}
+          onClick={() => {
+            setLoading(true);
+            void reloadProfile();
+          }}
           className="mt-5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
         >
           Try again

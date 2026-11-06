@@ -10,7 +10,10 @@ import type {
 } from "@/features/shop-staffs/types/shopStaff.types";
 
 import { StaffStatusBadge } from "@/features/shop-staffs/components/StaffStatusBadge";
-import { StaffActivityLog } from "@/features/shop-staffs/components/StaffActivityLog";
+import {
+  ACTIVITY_PAGE_SIZE,
+  StaffActivityLog,
+} from "@/features/shop-staffs/components/StaffActivityLog";
 
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
@@ -33,20 +36,39 @@ export function StaffDetailPage() {
   const [staff] = useState<ShopStaff | null>(passedStaff ?? null);
 
   const [logs, setLogs] = useState<StaffActivityLogType[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  // No staffId don't need loading
+  // Date filter (yyyy-MM-dd) + current page; any change refetches from the server.
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [page, setPage] = useState(1);
+
+  // First load shows the page skeleton; later filter/page changes only dim the activity list.
   const [loading, setLoading] = useState(Boolean(staffId));
+  const [logsLoading, setLogsLoading] = useState(false);
 
   useEffect(() => {
     if (!staffId) return;
+    // Do not call the API while the range is invalid (from > to); the filter shows the error.
+    if (fromDate && toDate && fromDate > toDate) return;
 
     let cancelled = false;
 
     async function loadActivityLogs(id: string) {
+      setLogsLoading(true);
       try {
-        const activityLogs = await shopStaffApi.getStaffActivityLogs(id);
+        const result = await shopStaffApi.getStaffActivityLogs(id, {
+          page,
+          pageSize: ACTIVITY_PAGE_SIZE,
+          fromDate: fromDate || undefined,
+          toDate: toDate || undefined,
+        });
 
-        if (!cancelled) setLogs(activityLogs);
+        if (cancelled) return;
+        setLogs(result.items);
+        setTotalItems(result.totalItems);
+        setTotalPages(Math.max(result.totalPages, 1));
       } catch (error) {
         if (cancelled) return;
 
@@ -55,8 +77,13 @@ export function StaffDetailPage() {
         toast.error(getApiErrorMessage(error) || "Unable to load staff activity logs.");
 
         setLogs([]);
+        setTotalItems(0);
+        setTotalPages(1);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setLogsLoading(false);
+        }
       }
     }
 
@@ -65,7 +92,24 @@ export function StaffDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [staffId]);
+  }, [staffId, fromDate, toDate, page]);
+
+  // Changing a filter always goes back to the first page.
+  function handleFromDateChange(value: string) {
+    setFromDate(value);
+    setPage(1);
+  }
+
+  function handleToDateChange(value: string) {
+    setToDate(value);
+    setPage(1);
+  }
+
+  function handleClearFilters() {
+    setFromDate("");
+    setToDate("");
+    setPage(1);
+  }
 
   if (loading) {
     return (
@@ -161,7 +205,19 @@ export function StaffDetailPage() {
       </section>
 
       {/* Activity */}
-      <StaffActivityLog logs={logs} />
+      <StaffActivityLog
+        logs={logs}
+        loading={logsLoading}
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={handleFromDateChange}
+        onToDateChange={handleToDateChange}
+        onClearFilters={handleClearFilters}
+        page={page}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

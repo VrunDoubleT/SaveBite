@@ -1,3 +1,4 @@
+using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.Common;
@@ -208,12 +209,27 @@ public class ShopStaffService(
             Guid staffId,
             int page,
             int pageSize,
+            DateOnly? fromDate,
+            DateOnly? toDate,
             CancellationToken cancellationToken = default)
     {
         NormalizePagination(
             ref page,
             ref pageSize
         );
+
+        if (fromDate.HasValue && toDate.HasValue && fromDate > toDate)
+        {
+            throw AppException.BadRequest("From date must not be after to date.");
+        }
+
+        // Dates are Vietnam calendar days: [from 00:00, day after "to" 00:00) converted to UTC.
+        DateTime? fromUtc = fromDate.HasValue
+            ? OrderBusinessDate.StartOfDayUtc(fromDate.Value)
+            : null;
+        DateTime? toUtcExclusive = toDate.HasValue
+            ? OrderBusinessDate.StartOfDayUtc(toDate.Value.AddDays(1))
+            : null;
 
         var shop = await GetOwnerShopEntityAsync(
             currentUserId,
@@ -242,6 +258,8 @@ public class ShopStaffService(
                 staff.UserId,
                 page,
                 pageSize,
+                fromUtc,
+                toUtcExclusive,
                 cancellationToken
             );
 

@@ -90,7 +90,10 @@ public sealed record TrustScoreHistoryItemResponse(
     string? OrderCode,
     DateTime CreatedAt,
     string? PreviousLevelName = null,
-    string? NewLevelName = null);
+    string? NewLevelName = null,
+    decimal ValueBefore = 0m,
+    decimal ValueDelta = 0m,
+    decimal ValueAfter = 0m);
 
 // ---------------------------------------------------------------------
 // Customer: UC-48 / UC-49 (BR-054: includes Reason)

@@ -1345,7 +1345,7 @@ public static class DbSeeder
                 CreatedAt = now.AddDays(-8).AddHours(1),
                 RecoveredAt = now.AddDays(-3).AddMinutes(25)
             },
-            new TrustScoreHistory
+            new TrustProgressHistory
             {
                 Id = Id(103),
                 UserId = Id(4),
@@ -1356,10 +1356,13 @@ public static class DbSeeder
                 ScoreBefore = 100,
                 ScoreDelta = -20,
                 ScoreAfter = 80,
+                ValueBefore = 70000m,
+                ValueDelta = 0m,
+                ValueAfter = 70000m,
                 Reason = $"No-show #1 in {now.AddDays(-8):MM/yyyy} on order SB-SEED-0002.",
                 CreatedAt = now.AddDays(-8).AddHours(1)
             },
-            new TrustScoreHistory
+            new TrustProgressHistory
             {
                 Id = Id(104),
                 UserId = Id(4),
@@ -1369,6 +1372,9 @@ public static class DbSeeder
                 ScoreBefore = 80,
                 ScoreDelta = 5,
                 ScoreAfter = 85,
+                ValueBefore = 70000m,
+                ValueDelta = 35000m,
+                ValueAfter = 105000m,
                 Reason = "Completed OnlinePayment order SB-SEED-0003.",
                 CreatedAt = now.AddDays(-3).AddMinutes(25)
             });
@@ -2067,7 +2073,7 @@ public static class DbSeeder
                 CreatedAt = now.AddDays(-9).AddHours(1)
             });
 
-        var noShowHistory = await db.TrustScoreHistories.FindAsync(Id(103));
+        var noShowHistory = await db.TrustProgressHistories.FindAsync(Id(103));
         if (noShowHistory is not null) noShowHistory.NoShowPenaltyId = Id(97);
 
         var penaltyLevelHistory = await db.UserTrustLevelHistories.FindAsync(Id(106));

@@ -26,6 +26,7 @@ public sealed class ShopService : IShopService
     private readonly IAdminAuditWriter _audit;
     private readonly IShopSuspensionCleanupService _suspensionCleanup;
     private readonly IShopStatusEventService _shopStatusEvents;
+    private readonly IRealtimePublisher _realtime;
 
     public ShopService(
         IShopRepository shopRepository,
@@ -35,7 +36,9 @@ public sealed class ShopService : IShopService
         INotificationQueue notifications, AppDbContext db,
         IShopSuspensionCleanupService suspensionCleanup,
         IShopStatusEventService shopStatusEvents)
+        IRealtimePublisher realtime)
     {
+        _realtime = realtime;
         _db = db;
         _notifications = notifications;
         _shopRepository = shopRepository;
@@ -573,6 +576,15 @@ public sealed class ShopService : IShopService
             await _shopStatusEvents.NotifyChangedAsync(shopId, targetStatus.ToString(), ct);
         if (targetStatus == ShopStatus.Suspended)
             await _suspensionCleanup.CleanupAsync(shopId, ct);
+        // Realtime: tell the shop owner's open tabs to reload the shop (status / reason) without a page refresh.
+        // Sent only after the commit so the client always reads the new status; failures are swallowed by the publisher.
+        await _realtime.SendToUserAsync(shop.OwnerUserId, "shop.status.changed", new
+        {
+            shopId,
+            previousStatus = currentStatus.ToString(),
+            status = targetStatus.ToString(),
+            reason
+        });
 
         return new ModerationActionResponse
         {

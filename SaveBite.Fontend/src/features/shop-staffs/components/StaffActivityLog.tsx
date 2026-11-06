@@ -1,11 +1,33 @@
 import { Link } from "react-router-dom";
-import { Clock, MessageSquare, Package } from "lucide-react";
+import { Clock, MessageSquare, Package, X } from "lucide-react";
 import type { StaffActivityLog as StaffActivityLogType } from "@/features/shop-staffs/types/shopStaff.types";
-import { Pagination, usePagination } from "@/shared/components/pagination";
+import { Pagination } from "@/shared/components/pagination";
+
+export const ACTIVITY_PAGE_SIZE = 8;
 
 interface StaffActivityLogProps {
   logs: StaffActivityLogType[];
+  /** True while a page is being fetched (the filter bar stays mounted). */
   loading?: boolean;
+  /** Date filter (yyyy-MM-dd, "" = not set). */
+  fromDate: string;
+  toDate: string;
+  onFromDateChange: (value: string) => void;
+  onToDateChange: (value: string) => void;
+  onClearFilters: () => void;
+  /** Server-side pagination. */
+  page: number;
+  totalPages: number;
+  totalItems: number;
+  onPageChange: (page: number) => void;
+}
+
+// Local calendar date as yyyy-MM-dd, used to stop the user from picking a future day.
+function todayInputValue() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 function formatDateTime(value: string) {
@@ -40,38 +62,22 @@ function OrderLink({ orderId, orderCode }: { orderId: string; orderCode?: string
   );
 }
 
-export function StaffActivityLog({ logs, loading = false }: StaffActivityLogProps) {
-  const {
-    currentPage,
-    setCurrentPage,
-    totalPages,
-    paginatedItems: paginatedLogs,
-    totalItems,
-  } = usePagination({
-    items: logs,
-    initialPageSize: 8,
-  });
-
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-neutral-200 bg-white shadow-2xs p-6">
-        <div className="h-5 w-40 animate-pulse rounded bg-gray-100" />
-
-        <div className="mt-6 space-y-5">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="flex gap-4">
-              <div className="h-9 w-9 animate-pulse rounded-full bg-gray-100" />
-
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-48 animate-pulse rounded bg-gray-100" />
-                <div className="h-3 w-32 animate-pulse rounded bg-gray-100" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+export function StaffActivityLog({
+  logs,
+  loading = false,
+  fromDate,
+  toDate,
+  onFromDateChange,
+  onToDateChange,
+  onClearFilters,
+  page,
+  totalPages,
+  totalItems,
+  onPageChange,
+}: StaffActivityLogProps) {
+  const today = todayInputValue();
+  const hasFilter = Boolean(fromDate || toDate);
+  const rangeInvalid = Boolean(fromDate && toDate && fromDate > toDate);
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white shadow-2xs">
@@ -83,22 +89,84 @@ export function StaffActivityLog({ logs, loading = false }: StaffActivityLogProp
         </div>
 
         <p className="mt-1 text-sm text-gray-500">Recent activities of this staff member.</p>
+
+        {/* Date filter */}
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
+            From date
+            <input
+              type="date"
+              value={fromDate}
+              max={toDate || today}
+              onChange={(e) => onFromDateChange(e.target.value)}
+              aria-invalid={rangeInvalid}
+              className="rounded-md border border-neutral-200 bg-white px-2.5 py-2 text-sm text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
+            To date
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              max={today}
+              onChange={(e) => onToDateChange(e.target.value)}
+              aria-invalid={rangeInvalid}
+              className="rounded-md border border-neutral-200 bg-white px-2.5 py-2 text-sm text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            />
+          </label>
+
+          {hasFilter && (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+            >
+              <X size={14} />
+              Clear filter
+            </button>
+          )}
+        </div>
+
+        {rangeInvalid && (
+          <p role="alert" className="mt-2 text-sm text-red-600">
+            The start date must be on or before the end date.
+          </p>
+        )}
       </div>
 
-      {logs.length === 0 ? (
+      {loading ? (
+        <div className="space-y-5 px-6 py-5" aria-busy="true">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="flex gap-4">
+              <div className="h-9 w-9 animate-pulse rounded-full bg-gray-100" />
+
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-48 animate-pulse rounded bg-gray-100" />
+                <div className="h-3 w-32 animate-pulse rounded bg-gray-100" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : logs.length === 0 ? (
         <div className="px-6 py-10 text-center">
           <Clock size={28} className="mx-auto text-gray-300" />
 
-          <p className="mt-3 text-sm font-medium text-gray-700">No activity yet</p>
+          <p className="mt-3 text-sm font-medium text-gray-700">
+            {hasFilter ? "No activity in this period" : "No activity yet"}
+          </p>
 
           <p className="mt-1 text-sm text-gray-400">
-            There are no recorded activities for this staff member.
+            {hasFilter
+              ? "Try a different date range or clear the filter."
+              : "There are no recorded activities for this staff member."}
           </p>
         </div>
       ) : (
         <div className="space-y-6 px-6 py-5">
           <div className="space-y-6">
-            {paginatedLogs.map((log) => (
+            {logs.map((log) => (
               <div key={log.id} className="relative flex gap-4">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
                   {log.action === "FeedbackReplied" ? <MessageSquare size={16} /> : <Clock size={16} />}
@@ -128,12 +196,12 @@ export function StaffActivityLog({ logs, loading = false }: StaffActivityLogProp
           {totalPages > 1 && (
             <div className="border-t border-gray-100 pt-4">
               <Pagination
-                currentPage={currentPage}
+                currentPage={page}
                 totalPages={totalPages}
                 totalItems={totalItems}
-                pageSize={8}
+                pageSize={ACTIVITY_PAGE_SIZE}
                 itemLabel="activities"
-                onPageChange={setCurrentPage}
+                onPageChange={onPageChange}
               />
             </div>
           )}

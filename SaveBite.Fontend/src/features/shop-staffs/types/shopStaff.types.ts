@@ -29,6 +29,24 @@ export interface StaffActivityLog {
   createdAt: string;
 }
 
+// Query + result of one server-side page of a staff member's activity history.
+export interface StaffActivityLogQuery {
+  page: number;
+  pageSize: number;
+  /** yyyy-MM-dd (inclusive) */
+  fromDate?: string;
+  /** yyyy-MM-dd (inclusive) */
+  toDate?: string;
+}
+
+export interface StaffActivityLogPage {
+  items: StaffActivityLog[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
 export interface UpdateStaffInfoInput {
   displayName: string;
   staffNickname: string | null;
