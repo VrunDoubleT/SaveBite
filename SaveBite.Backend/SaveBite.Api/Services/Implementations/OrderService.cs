@@ -69,7 +69,7 @@ public sealed class OrderService : IOrderService
     // Read the customer's recorded order without locks, provider calls or state changes.
     public async Task<CheckoutOrderResponse> GetAsync(Guid userId, Guid orderId, CancellationToken ct = default)
     {
-        var order = await _repository.GetOrderAsync(orderId, userId, ct)
+        var order = await _repository.GetOrderForHistoryAsync(orderId, userId, ct)
             ?? throw AppException.NotFound("Order not found.");
         return CheckoutOrderMapper.Map(order, now: Now);
     }

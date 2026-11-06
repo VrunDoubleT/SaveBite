@@ -98,9 +98,6 @@ public sealed class ShopApplicationRepository : IShopApplicationRepository
         shop.PaymentConfig = new ShopPaymentConfig
         {
             ShopId = shop.Id,
-            BankName = application.BankName,
-            BankAccountNumber = application.BankAccountNumber,
-            BankAccountHolder = application.BankAccountHolder,
             PayosClientId = application.PayosClientId,
             PayosApiKey = application.PayosApiKey,
             PayosChecksumKey = application.PayosChecksumKey,

@@ -91,9 +91,6 @@ public sealed class ShopApplicationService : IShopApplicationService
             Longitude = request.Longitude,
             OpeningTime = request.OpeningTime,
             ClosingTime = request.ClosingTime,
-            BankName = request.BankName.Trim(),
-            BankAccountNumber = request.BankAccountNumber.Trim(),
-            BankAccountHolder = request.BankAccountHolder.Trim(),
             PayosClientId = request.PayosClientId.Trim(),
             PayosApiKey = request.PayosApiKey.Trim(),
             PayosChecksumKey = request.PayosChecksumKey.Trim(),
@@ -159,9 +156,6 @@ public sealed class ShopApplicationService : IShopApplicationService
         application.Longitude = request.Longitude;
         application.OpeningTime = request.OpeningTime;
         application.ClosingTime = request.ClosingTime;
-        application.BankName = request.BankName.Trim();
-        application.BankAccountNumber = request.BankAccountNumber.Trim();
-        application.BankAccountHolder = request.BankAccountHolder.Trim();
 
         // Keep existing PayOS credentials when no replacement is provided.
         if (!string.IsNullOrWhiteSpace(request.PayosClientId))
@@ -336,9 +330,6 @@ public sealed class ShopApplicationService : IShopApplicationService
         x.RevisionNumber,
         x.CreatedAt,
         x.UpdatedAt,
-        x.BankName,
-        x.BankAccountNumber,
-        x.BankAccountHolder,
         !string.IsNullOrWhiteSpace(x.PayosClientId),
         x.Documents
             .Where(d => includeAllDocuments || d.IsCurrent)

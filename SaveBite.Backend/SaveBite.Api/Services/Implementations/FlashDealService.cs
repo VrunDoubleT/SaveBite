@@ -901,7 +901,10 @@ public sealed class FlashDealService : IFlashDealService
 
     private async Task<Shop> GetShopOrThrowAsync(Guid userId, CancellationToken cancellationToken)
     {
-        return await _shopRepository.GetShopByOwnerUserIdAsync(userId, cancellationToken)
+        var shop = await _shopRepository.GetShopByOwnerUserIdAsync(userId, cancellationToken)
             ?? throw AppException.Forbidden("You do not own any shop.");
+        if (shop.Status != ShopStatus.Active)
+            throw AppException.Forbidden("This shop is not active. Flash deal changes are unavailable.");
+        return shop;
     }
 }

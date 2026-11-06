@@ -18,7 +18,7 @@ public sealed class ShopApplicationController : ControllerBase
     public ShopApplicationController(IShopApplicationService service) => _service = service;
 
     [HttpGet("me/latest")]
-    [CustomerAccess]
+    [CustomerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<ShopApplicationResponse>>> GetMyShopApplication(CancellationToken cancellationToken)
     {
         var application = await _service.GetMyApplicationAsync(GetAuthenticatedUserId(), cancellationToken);
@@ -27,7 +27,7 @@ public sealed class ShopApplicationController : ControllerBase
     }
 
     [HttpGet("me")]
-    [CustomerAccess]
+    [CustomerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<ShopApplicationResponse>>>> GetMyShopApplicationHistory(CancellationToken cancellationToken)
     {
         var applications = await _service.GetMyApplicationHistoryAsync(GetAuthenticatedUserId(), cancellationToken);

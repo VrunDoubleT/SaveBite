@@ -27,13 +27,13 @@ public sealed class PaymentsController : ControllerBase
 
     // List only the active customer's own payment records with numbered pagination and an optional status filter.
     [HttpGet]
-    [CustomerAccess]
+    [CustomerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<PagedResult<CustomerPaymentResponse>>>> Get(int page = 1, int pageSize = 10, string? status = null, CancellationToken ct = default)
         => Ok(ApiResponse<PagedResult<CustomerPaymentResponse>>.Ok(await _history.PageAsync(UserId(), page, pageSize, status, ct)));
 
     // Return one owned payment together with its order, purchased products and recorded totals.
     [HttpGet("{paymentId:guid}")]
-    [CustomerAccess]
+    [CustomerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<CustomerPaymentDetailResponse>>> Details(Guid paymentId, CancellationToken ct)
         => Ok(ApiResponse<CustomerPaymentDetailResponse>.Ok(await _history.GetAsync(UserId(), paymentId, ct)));
 

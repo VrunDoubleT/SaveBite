@@ -41,7 +41,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> CreateAsync(Guid userId,
         CreateProductRequest request, CancellationToken ct)
     {
-        var shopId = await RequireShopAsync(userId, ct);
+        var shopId = await RequireActiveShopAsync(userId, ct);
         await RequireCategoryAsync(request.CategoryId, ct);
         EnsureUniqueNames(request.Attributes.Select(x => x.Name), "Attribute names");
         var newValues = request.Attributes.SelectMany(x => x.Values).ToArray();
@@ -137,7 +137,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> UpdateAsync(Guid userId, Guid productId,
         UpdateProductRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, false, ct);
+        var product = await RequireProductAsync(userId, productId, false, ct, requireActiveShop: true);
         await RequireCategoryAsync(request.CategoryId, ct);
         product.Name = request.Name.Trim();
         product.Description = request.Description?.Trim();
@@ -150,7 +150,7 @@ public sealed class ProductService : IProductService
 
     public async Task DeleteAsync(Guid userId, Guid productId, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, true, ct);
+        var product = await RequireProductAsync(userId, productId, true, ct, requireActiveShop: true);
         if (product.DeletedAt.HasValue) return;
         product.DeletedAt = Now();
         product.Status = ProductStatus.Hidden;
@@ -162,7 +162,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> UpdateImagesAsync(Guid userId, Guid productId,
         UpdateProductImagesRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, false, ct);
+        var product = await RequireProductAsync(userId, productId, false, ct, requireActiveShop: true);
         if (request.RetainedImageIds.Count + request.Images.Count > ProductLimits.Images)
             throw AppException.BadRequest("At most 10 gallery images are allowed.");
         var existing = product.Images.ToDictionary(x => x.Id);
@@ -190,7 +190,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> AddValuesAsync(Guid userId, Guid productId,
         AddProductValuesRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, false, ct);
+        var product = await RequireProductAsync(userId, productId, false, ct, requireActiveShop: true);
         if (request.Attributes.Select(x => x.AttributeId).Distinct().Count() != request.Attributes.Count)
             throw AppException.BadRequest("Each attribute may appear only once.");
         var newValues = request.Attributes.SelectMany(x => x.Values).ToArray();
@@ -233,7 +233,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> UpdateValueImageAsync(Guid userId, Guid productId,
         Guid valueId, UpdateProductValueImageRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, false, ct);
+        var product = await RequireProductAsync(userId, productId, false, ct, requireActiveShop: true);
         var value = product.Attributes.SelectMany(x => x.Values).SingleOrDefault(x => x.Id == valueId)
             ?? throw AppException.NotFound("Product value was not found.");
         var previousImage = value.ImageUrl;
@@ -267,14 +267,27 @@ public sealed class ProductService : IProductService
             request.Page, request.PageSize, total);
     }
 
+    // Read access remains available for a suspended shop so its existing catalog can be inspected.
     private async Task<Guid> RequireShopAsync(Guid userId, CancellationToken ct)
         => (await _repository.GetAvailableShopAsync(userId, ct))?.Id
             ?? throw AppException.NotFound("Shop was not found or is unavailable.");
 
-    private async Task<Product> RequireProductAsync(Guid userId, Guid productId,
-        bool includeDeleted, CancellationToken ct)
+    // Product mutations must recheck shop status in the service, not rely only on controller attributes.
+    private async Task<Guid> RequireActiveShopAsync(Guid userId, CancellationToken ct)
     {
-        var shopId = await RequireShopAsync(userId, ct);
+        var shop = await _db.Shops.AsNoTracking().SingleOrDefaultAsync(x => x.OwnerUserId == userId, ct)
+            ?? throw AppException.NotFound("Shop was not found.");
+        if (shop.Status != ShopStatus.Active)
+            throw AppException.Forbidden("This shop is not active. Product changes are unavailable.");
+        return shop.Id;
+    }
+
+    private async Task<Product> RequireProductAsync(Guid userId, Guid productId,
+        bool includeDeleted, CancellationToken ct, bool requireActiveShop = false)
+    {
+        var shopId = requireActiveShop
+            ? await RequireActiveShopAsync(userId, ct)
+            : await RequireShopAsync(userId, ct);
         return await _repository.GetOwnedAsync(userId, shopId, productId, includeDeleted, ct)
             ?? throw AppException.NotFound("Product was not found or is unavailable.");
     }
@@ -511,7 +524,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> UpdateVariantAsync(Guid userId, Guid productId,
         Guid variantId, UpdateProductVariantRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, false, ct);
+        var product = await RequireProductAsync(userId, productId, false, ct, requireActiveShop: true);
         var variant = product.Variants.SingleOrDefault(v => v.Id == variantId)
                       ?? throw AppException.NotFound("Product variant was not found.");
         if (!request.IsActive && product.Status == ProductStatus.Active &&
@@ -536,7 +549,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> UpdateStatusAsync(Guid userId, Guid productId,
         UpdateProductStatusRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, true, ct);
+        var product = await RequireProductAsync(userId, productId, true, ct, requireActiveShop: true);
         if (request.Status == ProductStatus.Active)
         {
             await RequireCategoryAsync(product.CategoryId, ct);

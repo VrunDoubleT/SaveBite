@@ -13,9 +13,6 @@ public class CreateShopApplicationRequest
     public double Longitude { get; set; }
     public TimeOnly? OpeningTime { get; set; }
     public TimeOnly? ClosingTime { get; set; }
-    public string BankName { get; set; } = string.Empty;
-    public string BankAccountNumber { get; set; } = string.Empty;
-    public string BankAccountHolder { get; set; } = string.Empty;
     public string PayosClientId { get; set; } = string.Empty;
     public string PayosApiKey { get; set; } = string.Empty;
     public string PayosChecksumKey { get; set; } = string.Empty;
@@ -32,4 +29,3 @@ public sealed class ReviewShopApplicationRequest
     public string Decision { get; set; } = string.Empty;
     public string? Note { get; set; }
 }
-

@@ -14,6 +14,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public class ShopStaffService(
     IShopStaffRepository staffRepository,
+    IUserRepository  userRepository,
     INotificationQueue notifications,
     SaveBite.Backend.Data.AppDbContext db
 ) : IShopStaffService
@@ -177,6 +178,16 @@ public class ShopStaffService(
                 staff,
                 cancellationToken
             );
+            
+            var user = await userRepository.GetUserByIdAsync(
+                staff.UserId,
+                cancellationToken
+            );
+
+            if (user != null && user.Role == UserRole.Staff)
+            {
+                user.Role = UserRole.User;
+            }
 
             await staffRepository.SaveChangesAsync(
                 cancellationToken

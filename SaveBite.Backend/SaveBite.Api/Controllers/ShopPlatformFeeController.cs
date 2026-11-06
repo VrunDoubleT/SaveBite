@@ -58,7 +58,7 @@ public sealed class ShopPlatformFeeController : ControllerBase
     /// UC-81: Pay platform fee online via PayOS (BR-092, BR-094, BR-097).
     /// </summary>
     [HttpPost("shops/{shopId:guid}/platform-fees/{statementId:guid}/payment-link")]
-    [StoreOwnerAnyStatusAccess]
+    [StoreOwnerActiveAccess]
     public async Task<ActionResult<ApiResponse<PlatformFeePaymentLinkResponse>>> PayPlatformFee(
         Guid shopId,
         Guid statementId,

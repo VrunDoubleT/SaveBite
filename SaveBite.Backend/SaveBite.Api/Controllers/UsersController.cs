@@ -45,7 +45,7 @@ public sealed class UsersController : ControllerBase
     }
 
     [HttpGet("me")]
-    [CustomerAccess]
+    [CustomerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> GetMe(
         CancellationToken cancellationToken)
     {

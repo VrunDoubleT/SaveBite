@@ -68,10 +68,10 @@ public sealed class ShopOrderService : IShopOrderService
         _eventPublisher = eventPublisher;
     }
 
-    // Keep the count endpoint subject to the same active shop access checks as order operations.
+    // Suspended shops may still inspect existing order records and counts.
     public async Task<int> PendingCountAsync(Guid userId, Guid shopId, CancellationToken ct = default)
     {
-        await _shops.RequireAccessAsync(userId, shopId, ct);
+        await _shops.RequireViewAccessAsync(userId, shopId, ct);
         return await _shops.PendingCountAsync(shopId, ct);
     }
 
@@ -81,7 +81,7 @@ public sealed class ShopOrderService : IShopOrderService
     // Validate shop access, paging and search filters before mapping the visible order page.
     public async Task<ShopOrderPageResponse> PageAsync(Guid userId, Guid shopId, string? status, string? search, int page, int size, CancellationToken ct = default, DateOnly? orderDate = null)
     {
-        var owner = await _shops.RequireAccessAsync(userId, shopId, ct);
+        var owner = await _shops.RequireViewAccessAsync(userId, shopId, ct);
         if (page < 1 || (long)(page - 1) * size > int.MaxValue) throw AppException.BadRequest("Invalid page number.");
         if (size is < 1 or > 30) throw AppException.BadRequest("Page size must be between 1 and 30.");
         status = string.IsNullOrEmpty(status) || status == "All" ? null : status;
@@ -105,7 +105,7 @@ public sealed class ShopOrderService : IShopOrderService
     // Read recorded order detail only for an authorized shop operator; never reconcile from a view.
     public async Task<ShopOrderResponse> GetAsync(Guid userId, Guid shopId, Guid orderId, CancellationToken ct = default)
     {
-        var owner = await _shops.RequireAccessAsync(userId, shopId, ct);
+        var owner = await _shops.RequireViewAccessAsync(userId, shopId, ct);
         var submitted = await _shops.GetAsync(shopId, orderId, ct);
         if (submitted == null || !ShopOrderVisibility.IsVisible(submitted))
             throw AppException.NotFound("Order not found in this shop.");
@@ -114,8 +114,10 @@ public sealed class ShopOrderService : IShopOrderService
     // Validate and commit a shop state transition with payment checks, audit history and job updates.
     public async Task<ShopOrderResponse> ActionAsync(Guid userId, Guid shopId, Guid orderId, string action, string? reason = null, CancellationToken ct = default, bool cashReceived = false)
     {
+        // Recheck active shop access before any reconciliation or other side effect.
+        await _shops.RequireAccessAsync(userId, shopId, ct);
         await GetAsync(userId, shopId, orderId, ct);
-        // Reconcile only after shop access and order visibility have been checked for this command.
+        // Reconcile only after active shop access and order visibility have been checked for this command.
         await _payments.ReconcileOrderAsync(orderId, false, ct);
         string? confirmationJobId = null;
         await _orders.WithOrderLockAsync(orderId, async () =>
@@ -222,8 +224,10 @@ public sealed class ShopOrderService : IShopOrderService
     // Create or reuse the recorded PayAtShop balance payment and its provider QR link.
     public async Task<ShopOrderResponse> RemainingPaymentAsync(Guid userId, Guid shopId, Guid orderId, CancellationToken ct = default)
     {
+        // This endpoint creates/reuses a payment link and therefore requires an active shop.
+        await _shops.RequireAccessAsync(userId, shopId, ct);
         await GetAsync(userId, shopId, orderId, ct);
-        // Reconcile only after shop access and order visibility have been checked for this command.
+        // Reconcile only after active shop access and order visibility have been checked for this command.
         await _payments.ReconcileOrderAsync(orderId, false, ct);
         await _orders.WithOrderLockAsync(orderId, async () =>
         {
@@ -479,7 +483,7 @@ public sealed class ShopOrderService : IShopOrderService
     // Read the customer's own refund after reconciling any overdue order processing.
     public async Task<OrderRefundResponse?> CustomerRefundAsync(Guid userId, Guid orderId, CancellationToken ct = default)
     {
-        var order = await _orders.GetOrderAsync(orderId, userId, ct) ?? throw AppException.NotFound();
+        var order = await _orders.GetOrderForHistoryAsync(orderId, userId, ct) ?? throw AppException.NotFound();
         return (await _shops.GetAsync(order.ShopId, orderId, ct))!.Refunds.Where(x => x.RefundType == RefundType.ShopCancellation).Select(MapRefund).FirstOrDefault();
     }
     // Load a refund-bearing order with active Customer access and ownership checks.

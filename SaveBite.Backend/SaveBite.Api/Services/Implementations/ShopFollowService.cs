@@ -58,7 +58,7 @@ public sealed class ShopFollowService(AppDbContext db, TimeProvider clock) : ISh
 
     public async Task<PagedResult<ShopFollowResponse>> GetFollowedShopsAsync(Guid customerId, int page, int pageSize, CancellationToken ct = default)
     {
-        await RequireCustomer(customerId, ct);
+        await RequireCustomerHistory(customerId, ct);
         if (page < 1 || page > 100000 || pageSize is < 1 or > 100)
             throw AppException.BadRequest("Page must be 1–100000; pageSize must be 1–100.");
         var query = db.Set<ShopFollow>().AsNoTracking().Where(f => f.CustomerId == customerId);
@@ -83,6 +83,13 @@ public sealed class ShopFollowService(AppDbContext db, TimeProvider clock) : ISh
         if (user == null) throw AppException.Unauthorized();
         if (user.Role == UserRole.Admin || user.Status != UserStatus.Active || user.CustomerStatus != CustomerStatus.Active)
             throw AppException.Forbidden("An active customer account is required.");
+    }
+    private async Task RequireCustomerHistory(Guid customerId, CancellationToken ct)
+    {
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == customerId, ct);
+        if (user == null) throw AppException.Unauthorized();
+        if (user.Role == UserRole.Admin || user.Status != UserStatus.Active)
+            throw AppException.Forbidden("An active account is required to view followed shops.");
     }
     private static void ValidateShopId(Guid id) { if (id == Guid.Empty) throw AppException.BadRequest("Shop ID is required."); }
     private static ShopFollowResponse Map(ShopFollow follow, Shop shop) => new(shop.Id, shop.Name, shop.LogoUrl,
