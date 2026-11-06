@@ -21,7 +21,7 @@ public class RefundsController : ControllerBase
     public RefundsController(IRefundService service, IShopOrderEventService events, ILogger<RefundsController> logger)
     { _service = service; _events = events; _logger = logger; }
 
-    // Count only shop-cancellation refunds waiting for customer bank details or email confirmation.
+    // Count refunds waiting for customer bank details or email confirmation.
     [HttpGet("pending-details-count"), CustomerAccess]
     public async Task<ActionResult<ApiResponse<int>>> PendingDetailsCount(CancellationToken ct)
         => Ok(ApiResponse<int>.Ok(await _service.PendingDetailsCountAsync(UserId(), ct)));
@@ -51,7 +51,7 @@ public class RefundsController : ControllerBase
     public async Task<ActionResult<ApiResponse<RefundResponse>>> Withdraw(Guid refundId, CancellationToken ct)
         => await CommittedAsync(_service.WithdrawAsync(UserId(), refundId, ct), ct);
 
-    // Return only the number of unresolved shop refunds for the owner's navigation badge.
+    // Count only verified refunds ready for owner review or transfer.
     [HttpGet("shop/pending-count"), StoreOwnerActiveAccess]
     public async Task<ActionResult<ApiResponse<int>>> ShopPendingCount(CancellationToken ct)
         => Ok(ApiResponse<int>.Ok(await _service.ShopPendingCountAsync(UserId(), ct)));

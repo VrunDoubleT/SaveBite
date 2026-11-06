@@ -1,3 +1,4 @@
+import { RestockPage } from "@/pages/shop/RestockPage";
 import { FollowedShopsPage } from "@/pages/customer/FollowedShopsPage";
 import { CustomerRefundDetailPage } from "@/pages/customer/RefundDetailPage";
 import { ShopRefundDetailPage } from "@/pages/store-owner/RefundDetailPage";
@@ -364,6 +365,10 @@ export const routes: RouteObject[] = [
             element: <StoreOwnerReviewsPage />,
           },
           {
+            path: APP_PATHS.STAFF_RESTOCK,
+            element: <RestockPage />,
+          },
+          {
             path: APP_PATHS.STAFF_ORDERS,
             element: <ShopOrdersPage />,
           },
@@ -413,6 +418,10 @@ export const routes: RouteObject[] = [
                 element: <ProductHistoryPage />,
               },
             ],
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_RESTOCK,
+            element: <RestockPage />,
           },
           {
             path: APP_PATHS.STORE_OWNER_ORDERS,

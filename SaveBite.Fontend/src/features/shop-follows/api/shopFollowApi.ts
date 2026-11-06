@@ -28,18 +28,6 @@ export const shopFollowApi = {
       })
     ).data.data;
   },
-  // The current API exposes follow state through the paginated list only.
-  async find(shopId: string, signal: AbortSignal): Promise<ShopFollow | null> {
-    let page = 1;
-    while (!signal.aborted) {
-      const result = await shopFollowApi.list(page, 100, signal);
-      const follow = result.items.find((item) => item.shopId === shopId);
-      if (follow) return follow;
-      if (page >= result.totalPages) return null;
-      page += 1;
-    }
-    throw new DOMException("Request cancelled", "AbortError");
-  },
   async follow(id: string) {
     return (await httpClient.put<ApiResponse<ShopFollow>>(followPath(id))).data.data;
   },

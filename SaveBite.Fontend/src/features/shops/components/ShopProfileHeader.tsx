@@ -192,6 +192,7 @@ export function ShopProfileHeader({ shop, onEdit }: { shop: OwnerShop; onEdit: (
           <h1 className="min-w-0 max-w-full truncate text-2xl font-bold tracking-tight text-text-primary sm:text-4xl">
             {shop.name}
           </h1>
+          <p className="mt-1 text-sm text-neutral-500">{shop.followerCount ?? 0} followers</p>
 
           {(area || hasHours) && (
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">

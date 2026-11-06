@@ -30,10 +30,8 @@ export function ShopRefundsBadge() {
         reading = false;
       }
     }
-    const off = realtime.on(REALTIME_EVENTS.SHOP_ORDERS_CHANGED, (event) => {
-      const data = event.data as { shopId?: string; reason?: string } | null;
-      if (["reject", "confirmation-expired", "refund-changed"].includes(data?.reason ?? ""))
-        void refresh();
+    const off = realtime.on(REALTIME_EVENTS.SHOP_ORDERS_CHANGED, () => {
+      void refresh();
     });
     const connected = realtime.onConnected((again) => {
       if (again) void refresh();
@@ -50,8 +48,8 @@ export function ShopRefundsBadge() {
   return (
     <span
       aria-live="polite"
-      aria-label={`${count} unresolved refunds`}
-      title="Required refunds and requests still needing resolution"
+      aria-label={`${count} refunds ready for shop action`}
+      title="Verified refunds ready for review or transfer"
       className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-xs font-bold leading-4 text-white"
     >
       {count}

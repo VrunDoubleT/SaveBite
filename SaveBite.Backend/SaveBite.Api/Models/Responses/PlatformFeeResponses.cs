@@ -233,6 +233,7 @@ public sealed class PlatformFeePaymentLinkResponse
     public Guid StatementId { get; set; }
     public decimal Amount { get; set; }
     public long OrderCode { get; set; }
+    public bool IsSimulated { get; set; }
     public string CheckoutUrl { get; set; } = string.Empty;
     public string? QrCode { get; set; }
     public DateTime? ExpiredAt { get; set; }

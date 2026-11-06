@@ -1,3 +1,4 @@
+import { OrderResalePanel } from "@/features/shop-orders/components/OrderResalePanel";
 import { ShopOrderRefunds } from "@/features/refunds/components/ShopOrderRefunds";
 import { paymentMethodLabel } from "@/features/payments/utils/paymentLabels";
 import { useShopOrderEventsStore } from "@/features/shop-orders/stores/shopOrderEventsStore";
@@ -22,7 +23,9 @@ export function ShopOrderDetailPage() {
 function ShopOrderDetailPageContent() {
   const { shopId: staffShopId, orderId = "" } = useParams();
   const [shopId, setShopId] = useState(staffShopId ?? "");
-  const orderRevision = useShopOrderEventsStore((state) => state.orderRevisions[`${shopId}:${orderId}`] ?? 0);
+  const orderRevision = useShopOrderEventsStore(
+    (state) => state.orderRevisions[`${shopId}:${orderId}`] ?? 0,
+  );
   const reconnectRevision = useShopOrderEventsStore((state) => state.reconnectRevision);
   const [data, setData] = useState<ShopOrder | null>(null);
   const [error, setError] = useState("");
@@ -51,14 +54,16 @@ function ShopOrderDetailPageContent() {
     if (!shopId || busy) return;
     const abort = new AbortController();
     const current = ++revision.current;
-    void shopOrderApi.detail(shopId, orderId, abort.signal)
+    void shopOrderApi
+      .detail(shopId, orderId, abort.signal)
       .then((next) => {
         if (!abort.signal.aborted && current === revision.current) {
           setData(next);
           setError("");
           if (next.order.status !== "Pending") setRejecting(false);
           if (next.order.status !== "ReadyForPickup") setHandover(false);
-          if (next.order.status !== "ReadyForPickup" || (next.order.outstandingAmount ?? 0) <= 0) setCashReceived(false);
+          if (next.order.status !== "ReadyForPickup" || (next.order.outstandingAmount ?? 0) <= 0)
+            setCashReceived(false);
         }
       })
       .catch((e) => {
@@ -110,9 +115,10 @@ function ShopOrderDetailPageContent() {
     Date.parse(o.hardDeadlineAt) > now;
   const verified = o?.paymentStatus === "Succeeded" && !o.paymentReviewRequired;
   const remainingPayments = data?.payments.filter((p) => p.type === "Remaining") ?? [];
-  const remaining = remainingPayments.find((p) => p.status === "Succeeded")
-    ?? remainingPayments.find((p) => p.status === "Pending")
-    ?? remainingPayments.at(-1);
+  const remaining =
+    remainingPayments.find((p) => p.status === "Succeeded") ??
+    remainingPayments.find((p) => p.status === "Pending") ??
+    remainingPayments.at(-1);
   const button =
     "rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-neutral-200 disabled:text-neutral-500";
   return (
@@ -281,13 +287,26 @@ function ShopOrderDetailPageContent() {
                       </label>
                       {o.paymentMethod === "PayAtShop" && (o.outstandingAmount ?? 0) > 0 && (
                         <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-                          <input type="checkbox" checked={cashReceived} onChange={(e) => setCashReceived(e.target.checked)}
-                            disabled={busy || (remaining?.collectedAmount ?? 0) > 0} className="mt-0.5 accent-emerald-600" />
-                          <span>I have received <strong>{money(o.outstandingAmount ?? 0)}</strong> in cash from the customer.</span>
+                          <input
+                            type="checkbox"
+                            checked={cashReceived}
+                            onChange={(e) => setCashReceived(e.target.checked)}
+                            disabled={busy || (remaining?.collectedAmount ?? 0) > 0}
+                            className="mt-0.5 accent-emerald-600"
+                          />
+                          <span>
+                            I have received <strong>{money(o.outstandingAmount ?? 0)}</strong> in
+                            cash from the customer.
+                          </span>
                         </label>
                       )}
                       <button
-                        disabled={busy || !verified || ((o.outstandingAmount ?? 1) > 0 && !cashReceived) || !handover}
+                        disabled={
+                          busy ||
+                          !verified ||
+                          ((o.outstandingAmount ?? 1) > 0 && !cashReceived) ||
+                          !handover
+                        }
                         onClick={() => void act("complete", { cashReceived })}
                         className={button}
                       >
@@ -295,7 +314,8 @@ function ShopOrderDetailPageContent() {
                       </button>
                       {(o.outstandingAmount ?? 0) > 0 && (
                         <p className="text-xs text-amber-800">
-                          Collect the balance by online QR, or confirm cash receipt above before completing.
+                          Collect the balance by online QR, or confirm cash receipt above before
+                          completing.
                         </p>
                       )}
                     </>
@@ -325,7 +345,8 @@ function ShopOrderDetailPageContent() {
                       />
                     </label>
                     <p className="text-xs text-neutral-500">
-                      This will reject the order, release its stock and record a refund request for any collected payment. No refund transfer will be made automatically.
+                      This will reject the order, release its stock and record a refund request for
+                      any collected payment. No refund transfer will be made automatically.
                     </p>
                     <button
                       disabled={busy || !reason.trim()}
@@ -393,12 +414,35 @@ function ShopOrderDetailPageContent() {
                     />
                     {remaining.checkoutUrl.startsWith("/checkout/simulation?") && (
                       <div className="mt-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                        <p className="text-xs font-bold text-amber-800">DEVELOPMENT · SIMULATED REMAINING PAYMENT</p>
-                        <p className="text-xs text-amber-900">No real money is transferred. Success updates payment and notifies connected order pages.</p>
+                        <p className="text-xs font-bold text-amber-800">
+                          DEVELOPMENT · SIMULATED REMAINING PAYMENT
+                        </p>
+                        <p className="text-xs text-amber-900">
+                          No real money is transferred. Success updates payment and notifies
+                          connected order pages.
+                        </p>
                         <div className="flex flex-wrap gap-2">
-                          <button disabled={busy || cashReceived} onClick={() => void simulateRemaining("paid")} className={button}>Simulate payment success</button>
-                          <button disabled={busy || cashReceived} onClick={() => void simulateRemaining("cancelled")} className="rounded-lg border border-amber-300 px-3 py-2 text-xs disabled:opacity-50">Simulate cancellation</button>
-                          <button disabled={busy || cashReceived} onClick={() => void simulateRemaining("expired")} className="rounded-lg border border-amber-300 px-3 py-2 text-xs disabled:opacity-50">Simulate expiry</button>
+                          <button
+                            disabled={busy || cashReceived}
+                            onClick={() => void simulateRemaining("paid")}
+                            className={button}
+                          >
+                            Simulate payment success
+                          </button>
+                          <button
+                            disabled={busy || cashReceived}
+                            onClick={() => void simulateRemaining("cancelled")}
+                            className="rounded-lg border border-amber-300 px-3 py-2 text-xs disabled:opacity-50"
+                          >
+                            Simulate cancellation
+                          </button>
+                          <button
+                            disabled={busy || cashReceived}
+                            onClick={() => void simulateRemaining("expired")}
+                            className="rounded-lg border border-amber-300 px-3 py-2 text-xs disabled:opacity-50"
+                          >
+                            Simulate expiry
+                          </button>
                         </div>
                       </div>
                     )}
@@ -410,9 +454,16 @@ function ShopOrderDetailPageContent() {
                   </p>
                 )}
               </section>
-
             </aside>
           </div>
+          {["Cancelled", "NoShow"].includes(o.status) && (
+            <OrderResalePanel
+              key={`${shopId}:${orderId}`}
+              shopId={shopId}
+              orderId={orderId}
+              revision={orderRevision + reconnectRevision}
+            />
+          )}
           {data.isOwner && <ShopOrderRefunds shopId={shopId} orderId={orderId} />}
         </>
       )}

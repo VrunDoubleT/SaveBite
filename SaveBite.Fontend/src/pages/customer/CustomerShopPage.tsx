@@ -1,3 +1,4 @@
+import { useAuthStore } from "@/shared/stores/authStore";
 import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
 import { ShopFollowControls } from "@/features/shop-follows/components/ShopFollowControls";
 import { useEffect, useState } from "react";
@@ -57,7 +58,12 @@ function StoreUnavailable() {
 
 export function CustomerShopPage() {
   const { id } = useParams<{ id: string }>();
-  return id ? <ShopContent key={id} shopId={id} /> : <StoreUnavailable />;
+  const viewerId = useAuthStore((state) => state.user?.id);
+  return id ? (
+    <ShopContent key={`${id}:${viewerId ?? "guest"}`} shopId={id} />
+  ) : (
+    <StoreUnavailable />
+  );
 }
 
 function ShopContent({ shopId }: { shopId: string }) {
@@ -323,7 +329,14 @@ function ShopContent({ shopId }: { shopId: string }) {
               </div>
             </div>
             <div className="flex w-full flex-col gap-3 sm:w-64 sm:shrink-0">
-              <ShopFollowControls shopId={shopId} shopName={shopName} />
+              <p className="text-sm text-text-secondary">{profile.followerCount ?? 0} followers</p>
+              <ShopFollowControls
+                shopId={shopId}
+                shopName={shopName}
+                ownerUserId={profile.ownerUserId}
+                initialFollow={profile.currentUserFollow ?? null}
+                onChange={() => setProfileAttempt((value) => value + 1)}
+              />
             </div>
           </div>
           <div className="grid gap-3 border-t border-border-default pt-4 text-body text-text-secondary md:grid-cols-[2fr_1fr_1fr]">

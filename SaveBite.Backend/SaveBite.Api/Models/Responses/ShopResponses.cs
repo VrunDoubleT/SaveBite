@@ -46,6 +46,10 @@ public class NearbyShopsPagedResult : PagedResult<NearbyShopResponse>
 
 public class ShopProfileResponse
 {
+    public Guid OwnerUserId { get; set; }
+    public int FollowerCount { get; set; }
+    public ShopFollowResponse? CurrentUserFollow { get; set; }
+    public bool SuspendedForPlatformFees { get; set; }
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }

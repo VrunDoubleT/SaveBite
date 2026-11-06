@@ -48,7 +48,7 @@ public class RefundService : IRefundService
         return await _refunds.PendingDetailsCountAsync(customerId, ct);
     }
 
-    // Count unresolved mandatory refunds and confirmed requests still awaiting owner review or transfer.
+    // Count confirmed, unexpired refunds that currently require owner review or transfer.
     public async Task<int> ShopPendingCountAsync(Guid ownerId, CancellationToken ct)
     {
         var shopId = await _shops.OwnerShopAsync(ownerId, ct);
@@ -134,7 +134,6 @@ public class RefundService : IRefundService
             }
             Audit(f, null, userId, "Customer", order.Customer.FullName, "Requested", f.Reason);
             await _orders.SaveAsync(ct);
-            await NotifyRefundAsync(f.Id, true, ct);
             return Map(f);
         }, ct);
         return result;
@@ -257,7 +256,7 @@ public class RefundService : IRefundService
             Audit(f, before, userId, "StoreOwner", (await _refunds.UserAsync(userId, ct)).FullName,
                 "Transferred", $"Manual transfer of the full remaining {transferAmount} VND recorded; total transferred {f.TransferredAmount} VND.", request.ProofUrl);
             f.FeeAdjustedAt = null; f.AccumulatedValueReclaimedAt = null;
-            LifecycleOutbox.RefundTransferred(_db, f, now);
+            LifecycleOutbox.RefundTransferred(_db, f, now, transferAmount);
         }, ct);
     }
 
@@ -341,7 +340,7 @@ public class RefundService : IRefundService
             else if (!RefundRules.Active(f.Status)) f.DeadlineJobId = null;
             if (oldJob != f.DeadlineJobId) deleteJob = oldJob;
             await _orders.SaveAsync(ct);
-            await NotifyRefundAsync(id, false, ct);
+            await NotifyRefundAsync(id, ct);
             return Map(f);
         }, ct);
         // Delete only after commit; a leftover job checks deadline and status before doing anything.
@@ -353,10 +352,11 @@ public class RefundService : IRefundService
         return result;
     }
 
-    private async Task NotifyRefundAsync(Guid id, bool requested, CancellationToken ct)
+    private async Task NotifyRefundAsync(Guid id, CancellationToken ct)
     {
         var refund = await _refunds.GetAsync(id, false, ct) ?? throw AppException.NotFound();
-        if (requested)
+        if (refund.RefundType == RefundType.CustomerRequest && refund.DestinationConfirmedAt.HasValue
+            && refund.Status == RefundStatus.PendingVerification)
         {
             await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.Shop.OwnerUserId), new CreateNotificationCommand(
                 NotificationType.RefundRequestCreated, "New refund request",

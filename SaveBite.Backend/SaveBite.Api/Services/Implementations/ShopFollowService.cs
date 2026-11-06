@@ -19,6 +19,7 @@ public sealed class ShopFollowService(AppDbContext db, TimeProvider clock) : ISh
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM shops WHERE id = {shopId} FOR SHARE", ct);
         var shop = await db.Shops.AsNoTracking().SingleOrDefaultAsync(s => s.Id == shopId, ct) ?? throw AppException.NotFound("Shop not found.");
         var follow = await db.Set<ShopFollow>().SingleOrDefaultAsync(f => f.CustomerId == customerId && f.ShopId == shopId, ct);
+        if (shop.OwnerUserId == customerId) throw AppException.Forbidden("You cannot follow your own shop.");
         if (follow == null)
         {
             if (shop.Status != ShopStatus.Active) throw AppException.Conflict("Only an active shop can be followed.");

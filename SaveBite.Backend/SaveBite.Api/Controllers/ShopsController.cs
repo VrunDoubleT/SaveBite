@@ -46,7 +46,7 @@ public sealed class ShopsController : ControllerBase
             throw AppException.BadRequest("Shop ID is invalid.");
         }
 
-        var profile = await _shopService.GetShopProfileAsync(id, cancellationToken);
+        var profile = await _shopService.GetShopProfileAsync(id, cancellationToken, TryGetCurrentUserId());
         return Ok(ApiResponse<ShopProfileResponse>.Ok(profile));
     }
 

@@ -47,8 +47,8 @@ public sealed class TrustOrderRepository : ITrustOrderRepository
         => _db.RecoveryRequirementRules.Where(x => x.IsActive && x.MinimumOccurrence <= occurrence && x.EffectiveFrom <= at
             && (x.EffectiveTo == null || at < x.EffectiveTo)).OrderByDescending(x => x.MinimumOccurrence)
             .ThenByDescending(x => x.EffectiveFrom).FirstOrDefaultAsync(ct);
-    public Task<List<NoShowPenalty>> RecoveringAsync(Guid userId, CancellationToken ct)
-        => _db.NoShowPenalties.Where(x => x.UserId == userId && x.Status == NoShowPenaltyStatus.Recovering)
+    public Task<List<NoShowPenalty>> PenaltiesAsync(Guid userId, CancellationToken ct)
+        => _db.NoShowPenalties.Include(x => x.RecoveryOrders).Where(x => x.UserId == userId)
             .OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).ToListAsync(ct);
     // One full-online completed order can recover one penalty; recorded assignments prevent reuse.
     public Task<List<Order>> RecoveryCandidatesAsync(Guid userId, CancellationToken ct)

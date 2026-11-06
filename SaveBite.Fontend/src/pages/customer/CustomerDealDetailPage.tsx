@@ -784,7 +784,12 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                 </h2>
               </div>
               <div className="w-full max-w-64">
-                <ShopFollowControls compact shopId={deal.shopId} shopName={deal.shopName} />
+                <ShopFollowControls
+                  compact
+                  shopId={deal.shopId}
+                  shopName={deal.shopName}
+                  ownerUserId={deal.shopOwnerUserId}
+                />
               </div>
             </div>
           </div>

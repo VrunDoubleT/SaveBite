@@ -42,19 +42,8 @@ public sealed class TrustOrderService : ITrustOrderService
             }
             NoShowPenalty? penalty = null;
             var creditedValue = 0m;
-            if (completed)
-            {
-                progress.CompletedOrdersCount = checked(progress.CompletedOrdersCount + 1);
-                // A transfer can precede delayed completion delivery; refunded orders never earn accumulated value.
-                creditedValue = Math.Max(0, order.TotalAmount - order.RefundedAmount);
-                progress.AccumulatedOrderValue += creditedValue;
-                progress.UpdatedAt = now;
-                var type = order.PaymentMethod == PaymentMethod.OnlinePayment
-                    ? TrustScoreRuleType.OnlineOrderCompleted : TrustScoreRuleType.PayAtShopOrderCompleted;
-                var rule = await _repository.EarningAsync(type, at, ct);
-                if (rule != null) ChangeScore(score, order, rule.ScoreDelta, rule.Id, null, TrustScoreEventType.OrderCompleted, at);
-            }
-            else
+            var penalties = await _repository.PenaltiesAsync(order.CustomerId, ct);
+            if (!completed)
             {
                 var date = Helpers.OrderBusinessDate.FromUtc(at);
                 var occurrence = await _repository.OccurrencesAsync(order.CustomerId, date.Year, date.Month, ct) + 1;
@@ -72,22 +61,39 @@ public sealed class TrustOrderService : ITrustOrderService
                 }
             }
             // Reconcile eligible historical completions too, so delayed NoShow events do not lose recovery progress.
-            var recovering = await _repository.RecoveringAsync(order.CustomerId, ct);
-            if (penalty != null) recovering.Add(penalty);
+            if (penalty != null) penalties.Add(penalty);
             var candidates = await _repository.RecoveryCandidatesAsync(order.CustomerId, ct);
-            foreach (var p in recovering.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id))
+            foreach (var p in penalties.Where(p => p.Status == NoShowPenaltyStatus.Recovering).OrderBy(x => x.CreatedAt).ThenBy(x => x.Id))
             {
                 if (p.PermanentOfflineLock) continue;
-                foreach (var candidate in candidates.Where(x => x.CompletedAt >= p.CreatedAt).ToList())
+                var recoveredAt = p.RecoveryOrders.Select(h => h.CreatedAt).DefaultIfEmpty(p.CreatedAt).Max();
+                foreach (var candidate in candidates.Where(x => x.CompletedAt >= p.CreatedAt && (!completed || x.CompletedAt <= at)).ToList())
                 {
                     if (Recovered(p)) break;
                     _repository.Add(new NoShowPenaltyOrderHistory { Id = Guid.NewGuid(), NoShowPenaltyId = p.Id,
                         OrderId = candidate.Id, OrderValue = candidate.TotalAmount, CreatedAt = candidate.CompletedAt!.Value });
                     p.CompletedOnlineOrders = checked(p.CompletedOnlineOrders + 1);
                     p.CompletedOnlineOrderValue += candidate.TotalAmount;
+                    recoveredAt = candidate.CompletedAt!.Value > recoveredAt ? candidate.CompletedAt.Value : recoveredAt;
                     candidates.Remove(candidate);
                 }
-                if (Recovered(p)) { p.Status = NoShowPenaltyStatus.Recovered; p.RecoveredAt = now; }
+                if (Recovered(p)) { p.Status = NoShowPenaltyStatus.Recovered; p.RecoveredAt = recoveredAt; }
+            }
+            // Recovery consumes the whole order, including the one that satisfies the final requirement.
+            // Event timestamps also keep delayed completion deliveries inside the original recovery interval.
+            var recoveringAtCompletion = penalties.Any(p => p.CreatedAt <= at
+                && (p.Status == NoShowPenaltyStatus.Recovering || p.RecoveredAt >= at));
+            if (completed && !recoveringAtCompletion)
+            {
+                progress.CompletedOrdersCount = checked(progress.CompletedOrdersCount + 1);
+                // A transfer can precede delayed completion delivery; refunded orders never earn accumulated value.
+                creditedValue = Math.Max(0, order.TotalAmount - order.RefundedAmount);
+                progress.AccumulatedOrderValue += creditedValue;
+                progress.UpdatedAt = now;
+                var type = order.PaymentMethod == PaymentMethod.OnlinePayment
+                    ? TrustScoreRuleType.OnlineOrderCompleted : TrustScoreRuleType.PayAtShopOrderCompleted;
+                var rule = await _repository.EarningAsync(type, at, ct);
+                if (rule != null) ChangeScore(score, order, rule.ScoreDelta, rule.Id, null, TrustScoreEventType.OrderCompleted, at);
             }
             // Retain accumulated totals and choose the highest active level meeting all three requirements.
             // A NoShow with no applicable penalty rule has no trust/level consequence.

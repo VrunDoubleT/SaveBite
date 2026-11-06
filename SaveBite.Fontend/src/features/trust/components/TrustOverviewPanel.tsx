@@ -35,7 +35,7 @@ const STANDING: Record<
   },
   Restricted: {
     label: "Recovering from a penalty",
-    description: "Finish the recovery requirements in the Penalties tab to clear it.",
+    description: "Completed online orders first satisfy your penalty recovery requirements. Trust points and level progress resume on the next order after recovery.",
     className: "border-accent-100 bg-accent-50 text-accent-700",
     icon: ShieldAlert,
   },

@@ -1,8 +1,12 @@
+import { RestockWorkspaceProvider } from "@/features/restock/RestockWorkspaceProvider";
+import { RestockBadge } from "@/features/restock/RestockBadge";
+import { ShopRefundsBadge } from "@/features/refunds/components/ShopRefundsBadge";
 import { ShopOrderWorkspaceNotifications } from "@/features/shop-orders/components/ShopOrderWorkspaceNotifications";
 import {
   ClipboardList,
   CreditCard,
   Package,
+  PackagePlus,
   Receipt,
   RotateCcw,
   Settings2,
@@ -29,6 +33,13 @@ const navigation = [
     icon: Zap,
   },
   {
+    to: APP_PATHS.STORE_OWNER_RESTOCK,
+    label: "Restock",
+    end: false,
+    icon: PackagePlus,
+    badge: <RestockBadge />,
+  },
+  {
     to: `${APP_PATHS.STORE_OWNER}/orders`,
     label: "Orders",
     end: false,
@@ -40,6 +51,7 @@ const navigation = [
     label: "Refunds",
     end: false,
     icon: RotateCcw,
+    badge: <ShopRefundsBadge />,
   },
   {
     to: APP_PATHS.STORE_OWNER_STAFF,
@@ -87,11 +99,13 @@ const navigation = [
 
 export function StoreOwnerLayout() {
   return (
-    <WorkspaceLayout
-      title="Store owner workspace"
-      subtitle="Store management"
-      navigationLabel="Store owner navigation"
-      navigation={navigation}
-    />
+    <RestockWorkspaceProvider>
+      <WorkspaceLayout
+        title="Store owner workspace"
+        subtitle="Store management"
+        navigationLabel="Store owner navigation"
+        navigation={navigation}
+      />
+    </RestockWorkspaceProvider>
   );
 }

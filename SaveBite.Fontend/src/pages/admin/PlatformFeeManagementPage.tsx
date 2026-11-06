@@ -561,7 +561,8 @@ export function PlatformFeeManagementPage() {
               <h3 className="text-sm font-bold text-slate-900">Manual Reconciliation</h3>
               <p className="text-xs text-slate-500 leading-normal">
                 Record cash payments or direct bank transfers to Admin, debit accounts, and
-                automatically unlock suspended shops.
+                automatically reactivate shops suspended for overdue platform fees. Administrator
+                suspensions remain in effect.
               </p>
             </div>
             <button

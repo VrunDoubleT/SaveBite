@@ -51,7 +51,7 @@ public static class CheckoutRules
             if (d.ShopId != shopId || v.Variant.ProductId != d.ProductId || d.Product.ShopId != shopId)
                 throw AppException.BadRequest("An order may contain items from exactly one shop.");
             if (d.Status != FlashDealStatus.OnSale || v.Status != FlashDealVariantStatus.Active
-                || !v.Variant.IsActive || d.Product.Status != ProductStatus.Active || d.Shop.Status != ShopStatus.Active)
+                || !v.Variant.IsActive || d.Product.DeletedAt != null || d.Shop.Status != ShopStatus.Active)
                 throw AppException.Conflict("One or more items are no longer available for purchase.");
             if (now < d.SaleStartTime || now >= d.OrderEndTime || now >= d.ShopClosingTime)
                 throw AppException.OrderClosed("The deal is not currently accepting orders.");

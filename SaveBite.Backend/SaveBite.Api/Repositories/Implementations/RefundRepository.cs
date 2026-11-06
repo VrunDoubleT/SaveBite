@@ -17,17 +17,15 @@ public class RefundRepository : IRefundRepository
     public Task<bool> HasCustomerRequestAsync(Guid orderId, CancellationToken ct)
         => _db.Set<OrderRefundRequest>().AsNoTracking().AnyAsync(x => x.OrderId == orderId, ct);
 
-    // Count active shop obligations, including those waiting for the customer, but exclude closed requests.
+    // Badge counts only email-confirmed refunds the shop can currently review or transfer.
     public Task<int> ShopPendingCountAsync(Guid shopId, CancellationToken ct)
-        => _db.Refunds.AsNoTracking().CountAsync(x => x.Order.ShopId == shopId
-            && (x.Status == RefundStatus.AwaitingCustomerDetails || x.Status == RefundStatus.PendingVerification || x.Status == RefundStatus.AwaitingTransfer)
-            && (x.RefundType == RefundType.ShopCancellation || (x.Order.Status == OrderStatus.Completed
-                && x.DestinationConfirmedAt != null && x.Status != RefundStatus.AwaitingCustomerDetails)), ct);
+        => _db.Refunds.AsNoTracking().Where(x => x.Order.ShopId == shopId)
+            .CountAsync(SaveBite.Backend.Helpers.RefundRules.ShopActionRequiredAt(DateTime.UtcNow), ct);
 
-    // Count only mandatory shop refunds that still need customer bank/email details.
+    // Count refunds that still need customer bank/email confirmation, including voluntary requests.
     public Task<int> PendingDetailsCountAsync(Guid userId, CancellationToken ct)
         => _db.Refunds.AsNoTracking().CountAsync(x => x.Order.CustomerId == userId
-            && x.RefundType == RefundType.ShopCancellation && x.Status == RefundStatus.AwaitingCustomerDetails
+            && x.Status == RefundStatus.AwaitingCustomerDetails
             && x.DestinationConfirmedAt == null, ct);
 
     // View queries disable tracking and never perform writes or payment reconciliation.

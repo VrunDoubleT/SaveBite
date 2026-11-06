@@ -1,15 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Eye,
-  Edit2,
-  EyeOff,
-  Plus,
-  Search,
-  XCircle,
-  Sparkles,
-  Loader2,
-} from "lucide-react";
+import { Eye, Edit2, EyeOff, Plus, Search, XCircle, Sparkles, Loader2 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import {
@@ -74,7 +65,8 @@ export function StoreOwnerFlashDealsPage() {
   // Compute status helpers
   function getDealState(deal: ShopFlashDealListItem): "pending" | "running" | "ended" | "hidden" {
     if (deal.status === FlashDealStatusEnum.Hidden) return "hidden";
-    if (deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed) return "ended";
+    if (deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed)
+      return "ended";
     const now = new Date();
     const start = new Date(deal.saleStartTime);
     const end = new Date(deal.orderEndTime);
@@ -283,7 +275,10 @@ export function StoreOwnerFlashDealsPage() {
               <span className="font-bold">
                 You have {stats.hidden} hidden Flash Deal{stats.hidden !== 1 ? "s" : ""}
               </span>
-              <span className="text-amber-700"> — Hidden deals are not visible to customers on SaveBite.</span>
+              <span className="text-amber-700">
+                {" "}
+                — Hidden deals are not visible to customers on SaveBite.
+              </span>
             </div>
           </div>
           <button
@@ -350,8 +345,8 @@ export function StoreOwnerFlashDealsPage() {
               activeTab === "hidden"
                 ? "bg-amber-600 text-white shadow-sm"
                 : tabCounts.hidden > 0
-                ? "border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
+                  ? "border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             <EyeOff className="size-3.5" />
@@ -378,12 +373,24 @@ export function StoreOwnerFlashDealsPage() {
           <table className="min-w-full divide-y divide-neutral-200 text-left text-xs">
             <thead className="bg-neutral-50/75 text-neutral-500">
               <tr>
-                <th scope="col" className="px-4 py-3.5 font-medium">Product</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Flash Deal Price</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Schedule</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Sales Progress</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Status & Visibility</th>
-                <th scope="col" className="px-4 py-3.5 text-right font-medium">Actions</th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Product
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Flash Deal Price
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Schedule
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Sales Progress
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Status & Visibility
+                </th>
+                <th scope="col" className="px-4 py-3.5 text-right font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 bg-white">
@@ -398,7 +405,9 @@ export function StoreOwnerFlashDealsPage() {
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-neutral-400">
                     <Sparkles className="mx-auto size-8 text-neutral-300" />
-                    <p className="mt-2 text-sm font-medium text-neutral-600">No flash deals found</p>
+                    <p className="mt-2 text-sm font-medium text-neutral-600">
+                      No flash deals found
+                    </p>
                     <p className="mt-1 text-xs text-neutral-400">
                       Create a new Flash Deal to offer surplus food at discounted prices!
                     </p>
@@ -408,9 +417,10 @@ export function StoreOwnerFlashDealsPage() {
                 filteredDeals.map((deal) => {
                   const state = getDealState(deal);
                   const isHidden = deal.status === FlashDealStatusEnum.Hidden;
-                  const soldPercent = deal.totalQuantity > 0
-                    ? Math.min(100, Math.round((deal.soldQuantity / deal.totalQuantity) * 100))
-                    : 0;
+                  const soldPercent =
+                    deal.totalQuantity > 0
+                      ? Math.min(100, Math.round((deal.soldQuantity / deal.totalQuantity) * 100))
+                      : 0;
 
                   return (
                     <tr
@@ -425,7 +435,10 @@ export function StoreOwnerFlashDealsPage() {
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={deal.productImageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"}
+                            src={
+                              deal.productImageUrl ||
+                              "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"
+                            }
                             alt={deal.productName}
                             className="size-11 rounded-lg object-cover"
                           />
@@ -458,7 +471,9 @@ export function StoreOwnerFlashDealsPage() {
                       {/* Time */}
                       <td className="px-4 py-4 whitespace-nowrap text-neutral-600">
                         <p>Starts: {formatDateTime(deal.saleStartTime)}</p>
-                        <p className="text-neutral-400">Ends: {formatDateTime(deal.orderEndTime)}</p>
+                        <p className="text-neutral-400">
+                          Ends: {formatDateTime(deal.orderEndTime)}
+                        </p>
                       </td>
 
                       {/* Progress */}
@@ -490,7 +505,9 @@ export function StoreOwnerFlashDealsPage() {
                               <EyeOff className="size-3 text-amber-700" />
                               Hidden
                             </span>
-                            <p className="text-[10px] font-medium text-amber-700">Not visible to buyers</p>
+                            <p className="text-[10px] font-medium text-amber-700">
+                              Not visible to buyers
+                            </p>
                           </div>
                         ) : state === "running" ? (
                           <div className="space-y-0.5">
@@ -498,7 +515,9 @@ export function StoreOwnerFlashDealsPage() {
                               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                               Active
                             </span>
-                            <p className="text-[10px] font-medium text-emerald-600">Visible to customers</p>
+                            <p className="text-[10px] font-medium text-emerald-600">
+                              Visible to customers
+                            </p>
                           </div>
                         ) : state === "pending" ? (
                           <div className="space-y-0.5">
@@ -521,8 +540,8 @@ export function StoreOwnerFlashDealsPage() {
                       <td className="px-4 py-4 whitespace-nowrap text-right">
                         <div className="inline-flex items-center gap-2">
                           {/* Prominent High-Visibility Hide / Unhide Button */}
-                          {state !== "ended" && (
-                            isHidden ? (
+                          {state !== "ended" &&
+                            (isHidden ? (
                               <button
                                 type="button"
                                 onClick={() => setTogglingDeal(deal)}
@@ -542,8 +561,7 @@ export function StoreOwnerFlashDealsPage() {
                                 <EyeOff className="size-3.5 text-neutral-500" />
                                 <span>Hide</span>
                               </button>
-                            )
-                          )}
+                            ))}
 
                           {/* View details */}
                           <button
@@ -551,7 +569,7 @@ export function StoreOwnerFlashDealsPage() {
                             title="View deal details"
                             onClick={() =>
                               navigate(
-                                APP_PATHS.STORE_OWNER_FLASH_DEAL_DETAIL.replace(":id", deal.id)
+                                APP_PATHS.STORE_OWNER_FLASH_DEAL_DETAIL.replace(":id", deal.id),
                               )
                             }
                             className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-2xs transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900"
@@ -566,7 +584,7 @@ export function StoreOwnerFlashDealsPage() {
                               title="Edit deal"
                               onClick={() =>
                                 navigate(
-                                  APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id)
+                                  APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id),
                                 )
                               }
                               className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-2xs transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900"
@@ -599,7 +617,8 @@ export function StoreOwnerFlashDealsPage() {
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-neutral-200 px-4 py-3 text-xs text-neutral-500">
           <span>
-            Showing {filteredDeals.length} of {deals.length} Flash Deal{deals.length !== 1 ? "s" : ""}
+            Showing {filteredDeals.length} of {deals.length} Flash Deal
+            {deals.length !== 1 ? "s" : ""}
           </span>
         </div>
       </div>

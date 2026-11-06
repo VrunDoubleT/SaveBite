@@ -160,7 +160,7 @@ public sealed class ShopService : IShopService
 
     public async Task<ShopProfileResponse> GetShopProfileAsync(
         Guid shopId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, Guid? viewerId = null)
     {
         var shop = await _shopRepository.GetActiveShopByIdAsync(shopId, cancellationToken);
         if (shop == null)
@@ -171,6 +171,13 @@ public sealed class ShopService : IShopService
 
         return new ShopProfileResponse
         {
+            OwnerUserId = shop.OwnerUserId,
+            FollowerCount = await _db.Set<ShopFollow>().CountAsync(f => f.ShopId == shop.Id && f.CustomerId != shop.OwnerUserId, cancellationToken),
+            CurrentUserFollow = viewerId.HasValue && viewerId != shop.OwnerUserId
+                ? await _db.Set<ShopFollow>().AsNoTracking().Where(f => f.ShopId == shop.Id && f.CustomerId == viewerId.Value)
+                    .Select(f => new ShopFollowResponse(shop.Id, shop.Name, shop.LogoUrl, shop.AddressLine,
+                        shop.Status, f.NotificationStatus, f.FollowedAt)).SingleOrDefaultAsync(cancellationToken) : null,
+            SuspendedForPlatformFees = shop.SuspendedForPlatformFees,
             Id = shop.Id,
             Name = shop.Name,
             Description = shop.Description,
@@ -374,6 +381,9 @@ public sealed class ShopService : IShopService
 
         return new ShopProfileResponse
         {
+            OwnerUserId = shop.OwnerUserId,
+            FollowerCount = await _db.Set<ShopFollow>().CountAsync(f => f.ShopId == shop.Id && f.CustomerId != shop.OwnerUserId, cancellationToken),
+            SuspendedForPlatformFees = shop.SuspendedForPlatformFees,
             Id = shop.Id,
             Name = shop.Name,
             Description = shop.Description,

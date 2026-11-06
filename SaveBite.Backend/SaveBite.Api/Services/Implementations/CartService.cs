@@ -177,7 +177,7 @@ public sealed class CartService : ICartService
     {
         var deal = variant.FlashDeal;
         if (deal.Shop.Status != ShopStatus.Active) return "This shop is not accepting orders.";
-        if (deal.Product.Status != ProductStatus.Active || !variant.Variant.IsActive)
+        if (deal.Product.DeletedAt != null || !variant.Variant.IsActive)
             return "This product variant is no longer available.";
         if (deal.Status != FlashDealStatus.OnSale || variant.Status != FlashDealVariantStatus.Active)
             return "This deal is not available for purchase.";

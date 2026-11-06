@@ -5,14 +5,21 @@ using SaveBite.Backend.BackgroundJobs.Scheduling;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Repositories.Interfaces;
 namespace SaveBite.Backend.Services.Implementations;
 
 public sealed record ResaleItemResponse(Guid OrderItemId, string ProductName, int Quantity, string Status,
-    int ResaleQuantity, int UnsellableQuantity, DateTime? DecidedAt, Guid? DecidedBy);
+    int ResaleQuantity, int UnsellableQuantity, DateTime? DecidedAt, Guid? DecidedBy,
+    string? ImageUrl, string? VariantName, Guid FlashDealId, decimal UnitPrice);
 public sealed record ResaleDecisionResponse(Guid OrderId, DateTime? DeadlineAt, bool CanDecide, IReadOnlyList<ResaleItemResponse> Items);
+
+public sealed record RestockSummaryResponse(int PendingCount, DateTime? NextDeadlineAt);
+public sealed record RestockTaskResponse(Guid OrderId, string OrderCode, string OrderStatus, string CustomerName,
+    string? CustomerAvatarUrl, string? CustomerPhone, string? CancelReason, DateTime? CancelledAt,
+    DateTime UpdatedAt, decimal TotalAmount, ResaleDecisionResponse Decision);
 
 public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orders, IShopOrderRepository shops,
     IBackgroundJobClient jobs, TimeProvider clock, ILogger<OrderResaleService> logger)
@@ -33,9 +40,47 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
     public async Task<ResaleDecisionResponse> GetAsync(Guid actor, Guid shopId, Guid orderId, CancellationToken ct)
     {
         await shops.RequireAccessAsync(actor, shopId, ct);
-        var order = await db.Orders.AsNoTracking().Include(o => o.Items).SingleOrDefaultAsync(o => o.Id == orderId && o.ShopId == shopId, ct)
+        var order = await Details().SingleOrDefaultAsync(o => o.Id == orderId && o.ShopId == shopId, ct)
             ?? throw AppException.NotFound();
         return Map(order);
+    }
+
+    private IQueryable<Order> Scope(Guid shopId) => db.Orders.AsNoTracking().Where(o => o.ShopId == shopId
+        && (o.Status == OrderStatus.Cancelled || o.Status == OrderStatus.NoShow) && o.ResaleDecisionDeadlineAt != null);
+
+    private IQueryable<Order> Details() => db.Orders.AsNoTracking().Include(o => o.Customer)
+        .Include(o => o.Items).ThenInclude(i => i.FlashDealVariant).ThenInclude(v => v.FlashDeal)
+        .ThenInclude(d => d.Product).ThenInclude(p => p.Images).AsSplitQuery();
+
+    public async Task<RestockSummaryResponse> SummaryAsync(Guid actor, Guid shopId, CancellationToken ct)
+    {
+        await shops.RequireAccessAsync(actor, shopId, ct);
+        var now = clock.GetUtcNow().UtcDateTime;
+        var pending = Scope(shopId).Where(o => o.ResaleDecisionDeadlineAt > now
+            && o.Items.Any(i => i.ResaleDecisionStatus == ResaleDecisionStatus.Pending));
+        return new(await pending.CountAsync(ct), await pending.MinAsync(o => o.ResaleDecisionDeadlineAt, ct));
+    }
+
+    public async Task<PagedResult<RestockTaskResponse>> ListAsync(Guid actor, Guid shopId, bool pendingOnly,
+        int page, int pageSize, CancellationToken ct, Guid? flashDealId = null)
+    {
+        await shops.RequireAccessAsync(actor, shopId, ct);
+        if (page < 1 || page > 100000 || pageSize is < 1 or > 50)
+            throw AppException.BadRequest("Invalid page or page size.");
+        var now = clock.GetUtcNow().UtcDateTime;
+        var scope = Scope(shopId);
+        if (flashDealId.HasValue) scope = scope.Where(o => o.Items.Any(i => i.FlashDealVariant.FlashDealId == flashDealId.Value));
+        if (pendingOnly) scope = scope.Where(o => o.ResaleDecisionDeadlineAt > now
+            && o.Items.Any(i => i.ResaleDecisionStatus == ResaleDecisionStatus.Pending));
+        var total = await scope.CountAsync(ct);
+        var ids = await scope.OrderBy(o => pendingOnly ? o.ResaleDecisionDeadlineAt : null)
+            .ThenByDescending(o => o.UpdatedAt).ThenBy(o => o.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).Select(o => o.Id).ToListAsync(ct);
+        var rows = await Details().Where(o => ids.Contains(o.Id)).ToListAsync(ct);
+        var items = ids.Select(id => rows.Single(o => o.Id == id)).Select(o => new RestockTaskResponse(
+            o.Id, o.OrderCode, o.Status.ToString(), o.Customer.FullName, o.Customer.AvatarUrl, o.Customer.Phone,
+            o.CancelReason, o.CancelledAt, o.UpdatedAt, o.TotalAmount, Map(o, flashDealId))).ToArray();
+        return PagedResult<RestockTaskResponse>.Create(items, page, pageSize, total);
     }
 
     public async Task<ResaleDecisionResponse> DecideAsync(Guid actor, Guid shopId, Guid orderId, ResaleDecisionRequest request, CancellationToken ct)
@@ -89,7 +134,7 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
                     var deal = variant.FlashDeal;
                     if (deal.Status is not (FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
                         || now < deal.SaleStartTime || now >= deal.OrderEndTime || now >= deal.ShopClosingTime
-                        || deal.Product.Status != ProductStatus.Active || variant.Status != FlashDealVariantStatus.Active || !variant.Variant.IsActive)
+                        || deal.Product.DeletedAt != null || variant.Status != FlashDealVariantStatus.Active || !variant.Variant.IsActive)
                         throw AppException.Conflict("This item cannot return to sale: the deal is unavailable or expired.");
                     var changed = await db.FlashDealVariants.Where(v => v.Id == item.FlashDealVariantId && v.SoldQuantity >= choice.ResaleQuantity)
                         .ExecuteUpdateAsync(set => set.SetProperty(v => v.SoldQuantity, v => v.SoldQuantity - choice.ResaleQuantity), ct);
@@ -128,8 +173,12 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
             item.ResaleDecidedAt = now; item.ResaleDecidedBy = null;
         }
     }
-    private ResaleDecisionResponse Map(Order order) => new(order.Id, order.ResaleDecisionDeadlineAt,
-        order.ResaleDecisionDeadlineAt > clock.GetUtcNow().UtcDateTime && order.Items.Any(i => i.ResaleDecisionStatus == ResaleDecisionStatus.Pending),
-        order.Items.Select(i => new ResaleItemResponse(i.Id, i.ProductNameSnapshot, i.Quantity, i.ResaleDecisionStatus.ToString(),
-            i.ResaleQuantity, i.UnsellableQuantity, i.ResaleDecidedAt, i.ResaleDecidedBy)).ToArray());
+    private ResaleDecisionResponse Map(Order order, Guid? flashDealId = null)
+    {
+        var now = clock.GetUtcNow().UtcDateTime;
+        var items = order.Items.Where(i => !flashDealId.HasValue || i.FlashDealVariant?.FlashDealId == flashDealId.Value)
+            .Select(i => SaveBite.Backend.Helpers.RestockStockProjection.Item(i, order.ResaleDecisionDeadlineAt, now)).ToArray();
+        return new(order.Id, order.ResaleDecisionDeadlineAt,
+            order.ResaleDecisionDeadlineAt > now && items.Any(i => i.Status == nameof(ResaleDecisionStatus.Pending)), items);
+    }
 }

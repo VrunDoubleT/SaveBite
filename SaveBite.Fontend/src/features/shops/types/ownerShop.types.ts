@@ -11,6 +11,9 @@ export interface ShopProfileDocument {
 
 export interface OwnerShop {
   id: string;
+  ownerUserId?: string;
+  followerCount?: number;
+  suspendedForPlatformFees?: boolean;
   name: string;
   description?: string | null;
   addressLine?: string;

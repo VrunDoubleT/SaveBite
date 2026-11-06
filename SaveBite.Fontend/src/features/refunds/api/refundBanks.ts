@@ -1,5 +1,6 @@
 export interface Bank {
   bin: string;
+  code?: string;
   name: string;
   shortName: string;
 }
@@ -13,6 +14,11 @@ export function banks() {
         if (result.code !== "00" || !Array.isArray(result.data))
           throw new Error("Banks unavailable");
         return result.data
+          .map((bank) => ({
+            ...bank,
+            bin: String(bank.bin).trim(),
+            shortName: bank.shortName || bank.code || bank.name,
+          }))
           .filter((bank) => /^[0-9]{6}$/.test(bank.bin))
           .sort((a, b) => a.shortName.localeCompare(b.shortName));
       })

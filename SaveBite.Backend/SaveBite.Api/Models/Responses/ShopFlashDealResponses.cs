@@ -5,6 +5,7 @@ namespace SaveBite.Backend.Models.Responses;
 // Response item for shop flash deals list view.
 public class ShopFlashDealListItemResponse
 {
+    public int UnsellableQuantity { get; set; }
     public Guid Id { get; set; }
     public Guid ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
@@ -24,7 +25,7 @@ public class ShopFlashDealListItemResponse
     public int TotalQuantity { get; set; }
     public int ReservedQuantity { get; set; }
     public int SoldQuantity { get; set; }
-    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity);
+    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity - UnsellableQuantity);
 
     public DateTime CreatedAt { get; set; }
 }
@@ -56,6 +57,7 @@ public class ShopFlashDealDetailResponse
 // Detailed response for each variant within a shop flash deal.
 public class ShopFlashDealVariantDetailResponse
 {
+    public int UnsellableQuantity { get; set; }
     public Guid Id { get; set; }
     public Guid VariantId { get; set; }
     public string? Sku { get; set; }
@@ -70,7 +72,7 @@ public class ShopFlashDealVariantDetailResponse
     public int TotalQuantity { get; set; }
     public int ReservedQuantity { get; set; }
     public int SoldQuantity { get; set; }
-    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity);
+    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity - UnsellableQuantity);
 
     public FlashDealVariantStatus Status { get; set; }
 }

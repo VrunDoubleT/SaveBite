@@ -31,6 +31,7 @@ interface FormVariantState {
   totalQuantity: number | "";
   soldQuantity?: number;
   reservedQuantity?: number;
+  unsellableQuantity?: number;
   status?: number; // 0: Active, 1: Hide
   isSelected: boolean;
 }
@@ -53,7 +54,10 @@ export function StoreOwnerFlashDealFormPage() {
   // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (productDropdownRef.current && !productDropdownRef.current.contains(event.target as Node)) {
+      if (
+        productDropdownRef.current &&
+        !productDropdownRef.current.contains(event.target as Node)
+      ) {
         setIsProductDropdownOpen(false);
       }
     }
@@ -109,7 +113,15 @@ export function StoreOwnerFlashDealFormPage() {
       return new Date(startDate.getTime() + fallbackMins * 60 * 1000);
     }
     const [h, m] = timeStr.split(":").map(Number);
-    const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), h, m, 0, 0);
+    const d = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+      h,
+      m,
+      0,
+      0,
+    );
     if (d.getTime() <= startDate.getTime()) {
       // End time is after midnight (rolls into next day)
       d.setDate(d.getDate() + 1);
@@ -156,6 +168,7 @@ export function StoreOwnerFlashDealFormPage() {
                     totalQuantity: ex.totalQuantity,
                     soldQuantity: ex.soldQuantity,
                     reservedQuantity: ex.reservedQuantity,
+                    unsellableQuantity: ex.unsellableQuantity,
                     status: ex.status ?? FlashDealVariantStatusEnum.Active,
                     isSelected: true,
                   };
@@ -171,7 +184,7 @@ export function StoreOwnerFlashDealFormPage() {
                     isSelected: false,
                   };
                 }
-              })
+              }),
             );
           } else {
             setVariants(
@@ -184,9 +197,10 @@ export function StoreOwnerFlashDealFormPage() {
                 totalQuantity: v.totalQuantity,
                 soldQuantity: v.soldQuantity,
                 reservedQuantity: v.reservedQuantity,
+                unsellableQuantity: v.unsellableQuantity,
                 status: v.status ?? FlashDealVariantStatusEnum.Active,
                 isSelected: true,
-              }))
+              })),
             );
           }
         } else {
@@ -235,7 +249,9 @@ export function StoreOwnerFlashDealFormPage() {
   // Schedule Summary & Validity
   const scheduleSummary = useMemo(() => {
     const now = new Date();
-    const isImmediate = !isEditMode ? saleMode === "immediate" : (existingDeal?.status === FlashDealStatusEnum.OnSale);
+    const isImmediate = !isEditMode
+      ? saleMode === "immediate"
+      : existingDeal?.status === FlashDealStatusEnum.OnSale;
 
     const start = isImmediate ? now : getStartTimestamp("scheduled", startTime);
     const end = getEndTimestamp(start, endTime, durationMins || 60);
@@ -251,7 +267,8 @@ export function StoreOwnerFlashDealFormPage() {
       const diffStartMins = Math.round((start.getTime() - now.getTime()) / (1000 * 60));
       if (diffStartMins < 14) {
         isAdvanceValid = false;
-        advanceErrorMessage = "Start time must be at least 15 minutes from now, or choose immediate selling.";
+        advanceErrorMessage =
+          "Start time must be at least 15 minutes from now, or choose immediate selling.";
       } else if (diffStartMins > 91) {
         isAdvanceValid = false;
         advanceErrorMessage = `Flash deals can only be scheduled up to 90 minutes in advance (currently: ${diffStartMins} mins).`;
@@ -264,7 +281,10 @@ export function StoreOwnerFlashDealFormPage() {
     }
 
     const isValid = diffMs > 0 && isDurationValid && isAdvanceValid;
-    const errorMessage = advanceErrorMessage || durationErrorMessage || (diffMs <= 0 ? "End time must be after start time." : "");
+    const errorMessage =
+      advanceErrorMessage ||
+      durationErrorMessage ||
+      (diffMs <= 0 ? "End time must be after start time." : "");
 
     const hours = Math.floor(computedDurationMins / 60);
     const minutes = computedDurationMins % 60;
@@ -298,7 +318,9 @@ export function StoreOwnerFlashDealFormPage() {
   function handleSelectDuration(mins: number) {
     setDurationMins(mins);
     const now = new Date();
-    const isImmediate = !isEditMode ? saleMode === "immediate" : (existingDeal?.status === FlashDealStatusEnum.OnSale);
+    const isImmediate = !isEditMode
+      ? saleMode === "immediate"
+      : existingDeal?.status === FlashDealStatusEnum.OnSale;
     const start = isImmediate ? now : getStartTimestamp("scheduled", startTime);
     const end = new Date(start.getTime() + mins * 60 * 1000);
     setEndTime(formatTime(end));
@@ -309,7 +331,9 @@ export function StoreOwnerFlashDealFormPage() {
     setEndTime(newEndTime);
     if (!newEndTime) return;
     const now = new Date();
-    const isImmediate = !isEditMode ? saleMode === "immediate" : (existingDeal?.status === FlashDealStatusEnum.OnSale);
+    const isImmediate = !isEditMode
+      ? saleMode === "immediate"
+      : existingDeal?.status === FlashDealStatusEnum.OnSale;
     const start = isImmediate ? now : getStartTimestamp("scheduled", startTime);
     const end = getEndTimestamp(start, newEndTime);
     const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
@@ -371,7 +395,7 @@ export function StoreOwnerFlashDealFormPage() {
         totalQuantity: 50,
         isSelected: true,
         status: FlashDealVariantStatusEnum.Active,
-      }))
+      })),
     );
   }
 
@@ -380,12 +404,17 @@ export function StoreOwnerFlashDealFormPage() {
     setVariants((prev) =>
       prev.map((v) => {
         if (v.variantId !== variantId) return v;
-        if (v.isSelected && v.soldQuantity && v.soldQuantity > 0) {
-          toast.error(`Variant ${v.variantName} already has orders. Please switch its status to Hide instead.`);
+        if (
+          v.isSelected &&
+          (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) > 0
+        ) {
+          toast.error(
+            `Variant ${v.variantName} already has orders. Please switch its status to Hide instead.`,
+          );
           return v;
         }
         return { ...v, isSelected: !v.isSelected };
-      })
+      }),
     );
   }
 
@@ -393,11 +422,14 @@ export function StoreOwnerFlashDealFormPage() {
   function toggleSelectAll(selectAll: boolean) {
     setVariants((prev) =>
       prev.map((v) => {
-        if (!selectAll && v.soldQuantity && v.soldQuantity > 0) {
+        if (
+          !selectAll &&
+          (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) > 0
+        ) {
           return v;
         }
         return { ...v, isSelected: selectAll };
-      })
+      }),
     );
   }
 
@@ -405,7 +437,7 @@ export function StoreOwnerFlashDealFormPage() {
   function handleUpdateVariant(
     index: number,
     field: "dealPrice" | "totalQuantity" | "status",
-    value: string | number
+    value: string | number,
   ) {
     setVariants((prev) => {
       const next = [...prev];
@@ -427,7 +459,9 @@ export function StoreOwnerFlashDealFormPage() {
       return;
     }
 
-    const isImmediate = !isEditMode ? saleMode === "immediate" : (existingDeal?.status === FlashDealStatusEnum.OnSale);
+    const isImmediate = !isEditMode
+      ? saleMode === "immediate"
+      : existingDeal?.status === FlashDealStatusEnum.OnSale;
 
     if (!scheduleSummary || !scheduleSummary.isValid) {
       toast.error(scheduleSummary?.errorMessage || "Please enter valid deal schedule timing.");
@@ -456,12 +490,14 @@ export function StoreOwnerFlashDealFormPage() {
         const floor = Math.floor(priceNum / 1000) * 1000;
         const ceil = Math.ceil(priceNum / 1000) * 1000;
         toast.error(
-          `Deal price for ${v.variantName} must be a multiple of 1,000 VND. The two nearest valid values are ${floor.toLocaleString("en-US")} VND and ${ceil.toLocaleString("en-US")} VND.`
+          `Deal price for ${v.variantName} must be a multiple of 1,000 VND. The two nearest valid values are ${floor.toLocaleString("en-US")} VND and ${ceil.toLocaleString("en-US")} VND.`,
         );
         return;
       }
       if (priceNum >= v.originalPrice) {
-        toast.error(`Deal price for ${v.variantName} must be lower than original price (${v.originalPrice.toLocaleString("en-US")} VND).`);
+        toast.error(
+          `Deal price for ${v.variantName} must be lower than original price (${v.originalPrice.toLocaleString("en-US")} VND).`,
+        );
         return;
       }
       const qtyNum = Number(v.totalQuantity);
@@ -469,8 +505,10 @@ export function StoreOwnerFlashDealFormPage() {
         toast.error(`Deal quantity for ${v.variantName} must be a positive integer.`);
         return;
       }
-      if (v.soldQuantity !== undefined && qtyNum < (v.soldQuantity + (v.reservedQuantity || 0))) {
-        toast.error(`Deal quantity for ${v.variantName} cannot be less than already sold quantity (${v.soldQuantity}).`);
+      if (v.soldQuantity !== undefined && qtyNum < v.soldQuantity + (v.reservedQuantity || 0) + (v.unsellableQuantity || 0)) {
+        toast.error(
+          `Deal quantity for ${v.variantName} cannot be less than sold, reserved and stopped stock (${v.soldQuantity + (v.reservedQuantity || 0) + (v.unsellableQuantity || 0)}).`,
+        );
         return;
       }
     }
@@ -503,7 +541,11 @@ export function StoreOwnerFlashDealFormPage() {
             totalQuantity: Number(v.totalQuantity),
           })),
         });
-        toast.success(isImmediate ? "Flash deal created and activated immediately!" : "Flash deal scheduled successfully!");
+        toast.success(
+          isImmediate
+            ? "Flash deal created and activated immediately!"
+            : "Flash deal scheduled successfully!",
+        );
       }
       navigate(APP_PATHS.STORE_OWNER_FLASH_DEALS);
     } catch (err) {
@@ -548,9 +590,7 @@ export function StoreOwnerFlashDealFormPage() {
         <h2 className="text-sm font-bold text-neutral-900">Product Information</h2>
 
         <div>
-          <label className="block text-xs font-medium text-neutral-700">
-            Selected Product
-          </label>
+          <label className="block text-xs font-medium text-neutral-700">Selected Product</label>
 
           {isEditMode ? (
             <div className="mt-1">
@@ -574,27 +614,36 @@ export function StoreOwnerFlashDealFormPage() {
                 {currentProduct ? (
                   <div className="flex items-center gap-2.5 truncate">
                     <img
-                      src={currentProduct.imageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"}
+                      src={
+                        currentProduct.imageUrl ||
+                        "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"
+                      }
                       alt={currentProduct.name}
                       className="size-7 rounded-md object-cover border border-neutral-100 shrink-0"
                     />
                     <div className="text-left truncate">
                       <span className="font-semibold text-neutral-900">{currentProduct.name}</span>
                       <span className="ml-2 text-[11px] text-neutral-400">
-                        {currentProduct.categoryName ? `(${currentProduct.categoryName})` : ""} • {currentProduct.variants.length} variant{currentProduct.variants.length !== 1 ? "s" : ""}
+                        {currentProduct.categoryName ? `(${currentProduct.categoryName})` : ""} •{" "}
+                        {currentProduct.variants.length} variant
+                        {currentProduct.variants.length !== 1 ? "s" : ""}
                       </span>
                     </div>
                   </div>
                 ) : (
                   <span className="text-neutral-400">Select a product to put on flash deal...</span>
                 )}
-                <ChevronDown className={`size-4 text-neutral-400 transition-transform ${isProductDropdownOpen ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  className={`size-4 text-neutral-400 transition-transform ${isProductDropdownOpen ? "rotate-180" : ""}`}
+                />
               </button>
 
               {isProductDropdownOpen && (
                 <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-neutral-200 bg-white p-1.5 shadow-lg">
                   {eligibleProducts.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-neutral-400">No eligible products available</div>
+                    <div className="p-3 text-center text-xs text-neutral-400">
+                      No eligible products available
+                    </div>
                   ) : (
                     eligibleProducts.map((p) => {
                       const isSelected = p.id === selectedProductId;
@@ -606,19 +655,25 @@ export function StoreOwnerFlashDealFormPage() {
                             setIsProductDropdownOpen(false);
                           }}
                           className={`flex items-center justify-between gap-3 rounded-md px-2.5 py-2 cursor-pointer transition ${
-                            isSelected ? "bg-emerald-50 text-emerald-900 font-semibold" : "hover:bg-neutral-50 text-neutral-800"
+                            isSelected
+                              ? "bg-emerald-50 text-emerald-900 font-semibold"
+                              : "hover:bg-neutral-50 text-neutral-800"
                           }`}
                         >
                           <div className="flex items-center gap-2.5 truncate">
                             <img
-                              src={p.imageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"}
+                              src={
+                                p.imageUrl ||
+                                "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"
+                              }
                               alt={p.name}
                               className="size-9 rounded-md object-cover border border-neutral-100 shrink-0"
                             />
                             <div className="truncate text-left">
                               <p className="text-xs font-semibold text-neutral-900">{p.name}</p>
                               <p className="text-[11px] text-neutral-400">
-                                {p.categoryName || "Food"} • {p.variants.length} variant{p.variants.length !== 1 ? "s" : ""}
+                                {p.categoryName || "Food"} • {p.variants.length} variant
+                                {p.variants.length !== 1 ? "s" : ""}
                               </p>
                             </div>
                           </div>
@@ -637,7 +692,10 @@ export function StoreOwnerFlashDealFormPage() {
         {currentProduct && (
           <div className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50/70 p-3">
             <img
-              src={currentProduct.imageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"}
+              src={
+                currentProduct.imageUrl ||
+                "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"
+              }
               alt={currentProduct.name}
               className="size-14 rounded-lg object-cover"
             />
@@ -662,7 +720,8 @@ export function StoreOwnerFlashDealFormPage() {
           <div>
             <h2 className="text-sm font-bold text-neutral-900">Sale Mode & Schedule</h2>
             <p className="mt-0.5 text-xs text-neutral-500">
-              Choose to sell immediately or schedule sale opening ahead (15m - 90m). Deal runs for 30m to 120m.
+              Choose to sell immediately or schedule sale opening ahead (15m - 90m). Deal runs for
+              30m to 120m.
             </p>
           </div>
 
@@ -670,8 +729,8 @@ export function StoreOwnerFlashDealFormPage() {
           {scheduleSummary?.isValid ? (
             scheduleSummary.isCurrentlyActive ? (
               <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                ⚡ Active Immediately
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />⚡ Active
+                Immediately
               </span>
             ) : scheduleSummary.isUpcoming ? (
               <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-inset ring-blue-600/20">
@@ -718,9 +777,7 @@ export function StoreOwnerFlashDealFormPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-neutral-900 truncate">
-                      Sell Immediately
-                    </p>
+                    <p className="text-xs font-bold text-neutral-900 truncate">Sell Immediately</p>
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${
                         saleMode === "immediate"
@@ -732,7 +789,8 @@ export function StoreOwnerFlashDealFormPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
-                    Deal is activated immediately upon saving. Customers can order right away, you only need to select duration.
+                    Deal is activated immediately upon saving. Customers can order right away, you
+                    only need to select duration.
                   </p>
                 </div>
               </button>
@@ -773,7 +831,8 @@ export function StoreOwnerFlashDealFormPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
-                    Schedule sale opening 15 to 90 minutes in advance. The deal will automatically go live at your chosen time.
+                    Schedule sale opening 15 to 90 minutes in advance. The deal will automatically
+                    go live at your chosen time.
                   </p>
                 </div>
               </button>
@@ -908,7 +967,8 @@ export function StoreOwnerFlashDealFormPage() {
                   <span className="font-bold flex items-center gap-1">
                     <Clock className="size-3.5 text-emerald-600" />
                     Duration: {scheduleSummary.durationMins} mins
-                    {scheduleSummary.hours > 0 && ` (${scheduleSummary.hours}h${scheduleSummary.minutes > 0 ? ` ${scheduleSummary.minutes}m` : ""})`}
+                    {scheduleSummary.hours > 0 &&
+                      ` (${scheduleSummary.hours}h${scheduleSummary.minutes > 0 ? ` ${scheduleSummary.minutes}m` : ""})`}
                   </span>
                   <span className="text-neutral-300">•</span>
                   <span>
@@ -916,17 +976,23 @@ export function StoreOwnerFlashDealFormPage() {
                   </span>
                   <span className="text-neutral-400">➔</span>
                   <span>
-                    Cutoff: <strong>{endTime}</strong> {scheduleSummary.isNextDay && <strong className="text-amber-700">(Next Day)</strong>}
+                    Cutoff: <strong>{endTime}</strong>{" "}
+                    {scheduleSummary.isNextDay && (
+                      <strong className="text-amber-700">(Next Day)</strong>
+                    )}
                   </span>
                 </div>
                 <div className="text-[11px] font-medium text-neutral-600">
-                  🔒 Store Closes: <strong>{formatTime(scheduleSummary.closingTime)}</strong> (includes 30m pickup buffer)
+                  🔒 Store Closes: <strong>{formatTime(scheduleSummary.closingTime)}</strong>{" "}
+                  (includes 30m pickup buffer)
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-2 font-medium">
                 <AlertCircle className="size-4 shrink-0 text-red-500" />
-                <span>{scheduleSummary?.errorMessage || "Please enter valid deal schedule timing."}</span>
+                <span>
+                  {scheduleSummary?.errorMessage || "Please enter valid deal schedule timing."}
+                </span>
               </div>
             )}
           </div>
@@ -939,7 +1005,8 @@ export function StoreOwnerFlashDealFormPage() {
           <div>
             <h2 className="text-sm font-bold text-neutral-900">Discounted Variants</h2>
             <p className="mt-0.5 text-xs text-neutral-500">
-              Tick the variants you want to offer in this Flash Deal. Set deal price and inventory quantity for each selected variant.
+              Tick the variants you want to offer in this Flash Deal. Set deal price and inventory
+              quantity for each selected variant.
             </p>
           </div>
 
@@ -970,7 +1037,8 @@ export function StoreOwnerFlashDealFormPage() {
               <div>
                 <p className="font-bold">No variants found for {currentProduct?.name}</p>
                 <p className="mt-0.5 text-amber-700">
-                  This product has no active variants. Please choose another product or add variants in Menu Management.
+                  This product has no active variants. Please choose another product or add variants
+                  in Menu Management.
                 </p>
               </div>
             </div>
@@ -985,7 +1053,9 @@ export function StoreOwnerFlashDealFormPage() {
               const isPriceTooLow = isPriceEntered && priceNum < 1000;
               const hasPriceError = isNotMultipleOf1000 || isPriceGteOriginal || isPriceTooLow;
 
-              const nearestFloor = isPriceEntered ? Math.max(1000, Math.floor(priceNum / 1000) * 1000) : 1000;
+              const nearestFloor = isPriceEntered
+                ? Math.max(1000, Math.floor(priceNum / 1000) * 1000)
+                : 1000;
               const nearestCeil = isPriceEntered ? Math.ceil(priceNum / 1000) * 1000 : 1000;
 
               const discountPercent =
@@ -993,7 +1063,9 @@ export function StoreOwnerFlashDealFormPage() {
                   ? Math.round(((v.originalPrice - priceNum) / v.originalPrice) * 100)
                   : 0;
 
-              const hasOrders = Boolean(v.soldQuantity && v.soldQuantity > 0);
+              const hasOrders = Boolean(
+                (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) > 0,
+              );
 
               return (
                 <div
@@ -1030,7 +1102,10 @@ export function StoreOwnerFlashDealFormPage() {
                         <p className="text-[10px] text-neutral-400 font-mono mt-0.5">{v.sku}</p>
                       )}
                       <p className="mt-0.5 text-xs text-neutral-500">
-                        Original: <span className="font-semibold text-neutral-700">{v.originalPrice.toLocaleString("en-US")} VND</span>
+                        Original:{" "}
+                        <span className="font-semibold text-neutral-700">
+                          {v.originalPrice.toLocaleString("en-US")} VND
+                        </span>
                       </p>
                       {hasOrders && (
                         <span className="mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
@@ -1055,7 +1130,9 @@ export function StoreOwnerFlashDealFormPage() {
                             step="1000"
                             required
                             value={v.dealPrice}
-                            onChange={(e) => handleUpdateVariant(index, "dealPrice", e.target.value)}
+                            onChange={(e) =>
+                              handleUpdateVariant(index, "dealPrice", e.target.value)
+                            }
                             placeholder="25000"
                             className={`w-full rounded-lg border py-1.5 pl-3 pr-7 text-xs text-neutral-900 shadow-2xs font-semibold focus:outline-none focus:ring-1 ${
                               hasPriceError
@@ -1063,7 +1140,9 @@ export function StoreOwnerFlashDealFormPage() {
                                 : "border-neutral-300 bg-white focus:border-emerald-500 focus:ring-emerald-500"
                             }`}
                           />
-                          <span className="absolute right-2.5 top-1.5 text-xs text-neutral-400 font-medium">VND</span>
+                          <span className="absolute right-2.5 top-1.5 text-xs text-neutral-400 font-medium">
+                            VND
+                          </span>
                         </div>
 
                         {/* Real-time Inline Validation Message & Nearest Suggestions */}
@@ -1076,7 +1155,9 @@ export function StoreOwnerFlashDealFormPage() {
                               <span className="text-neutral-400">Nearest:</span>
                               <button
                                 type="button"
-                                onClick={() => handleUpdateVariant(index, "dealPrice", nearestFloor)}
+                                onClick={() =>
+                                  handleUpdateVariant(index, "dealPrice", nearestFloor)
+                                }
                                 className="rounded bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 px-1.5 py-0.5 font-bold text-neutral-700 border border-neutral-200 transition text-[10px]"
                               >
                                 {nearestFloor.toLocaleString("en-US")} VND
@@ -1084,7 +1165,9 @@ export function StoreOwnerFlashDealFormPage() {
                               {nearestCeil !== nearestFloor && (
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateVariant(index, "dealPrice", nearestCeil)}
+                                  onClick={() =>
+                                    handleUpdateVariant(index, "dealPrice", nearestCeil)
+                                  }
                                   className="rounded bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 px-1.5 py-0.5 font-bold text-neutral-700 border border-neutral-200 transition text-[10px]"
                                 >
                                   {nearestCeil.toLocaleString("en-US")} VND
@@ -1120,13 +1203,16 @@ export function StoreOwnerFlashDealFormPage() {
                           step="1"
                           required
                           value={v.totalQuantity}
-                          onChange={(e) => handleUpdateVariant(index, "totalQuantity", e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateVariant(index, "totalQuantity", e.target.value)
+                          }
                           placeholder="50"
                           className="w-full rounded-lg border border-neutral-300 py-1.5 px-3 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
                         />
                         {v.soldQuantity !== undefined ? (
                           <p className="mt-1 text-[10px] text-neutral-400">
-                            Sold {v.soldQuantity}, reserved {v.reservedQuantity || 0}
+                            Sold {v.soldQuantity}, reserved {v.reservedQuantity || 0}, stopped{" "}
+                            {v.unsellableQuantity || 0}
                           </p>
                         ) : (
                           <p className="mt-1 text-[10px] text-neutral-400">Allocated deal stock</p>

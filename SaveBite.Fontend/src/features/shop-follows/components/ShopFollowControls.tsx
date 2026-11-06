@@ -5,26 +5,34 @@ import { shopFollowApi, type ShopFollow } from "../api/shopFollowApi";
 import { Button } from "@/shared/components/ui";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { getApiErrorMessage } from "@/shared/api";
+import { shopApi } from "@/features/shops/api/shopApi";
 import { toast } from "@/shared/stores/toastStore";
 
 interface Props {
   shopId: string;
+  ownerUserId?: string;
   shopName: string;
   compact?: boolean;
-  initialFollow?: ShopFollow;
+  initialFollow?: ShopFollow | null;
   onChange?: (follow: ShopFollow | null) => void;
 }
 export function ShopFollowControls(props: Props) {
   const user = useAuthStore((state) => state.user);
+  if (user?.id && user.id === props.ownerUserId) return null;
   // Reset pending requests and local state when the shop or signed-in customer changes.
-  return <FollowControls key={`${user?.id ?? "guest"}:${props.shopId}`} {...props} />;
+  return (
+    <FollowControls
+      key={`${user?.id ?? "guest"}:${props.shopId}:${props.initialFollow === undefined ? "fetch" : (props.initialFollow?.followedAt ?? "none")}`}
+      {...props}
+    />
+  );
 }
 function FollowControls({ shopId, shopName, initialFollow, onChange, compact = false }: Props) {
   const user = useAuthStore((state) => state.user);
   const initializing = useAuthStore((state) => state.isInitializing);
   const authenticated = useAuthStore((state) => state.isAuthenticated);
   const [follow, setFollow] = useState<ShopFollow | null>(initialFollow ?? null);
-  const [loading, setLoading] = useState(Boolean(authenticated && !initialFollow));
+  const [loading, setLoading] = useState(Boolean(authenticated && initialFollow === undefined));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -32,13 +40,13 @@ function FollowControls({ shopId, shopName, initialFollow, onChange, compact = f
   const navigate = useNavigate();
   const location = useLocation();
   useEffect(() => {
-    if (!authenticated || user?.role === "admin" || initialFollow) return;
+    if (!authenticated || user?.role === "admin" || initialFollow !== undefined) return;
     const controller = new AbortController();
-    shopFollowApi
-      .find(shopId, controller.signal)
+    shopApi
+      .getShopProfile(shopId, controller.signal)
       .then((value) => {
         if (!controller.signal.aborted) {
-          setFollow(value);
+          setFollow(value.currentUserFollow ?? null);
           setError(null);
         }
       })

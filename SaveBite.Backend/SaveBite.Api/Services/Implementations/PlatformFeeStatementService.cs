@@ -355,18 +355,15 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 throw AppException.ServiceUnavailable("Invalid response signature from PayOS.");
             }
             checkoutUrl = data.TryGetProperty("checkoutUrl", out var checkoutProp) && checkoutProp.ValueKind == JsonValueKind.String
-                ? checkoutProp.GetString()!
-                : $"https://pay.payos.vn/web/{orderCodeStr}";
-            qrCode = data.TryGetProperty("qrCode", out var qrProp) && qrProp.ValueKind == JsonValueKind.String
-                ? qrProp.GetString()!
-                : $"00020101021238540010A000000727012600069704220112{orderCodeStr}5303704540{statement.TotalFeeAmount:0}5802VN62070803SB6304";
+                ? checkoutProp.GetString()! : string.Empty;
+            qrCode = SaveBite.Backend.Helpers.PlatformFeePaymentQr.RequireProviderQr(data);
         }
-        else
+        else if (paymentProvider == "Simulated")
         {
-            // Simulated mode (Checkout:PaymentProvider == "Simulated")
-            checkoutUrl = $"https://pay.payos.vn/web/{orderCodeStr}";
-            qrCode = $"00020101021238540010A000000727012600069704220112{orderCodeStr}5303704540{statement.TotalFeeAmount:0}5802VN62070803SB6304";
+            checkoutUrl = string.Empty;
+            qrCode = string.Empty; // Simulation never provides a real bank payment QR.
         }
+        else throw AppException.ServiceUnavailable("Unsupported platform fee payment provider.");
         _logger.LogInformation("Created platform fee payment link for statement {StatementId}, amount: {Amount}, mode: {Mode}", statement.Id, statement.TotalFeeAmount, paymentProvider);
 
         return new PlatformFeePaymentLinkResponse(
@@ -377,7 +374,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             checkoutUrl,
             qrCode,
             expiresAtTime
-        );
+        ) { IsSimulated = paymentProvider == "Simulated" };
     }
 
     // UC-151: Update Platform Fee Payment Status via Webhook (BR-097, BR-167, BR-195)

@@ -145,12 +145,15 @@ export function PlatformFeesPage() {
             <div className="flex-1 text-xs sm:text-sm">
               <h3 className="font-bold text-rose-900">
                 {shop?.status === "Suspended"
-                  ? "Your store is currently SUSPENDED due to overdue platform fees"
+                  ? shop.suspendedForPlatformFees
+                    ? "Your store is suspended due to overdue platform fees"
+                    : "Your store has been suspended by an administrator"
                   : "Attention: You have overdue platform fee statements!"}
               </h3>
               <p className="mt-1 text-rose-800 leading-normal">
-                Please settle the overdue balances below to automatically reactivate your store
-                operations.
+                {shop?.status === "Suspended" && !shop.suspendedForPlatformFees
+                  ? "Contact support about the administrator suspension. Paying platform fees will not lift this suspension."
+                  : "Settle all overdue balances below to automatically reactivate your store operations."}
               </p>
             </div>
           </div>

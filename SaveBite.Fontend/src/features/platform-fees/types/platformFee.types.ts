@@ -125,6 +125,7 @@ export interface PlatformFeeStatementDetail {
 
 export interface PlatformFeePaymentLinkResponse {
   paymentId: string;
+  isSimulated?: boolean;
   statementId: string;
   amount: number;
   orderCode: number;

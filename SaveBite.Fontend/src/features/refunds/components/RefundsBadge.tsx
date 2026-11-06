@@ -30,10 +30,8 @@ export function RefundsBadge() {
         reading = false;
       }
     }
-    const off = realtime.on(REALTIME_EVENTS.CUSTOMER_ORDERS_CHANGED, (event) => {
-      const data = event.data as { reason?: string } | null;
-      if (["reject", "confirmation-expired", "refund-changed"].includes(data?.reason ?? ""))
-        void refresh();
+    const off = realtime.on(REALTIME_EVENTS.CUSTOMER_ORDERS_CHANGED, () => {
+      void refresh();
     });
     const connected = realtime.onConnected((reconnected) => {
       if (reconnected) void refresh();
@@ -51,7 +49,7 @@ export function RefundsBadge() {
     <span
       aria-live="polite"
       aria-label={`${count} refunds need your bank details`}
-      title="Shop refunds waiting for your bank details or email confirmation"
+      title="Refunds waiting for your bank details or email confirmation"
       className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-xs font-bold leading-4 text-white"
     >
       {count}

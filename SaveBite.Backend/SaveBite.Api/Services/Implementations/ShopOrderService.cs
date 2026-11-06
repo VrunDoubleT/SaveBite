@@ -552,7 +552,7 @@ public sealed class ShopOrderService : IShopOrderService
           
             order.RefundedAmount += transferredNow;
             f.FeeAdjustedAt = null; f.AccumulatedValueReclaimedAt = null;
-            LifecycleOutbox.RefundTransferred(_db, f, Now);
+            LifecycleOutbox.RefundTransferred(_db, f, Now, transferredNow);
 
             await _orders.SaveAsync(ct);
             return MapRefund(f);

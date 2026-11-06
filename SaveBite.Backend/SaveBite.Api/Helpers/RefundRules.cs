@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -7,6 +8,12 @@ namespace SaveBite.Backend.Helpers;
 // Pure refund policy checks shared by commands and boundary tests.
 public static class RefundRules
 {
+    public static Expression<Func<Refund, bool>> ShopActionRequiredAt(DateTime now) => refund =>
+        refund.DestinationConfirmedAt != null && refund.ReviewDeadlineAt > now
+        && (refund.RefundType == RefundType.ShopCancellation || refund.Order.Status == OrderStatus.Completed)
+        && ((refund.Status == RefundStatus.PendingVerification && refund.RefundType == RefundType.CustomerRequest)
+            || (refund.Status == RefundStatus.AwaitingTransfer && refund.RequestedAmount > refund.TransferredAmount));
+
     public const string CustomerConfirmationExpired = "Customer confirmation deadline expired.";
     public const string ShopProcessingExpired = "Shop processing deadline expired.";
     // PostgreSQL timestamps keep microseconds; compare job arguments at the same precision.

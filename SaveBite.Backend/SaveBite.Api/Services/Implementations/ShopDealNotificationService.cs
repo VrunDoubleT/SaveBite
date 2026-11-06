@@ -20,7 +20,7 @@ public sealed class ShopDealNotificationService(AppDbContext db, INotificationSe
             .SingleOrDefaultAsync(d => d.Id == data.FlashDealId && d.ShopId == data.ShopId, ct);
         // A delayed/replayed event must not advertise an unavailable deal.
         if (deal == null || deal.Status != FlashDealStatus.OnSale || deal.Shop.Status != ShopStatus.Active
-            || deal.Product.Status != ProductStatus.Active || now < deal.SaleStartTime || now >= deal.OrderEndTime
+            || deal.Product.DeletedAt != null || now < deal.SaleStartTime || now >= deal.OrderEndTime
             || now >= deal.ShopClosingTime) return;
         await notifications.SendAsync(NotificationTarget.ShopFollowers(data.ShopId, data.OpenedAt),
             new CreateNotificationCommand(NotificationType.FlashDealAvailable, $"New Flash Deal from {deal.Shop.Name}!",

@@ -1,3 +1,4 @@
+import type { ShopFollow } from "@/features/shop-follows/api/shopFollowApi";
 export interface NearbyShop {
   id: string;
   name: string;
@@ -18,6 +19,10 @@ export interface NearbyShop {
 
 export interface ShopProfile {
   id: string;
+  ownerUserId?: string;
+  followerCount?: number;
+  currentUserFollow: ShopFollow | null;
+  suspendedForPlatformFees?: boolean;
   name: string;
   description?: string | null;
   addressLine: string;

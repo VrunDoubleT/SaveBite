@@ -17,7 +17,7 @@ public sealed class DealInventoryService(AppDbContext db, IFlashDealRepository d
         if (now < deal.SaleStartTime || now >= deal.OrderEndTime || now >= deal.ShopClosingTime) return;
         var available = deal.Variants.Any(v => v.Status == FlashDealVariantStatus.Active && v.Variant.IsActive
             && (long)v.TotalQuantity - v.ReservedQuantity - v.SoldQuantity > 0);
-        var target = available && deal.Product.Status == ProductStatus.Active && deal.Shop.Status == ShopStatus.Active
+        var target = available && deal.Product.DeletedAt == null && deal.Shop.Status == ShopStatus.Active
             ? FlashDealStatus.OnSale : FlashDealStatus.SoldOut;
         if (deal.Status != target)
             await db.FlashDeals.Where(d => d.Id == dealId).ExecuteUpdateAsync(set => set.SetProperty(d => d.Status, target).SetProperty(d => d.UpdatedAt, now), ct);

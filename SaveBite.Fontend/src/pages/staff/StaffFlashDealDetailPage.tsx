@@ -1,3 +1,5 @@
+import { FlashDealStockHistory } from "@/features/restock/FlashDealStockHistory";
+import { useRestockWorkspace } from "@/features/restock/restockContext";
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -23,6 +25,7 @@ import { getApiErrorMessage } from "@/shared/api/httpClient";
 export function StaffFlashDealDetailPage() {
   const { shopId, id } = useParams<{ shopId: string; id: string }>();
   const navigate = useNavigate();
+  const { revision: stockRevision } = useRestockWorkspace();
 
   const [deal, setDeal] = useState<ShopFlashDealDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +50,7 @@ export function StaffFlashDealDetailPage() {
     return () => {
       ignore = true;
     };
-  }, [id, shopId]);
+  }, [id, shopId, stockRevision]);
 
   function formatDateTime(dateStr?: string) {
     if (!dateStr) return "-";
@@ -66,7 +69,8 @@ export function StaffFlashDealDetailPage() {
 
   // Summary calculations
   const summary = useMemo(() => {
-    if (!deal) return { totalQty: 0, soldQty: 0, reservedQty: 0, remainingQty: 0, revenue: 0, percent: 0 };
+    if (!deal)
+      return { totalQty: 0, soldQty: 0, reservedQty: 0, remainingQty: 0, revenue: 0, percent: 0 };
     const totalQty = deal.variants.reduce((acc, v) => acc + v.totalQuantity, 0);
     const soldQty = deal.variants.reduce((acc, v) => acc + v.soldQuantity, 0);
     const reservedQty = deal.variants.reduce((acc, v) => acc + v.reservedQuantity, 0);
@@ -114,7 +118,8 @@ export function StaffFlashDealDetailPage() {
   }
 
   const isHidden = deal.status === FlashDealStatusEnum.Hidden;
-  const isCancelled = deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed;
+  const isCancelled =
+    deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed;
 
   return (
     <div className="space-y-6">
@@ -148,7 +153,8 @@ export function StaffFlashDealDetailPage() {
                 This Flash Deal is currently hidden from customers
               </h3>
               <p className="text-xs text-amber-700">
-                Customers cannot discover or place orders for this deal. Only store owners can change visibility.
+                Customers cannot discover or place orders for this deal. Only store owners can
+                change visibility.
               </p>
             </div>
           </div>
@@ -158,7 +164,10 @@ export function StaffFlashDealDetailPage() {
       {/* Product Card */}
       <div className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-2xs sm:flex-row sm:items-center">
         <img
-          src={deal.primaryImageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=160&auto=format&fit=crop&q=60"}
+          src={
+            deal.primaryImageUrl ||
+            "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=160&auto=format&fit=crop&q=60"
+          }
           alt={deal.productName}
           className="size-20 rounded-xl object-cover"
         />
@@ -187,9 +196,7 @@ export function StaffFlashDealDetailPage() {
             )}
           </div>
           <p className="text-xs text-neutral-400">Enrolled in store Flash Deal campaign</p>
-          {deal.description && (
-            <p className="text-xs text-neutral-600">{deal.description}</p>
-          )}
+          {deal.description && <p className="text-xs text-neutral-600">{deal.description}</p>}
         </div>
       </div>
 
@@ -273,9 +280,7 @@ export function StaffFlashDealDetailPage() {
 
           <div className="rounded-lg bg-neutral-50/75 p-3.5 border border-neutral-100">
             <p className="text-[11px] text-neutral-400">Safety Buffer</p>
-            <p className="mt-1 text-xs font-semibold text-neutral-800">
-              {safetyBuffer} mins
-            </p>
+            <p className="mt-1 text-xs font-semibold text-neutral-800">{safetyBuffer} mins</p>
           </div>
         </div>
 
@@ -299,26 +304,56 @@ export function StaffFlashDealDetailPage() {
           <table className="min-w-full divide-y divide-neutral-200 text-left text-xs">
             <thead className="bg-neutral-50/75 text-neutral-500">
               <tr>
-                <th scope="col" className="px-4 py-3 font-medium">Variant</th>
-                <th scope="col" className="px-4 py-3 font-medium">Original Price</th>
-                <th scope="col" className="px-4 py-3 font-medium">Deal Price</th>
-                <th scope="col" className="px-4 py-3 font-medium">Discount</th>
-                <th scope="col" className="px-4 py-3 font-medium">Sold</th>
-                <th scope="col" className="px-4 py-3 font-medium">Reserved</th>
-                <th scope="col" className="px-4 py-3 font-medium">Remaining</th>
-                <th scope="col" className="px-4 py-3 font-medium">Status</th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Variant
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Original Price
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Deal Price
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Discount
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Sold
+                </th>
+                <th
+                  scope="col"
+                  className="px-4 py-3 font-medium"
+                  title="Includes stock held while awaiting a restock decision"
+                >
+                  Reserved
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Remaining
+                </th>
+                <th
+                  scope="col"
+                  className="px-4 py-3 font-medium"
+                  title="Quantities marked unsellable or automatically stopped after the restock deadline"
+                >
+                  Stopped from sale
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 bg-white">
               {deal.variants.map((v) => {
-                const soldPercent = v.totalQuantity > 0
-                  ? Math.min(100, Math.round((v.soldQuantity / v.totalQuantity) * 100))
-                  : 0;
+                const soldPercent =
+                  v.totalQuantity > 0
+                    ? Math.min(100, Math.round((v.soldQuantity / v.totalQuantity) * 100))
+                    : 0;
 
                 return (
                   <tr key={v.id} className="hover:bg-neutral-50/60">
                     <td className="px-4 py-3.5">
-                      <p className="font-semibold text-neutral-900">{v.variantName || v.sku || "Default"}</p>
+                      <p className="font-semibold text-neutral-900">
+                        {v.variantName || v.sku || "Default"}
+                      </p>
                       {v.sku && <p className="text-[10px] text-neutral-400">{v.sku}</p>}
                     </td>
                     <td className="px-4 py-3.5 text-neutral-500">
@@ -344,7 +379,12 @@ export function StaffFlashDealDetailPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-neutral-700">{v.reservedQuantity}</td>
-                    <td className="px-4 py-3.5 font-semibold text-neutral-900">{v.availableQuantity}</td>
+                    <td className="px-4 py-3.5 font-semibold text-neutral-900">
+                      {v.availableQuantity}
+                    </td>
+                    <td className="px-4 py-3.5 font-semibold text-orange-700">
+                      {Number.isInteger(v.unsellableQuantity) ? v.unsellableQuantity : "—"}
+                    </td>
                     <td className="px-4 py-3.5">
                       {v.status === FlashDealVariantStatusEnum.Hide || isHidden ? (
                         <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
@@ -363,6 +403,7 @@ export function StaffFlashDealDetailPage() {
           </table>
         </div>
       </div>
+      <FlashDealStockHistory flashDealId={deal.id} />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+using SaveBite.Backend.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
@@ -182,9 +183,10 @@ public sealed class FlashDealService : IFlashDealService
         async Task<List<FlashDealResponse>> ReadAsync(IQueryable<FlashDeal> selected)
         {
             var entities = await FlashDealReadQuery.WithDetails(selected).ToListAsync(cancellationToken);
+            var unsellable = await GetStockDecisionsAsync(entities.SelectMany(d => d.Variants).Select(v => v.Id), cancellationToken);
             return entities.Select(deal =>
             {
-                var response = MapToResponse(deal);
+                var response = MapToResponse(deal, unsellable);
                 response.DistanceInKm = Math.Round(FlashDealReadQuery.Distance(latitude, longitude, deal.Shop.Latitude, deal.Shop.Longitude), 2);
                 return response;
             }).ToList();
@@ -269,7 +271,8 @@ public sealed class FlashDealService : IFlashDealService
         var deals = await FlashDealReadQuery.WithDetails(FlashDealReadQuery.Visible(_db, DateTime.UtcNow)
             .Where(d => d.ShopId == shopId).OrderByDescending(d => d.CreatedAt).ThenBy(d => d.Id))
             .ToListAsync(cancellationToken);
-        return deals.Select(MapToResponse).ToList();
+        var unsellable = await GetStockDecisionsAsync(deals.SelectMany(d => d.Variants).Select(v => v.Id), cancellationToken);
+        return deals.Select(deal => MapToResponse(deal, unsellable)).ToList();
     }
 
     public async Task<FlashDealResponse> GetByIdAsync(Guid dealId, CancellationToken cancellationToken = default)
@@ -277,10 +280,11 @@ public sealed class FlashDealService : IFlashDealService
         var deal = await FlashDealReadQuery.WithDetails(FlashDealReadQuery.Visible(_db, DateTime.UtcNow))
             .SingleOrDefaultAsync(d => d.Id == dealId, cancellationToken);
         if (deal == null) throw AppException.NotFound($"Flash deal with ID '{dealId}' is unavailable.");
-        return MapToResponse(deal);
+        var unsellable = await GetStockDecisionsAsync(deal.Variants.Select(v => v.Id), cancellationToken);
+        return MapToResponse(deal, unsellable);
     }
 
-    public static FlashDealResponse MapToResponse(FlashDeal deal)
+    public static FlashDealResponse MapToResponse(FlashDeal deal, IReadOnlyDictionary<Guid, FlashDealStockDecisions>? unsellable = null)
     {
         var attributeGroups = deal.Product?.Attributes?
             .Select(a => new DealAttributeGroupResponse
@@ -293,7 +297,7 @@ public sealed class FlashDealService : IFlashDealService
 
         var now = DateTime.UtcNow;
         var isDealOnSale = deal.Status == FlashDealStatus.OnSale
-            && deal.Shop?.Status == ShopStatus.Active && deal.Product?.Status == ProductStatus.Active;
+            && deal.Shop?.Status == ShopStatus.Active && deal.Product != null && deal.Product.DeletedAt == null;
         var isDealTimeValid = now >= deal.SaleStartTime.ToUniversalTime() && now < deal.OrderEndTime.ToUniversalTime() && now < deal.ShopClosingTime.ToUniversalTime();
 
         var variants = deal.Variants.Select(v =>
@@ -320,6 +324,7 @@ public sealed class FlashDealService : IFlashDealService
                 && v.Variant?.IsActive == true
                 && availableQty > 0;
 
+            var stock = FlashDealStockBreakdown.From(v, unsellable?.GetValueOrDefault(v.Id));
             return new FlashDealVariantResponse
             {
                 Id = v.Id,
@@ -332,8 +337,9 @@ public sealed class FlashDealService : IFlashDealService
                 DealPrice = v.DealPrice,
                 DiscountPercent = v.DiscountPercent,
                 TotalQuantity = v.TotalQuantity,
-                SoldQuantity = v.SoldQuantity,
-                ReservedQuantity = v.ReservedQuantity,
+                SoldQuantity = stock.Sold,
+                UnsellableQuantity = stock.Stopped,
+                ReservedQuantity = stock.Reserved,
                 Status = v.Status,
                 IsPurchasable = isVariantPurchasable
             };
@@ -366,6 +372,7 @@ public sealed class FlashDealService : IFlashDealService
             Id = deal.Id,
             ShopId = deal.ShopId,
             ShopName = deal.Shop?.Name ?? string.Empty,
+            ShopOwnerUserId = deal.Shop?.OwnerUserId,
             ShopAddress = deal.Shop?.AddressLine ?? string.Empty,
             ShopLogoUrl = deal.Shop?.LogoUrl,
             ProductId = deal.ProductId,
@@ -397,9 +404,10 @@ public sealed class FlashDealService : IFlashDealService
         var shop = await GetShopForViewOrThrowAsync(userId, request.ShopId, cancellationToken);
         var pagedDeals = await _dealRepository.GetShopDealsAsync(shop.Id, request, cancellationToken);
 
+        var stock = await GetStockDecisionsAsync(pagedDeals.Items.SelectMany(d => d.Variants).Select(v => v.Id), cancellationToken);
         return new PagedResult<ShopFlashDealListItemResponse>
         {
-            Items = pagedDeals.Items.Select(MapToShopListItemResponse).ToList(),
+            Items = pagedDeals.Items.Select(d => MapToShopListItemResponse(d, stock)).ToList(),
             TotalItems = pagedDeals.TotalItems,
             Page = pagedDeals.Page,
             PageSize = pagedDeals.PageSize
@@ -417,7 +425,7 @@ public sealed class FlashDealService : IFlashDealService
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
                    ?? throw AppException.NotFound("Flash deal not found.");
 
-        return MapToShopDetailResponse(deal);
+        return await BuildShopDetailResponseAsync(deal, cancellationToken);
     }
 
     // 3. Create Flash Deal
@@ -535,7 +543,7 @@ public sealed class FlashDealService : IFlashDealService
 
         await RefreshScheduleAsync(deal, cancellationToken);
         var createdDeal = await _dealRepository.GetShopDealByIdAsync(shop.Id, deal.Id, cancellationToken);
-        return MapToShopDetailResponse(createdDeal!);
+        return await BuildShopDetailResponseAsync(createdDeal!, cancellationToken);
     }
 
     // 4. Update Flash Deal
@@ -668,7 +676,7 @@ public sealed class FlashDealService : IFlashDealService
         LifecycleOutbox.InventoryDeals(_db, new[] { deal.Id }, null, DateTime.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return MapToShopDetailResponse(deal);
+        return await BuildShopDetailResponseAsync(deal, cancellationToken);
     }
     // 5. Cancel Flash Deal
     public async Task CancelDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
@@ -754,9 +762,10 @@ public sealed class FlashDealService : IFlashDealService
         }
     }
 
-    private static ShopFlashDealListItemResponse MapToShopListItemResponse(FlashDeal deal)
+    private static ShopFlashDealListItemResponse MapToShopListItemResponse(FlashDeal deal, IReadOnlyDictionary<Guid, FlashDealStockDecisions> stock)
     {
         var variants = deal.Variants;
+        var quantities = variants.Select(v => FlashDealStockBreakdown.From(v, stock.GetValueOrDefault(v.Id))).ToList();
         return new ShopFlashDealListItemResponse
         {
             Id = deal.Id,
@@ -772,13 +781,32 @@ public sealed class FlashDealService : IFlashDealService
             MaxOriginalPrice = variants.Any() ? variants.Max(v => v.OriginalPrice) : 0,
             MaxDiscountPercent = variants.Any() ? variants.Max(v => v.DiscountPercent) : 0,
             TotalQuantity = variants.Sum(v => v.TotalQuantity),
-            ReservedQuantity = variants.Sum(v => v.ReservedQuantity),
-            SoldQuantity = variants.Sum(v => v.SoldQuantity),
+            ReservedQuantity = quantities.Sum(v => v.Reserved),
+            SoldQuantity = quantities.Sum(v => v.Sold),
+            UnsellableQuantity = quantities.Sum(v => v.Stopped),
             CreatedAt = deal.CreatedAt
         };
     }
 
-    private static ShopFlashDealDetailResponse MapToShopDetailResponse(FlashDeal deal)
+    // Aggregate stopped allocations and live restock holds by variant before splitting displayed stock.
+    private async Task<Dictionary<Guid, FlashDealStockDecisions>> GetStockDecisionsAsync(IEnumerable<Guid> variantIds, CancellationToken ct)
+    {
+        var ids = variantIds.Distinct().ToArray();
+        if (ids.Length == 0) return new();
+        var now = DateTime.UtcNow;
+        var items = _db.Set<OrderItem>().AsNoTracking().Where(i => ids.Contains(i.FlashDealVariantId));
+        var rows = await FlashDealStockBreakdown.Summarize(items, now).ToListAsync(ct);
+        return rows.ToDictionary(x => x.Id, x => new FlashDealStockDecisions(x.Stopped, x.Pending));
+    }
+
+    // All detail response paths include recorded stock decisions, including create/update responses.
+    private async Task<ShopFlashDealDetailResponse> BuildShopDetailResponseAsync(FlashDeal deal, CancellationToken cancellationToken)
+    {
+        var unsellable = await GetStockDecisionsAsync(deal.Variants.Select(v => v.Id), cancellationToken);
+        return MapToShopDetailResponse(deal, unsellable);
+    }
+
+    private static ShopFlashDealDetailResponse MapToShopDetailResponse(FlashDeal deal, IReadOnlyDictionary<Guid, FlashDealStockDecisions>? unsellable = null)
     {
         var images = deal.Product?.Images?
             .Select(i => i.ImageUrl)
@@ -801,7 +829,9 @@ public sealed class FlashDealService : IFlashDealService
             Status = deal.Status,
             CreatedAt = deal.CreatedAt,
             UpdatedAt = deal.UpdatedAt,
-            Variants = deal.Variants.Select(v => new ShopFlashDealVariantDetailResponse
+            Variants = deal.Variants.Select(v => {
+                var stock = FlashDealStockBreakdown.From(v, unsellable?.GetValueOrDefault(v.Id));
+                return new ShopFlashDealVariantDetailResponse
             {
                 Id = v.Id,
                 VariantId = v.VariantId,
@@ -814,10 +844,11 @@ public sealed class FlashDealService : IFlashDealService
                 DealPrice = v.DealPrice,
                 DiscountPercent = v.DiscountPercent,
                 TotalQuantity = v.TotalQuantity,
-                ReservedQuantity = v.ReservedQuantity,
-                SoldQuantity = v.SoldQuantity,
+                ReservedQuantity = stock.Reserved,
+                SoldQuantity = stock.Sold,
+                UnsellableQuantity = stock.Stopped,
                 Status = v.Status
-            }).ToList()
+            }; }).ToList()
         };
     }
 
