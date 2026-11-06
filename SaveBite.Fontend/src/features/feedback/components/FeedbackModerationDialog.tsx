@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, EyeOff, Loader2, Package, Star, Store, Undo2, X } from "lucide-react";
 import type { Feedback } from "../types/feedback.types";
+import { FeedbackCustomerAvatar } from "./FeedbackCustomerAvatar";
 
 export type ModerationMode = "hide" | "restore";
 
@@ -196,12 +197,8 @@ export function FeedbackModerationDialog({
           >
             <div className="flex items-center justify-between gap-3 border-b border-border-default px-4 py-3">
               <div className="flex min-w-0 items-center gap-2.5">
-                <span
-                  aria-hidden="true"
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold uppercase text-primary-700"
-                >
-                  {customer.trim().charAt(0) || "?"}
-                </span>
+                <FeedbackCustomerAvatar avatarUrl={feedback.avatarUrl} customerName={customer} />
+
                 <p className="truncate text-sm font-medium text-text-primary">{customer}</p>
               </div>
               <RatingStars rating={feedback.rating} />

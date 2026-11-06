@@ -267,8 +267,8 @@ public sealed class ShopService : IShopService
             ? now >= opening.Value && now <= closing.Value
             : now >= opening.Value || now <= closing.Value;
     }
+    
     //  payment config =====
-
     public async Task<ShopPaymentConfigResponse> GetOwnerPaymentConfigAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
         var paymentConfig = await _shopRepository.GetPaymentConfigByOwnerUserIdAsync(ownerUserId, cancellationToken);
@@ -284,10 +284,6 @@ public sealed class ShopService : IShopService
         var paymentConfig = await _shopRepository.GetPaymentConfigByOwnerUserIdAsync(ownerUserId, cancellationToken);
         if (paymentConfig == null)
             throw AppException.NotFound("Shop payment configuration not found.");
-
-        paymentConfig.BankName = string.IsNullOrWhiteSpace(request.BankName) ? null : request.BankName.Trim();
-        paymentConfig.BankAccountNumber = string.IsNullOrWhiteSpace(request.BankAccountNumber) ? null : request.BankAccountNumber.Trim();
-        paymentConfig.BankAccountHolder = string.IsNullOrWhiteSpace(request.BankAccountHolder) ? null : request.BankAccountHolder.Trim();
 
         if (!string.IsNullOrWhiteSpace(request.PayosClientId))
             paymentConfig.PayosClientId = request.PayosClientId.Trim();
@@ -307,9 +303,6 @@ public sealed class ShopService : IShopService
     {
         return new ShopPaymentConfigResponse
         {
-            BankName = config.BankName,
-            BankAccountNumber = config.BankAccountNumber,
-            BankAccountHolder = config.BankAccountHolder,
             PayosClientId = config.PayosClientId,
             HasPayosApiKey = !string.IsNullOrWhiteSpace(config.PayosApiKey),
             HasPayosChecksumKey = !string.IsNullOrWhiteSpace(config.PayosChecksumKey),
@@ -318,7 +311,6 @@ public sealed class ShopService : IShopService
     }
 
     //  store profile & operating management =====
-
     public Task<ShopProfileResponse> GetOwnerShopProfileAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
         return ToShopProfileResponseAsync(ownerUserId, cancellationToken);
@@ -430,6 +422,7 @@ public sealed class ShopService : IShopService
         {
             Id = s.Id,
             Name = s.Name,
+            LogoUrl = s.LogoUrl,
             Description = s.Description,
             Status = s.Status.ToString(),
             City = s.City,

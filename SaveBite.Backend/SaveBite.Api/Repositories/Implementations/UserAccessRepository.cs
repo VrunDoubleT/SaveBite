@@ -81,8 +81,7 @@ public sealed class UserAccessRepository : IUserAccessRepository
     public Task<bool> HasStoreOwnerOrStaffAccessAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
-        // A relationship is authoritative; a role claim alone must not grant.
-        // Access after a staff member is removed or a shop is suspended.
+        // Active shop operations require a non-suspended shop and a current relationship.
         => _dbContext.Shops
             .AsNoTracking()
             .AnyAsync(

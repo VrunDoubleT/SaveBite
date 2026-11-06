@@ -7,18 +7,18 @@ using SaveBite.Backend.Repositories.Interfaces;
 
 namespace SaveBite.Backend.Repositories.Implementations;
 
-// Read only payments owned by an account with active Customer access.
+// Read only historical payments owned by an active account, regardless of Customer feature status.
 public sealed class PaymentHistoryRepository : IPaymentHistoryRepository
 {
     private readonly AppDbContext _db;
     public PaymentHistoryRepository(AppDbContext db) { _db = db; }
 
-    // Active Customer access remains required for accounts that also own or work at a shop.
+    // Customer suspension blocks purchases, not access to payment records already owned by the user.
     public async Task RequireCustomerAsync(Guid userId, CancellationToken ct)
     {
-        if (!await _db.Users.AsNoTracking().AnyAsync(x => x.Id == userId && x.Status == UserStatus.Active
-            && x.CustomerStatus == CustomerStatus.Active && x.Role != UserRole.Admin, ct))
-            throw AppException.Forbidden("Active Customer access is required to view payments.");
+        if (!await _db.Users.AsNoTracking().AnyAsync(
+            x => x.Id == userId && x.Status == UserStatus.Active && x.Role != UserRole.Admin, ct))
+            throw AppException.Forbidden("An active account is required to view payment history.");
     }
 
     private IQueryable<Payment> Payments => _db.Payments.AsNoTracking().Include(x => x.Order).ThenInclude(x => x.Shop);
@@ -34,7 +34,7 @@ public sealed class PaymentHistoryRepository : IPaymentHistoryRepository
         return (items, total);
     }
 
-    // Read one payment only when it belongs to the authenticated active customer.
+    // Read one payment only when it belongs to the authenticated account.
     public Task<Payment?> GetAsync(Guid userId, Guid paymentId, CancellationToken ct)
         => Payments.SingleOrDefaultAsync(x => x.Id == paymentId && x.Order.CustomerId == userId, ct);
 }

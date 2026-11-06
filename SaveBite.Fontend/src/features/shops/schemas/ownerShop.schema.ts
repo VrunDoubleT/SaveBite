@@ -1,22 +1,6 @@
 import { z } from "zod";
 
-// ===== iss-12: bank account & PayOS =====
-
-const bankAccountShape = {
-  bankName: z.string().trim().max(255, "Bank name must not exceed 255 characters."),
-
-  bankAccountNumber: z
-    .string()
-    .trim()
-    .max(50, "Bank account number must not exceed 50 characters.")
-    .regex(/^\d*$/, "Bank account number must contain digits only."),
-
-  bankAccountHolder: z
-    .string()
-    .trim()
-    .max(255, "Account holder name must not exceed 255 characters."),
-};
-
+// PayOS configuration schema.
 const payOSShape = {
   payosClientId: z
     .string()
@@ -32,62 +16,16 @@ const payOSShape = {
     .max(500, "PayOS Checksum Key must not exceed 500 characters."),
 };
 
-export type BankAccountValues = z.infer<z.ZodObject<typeof bankAccountShape>>;
-
 export type PayOSValues = z.infer<z.ZodObject<typeof payOSShape>>;
 
-export type UpdateShopPaymentConfigValues = BankAccountValues & PayOSValues;
+export type UpdateShopPaymentConfigValues = PayOSValues;
 
 export type ShopPaymentConfigView = {
-  bankName: string | null;
-  bankAccountNumber: string | null;
-  bankAccountHolder: string | null;
   payosClientId: string;
   hasPayosApiKey: boolean;
   hasPayosChecksumKey: boolean;
   updatedAt: string | null;
 };
-
-/**
- * Bank account:
- * - All fields empty: allowed, meaning remove bank account.
- * - At least one field filled: all three fields are required.
- */
-function refineBankAccount(values: BankAccountValues, ctx: z.RefinementCtx) {
-  const hasBankName = values.bankName.length > 0;
-  const hasAccountNumber = values.bankAccountNumber.length > 0;
-  const hasAccountHolder = values.bankAccountHolder.length > 0;
-
-  const hasAnyBankField = hasBankName || hasAccountNumber || hasAccountHolder;
-
-  if (!hasAnyBankField) return;
-
-  if (!hasBankName) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["bankName"],
-      message: "Bank name is required when providing bank details.",
-    });
-  }
-
-  if (!hasAccountNumber) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["bankAccountNumber"],
-      message: "Bank account number is required when providing bank details.",
-    });
-  }
-
-  if (!hasAccountHolder) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["bankAccountHolder"],
-      message: "Account holder name is required when providing bank details.",
-    });
-  }
-}
-
-export const bankAccountSchema = z.object(bankAccountShape).superRefine(refineBankAccount);
 
 /**
  * Secret fields are required only when they haven't been configured before.
@@ -120,14 +58,7 @@ export function createPayOSSchema(options: {
  * Full update-request schema.
  * Secret fields may be empty because the backend can preserve existing secrets.
  */
-export const updateShopPaymentConfigSchema = z
-  .object({
-    ...bankAccountShape,
-    ...payOSShape,
-  })
-  .superRefine((values, ctx) => {
-    refineBankAccount(values, ctx);
-  });
+export const updateShopPaymentConfigSchema = z.object(payOSShape);
 
 export type FieldErrors = Record<string, string>;
 
@@ -152,46 +83,35 @@ export function getFieldErrors(schema: z.ZodType, values: unknown): FieldErrors 
   return errors;
 }
 
-// ===== iss-13: business info & shop images =====
-
-export const updateBusinessInfoSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(2, "Shop name must contain at least 2 characters.")
-      .max(200, "Shop name must not exceed 200 characters."),
-    description: z.string().max(2000, "Description must not exceed 2000 characters."),
-    addressLine: z
-      .string()
-      .trim()
-      .min(1, "Address is required.")
-      .max(500, "Address must not exceed 500 characters."),
-    ward: z.string().max(100, "Ward must not exceed 100 characters."),
-    district: z.string().max(100, "District must not exceed 100 characters."),
-    city: z.string().max(100, "City must not exceed 100 characters."),
-    latitude: z
-      .number()
-      .finite()
-      .min(-90, "Latitude must be between -90 and 90.")
-      .max(90, "Latitude must be between -90 and 90."),
-    longitude: z
-      .number()
-      .finite()
-      .min(-180, "Longitude must be between -180 and 180.")
-      .max(180, "Longitude must be between -180 and 180."),
-    openingTime: z.string().nullable(),
-    closingTime: z.string().nullable(),
-  })
-  .superRefine((values, ctx) => {
-    if (values.openingTime && values.closingTime && values.openingTime >= values.closingTime) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["closingTime"],
-        message: "Closing time must be later than opening time.",
-      });
-    }
-  });
+// Business info & shop images
+export const updateBusinessInfoSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "Shop name must contain at least 2 characters.")
+    .max(200, "Shop name must not exceed 200 characters."),
+  description: z.string().max(2000, "Description must not exceed 2000 characters."),
+  addressLine: z
+    .string()
+    .trim()
+    .min(1, "Address is required.")
+    .max(500, "Address must not exceed 500 characters."),
+  ward: z.string().max(100, "Ward must not exceed 100 characters."),
+  district: z.string().max(100, "District must not exceed 100 characters."),
+  city: z.string().max(100, "City must not exceed 100 characters."),
+  latitude: z
+    .number()
+    .finite()
+    .min(-90, "Latitude must be between -90 and 90.")
+    .max(90, "Latitude must be between -90 and 90."),
+  longitude: z
+    .number()
+    .finite()
+    .min(-180, "Longitude must be between -180 and 180.")
+    .max(180, "Longitude must be between -180 and 180."),
+  openingTime: z.string().nullable(),
+  closingTime: z.string().nullable(),
+});
 
 export const shopImageFileSchema = z
   .custom<File | null>((file) => file === null || file instanceof File)

@@ -85,6 +85,7 @@ public sealed class UserService : IUserService
             u.Id,
             u.Email,
             u.FullName,
+            u.AvatarUrl,
             u.Role.ToString(),
             u.Status.ToString(),
             u.CustomerStatus.ToString(),

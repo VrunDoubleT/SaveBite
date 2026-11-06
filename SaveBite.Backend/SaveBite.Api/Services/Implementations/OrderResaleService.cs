@@ -39,8 +39,8 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
 
     public async Task<ResaleDecisionResponse> GetAsync(Guid actor, Guid shopId, Guid orderId, CancellationToken ct)
     {
-        await shops.RequireAccessAsync(actor, shopId, ct);
-        var order = await Details().SingleOrDefaultAsync(o => o.Id == orderId && o.ShopId == shopId, ct)
+        await shops.RequireViewAccessAsync(actor, shopId, ct);
+        var order = await db.Orders.AsNoTracking().Include(o => o.Items).SingleOrDefaultAsync(o => o.Id == orderId && o.ShopId == shopId, ct)
             ?? throw AppException.NotFound();
         return Map(order);
     }

@@ -40,9 +40,6 @@ export interface ShopApplication {
   revisionNumber: number;
   createdAt: string;
   updatedAt: string;
-  bankName: string;
-  bankAccountNumber: string;
-  bankAccountHolder: string;
   hasPayosConfiguration: boolean;
   documents: ShopApplicationDocument[];
   reviewLogs: ShopApplicationReviewLog[];
@@ -60,9 +57,6 @@ export interface ShopApplicationForm {
   longitude: string;
   openingTime: string;
   closingTime: string;
-  bankName: string;
-  bankAccountNumber: string;
-  bankAccountHolder: string;
   payosClientId: string;
   payosApiKey: string;
   payosChecksumKey: string;

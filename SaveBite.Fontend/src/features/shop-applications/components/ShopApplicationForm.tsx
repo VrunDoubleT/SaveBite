@@ -4,7 +4,6 @@ import {
   ExternalLink,
   FileText,
   Image as ImageIcon,
-  Landmark,
   LoaderCircle,
   MapPin,
   Paperclip,
@@ -20,6 +19,12 @@ import {
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { shopApplicationApi } from "../api/shopApplicationApi";
 import { validateShopApplication, validateLogoFile } from "../schemas/shopApplication.schema";
+import { AddressLocationMap } from "@/features/addresses/components/AddressLocationMap";
+import { useAddressLocation } from "@/features/addresses/hooks/useAddressLocation";
+import type {
+  AddressCoordinates,
+  ResolvedAddress,
+} from "@/features/addresses/utils/addressLocation";
 
 import type {
   ShopApplication,
@@ -48,9 +53,6 @@ const EMPTY_FORM: FormValues = {
   longitude: "",
   openingTime: "",
   closingTime: "",
-  bankName: "",
-  bankAccountNumber: "",
-  bankAccountHolder: "",
   payosClientId: "",
   payosApiKey: "",
   payosChecksumKey: "",
@@ -83,9 +85,6 @@ function toForm(application?: ShopApplication | null): FormValues {
     longitude: String(application.longitude),
     openingTime: application.openingTime?.slice(0, 5) ?? "",
     closingTime: application.closingTime?.slice(0, 5) ?? "",
-    bankName: application.bankName,
-    bankAccountNumber: application.bankAccountNumber,
-    bankAccountHolder: application.bankAccountHolder,
 
     // Existing PayOS credentials are intentionally not returned by the API.
     // Empty values mean "keep the current configuration" during resubmission.
@@ -136,7 +135,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
   const [documents, setDocuments] = useState<ShopDocumentUpload[]>([]);
 
   const [saving, setSaving] = useState(false);
-  const [locating, setLocating] = useState(false);
+
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FormFieldErrors>({});
 
@@ -163,7 +162,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
     }
   }, [error]);
 
-  function setField<K extends keyof FormValues>(field: K, value: FormValues[K]) {
+  const setField = useCallback(<K extends keyof FormValues>(field: K, value: FormValues[K]) => {
     setForm((current) => ({
       ...current,
       [field]: value,
@@ -175,7 +174,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
     }));
 
     setError("");
-  }
+  }, []);
 
   /**
    * Validate only the field that triggered onBlur.
@@ -203,30 +202,33 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
     [form, hasPayos, documents, logo, application],
   );
 
+  const onLocationPoint = useCallback(
+    (point: AddressCoordinates) => {
+      setField("latitude", String(point.latitude));
+      setField("longitude", String(point.longitude));
+      setField("addressLine", "");
+      setField("ward", "");
+      setField("district", "");
+      setField("city", "");
+    },
+    [setField],
+  );
+
+  const onLocationAddress = useCallback(
+    (address: ResolvedAddress) => {
+      setField("addressLine", address.addressLine);
+      setField("ward", address.ward);
+      setField("district", address.district);
+      setField("city", address.city);
+    },
+    [setField],
+  );
+
+  const location = useAddressLocation(onLocationPoint, onLocationAddress);
+  const locating = location.phase !== "idle";
+
   function useCurrentLocation() {
-    if (!navigator.geolocation) {
-      setError("Your browser does not support geolocation.");
-      return;
-    }
-
-    setLocating(true);
-    setError("");
-
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setField("latitude", String(coords.latitude));
-        setField("longitude", String(coords.longitude));
-        setLocating(false);
-      },
-      () => {
-        setError("Unable to get your current location. Please enter the coordinates manually.");
-        setLocating(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-      },
-    );
+    location.locate();
   }
 
   function handleLogoChange(file?: File) {
@@ -530,6 +532,22 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
                   error={fieldErrors.longitude}
                 />
               </div>
+              {location.error && (
+                <p role="alert" className="mt-3 text-xs text-danger">
+                  {location.error}
+                </p>
+              )}
+              <div className="mt-4">
+                <AddressLocationMap
+                  point={
+                    form.latitude && form.longitude
+                      ? { latitude: Number(form.latitude), longitude: Number(form.longitude) }
+                      : null
+                  }
+                  disabled={saving}
+                  onSelect={location.selectPoint}
+                />
+              </div>
             </div>
           </Section>
 
@@ -543,6 +561,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
               <Field
                 label="Opening time"
                 type="time"
+                lang="en-GB"
                 value={form.openingTime}
                 onChange={(value) => setField("openingTime", value)}
                 onBlur={() => validateField("openingTime")}
@@ -553,6 +572,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
               <Field
                 label="Closing time"
                 type="time"
+                lang="en-GB"
                 value={form.closingTime}
                 onChange={(value) => setField("closingTime", value)}
                 onBlur={() => validateField("closingTime")}
@@ -613,44 +633,6 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
             )}
 
             <DocumentUploader onAdd={addDocument} />
-          </Section>
-
-          {/* Bank */}
-          <Section
-            icon={<Landmark size={18} />}
-            title="Bank information"
-            description="Where your payouts will be sent."
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field
-                label="Bank"
-                value={form.bankName}
-                onChange={(value) => setField("bankName", value)}
-                onBlur={() => validateField("bankName")}
-                required
-                error={fieldErrors.bankName}
-              />
-
-              <Field
-                label="Account number"
-                value={form.bankAccountNumber}
-                onChange={(value) => setField("bankAccountNumber", value)}
-                onBlur={() => validateField("bankAccountNumber")}
-                inputMode="numeric"
-                required
-                error={fieldErrors.bankAccountNumber}
-              />
-
-              <Field
-                label="Account holder"
-                value={form.bankAccountHolder}
-                onChange={(value) => setField("bankAccountHolder", value)}
-                onBlur={() => validateField("bankAccountHolder")}
-                className="md:col-span-2"
-                required
-                error={fieldErrors.bankAccountHolder}
-              />
-            </div>
           </Section>
 
           {/* PayOS */}
@@ -777,6 +759,7 @@ function Field({
   step,
   inputMode,
   autoComplete,
+  lang,
   error,
 }: {
   label: string;
@@ -790,6 +773,7 @@ function Field({
   step?: string;
   inputMode?: "numeric" | "decimal" | "text";
   autoComplete?: string;
+  lang?: string;
   error?: string;
 }) {
   const hasError = Boolean(error);
@@ -803,6 +787,7 @@ function Field({
 
       <input
         type={type}
+        lang={lang}
         value={value}
         required={required}
         placeholder={placeholder}

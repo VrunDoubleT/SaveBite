@@ -44,7 +44,7 @@ public class RefundService : IRefundService
     // Read the customer's action-required badge without changing refund state.
     public async Task<int> PendingDetailsCountAsync(Guid customerId, CancellationToken ct)
     {
-        await RequireCustomerAsync(customerId, ct);
+        await RequireCustomerHistoryAsync(customerId, ct);
         return await _refunds.PendingDetailsCountAsync(customerId, ct);
     }
 
@@ -61,7 +61,7 @@ public class RefundService : IRefundService
         if (size is < 1 or > 50 || page < 1 || (long)(page - 1) * size > int.MaxValue)
             throw AppException.BadRequest("Invalid pagination.");
         Guid? shopId = forShop ? await _shops.OwnerShopAsync(userId, ct) : null;
-        if (!forShop) await RequireCustomerAsync(userId, ct);
+        if (!forShop) await RequireCustomerHistoryAsync(userId, ct);
         var result = await _refunds.PageAsync(userId, shopId, Parse<RefundStatus>(status), Parse<RefundType>(type), page, size, ct);
         return PagedResult<RefundResponse>.Create(result.Items.Select(Map).ToList(), page, size, result.Total);
     }
@@ -78,7 +78,7 @@ public class RefundService : IRefundService
     // Read all refunds of one owned order without triggering reconciliation or writes.
     public async Task<IReadOnlyList<RefundResponse>> ForOrderAsync(Guid customerId, Guid orderId, CancellationToken ct)
     {
-        _ = await _orders.GetOrderAsync(orderId, customerId, ct) ?? throw AppException.NotFound("Order not found.");
+        _ = await _orders.GetOrderForHistoryAsync(orderId, customerId, ct) ?? throw AppException.NotFound("Order not found.");
         return (await _refunds.ForOrderAsync(orderId, ct)).Select(Map).ToList();
     }
 
@@ -86,7 +86,7 @@ public class RefundService : IRefundService
     public async Task<RefundResponse> GetAsync(Guid userId, Guid refundId, bool forShop, CancellationToken ct)
     {
         var f = await LoadAsync(refundId, false, ct);
-        await AuthorizeAsync(userId, forShop, f, ct);
+        await AuthorizeAsync(userId, forShop, f, ct, readOnly: true);
         return Map(f);
     }
 
@@ -288,7 +288,7 @@ public class RefundService : IRefundService
             var shopId = await _shops.OwnerShopAsync(customerId, ct);
             _ = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
         }
-        else _ = await _orders.GetOrderAsync(orderId, customerId, ct) ?? throw AppException.NotFound();
+        else _ = await _orders.GetOrderForHistoryAsync(orderId, customerId, ct) ?? throw AppException.NotFound();
         return await _refunds.SystemRefundIdAsync(orderId, ct);
     }
 
@@ -382,20 +382,37 @@ public class RefundService : IRefundService
         if (tracked) f.Order = await _refunds.OrderAsync(f.OrderId, ct) ?? throw AppException.NotFound();
         return f;
     }
-    private async Task AuthorizeAsync(Guid userId, bool forShop, Refund f, CancellationToken ct)
+    private async Task AuthorizeAsync(Guid userId, bool forShop, Refund f, CancellationToken ct, bool readOnly = false)
     {
         if (forShop)
         {
             var shopId = await _shops.OwnerShopAsync(userId, ct);
+            if (readOnly)
+                await _shops.RequireViewAccessAsync(userId, shopId, ct);
+            else
+                await _shops.RequireAccessAsync(userId, shopId, ct);
+
             if (f.Order.ShopId != shopId || (f.RefundType == RefundType.CustomerRequest
-                && (f.Order.Status != OrderStatus.Completed || f.DestinationConfirmedAt == null))) throw AppException.NotFound("Refund not found in this shop.");
+                && (f.Order.Status != OrderStatus.Completed || f.DestinationConfirmedAt == null)))
+                throw AppException.NotFound("Refund not found in this shop.");
         }
         else
         {
-            await RequireCustomerAsync(userId, ct);
+            if (readOnly) await RequireCustomerHistoryAsync(userId, ct);
+            else await RequireCustomerAsync(userId, ct);
             if (f.Order.CustomerId != userId) throw AppException.NotFound("Refund not found.");
         }
     }
+
+    // History access requires an active account, but does not require the Customer feature to be active.
+    private async Task RequireCustomerHistoryAsync(Guid id, CancellationToken ct)
+    {
+        var user = await _refunds.UserAsync(id, ct);
+        if (user.Status != UserStatus.Active || user.Role == UserRole.Admin)
+            throw AppException.Forbidden("An active account is required to view refund history.");
+    }
+
+    // Commands that create or change refund data still require active Customer access.
     private async Task RequireCustomerAsync(Guid id, CancellationToken ct)
     {
         var user = await _refunds.UserAsync(id, ct);

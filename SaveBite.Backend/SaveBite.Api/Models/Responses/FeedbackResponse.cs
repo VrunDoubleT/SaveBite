@@ -10,6 +10,7 @@ public sealed class FeedbackResponse
     public string CustomerName { get; init; } = string.Empty;
     public string? CustomerPhone { get; init; }
     public string CustomerEmail { get; init; } = string.Empty;
+    public string? AvatarUrl  { get; init; }
     public string ProductName { get; init; } = string.Empty;
     public string ShopName { get; init; } = string.Empty;
     public Guid OrderItemId { get; init; }

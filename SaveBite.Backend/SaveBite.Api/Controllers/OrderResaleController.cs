@@ -11,8 +11,7 @@ namespace SaveBite.Backend.Controllers;
 
 [ApiController]
 [Route("api/orders/shop/{shopId:guid}/{orderId:guid}/resale-decision")]
-[StoreOwnerOrStaffActiveAccess]
-public sealed class OrderResaleController(OrderResaleService service, IShopOrderEventService events, ILogger<OrderResaleController> logger) : ControllerBase
+public sealed class OrderResaleController(OrderResaleService service) : ControllerBase
 {
     private Guid Actor => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : throw AppException.Unauthorized();
     [HttpGet("/api/orders/shop/{shopId:guid}/restock")]
@@ -25,15 +24,11 @@ public sealed class OrderResaleController(OrderResaleService service, IShopOrder
         => Ok(ApiResponse<RestockSummaryResponse>.Ok(await service.SummaryAsync(Actor, shopId, ct)));
 
     [HttpGet]
+    [StoreOwnerOrStaffAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<ResaleDecisionResponse>>> Get(Guid shopId, Guid orderId, CancellationToken ct)
         => Ok(ApiResponse<ResaleDecisionResponse>.Ok(await service.GetAsync(Actor, shopId, orderId, ct)));
     [HttpPost]
+    [StoreOwnerOrStaffActiveAccess]
     public async Task<ActionResult<ApiResponse<ResaleDecisionResponse>>> Decide(Guid shopId, Guid orderId, ResaleDecisionRequest request, CancellationToken ct)
-    {
-        var result = await service.DecideAsync(Actor, shopId, orderId, request, ct);
-        try { await events.NotifyAsync(shopId, orderId, RealtimeEvents.OrderReasons.RestockChanged, ct); }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
-        { logger.LogWarning(ex, "Could not notify restock decision for order {OrderId}.", orderId); }
-        return Ok(ApiResponse<ResaleDecisionResponse>.Ok(result));
-    }
+        => Ok(ApiResponse<ResaleDecisionResponse>.Ok(await service.DecideAsync(Actor, shopId, orderId, request, ct)));
 }

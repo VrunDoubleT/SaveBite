@@ -23,18 +23,6 @@ public class ShopPaymentConfigConfiguration
 
         builder.HasIndex(x => x.ShopId).IsUnique();
 
-        builder.Property(x => x.BankName)
-            .HasColumnName("bank_name")
-            .HasMaxLength(100);
-
-        builder.Property(x => x.BankAccountNumber)
-            .HasColumnName("bank_account_number")
-            .HasMaxLength(50);
-
-        builder.Property(x => x.BankAccountHolder)
-            .HasColumnName("bank_account_holder")
-            .HasMaxLength(150);
-
         builder.Property(x => x.PayosClientId)
             .HasColumnName("payos_client_id")
             .HasMaxLength(255)

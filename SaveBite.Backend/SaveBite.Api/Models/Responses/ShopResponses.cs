@@ -106,9 +106,6 @@ public class StoreReviewsSummaryResponse
 
 public class ShopPaymentConfigResponse
 {
-    public string? BankName { get; set; }
-    public string? BankAccountNumber { get; set; }
-    public string? BankAccountHolder { get; set; }
     public string PayosClientId { get; set; } = string.Empty;
     public bool HasPayosApiKey { get; set; }
     public bool HasPayosChecksumKey { get; set; }
@@ -139,6 +136,7 @@ public class ShopListResponse
 {
     public Guid Id { get; set; }
     public string Name  { get; set; } = string.Empty;
+    public string? LogoUrl  { get; set; }
     public string? Description  { get; set; }
     public string Status   { get; set; } = string.Empty;
     public string? City { get; set; }

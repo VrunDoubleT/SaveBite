@@ -4,6 +4,7 @@ import { API_ENDPOINTS } from "@/shared/api/endpoints";
 import type { ApiResponse } from "@/shared/types";
 
 import type { AssociatedShop, StaffShopDetail } from "../types/staff.types";
+import { useAuthStore } from "@/shared/stores/authStore";
 
 let associatedShopsRequest: Promise<AssociatedShop[]> | null = null;
 
@@ -43,5 +44,6 @@ export const staffApi = {
 
   async leaveShop(shopId: string): Promise<void> {
     await httpClient.delete(API_ENDPOINTS.STAFF_SHOPS.DETAIL(shopId));
+    await useAuthStore.getState().refreshUser();
   },
 };

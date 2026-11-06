@@ -73,22 +73,38 @@ public sealed class CheckoutRepository : ICheckoutRepository
         return int.TryParse(maximum, out var value) ? value : 0;
     }
 
-    // Load recorded order and payment data, optionally restricted to its customer.
+    // Load an order for commands or active-customer workflows.
     public async Task<Order?> GetOrderAsync(Guid orderId, Guid? userId, CancellationToken ct)
     {
         if (userId.HasValue) await RequireActiveCustomerAsync(userId.Value, ct);
         return await Orders.SingleOrDefaultAsync(x => x.Id == orderId && (!userId.HasValue || x.CustomerId == userId), ct);
     }
+
+    // Read an existing order for history/detail screens. Customer suspension blocks new actions,
+    // but must not hide records already belonging to an active account.
+    public async Task<Order?> GetOrderForHistoryAsync(Guid orderId, Guid userId, CancellationToken ct)
+    {
+        await RequireCustomerHistoryAccessAsync(userId, ct);
+        return await Orders.AsNoTracking().SingleOrDefaultAsync(
+            x => x.Id == orderId && x.CustomerId == userId, ct);
+    }
+
+    private async Task RequireCustomerHistoryAccessAsync(Guid userId, CancellationToken ct)
+    {
+        if (!await _dbContext.Users.AsNoTracking().AnyAsync(
+            x => x.Id == userId && x.Status == UserStatus.Active && x.Role != UserRole.Admin, ct))
+            throw AppException.Forbidden("An active account is required to view order history.");
+    }
     // Read the customer's most recent orders after checking active Customer access.
     public async Task<IReadOnlyList<Order>> GetOrdersAsync(Guid userId, CancellationToken ct)
     {
-        await RequireActiveCustomerAsync(userId, ct);
+        await RequireCustomerHistoryAccessAsync(userId, ct);
         return await Orders.AsNoTracking().Where(x => x.CustomerId == userId).OrderByDescending(x => x.CreatedAt).Take(50).ToListAsync(ct);
     }
     // Read a customer-scoped cursor page with status counts for the order filters.
     public async Task<(IReadOnlyList<Order> Orders, bool HasMore, IReadOnlyDictionary<string, int> Counts)> GetOrderPageAsync(Guid userId, OrderStatus? status, DateTime? beforeCreatedAt, Guid? beforeId, int pageSize, CancellationToken ct)
     {
-        await RequireActiveCustomerAsync(userId, ct);
+        await RequireCustomerHistoryAccessAsync(userId, ct);
         var query = Orders.AsNoTracking().Where(x => x.CustomerId == userId);
         if (status.HasValue) query = query.Where(x => x.Status == status.Value);
         if (beforeCreatedAt.HasValue && beforeId.HasValue)

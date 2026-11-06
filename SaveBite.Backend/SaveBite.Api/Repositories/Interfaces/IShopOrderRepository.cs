@@ -6,6 +6,7 @@ namespace SaveBite.Backend.Repositories.Interfaces;
 public interface IShopOrderRepository
 {
     Task<bool> RequireAccessAsync(Guid userId, Guid shopId, CancellationToken ct);
+    Task<bool> RequireViewAccessAsync(Guid userId, Guid shopId, CancellationToken ct);
     Task<SaveBite.Backend.Models.DTOs.ShopOrderActor> ActorAsync(Guid userId, Guid shopId, CancellationToken ct);
     Task<int> PendingCountAsync(Guid shopId, CancellationToken ct);
     Task<Guid> OwnerShopAsync(Guid userId, CancellationToken ct);

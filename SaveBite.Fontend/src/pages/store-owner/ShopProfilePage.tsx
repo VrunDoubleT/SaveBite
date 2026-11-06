@@ -76,9 +76,7 @@ export function ShopProfilePage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
-            Shop Profile
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Shop Profile</h1>
           <p className="mt-1 text-sm text-neutral-500">
             View your shop details, registration documents and current status.
           </p>

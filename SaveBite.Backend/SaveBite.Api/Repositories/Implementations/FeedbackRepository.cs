@@ -166,7 +166,7 @@ public sealed class FeedbackRepository : IFeedbackRepository
         // Check if owner of active shop
         var ownerShop = await _context.Shops
             .AsNoTracking()
-            .Where(s => s.OwnerUserId == userId && s.Status == ShopStatus.Active)
+            .Where(s => s.OwnerUserId == userId)
             .Select(s => (Guid?)s.Id)
             .FirstOrDefaultAsync(ct);
 
@@ -185,7 +185,7 @@ public sealed class FeedbackRepository : IFeedbackRepository
     public async Task<bool> CanManageFeedbackReplyAsync(Guid userId, Guid feedbackId, CancellationToken ct = default)
     {
         var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
-        if (user == null) return false;
+        if (user == null || user.Status != UserStatus.Active) return false;
         if (user.Role == UserRole.Admin) return true;
 
         var feedback = await _context.ProductFeedbacks
@@ -197,16 +197,15 @@ public sealed class FeedbackRepository : IFeedbackRepository
 
         var shopId = feedback.Product.ShopId;
 
-        var isOwner = await _context.Shops
-            .AsNoTracking()
-            .AnyAsync(s => s.Id == shopId && s.OwnerUserId == userId && s.Status == ShopStatus.Active, ct);
+        // Replies change data, so a suspended shop cannot reply even though it can read history.
+        var isOwner = await _context.Shops.AsNoTracking().AnyAsync(
+            s => s.Id == shopId && s.OwnerUserId == userId && s.Status == ShopStatus.Active, ct);
         if (isOwner) return true;
 
-        var isStaff = await _context.ShopStaffMembers
-            .AsNoTracking()
-            .AnyAsync(m => m.ShopId == shopId && m.UserId == userId && m.Status == ShopStaffStatus.Active, ct);
-
-        return isStaff;
+        return await _context.ShopStaffMembers.AsNoTracking().AnyAsync(
+            m => m.ShopId == shopId && m.UserId == userId
+                 && m.Status == ShopStaffStatus.Active
+                 && m.Shop.Status == ShopStatus.Active, ct);
     }
 
     public async Task<PagedResult<ProductFeedback>> GetShopFeedbacksAsync(Guid shopId, FeedbackRequests.ShopFeedbacksQueryRequest request, CancellationToken ct = default)

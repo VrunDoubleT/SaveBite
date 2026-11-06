@@ -29,73 +29,29 @@ const time = (label: string) =>
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, `${label} must be a valid time.`);
 
 /*  Shop application schema */
-export const shopApplicationSchema = z
-  .object({
-    name: requiredText("Shop name", 200),
-
-    description: z.string().max(2000, "Description must not exceed 2000 characters."),
-
-    businessLicenseNo: requiredText("Business license number", 10),
-
-    addressLine: requiredText("Address", 500),
-
-    ward: z.string().max(100, "Ward must not exceed 100 characters."),
-
-    district: z.string().max(100, "District must not exceed 100 characters."),
-
-    city: z.string().max(100, "City must not exceed 100 characters."),
-
-    latitude: coordinate("Latitude", -90, 90),
-
-    longitude: coordinate("Longitude", -180, 180),
-
-    openingTime: time("Opening time"),
-
-    closingTime: time("Closing time"),
-
-    bankName: requiredText("Bank", 200),
-
-    bankAccountNumber: requiredText("Account number", 200).regex(
-      /^\d+$/,
-      "Account number must contain numbers only.",
-    ),
-
-    bankAccountHolder: requiredText("Account holder", 200),
-
-    payosClientId: z.string(),
-
-    payosApiKey: z.string(),
-
-    payosChecksumKey: z.string(),
-  })
-  .superRefine((values, context) => {
-    const validTimePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-    if (
-      validTimePattern.test(values.openingTime) &&
-      validTimePattern.test(values.closingTime) &&
-      values.closingTime <= values.openingTime
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["closingTime"],
-        message: "Closing time must be later than opening time.",
-      });
-
-      context.addIssue({
-        code: "custom",
-        path: ["openingTime"],
-        message: "Opening time must be earlier than closing time.",
-      });
-    }
-  });
+export const shopApplicationSchema = z.object({
+  name: requiredText("Shop name", 200),
+  description: z.string().max(2000, "Description must not exceed 2000 characters."),
+  businessLicenseNo: requiredText("Business license number", 10),
+  addressLine: requiredText("Address", 500),
+  ward: z.string().max(100, "Ward must not exceed 100 characters."),
+  district: z.string().max(100, "District must not exceed 100 characters."),
+  city: z.string().max(100, "City must not exceed 100 characters."),
+  latitude: coordinate("Latitude", -90, 90),
+  longitude: coordinate("Longitude", -180, 180),
+  openingTime: time("Opening time"),
+  closingTime: time("Closing time"),
+  payosClientId: z.string(),
+  payosApiKey: z.string(),
+  payosChecksumKey: z.string(),
+});
 
 export type ShopApplicationFormValues = z.infer<typeof shopApplicationSchema>;
 
 /*  Logo validation */
 const LOGO_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const LOGO_ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
-const LOGO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const LOGO_MAX_BYTES = 5 * 1024 * 1024;
 
 export function validateLogoFile(file: File): string | undefined {
   const name = file.name.toLowerCase();

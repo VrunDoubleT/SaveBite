@@ -32,6 +32,25 @@ public sealed class ShopOrderRepository : IShopOrderRepository
             return false;
         throw AppException.Forbidden("Only the shop owner or an active staff member may access these orders.");
     }
+    // Allow an active account with a current owner/staff relationship to read historical shop records,
+    // even when the shop itself is suspended. This method must never be used for mutations.
+    public async Task<bool> RequireViewAccessAsync(Guid userId, Guid shopId, CancellationToken ct)
+    {
+        var user = await _db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, ct);
+        if (user == null || user.Status != UserStatus.Active || user.Role == UserRole.Admin)
+            throw AppException.Forbidden("Active account access is required to view shop records.");
+
+        var shop = await _db.Shops.AsNoTracking().SingleOrDefaultAsync(x => x.Id == shopId, ct);
+        if (shop == null) throw AppException.NotFound("Shop not found.");
+        if (shop.OwnerUserId == userId) return true;
+
+        var isActiveStaff = await _db.ShopStaffMembers.AsNoTracking().AnyAsync(
+            x => x.ShopId == shopId && x.UserId == userId && x.Status == ShopStaffStatus.Active, ct);
+        if (isActiveStaff) return false;
+
+        throw AppException.Forbidden("Only the shop owner or an active staff member may view these records.");
+    }
+
     // Resolve the operator's ID, shop role and display name for historical audit snapshots.
     public async Task<SaveBite.Backend.Models.DTOs.ShopOrderActor> ActorAsync(Guid userId, Guid shopId, CancellationToken ct)
     {
@@ -42,12 +61,12 @@ public sealed class ShopOrderRepository : IShopOrderRepository
             .Select(x => x.DisplayName).SingleAsync(ct);
         return new(userId, owner ? "StoreOwner" : "Staff", string.IsNullOrWhiteSpace(name) ? user.FullName : name.Trim());
     }
-    // Find the active shop owned by the authenticated account.
+    // Find the shop owned by the authenticated account, including when it is suspended.
     public async Task<Guid> OwnerShopAsync(Guid userId, CancellationToken ct)
     {
         var id = await _db.Shops.AsNoTracking().Where(x => x.OwnerUserId == userId).Select(x => (Guid?)x.Id).SingleOrDefaultAsync(ct)
             ?? throw AppException.NotFound("Your shop was not found.");
-        if (!await RequireAccessAsync(userId, id, ct)) throw AppException.Forbidden();
+        if (!await RequireViewAccessAsync(userId, id, ct)) throw AppException.Forbidden();
         return id;
     }
     // Count submitted Pending orders without loading items, payments or history.

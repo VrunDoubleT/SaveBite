@@ -19,9 +19,6 @@ public sealed record ShopApplicationResponse(
     int RevisionNumber,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    string BankName,
-    string BankAccountNumber,
-    string BankAccountHolder,
     bool HasPayosConfiguration,
     IReadOnlyList<ShopApplicationDocumentResponse> Documents,
     IReadOnlyList<ShopApplicationReviewLogResponse> ReviewLogs);

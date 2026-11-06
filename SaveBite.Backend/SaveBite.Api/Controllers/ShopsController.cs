@@ -78,6 +78,7 @@ public sealed class ShopsController : ControllerBase
     }
 
     [HttpGet("me/payment-config")]
+    [StoreOwnerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<ShopPaymentConfigResponse>>> GetMyPaymentConfig(CancellationToken cancellationToken)
     {
         var ownerUserId = GetRequiredCurrentUserId();
@@ -86,6 +87,7 @@ public sealed class ShopsController : ControllerBase
     }
 
     [HttpPut("me/payment-config")]
+    [StoreOwnerActiveAccess]
     public async Task<ActionResult<ApiResponse<ShopPaymentConfigResponse>>> UpdateMyPaymentConfig([FromBody] UpdateShopPaymentConfigRequest request, CancellationToken cancellationToken)
     {
         var ownerUserId = GetRequiredCurrentUserId();
@@ -103,7 +105,7 @@ public sealed class ShopsController : ControllerBase
     }
 
     [HttpPut("me/business-info")]
-    [StoreOwnerAnyStatusAccess]
+    [StoreOwnerActiveAccess]
     public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> UpdateBusinessInfo([FromBody] UpdateBusinessInfoRequest request, CancellationToken cancellationToken)
     {
         var response = await _shopService.UpdateBusinessInfoAsync(GetRequiredCurrentUserId(), request, cancellationToken);
@@ -111,7 +113,7 @@ public sealed class ShopsController : ControllerBase
     }
 
     [HttpPut("me/images")]
-    [StoreOwnerAnyStatusAccess]
+    [StoreOwnerActiveAccess]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> UpdateShopImages([FromForm] UpdateShopImagesRequest request, CancellationToken cancellationToken)
     {

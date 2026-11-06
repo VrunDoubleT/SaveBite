@@ -41,7 +41,7 @@ public sealed class PaymentHistoryService : IPaymentHistoryService
     {
         await _payments.RequireCustomerAsync(userId, ct);
         var payment = await _payments.GetAsync(userId, paymentId, ct) ?? throw AppException.NotFound("Payment not found.");
-        var order = await _orders.GetOrderAsync(payment.OrderId, userId, ct) ?? throw AppException.NotFound("Order not found.");
+        var order = await _orders.GetOrderForHistoryAsync(payment.OrderId, userId, ct) ?? throw AppException.NotFound("Order not found.");
         return new CustomerPaymentDetailResponse { Payment = Map(payment), Order = CheckoutOrderMapper.Map(order, now: _clock.GetUtcNow().UtcDateTime) };
     }
 

@@ -36,9 +36,10 @@ public sealed class FeedbackService : IFeedbackService
         {
             Id = f.Id, ProductId = f.ProductId, UserId = f.UserId,
             CustomerName = f.User.FullName, CustomerPhone = f.User.Phone,
-            CustomerEmail = f.User.Email, ProductName = f.Product.Name,
-            ShopName = f.OrderItem.Order.Shop.Name, OrderItemId = f.OrderItemId,
-            Rating = f.Rating, Comment = f.Comment, Status = f.Status,
+            CustomerEmail = f.User.Email, AvatarUrl = f.User.AvatarUrl, 
+            ProductName = f.Product.Name, ShopName = f.OrderItem.Order.Shop.Name, 
+            OrderItemId = f.OrderItemId, Rating = f.Rating, 
+            Comment = f.Comment, Status = f.Status,
             CurrentReason = f.ModerationLogs.OrderByDescending(l => l.CreatedAt).FirstOrDefault()?.Reason,
             CreatedAt = f.CreatedAt, HiddenAt = f.HiddenAt
         }).ToList();

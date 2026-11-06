@@ -87,21 +87,6 @@ public class ShopApplicationConfiguration
             .HasConversion<string>()
             .HasMaxLength(30)
             .IsRequired();
-        
-        builder.Property(x => x.BankName)
-            .HasColumnName("bank_name")
-            .HasMaxLength(100)
-            .IsRequired();
-
-        builder.Property(x => x.BankAccountNumber)
-            .HasColumnName("bank_account_number")
-            .HasMaxLength(50)
-            .IsRequired();
-
-        builder.Property(x => x.BankAccountHolder)
-            .HasColumnName("bank_account_holder")
-            .HasMaxLength(150)
-            .IsRequired();
 
         builder.Property(x => x.PayosClientId)
             .HasColumnName("payos_client_id")
