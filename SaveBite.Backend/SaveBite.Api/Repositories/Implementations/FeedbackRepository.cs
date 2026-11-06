@@ -182,6 +182,18 @@ public sealed class FeedbackRepository : IFeedbackRepository
         return staffShop;
     }
 
+    public async Task<bool> IsShopOwnerForFeedbackAsync(Guid userId, Guid feedbackId, CancellationToken ct = default)
+    {
+        var feedback = await _context.ProductFeedbacks
+            .AsNoTracking()
+            .Include(f => f.Product)
+            .FirstOrDefaultAsync(f => f.Id == feedbackId, ct);
+        if (feedback == null) return false;
+        return await _context.Shops
+            .AsNoTracking()
+            .AnyAsync(s => s.Id == feedback.Product.ShopId && s.OwnerUserId == userId && s.Status == ShopStatus.Active, ct);
+    }
+
     public async Task<bool> CanManageFeedbackReplyAsync(Guid userId, Guid feedbackId, CancellationToken ct = default)
     {
         var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);

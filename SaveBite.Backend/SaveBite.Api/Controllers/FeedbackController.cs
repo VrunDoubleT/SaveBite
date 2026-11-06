@@ -39,12 +39,28 @@ public sealed class FeedbackController : ControllerBase
     // Manage Feedbacks.
     [HttpDelete("{feedbackId:guid}")]
     [AdminAccess]
-    public async Task<ActionResult<ApiResponse<ModerationActionResponse>>> Remove(Guid feedbackId, [FromBody] HideViolatingFeedbackRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<ModerationActionResponse>>> Remove(
+        Guid feedbackId,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] HideViolatingFeedbackRequest? request,
+        CancellationToken cancellationToken)
     {
         var adminId = GetAdminId();
-        var result = await _feedback.RemoveAsync(adminId, feedbackId, request, cancellationToken);
+        var safeRequest = request ?? new HideViolatingFeedbackRequest { Reason = "Violation of platform community guidelines" };
+        if (string.IsNullOrWhiteSpace(safeRequest.Reason))
+        {
+            safeRequest.Reason = "Violation of platform community guidelines";
+        }
+        var result = await _feedback.RemoveAsync(adminId, feedbackId, safeRequest, cancellationToken);
         return Ok(ApiResponse<ModerationActionResponse>.Ok(result, "Feedback removed."));
     }
+
+    [HttpPost("{feedbackId:guid}/hide")]
+    [AdminAccess]
+    public async Task<ActionResult<ApiResponse<ModerationActionResponse>>> Hide(
+        Guid feedbackId,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] HideViolatingFeedbackRequest? request,
+        CancellationToken cancellationToken)
+        => await Remove(feedbackId, request, cancellationToken);
 
     // Manage Feedbacks.
     [HttpPost("{feedbackId:guid}/restore")]
@@ -58,7 +74,7 @@ public sealed class FeedbackController : ControllerBase
 
     private Guid GetAdminId()
     {
-        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
         if (!Guid.TryParse(raw, out var adminId))
             throw AppException.Unauthorized("Unable to identify user.");
 

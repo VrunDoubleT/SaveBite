@@ -19,15 +19,12 @@ export function CartItemRow({ item, busy = false, onQuantity, onRemove, compact 
   const errorId = useId();
   function commitQuantity() {
     if (draft === null) return;
-    const quantity = Number(draft);
+    let quantity = Number(draft);
     setDraft(null);
-    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > item.availableQuantity) {
-      setQuantityError(
-        item.availableQuantity > 0
-          ? `Enter a quantity from 1 to ${item.availableQuantity}.`
-          : "No stock is available for quantity changes.",
-      );
-      return;
+    if (!Number.isSafeInteger(quantity) || quantity < 1) {
+      quantity = 1;
+    } else if (quantity > item.availableQuantity) {
+      quantity = item.availableQuantity;
     }
     setQuantityError(null);
     if (quantity !== item.quantity) onQuantity?.(quantity);
@@ -134,7 +131,23 @@ export function CartItemRow({ item, busy = false, onQuantity, onRemove, compact 
                 aria-describedby={quantityError ? errorId : undefined}
                 value={draft ?? item.quantity}
                 disabled={busy || !item.canUpdateQuantity}
-                onChange={(event) => setDraft(event.target.value)}
+                onChange={(event) => {
+                  const raw = event.target.value;
+                  if (raw === "") {
+                    setDraft("");
+                    return;
+                  }
+                  const num = parseInt(raw, 10);
+                  if (!Number.isNaN(num) && num > item.availableQuantity) {
+                    setDraft(String(item.availableQuantity));
+                    setQuantityError(null);
+                    if (item.availableQuantity !== item.quantity) {
+                      onQuantity?.(item.availableQuantity);
+                    }
+                    return;
+                  }
+                  setDraft(raw);
+                }}
                 onBlur={commitQuantity}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") event.currentTarget.blur();

@@ -7,6 +7,7 @@ import { AccountPagination as Pagination } from "@/shared/components/pagination"
 import { toast } from "@/shared/stores/toastStore";
 import { ErrorState } from "@/shared/components/ui";
 import { getApiErrorMessage } from "@/shared/api";
+import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 
 export function ReviewsPage() {
   const [searchParams] = useSearchParams();
@@ -56,6 +57,14 @@ export function ReviewsPage() {
     lastFetchedPage.current = page;
     void fetchReviews(page);
   }, [fetchReviews, page, feedbackIdParam]);
+
+  // Real-time synchronization when feedback is invalidated or user switches back to this tab
+  useEffect(() => {
+    return subscribeFeedbackSync(() => {
+      lastFetchedPage.current = null;
+      void fetchReviews(page);
+    });
+  }, [fetchReviews, page]);
 
   // Scroll and pulse highlight when target review appears on screen
   useEffect(() => {

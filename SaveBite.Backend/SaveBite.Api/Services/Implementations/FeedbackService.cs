@@ -61,19 +61,25 @@ public sealed class FeedbackService : IFeedbackService
                 ?? throw AppException.NotFound("Feedback not found.");
             if (restore ? feedback.Status != FeedbackStatus.HiddenByAdmin : feedback.Status != FeedbackStatus.Visible)
                 throw AppException.Conflict(restore ? "Only feedback hidden by an admin can be restored." : "Only visible feedback can be removed.");
-            if (!restore && string.IsNullOrWhiteSpace(reason))
-                throw AppException.BadRequest("A reason is required.");
+            var cleanReason = !string.IsNullOrWhiteSpace(reason)
+                ? reason.Trim()
+                : (restore ? "Restored by administrator" : "Violation of platform community guidelines");
             var now = DateTime.UtcNow;
             var oldStatus = feedback.Status;
             var newStatus = restore ? FeedbackStatus.Visible : FeedbackStatus.HiddenByAdmin;
             var moderationId = Guid.NewGuid();
-            feedback.ModerationLogs.Add(new ProductFeedbackModerationLog
+            var log = new ProductFeedbackModerationLog
             {
-                Id = moderationId, ProductFeedbackId = feedbackId, AdminUserId = adminId,
+                Id = moderationId,
+                ProductFeedbackId = feedbackId,
+                AdminUserId = adminId,
                 Action = restore ? FeedbackModerationAction.Restore : FeedbackModerationAction.Hide,
-                PreviousStatus = feedback.Status, NewStatus = newStatus,
-                Reason = reason?.Trim() ?? string.Empty, CreatedAt = now
-            });
+                PreviousStatus = oldStatus,
+                NewStatus = newStatus,
+                Reason = cleanReason,
+                CreatedAt = now
+            };
+            _db.ProductFeedbackModerationLogs.Add(log);
             feedback.Status = newStatus;
             feedback.HiddenAt = restore ? null : now;
             feedback.UpdatedAt = now;
@@ -83,21 +89,33 @@ public sealed class FeedbackService : IFeedbackService
                 Action = restore ? "FEEDBACK_RESTORED" : "FEEDBACK_HIDDEN",
                 TargetType = "ProductFeedback",
                 TargetId = feedbackId,
-                Reason = reason?.Trim(),
+                Reason = cleanReason,
                 OldValuesJson = JsonSerializer.Serialize(new { Status = oldStatus.ToString() }),
                 NewValuesJson = JsonSerializer.Serialize(new
                 {
-                    Status = feedback.Status.ToString(),
+                    Status = newStatus.ToString(),
                     ModerationLogId = moderationId
                 }),
                 CreatedAt = now
             });
             await _feedbackRepo.UpdateAsync(feedback, ct);
+            var productName = feedback.Product?.Name
+                ?? feedback.OrderItem?.ProductNameSnapshot
+                ?? "this item";
             if (!restore)
+            {
                 await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
                     NotificationType.FeedbackRemovedByAdmin, "Your review was removed",
-                    $"An administrator removed your review of {feedback.Product.Name}. Reason: {reason!.Trim()}",
+                    $"An administrator removed your review of {productName}. Reason: {cleanReason}",
                     "/account/reviews", $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
+            }
+            else
+            {
+                await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
+                    NotificationType.FeedbackReceived, "Your review was restored",
+                    $"An administrator restored your review of {productName}.",
+                    "/account/reviews", $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
+            }
             return new ModerationActionResponse
             {
                 TargetId = feedbackId, Action = restore ? "FEEDBACK_RESTORED" : "FEEDBACK_HIDDEN",
@@ -214,6 +232,13 @@ public sealed class FeedbackService : IFeedbackService
             throw AppException.BadRequest("Cannot edit feedback that has been removed or hidden.");
 
         var now = DateTime.UtcNow;
+        if (feedback.CreatedAt.AddDays(30) < now)
+            throw AppException.BadRequest("Feedback can only be edited within 30 days of submission.");
+
+        if (feedback.EditCount >= 3)
+            throw AppException.BadRequest("Feedback can only be edited a maximum of 3 times.");
+
+        feedback.EditCount++;
         feedback.Rating = request.Rating;
         feedback.Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
         feedback.UpdatedAt = now;
@@ -303,7 +328,8 @@ public sealed class FeedbackService : IFeedbackService
                 created.Content,
                 created.CreatedAt,
                 created.UpdatedAt,
-                created.RepliedByUser?.FullName ?? "Shop"
+                created.RepliedByUser?.FullName ?? "Shop",
+                created.RepliedByUserId
             );
 
         }, ct);
@@ -365,6 +391,10 @@ public sealed class FeedbackService : IFeedbackService
         if (existingReply is null)
             throw AppException.NotFound("Reply not found.");
 
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user != null && user.Role != UserRole.Admin && existingReply.RepliedByUserId != userId)
+            throw AppException.Forbidden("You can only edit your own reply.");
+
         existingReply.Content = request.Content.Trim();
         existingReply.UpdatedAt = DateTime.UtcNow;
 
@@ -375,7 +405,8 @@ public sealed class FeedbackService : IFeedbackService
             existingReply.Content,
             existingReply.CreatedAt,
             existingReply.UpdatedAt,
-            existingReply.RepliedByUser?.FullName ?? "Shop"
+            existingReply.RepliedByUser?.FullName ?? "Shop",
+            existingReply.RepliedByUserId
         );
     }
 
@@ -389,6 +420,14 @@ public sealed class FeedbackService : IFeedbackService
         var existingReply = await _feedbackRepo.GetReplyByFeedbackIdAsync(feedbackId, ct);
         if (existingReply is null)
             throw AppException.NotFound("Reply not found.");
+
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user != null && user.Role != UserRole.Admin)
+        {
+            var isOwner = await _feedbackRepo.IsShopOwnerForFeedbackAsync(userId, feedbackId, ct);
+            if (!isOwner && existingReply.RepliedByUserId != userId)
+                throw AppException.Forbidden("You can only delete your own reply.");
+        }
 
         await _feedbackRepo.DeleteReplyAsync(existingReply, ct);
     }
@@ -433,7 +472,7 @@ public sealed class FeedbackService : IFeedbackService
                 f.Reply.Content,
                 f.Reply.CreatedAt,
                 f.Reply.UpdatedAt,
-                f.Reply.RepliedByUser?.FullName ?? "Shop"),
+                f.Reply.RepliedByUser?.FullName ?? "Shop", f.Reply.RepliedByUserId),
             f.OrderItem?.OrderId ?? Guid.Empty,
             f.OrderItem?.Order?.OrderCode ?? string.Empty,
             f.OrderItem?.Order?.Shop?.Name ?? f.Product?.Shop?.Name ?? string.Empty,

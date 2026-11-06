@@ -4,6 +4,8 @@ import { RealtimeProvider } from "./RealtimeProvider";
 import { StoreProvider } from "./StoreProvider";
 
 import { ToastViewport } from "@/shared/components/feedback/ToastViewport";
+import { AccountSuspendedModal } from "@/shared/components/modal/AccountSuspendedModal";
+
 export function AppProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const handleUnauthorized = () => useAuthStore.getState().clearSession();
@@ -16,6 +18,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     <StoreProvider>
       <RealtimeProvider>{children}</RealtimeProvider>
       <ToastViewport />
+      <AccountSuspendedModal />
     </StoreProvider>
   );
 }

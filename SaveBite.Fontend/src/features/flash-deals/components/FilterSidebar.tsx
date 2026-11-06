@@ -3,7 +3,7 @@ import { Filter, RotateCcw, X } from "lucide-react";
 import type { DealFilterState } from "@/features/flash-deals/types/flashDeal.types";
 import { categoryApi } from "@/features/categories/api/categoryApi";
 
-import { Badge, Button, Card, Checkbox, IconButton, Skeleton } from "@/shared/components/ui";
+import { Button, Card, Checkbox, IconButton, Skeleton } from "@/shared/components/ui";
 import { toast } from "@/shared/stores/toastStore";
 
 interface FilterSidebarProps {
@@ -138,9 +138,7 @@ export function FilterSidebar({
                     {cat}
                   </span>
                 </span>
-                {(categoryCounts[cat] ?? 0) > 0 && (
-                  <Badge tone="primary">{categoryCounts[cat]}</Badge>
-                )}
+
               </label>
             ))
           )}

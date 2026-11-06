@@ -38,6 +38,7 @@ public class ShopFlashDealDetailResponse
     public Guid ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public bool HasActiveDeal { get; set; }
     public string? CategoryName { get; set; }
     public string? PrimaryImageUrl { get; set; }
     public List<string> ProductImageUrls { get; set; } = new();
@@ -83,6 +84,7 @@ public class ShopEligibleProductResponse
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public bool HasActiveDeal { get; set; }
     public string? CategoryName { get; set; }
     public string? ImageUrl { get; set; }
     public List<ShopEligibleProductVariantResponse> Variants { get; set; } = new();

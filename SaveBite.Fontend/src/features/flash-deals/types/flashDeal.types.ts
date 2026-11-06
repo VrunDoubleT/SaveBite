@@ -176,6 +176,7 @@ export interface ShopEligibleProduct {
   description?: string;
   categoryName?: string;
   imageUrl?: string;
+  hasActiveDeal?: boolean;
   variants: ShopEligibleProductVariant[];
 }
 

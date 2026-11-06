@@ -49,5 +49,6 @@ public enum NotificationType
     StaffLeftShop = 38,
     ProductRemoved = 39,
     TrustLevelChanged = 40,
-    PickupDeadlineApproaching = 41
+    PickupDeadlineApproaching = 41,
+    ShopApplicationSubmitted = 42
 }

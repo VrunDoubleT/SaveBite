@@ -20,6 +20,8 @@ export function ReviewEditor({
   onSave,
   onCancel,
   reply,
+  editCount,
+  canEdit,
 }: {
   rating: number;
   comment: string;
@@ -35,10 +37,17 @@ export function ReviewEditor({
   onSave: () => Promise<void>;
   onCancel: () => void;
   reply?: FeedbackReply | null;
+  editCount?: number;
+  canEdit?: boolean;
 }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [photoWarning, setPhotoWarning] = useState<{
+    isOpen: boolean;
+    selectedCount: number;
+    maxAllowed: number;
+  }>({ isOpen: false, selectedCount: 0, maxAllowed: 0 });
   const busy = saving || uploading;
   return (
     <>
@@ -50,10 +59,26 @@ export function ReviewEditor({
           if (!busy) void onSave();
         }}
       >
-        <fieldset disabled={busy} className="min-w-0 space-y-4 disabled:opacity-60">
+        {canEdit === false && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+            This review can no longer be edited because it has reached the limit of 3 edits or the 30-day edit period has expired.
+          </div>
+        )}
+        {typeof editCount === "number" && (
+          <div className="flex items-center justify-between rounded-md bg-neutral-50 px-3 py-2 text-xs text-text-secondary">
+            <span>Edits used: <strong>{editCount}/3</strong></span>
+            <span>{Math.max(0, 3 - editCount)} edit(s) remaining (within 30 days)</span>
+          </div>
+        )}
+        <fieldset disabled={busy || canEdit === false} className="min-w-0 space-y-4 disabled:opacity-60">
           <div className="rounded-md bg-accent-50/60 p-4">
             <p className="mb-3 text-body font-semibold text-text-primary">Your rating</p>
-            <StarRatingInput value={rating} onChange={onRating} disabled={busy} size="lg" />
+            <StarRatingInput value={rating} onChange={onRating} disabled={busy || canEdit === false} size="lg" />
+            {rating <= 2 && (
+              <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+                We're sorry your experience wasn't ideal. Please leave detailed feedback so the store can address the issue and improve their service.
+              </div>
+            )}
           </div>
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -101,7 +126,19 @@ export function ReviewEditor({
               multiple
               className="hidden"
               onChange={(event) => {
-                void onUpload(event.target.files).finally(() => {
+                const files = event.target.files;
+                if (!files || files.length === 0) return;
+                const remainingSlots = 5 - images.length;
+                if (files.length > remainingSlots) {
+                  setPhotoWarning({
+                    isOpen: true,
+                    selectedCount: files.length,
+                    maxAllowed: Math.max(0, remainingSlots),
+                  });
+                  if (input.current) input.current.value = "";
+                  return;
+                }
+                void onUpload(files).finally(() => {
                   if (input.current) input.current.value = "";
                 });
               }}
@@ -174,6 +211,31 @@ export function ReviewEditor({
             className="mx-auto max-h-[70vh] max-w-full rounded-md object-contain"
           />
         )}
+      </Modal>
+
+      {/* Warning popup when selecting > 5 images (FIX-38) */}
+      <Modal
+        isOpen={photoWarning.isOpen}
+        onClose={() => setPhotoWarning({ isOpen: false, selectedCount: 0, maxAllowed: 0 })}
+        title="Photo Limit Exceeded"
+        maxWidthClass="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-body text-text-secondary">
+            You selected <strong>{photoWarning.selectedCount}</strong> photos, but only <strong>{photoWarning.maxAllowed}</strong> more photo{photoWarning.maxAllowed === 1 ? "" : "s"} can be added (maximum 5 photos per review).
+          </p>
+          <p className="text-caption text-text-muted">
+            Please choose up to {photoWarning.maxAllowed} photo{photoWarning.maxAllowed === 1 ? "" : "s"}.
+          </p>
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              onClick={() => setPhotoWarning({ isOpen: false, selectedCount: 0, maxAllowed: 0 })}
+            >
+              Understand
+            </Button>
+          </div>
+        </div>
       </Modal>
     </>
   );

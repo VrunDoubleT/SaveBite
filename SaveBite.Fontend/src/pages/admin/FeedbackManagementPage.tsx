@@ -3,9 +3,12 @@ import { AlertCircle, ChevronDown, Inbox, RotateCw, SearchX, X } from "lucide-re
 import { feedbackApi } from "@/features/feedback/api/feedbackApi";
 import { FeedbackModerationDialog } from "@/features/feedback/components/FeedbackModerationDialog";
 import { FeedbackTable } from "@/features/feedback/components/FeedbackTable";
-import type { Feedback, FeedbackPage } from "@/features/feedback/types/feedback.types";
+import type { Feedback, FeedbackPage, FeedbackStatus } from "@/features/feedback/types/feedback.types";
 import { Pagination } from "@/shared/components/pagination";
 import { SearchInput } from "@/shared/components/modal/SearchInput";
+import { toast } from "@/shared/stores/toastStore";
+import { getApiErrorMessage } from "@/shared/api";
+import { emitFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -181,14 +184,43 @@ export function FeedbackManagementPage() {
   async function confirmModeration(reason: string) {
     if (!selected) return;
 
-    if (moderationMode === "restore") {
-      await feedbackApi.restore(selected.id, reason || undefined);
-    } else {
-      await feedbackApi.remove(selected.id, reason);
-    }
+    const targetFeedback = selected;
+    const isRestoring = moderationMode === "restore";
+    const nextStatus: FeedbackStatus = isRestoring ? "Visible" : "HiddenByAdmin";
 
-    setSelected(null);
-    retry();
+    try {
+      if (isRestoring) {
+        await feedbackApi.restore(targetFeedback.id, reason || undefined);
+        toast.success("Feedback restored successfully.");
+      } else {
+        await feedbackApi.remove(targetFeedback.id, reason);
+        toast.success("Feedback removed successfully.");
+      }
+
+      // Optimistically update status to 'Removed' (HiddenByAdmin: 3) or 'Visible' (1) immediately without reload
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.map((item) =>
+            item.id === targetFeedback.id
+              ? {
+                  ...item,
+                  status: nextStatus,
+                  currentReason: !isRestoring ? reason : item.currentReason,
+                }
+              : item,
+          ),
+        };
+      });
+
+      emitFeedbackSync(isRestoring ? "restore" : "hide", targetFeedback.id);
+
+      setSelected(null);
+      retry();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error) || "Failed to update feedback.");
+    }
   }
 
   return (

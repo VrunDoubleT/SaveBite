@@ -13,6 +13,7 @@ import { Pagination } from "@/shared/components/pagination";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api";
+import { useAuthStore } from "@/shared/stores/authStore";
 
 interface ShopFeedbackManagementPanelProps {
   title: string;
@@ -57,6 +58,10 @@ export function ShopFeedbackManagementPanel({
   onDeleteReply,
   showShopName = false,
 }: ShopFeedbackManagementPanelProps) {
+  const currentUser = useAuthStore((state) => state.user);
+  const isStoreOwner = currentUser?.role === "storeOwner";
+  const isStaff = currentUser?.role === "staff";
+
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Reply modal state
@@ -427,24 +432,40 @@ export function ShopFeedbackManagementPanel({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEditReplyModal(item)}
-                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 hover:bg-emerald-100/60 hover:text-emerald-800 transition"
-                      >
-                        <Pencil size={12} />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteReplyTarget(item)}
-                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 transition"
-                      >
-                        <Trash2 size={12} />
-                        Delete
-                      </button>
-                    </div>
+                    {(() => {
+                      const isOwnReply = Boolean(
+                        currentUser &&
+                        item.reply?.repliedByUserId &&
+                        item.reply.repliedByUserId.toLowerCase() === currentUser.id.toLowerCase()
+                      );
+                      const canEditReply = isOwnReply;
+                      const canDeleteReply = isStoreOwner || (isStaff && isOwnReply);
+
+                      return (
+                        <div className="flex items-center gap-1">
+                          {canEditReply && (
+                            <button
+                              type="button"
+                              onClick={() => openEditReplyModal(item)}
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 hover:bg-emerald-100/60 hover:text-emerald-800 transition"
+                            >
+                              <Pencil size={12} />
+                              Edit
+                            </button>
+                          )}
+                          {canDeleteReply && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteReplyTarget(item)}
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 transition"
+                            >
+                              <Trash2 size={12} />
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <p className="mt-1.5 text-neutral-700 leading-relaxed whitespace-pre-line">
                     {item.reply.content}

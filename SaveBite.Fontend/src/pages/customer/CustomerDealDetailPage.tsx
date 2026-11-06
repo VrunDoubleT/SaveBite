@@ -76,6 +76,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
   const [activeImgUrl, setActiveImgUrl] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
+  const [quantityInput, setQuantityInput] = useState<string>("1");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [addedSuccess, setAddedSuccess] = useState<boolean>(false);
@@ -289,6 +290,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
     if (matched) {
       setSelectedVariant(matched);
       setQuantity(1);
+      setQuantityInput("1");
       // Switch active image immediately if variant has specific image
       if (matched.imageUrl) {
         setActiveImgUrl(matched.imageUrl);
@@ -299,6 +301,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
   const handleSelectVariantDirect = (v: FlashDealVariant) => {
     setSelectedVariant(v);
     setQuantity(1);
+    setQuantityInput("1");
     if (v.attributes) {
       setSelectedAttributes({ ...v.attributes });
     }
@@ -684,17 +687,56 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                   aria-label="Decrease quantity"
                   className="size-11"
                   disabled={quantity <= 1 || !isPurchasable}
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  onClick={() => {
+                    const next = Math.max(1, quantity - 1);
+                    setQuantity(next);
+                    setQuantityInput(String(next));
+                  }}
                 >
                   <Minus className="size-4" aria-hidden="true" />
                 </IconButton>
-                <output
-                  aria-live="polite"
+                <input
+                  type="number"
+                  min={1}
+                  max={activeVariant?.availableQuantity ?? 99}
+                  value={quantityInput}
+                  disabled={!isPurchasable}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === "") {
+                      setQuantityInput("");
+                      setQuantity(1);
+                      return;
+                    }
+                    const val = parseInt(raw, 10);
+                    if (Number.isNaN(val)) return;
+                    const max = activeVariant?.availableQuantity ?? 99;
+                    if (val > max) {
+                      setQuantity(max);
+                      setQuantityInput(String(max));
+                    } else if (val < 1) {
+                      setQuantity(1);
+                      setQuantityInput(raw);
+                    } else {
+                      setQuantity(val);
+                      setQuantityInput(raw);
+                    }
+                  }}
+                  onBlur={() => {
+                    const max = activeVariant?.availableQuantity ?? 99;
+                    const val = parseInt(quantityInput, 10);
+                    const clamped = Number.isNaN(val) || val < 1 ? 1 : Math.min(val, max);
+                    setQuantity(clamped);
+                    setQuantityInput(String(clamped));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    }
+                  }}
                   aria-label="Selected quantity"
-                  className="min-w-8 text-center font-semibold tabular-nums text-text-primary"
-                >
-                  {quantity}
-                </output>
+                  className="w-14 rounded-md border border-border-default bg-white py-1 text-center font-semibold tabular-nums text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+                />
                 <IconButton
                   aria-label="Increase quantity"
                   className="size-11"
@@ -702,7 +744,12 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                     !isPurchasable ||
                     Boolean(activeVariant && quantity >= activeVariant.availableQuantity)
                   }
-                  onClick={() => setQuantity((q) => q + 1)}
+                  onClick={() => {
+                    const max = activeVariant?.availableQuantity ?? 99;
+                    const next = Math.min(quantity + 1, max);
+                    setQuantity(next);
+                    setQuantityInput(String(next));
+                  }}
                 >
                   <Plus className="size-4" aria-hidden="true" />
                 </IconButton>
@@ -783,6 +830,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                   </Link>
                 </h2>
               </div>
+<<<<<<< HEAD
               <div className="w-full max-w-64">
                 <ShopFollowControls
                   compact
@@ -790,6 +838,19 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                   shopName={deal.shopName}
                   ownerUserId={deal.shopOwnerUserId}
                 />
+=======
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  to={`/shops/${deal.shopId}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 shadow-sm transition hover:bg-primary-50"
+                >
+                  <Store className="size-3.5" aria-hidden="true" />
+                  <span>Visit Store</span>
+                </Link>
+                <div className="w-full max-w-48 sm:w-auto">
+                  <ShopFollowControls compact shopId={deal.shopId} shopName={deal.shopName} />
+                </div>
+>>>>>>> origin/fix-04
               </div>
             </div>
           </div>

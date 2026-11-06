@@ -22,6 +22,7 @@ public sealed class UserService : IUserService
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<UserService> _logger;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IRealtimePublisher _realtime;
 
     public UserService(
         IUserRepository repository,
@@ -29,8 +30,10 @@ public sealed class UserService : IUserService
         TimeProvider timeProvider,
         ILogger<UserService> logger,
         ICloudinaryService cloudinaryService,
+        IRealtimePublisher realtime,
         INotificationQueue notifications, IAdminAuditWriter audit, SaveBite.Backend.Data.AppDbContext db)
     {
+        _realtime = realtime;
         _audit = audit;
         _notifications = notifications;
         _db = db;
@@ -163,6 +166,7 @@ public sealed class UserService : IUserService
                     now);
                 if (request.IsSuspended)
                     await _refreshTokenService.RevokeAllAsync(targetUserId, "Customer profile suspended by Administrator.", cancellationToken);
+                    await _realtime.SendToUserAsync(targetUserId, "account.locked", new { userId = targetUserId, isCustomerProfile = true, reason = request.Reason });
 
                 _logger.LogInformation("Admin {AdminId} {Action} customer profile for {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
             }
@@ -181,13 +185,14 @@ public sealed class UserService : IUserService
                     now);
                 if (request.IsSuspended)
                     await _refreshTokenService.RevokeAllAsync(targetUserId, "Account suspended by Administrator.", cancellationToken);
+                    await _realtime.SendToUserAsync(targetUserId, "account.locked", new { userId = targetUserId, isCustomerProfile = false, reason = request.Reason });
 
                 _logger.LogInformation("Admin {AdminId} {Action} account {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
             }
 
             user.UpdatedAt = now;
             await _repository.SaveChangesAsync(cancellationToken);
-            if (user.Role == UserRole.StoreOwner)
+
                 await _notifications.EnqueueAsync(NotificationTarget.AccountStatusSubject(targetUserId), new CreateNotificationCommand(
                     NotificationType.AccountStatusChanged, "Account access updated",
                     $"An administrator {(request.IsSuspended ? "suspended" : "reactivated")} your {(request.IsCustomerProfile ? "customer profile" : "account")}. Reason: {request.Reason.Trim()}",

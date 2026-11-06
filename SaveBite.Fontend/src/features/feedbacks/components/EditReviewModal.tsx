@@ -184,6 +184,12 @@ function EditReviewContent({
                 )}
               </div>
             </div>
+            {/* Edit Count and 30-day notice (FIX-28) */}
+            <div className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 text-xs text-text-secondary">
+              <span>Edits used: <strong>{feedback.editCount ?? 0}/3</strong></span>
+              <span>{Math.max(0, 3 - (feedback.editCount ?? 0))} edit(s) remaining (within 30 days)</span>
+            </div>
+
             <ReviewEditor
               rating={rating}
               comment={comment}
@@ -201,6 +207,8 @@ function EditReviewContent({
               }}
               onCancel={onClose}
               reply={feedback.reply}
+              editCount={feedback.editCount}
+              canEdit={feedback.canEdit}
             />
           </div>
         )
