@@ -75,7 +75,9 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             s.IssuedAt,
             s.DueAt,
             s.PaidAt,
-            s.CreatedAt
+            s.CreatedAt,
+            s.Shop?.Name,
+            s.Shop?.LogoUrl
         )).ToList();
 
         return PagedResult<PlatformFeeStatementSummaryResponse>.Create(
@@ -101,7 +103,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 s.DueAt,
                 s.PaidAt,
                 s.CreatedAt,
-                s.Shop?.Name
+            s.Shop?.Name,
+            s.Shop?.LogoUrl
             )).ToList();
             return PagedResult<PlatformFeeStatementSummaryResponse>.Create(
                 items,
@@ -185,7 +188,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             orderItems,
             adjustmentItems,
             paymentItems,
-            historyItems
+            historyItems,
+            statement.Shop?.LogoUrl
         );
     }
 

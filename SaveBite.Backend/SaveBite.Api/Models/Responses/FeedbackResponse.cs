@@ -6,6 +6,7 @@ public sealed class FeedbackResponse
 {
     public Guid Id { get; init; }
     public Guid ProductId { get; init; }
+    public Guid ShopId { get; init; }
     public Guid UserId { get; init; }
     public string CustomerName { get; init; } = string.Empty;
     public string? CustomerPhone { get; init; }

@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.SignalR;
+using SaveBite.Backend.Hubs;
+using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
@@ -24,6 +27,8 @@ public sealed class ShopApplicationService : IShopApplicationService
     private readonly IValidator<ResubmitShopApplicationRequest> _resubmitValidator;
     private readonly IValidator<ShopApplicationDocumentsValidationRequest> _documentsValidator;
     private readonly IValidator<ShopApplicationLogoValidationRequest> _logoValidator;
+    private readonly IRealtimePublisher? _realtime;
+    private readonly IHubContext<FlashDealsHub, IApplicationClient>? _dealHub;
 
     public ShopApplicationService(
         IShopApplicationRepository repository,
@@ -33,7 +38,9 @@ public sealed class ShopApplicationService : IShopApplicationService
         IValidator<ShopApplicationDocumentsValidationRequest> documentsValidator,
         IValidator<ShopApplicationLogoValidationRequest> logoValidator,
         INotificationQueue notifications, SaveBite.Backend.Data.AppDbContext db,
-        IAdminAuditWriter audit)
+        IAdminAuditWriter audit,
+        IRealtimePublisher? realtime = null,
+        IHubContext<FlashDealsHub, IApplicationClient>? dealHub = null)
     {
         _repository = repository;
         _notifications = notifications;
@@ -44,6 +51,8 @@ public sealed class ShopApplicationService : IShopApplicationService
         _resubmitValidator = resubmitValidator;
         _documentsValidator = documentsValidator;
         _logoValidator = logoValidator;
+        _realtime = realtime;
+        _dealHub = dealHub;
     }
 
     public async Task<ShopApplicationResponse?> GetMyApplicationAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -487,6 +496,39 @@ public sealed class ShopApplicationService : IShopApplicationService
                 notificationType, "Shop application reviewed",
                 $"Your application for {application.Name} is now {nextStatus}. {request.Note?.Trim()}",
                 "/account/shop-application", $"shop-application:{application.Id}:revision:{application.RevisionNumber}:{nextStatus}"), cancellationToken);
+
+            if (_realtime != null)
+            {
+                var eventPayload = new
+                {
+                    applicationId = application.Id,
+                    applicantUserId = application.ApplicantUserId,
+                    status = nextStatus.ToString(),
+                    revisionNumber = application.RevisionNumber
+                };
+                await _realtime.SendToUserAsync(application.ApplicantUserId, "shop.application.reviewed", eventPayload);
+                await _realtime.SendToAllAsync("shop.application.reviewed", eventPayload);
+                if (nextStatus == ShopApplicationStatus.Approved)
+                {
+                    await _realtime.SendToUserAsync(application.ApplicantUserId, "user.role.changed", new
+                    {
+                        userId = application.ApplicantUserId,
+                        role = "storeOwner"
+                    });
+                }
+            }
+
+            if (_dealHub != null)
+            {
+                var envelope = new RealtimeEvent(Guid.NewGuid(), "shop.application.reviewed", 1, DateTime.UtcNow, new
+                {
+                    applicationId = application.Id,
+                    applicantUserId = application.ApplicantUserId,
+                    status = nextStatus.ToString()
+                });
+                await _dealHub.Clients.All.ReceiveEvent(envelope);
+            }
+
             return Map(application);
 
         }, cancellationToken);

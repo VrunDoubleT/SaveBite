@@ -84,7 +84,7 @@ public sealed class UpdateBusinessInfoRequestValidator : AbstractValidator<Updat
         RuleFor(x => x.ClosingTime)
             .NotEqual(x => x.OpeningTime)
             .When(x => x.OpeningTime.HasValue && x.ClosingTime.HasValue && !(x.OpeningTime.Value == TimeOnly.MinValue && x.ClosingTime.Value == TimeOnly.MinValue))
-            .WithMessage("Giờ mở cửa và giờ đóng cửa không được trùng nhau (trừ trường hợp 00:00 - 00:00 mở cả ngày).");
+            .WithMessage("Opening time and closing time cannot be the same (except 00:00 - 00:00 for open all day / 24/7).");
     }
 }
 

@@ -48,10 +48,10 @@ public sealed class FeedbackService : IFeedbackService
         var result = await _feedbackRepo.ListAsync(page, pageSize, status, search, ct);
         var items = result.Items.Select(f => new FeedbackResponse
         {
-            Id = f.Id, ProductId = f.ProductId, UserId = f.UserId,
-            CustomerName = f.User.FullName, CustomerPhone = f.User.Phone,
-            CustomerEmail = f.User.Email, AvatarUrl = f.User.AvatarUrl, 
-            ProductName = f.Product.Name, ShopName = f.OrderItem.Order.Shop.Name, 
+            Id = f.Id, ProductId = f.ProductId, ShopId = f.Product != null ? f.Product.ShopId : (f.OrderItem != null && f.OrderItem.Order != null ? f.OrderItem.Order.ShopId : Guid.Empty), UserId = f.UserId,
+            CustomerName = f.User?.FullName ?? string.Empty, CustomerPhone = f.User?.Phone,
+            CustomerEmail = f.User?.Email ?? string.Empty, AvatarUrl = f.User?.AvatarUrl, 
+            ProductName = f.Product?.Name ?? string.Empty, ShopName = f.OrderItem?.Order?.Shop?.Name ?? f.Product?.Shop?.Name ?? string.Empty, 
             OrderItemId = f.OrderItemId, Rating = f.Rating, 
             Comment = f.Comment, Status = f.Status,
             CurrentReason = f.ModerationLogs.OrderByDescending(l => l.CreatedAt).FirstOrDefault()?.Reason,
@@ -133,10 +133,13 @@ public sealed class FeedbackService : IFeedbackService
             var shopId = feedback.Product?.ShopId;
             if (!shopId.HasValue || shopId == Guid.Empty)
             {
-                shopId = await _db.ProductFeedbacks
-                    .AsNoTracking()
-                    .Where(f => f.Id == feedbackId)
-                    .Select(f => (Guid?)f.Product.ShopId)
+                shopId = feedback.OrderItem?.Order?.ShopId;
+            }
+            if (!shopId.HasValue || shopId == Guid.Empty)
+            {
+                shopId = await _db.Products
+                    .Where(p => p.Id == feedback.ProductId)
+                    .Select(p => (Guid?)p.ShopId)
                     .FirstOrDefaultAsync(ct);
             }
 

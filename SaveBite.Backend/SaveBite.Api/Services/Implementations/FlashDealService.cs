@@ -577,10 +577,7 @@ public sealed class FlashDealService : IFlashDealService
         var product = await _dealRepository.GetProductForDealCreationAsync(shop.Id, deal.ProductId, cancellationToken)
             ?? throw AppException.NotFound("Product not found or does not belong to your shop.");
 
-        if (deal.Status == FlashDealStatus.Cancelled || deal.Status == FlashDealStatus.Closed)
-        {
-            throw AppException.BadRequest("Cannot update a closed or cancelled flash deal.");
-        }
+
         // Check overlapping deals.
         var hasOverlap = await _dealRepository.HasOverlappingDealAsync(
             shop.Id,
@@ -606,8 +603,9 @@ public sealed class FlashDealService : IFlashDealService
 
 
         var now = DateTime.UtcNow;
-
-        if (deal.Status == FlashDealStatus.Pending)
+        var previousStatus = deal.Status;
+        var isReopening = deal.Status is FlashDealStatus.Closed or FlashDealStatus.Cancelled || deal.OrderEndTime <= now;
+        if (isReopening || deal.Status == FlashDealStatus.Pending)
         {
             if (request.SaleStartTime.Date != request.OrderEndTime.Date)
             {
@@ -631,9 +629,32 @@ public sealed class FlashDealService : IFlashDealService
                 {
                     throw AppException.BadRequest("Sales can be scheduled to open no more than 90 minutes in advance.");
                 }
+                deal.SaleStartTime = request.SaleStartTime;
+                deal.Status = FlashDealStatus.Pending;
+            }
+            else
+            {
+                if (request.OrderEndTime <= now)
+                {
+                    throw AppException.BadRequest("Order end time must be in the future.");
+                }
+                deal.SaleStartTime = now;
+                deal.Status = FlashDealStatus.OnSale;
             }
 
-            deal.SaleStartTime = request.SaleStartTime;
+            if (isReopening)
+            {
+                _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+                {
+                    Id = Guid.NewGuid(),
+                    FlashDealId = deal.Id,
+                    FromStatus = previousStatus,
+                    ToStatus = deal.Status,
+                    ChangedByType = "Shop",
+                    ChangedByUserId = userId,
+                    CreatedAt = now
+                });
+            }
         }
         else if (deal.Status is FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
         {
@@ -698,6 +719,14 @@ public sealed class FlashDealService : IFlashDealService
             }
         }
         await _dealRepository.UpdateAsync(deal, cancellationToken);
+
+        if (isReopening && deal.Status == FlashDealStatus.OnSale)
+        {
+            await TryPublishLifecycleAsync(
+                RabbitMqRoutingKeys.FlashDealOpened,
+                new FlashDealEvent { FlashDealId = deal.Id },
+                cancellationToken);
+        }
 
         await RefreshScheduleAsync(deal, cancellationToken);
         LifecycleOutbox.InventoryDeals(_db, new[] { deal.Id }, null, DateTime.UtcNow);

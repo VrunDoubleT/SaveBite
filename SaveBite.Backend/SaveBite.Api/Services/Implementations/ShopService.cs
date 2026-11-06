@@ -581,7 +581,7 @@ public sealed class ShopService : IShopService
         }
         await transaction.CommitAsync(ct);
 
-        if (statusChanged)
+        if (statusChanged || targetStatus == ShopStatus.Suspended)
             await _shopStatusEvents.NotifyChangedAsync(shopId, targetStatus.ToString(), ct);
         if (targetStatus == ShopStatus.Suspended)
             await _suspensionCleanup.CleanupAsync(shopId, ct);

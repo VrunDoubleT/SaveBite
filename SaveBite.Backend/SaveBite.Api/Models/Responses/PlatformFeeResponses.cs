@@ -8,6 +8,7 @@ public sealed class PlatformFeeStatementSummaryResponse
     public Guid Id { get; set; }
     public Guid ShopId { get; set; }
     public string? ShopName { get; set; }
+    public string? ShopLogoUrl { get; set; }
     public int BillingYear { get; set; }
     public short BillingMonth { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -31,11 +32,13 @@ public sealed class PlatformFeeStatementSummaryResponse
         DateTime? dueAt,
         DateTime? paidAt,
         DateTime createdAt,
-        string? shopName = null)
+        string? shopName = null,
+        string? shopLogoUrl = null)
     {
         Id = id;
         ShopId = shopId;
         ShopName = shopName;
+        ShopLogoUrl = shopLogoUrl;
         BillingYear = billingYear;
         BillingMonth = billingMonth;
         Status = status;
@@ -177,6 +180,7 @@ public sealed class PlatformFeeStatementDetailResponse
     public Guid Id { get; set; }
     public Guid ShopId { get; set; }
     public string ShopName { get; set; } = string.Empty;
+    public string? ShopLogoUrl { get; set; }
     public int BillingYear { get; set; }
     public short BillingMonth { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -207,11 +211,13 @@ public sealed class PlatformFeeStatementDetailResponse
         IReadOnlyList<OrderPlatformFeeItemResponse> orders,
         IReadOnlyList<PlatformFeeAdjustmentItemResponse> adjustments,
         IReadOnlyList<PlatformFeePaymentItemResponse> payments,
-        IReadOnlyList<PlatformFeeStatementHistoryItemResponse>? histories = null)
+        IReadOnlyList<PlatformFeeStatementHistoryItemResponse>? histories = null,
+        string? shopLogoUrl = null)
     {
         Id = id;
         ShopId = shopId;
         ShopName = shopName;
+        ShopLogoUrl = shopLogoUrl;
         BillingYear = billingYear;
         BillingMonth = billingMonth;
         Status = status;

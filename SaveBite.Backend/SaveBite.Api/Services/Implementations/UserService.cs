@@ -212,6 +212,7 @@ public sealed class UserService : IUserService
                     now);
 
                 // When admin bans customer features, only send notification (do not revoke session or lock out system account)
+                await _realtime.SendToUserAsync(targetUserId, "user.role.changed", new { userId = targetUserId, customerStatus = newCustomerStatus.ToString() });
                 _logger.LogInformation("Admin {AdminId} {Action} customer features for {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
             }
             else

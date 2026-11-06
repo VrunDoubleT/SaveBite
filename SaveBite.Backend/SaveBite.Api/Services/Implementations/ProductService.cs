@@ -538,7 +538,7 @@ public sealed class ProductService : IProductService
         if (maxDealPrice.HasValue && request.OriginalPrice <= maxDealPrice.Value)
         {
             throw AppException.BadRequest(
-                $"Original price cannot be less than or equal to the deal price ({maxDealPrice.Value:N0} đ) of an active or pending flash deal.");
+                $"Original price cannot be less than or equal to the deal price ({maxDealPrice.Value:N0} VND) of an active or pending flash deal.");
         }
         variant.OriginalPrice = request.OriginalPrice;
         variant.DealPrice = request.DealPrice;

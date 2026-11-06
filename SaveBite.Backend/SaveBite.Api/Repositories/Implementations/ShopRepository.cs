@@ -101,7 +101,7 @@ public sealed class ShopRepository : IShopRepository
             .Where(f => f.Product.ShopId == shopId && f.Status == FeedbackStatus.Visible);
 
         var totalReviews = await reviewsQuery.CountAsync(cancellationToken);
-        var avgRating = totalReviews > 0 ? await reviewsQuery.AverageAsync(f => f.Rating, cancellationToken) : 5.0;
+        var avgRating = totalReviews > 0 ? await reviewsQuery.AverageAsync(f => f.Rating, cancellationToken) : 0.0;
 
         var breakdownGroups = await reviewsQuery
             .GroupBy(f => f.Rating)
