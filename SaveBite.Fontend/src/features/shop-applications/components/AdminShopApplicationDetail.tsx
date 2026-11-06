@@ -124,12 +124,6 @@ export function AdminShopApplicationDetail({
 
           <Panel title="Payment">
             <dl className="divide-y divide-slate-100">
-              <InfoRow label="Bank">{app.bankName || "—"}</InfoRow>
-
-              <InfoRow label="Account holder">{app.bankAccountHolder || "—"}</InfoRow>
-
-              <InfoRow label="Account number">{app.bankAccountNumber || "—"}</InfoRow>
-
               <InfoRow label="PayOS configuration">
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${

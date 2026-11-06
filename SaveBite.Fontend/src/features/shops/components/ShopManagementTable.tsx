@@ -3,6 +3,7 @@ import { Eye, MapPin, User } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { ShopStatusBadge } from "./ShopProfileHeader";
 import type { ShopListManagement } from "../types/shopManagement.types";
+import { useState } from "react";
 
 const manageLinkClass =
   "inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
@@ -10,16 +11,38 @@ const manageLinkClass =
 const manageHref = (id: string) => APP_PATHS.ADMIN_SHOP_CONTENT.replace(":shopId", id);
 
 function ShopMeta({ shop }: { shop: ShopListManagement }) {
+  const [imageError, setImageError] = useState(false);
+
+  const showLogo = Boolean(shop.logoUrl) && !imageError;
+
   return (
-    <div className="min-w-0 space-y-0.5">
-      <p className="truncate font-semibold text-text-primary" title={shop.name}>
-        {shop.name}
-      </p>
-      {shop.description && (
-        <p className="truncate text-xs text-text-muted" title={shop.description}>
-          {shop.description}
+    <div className="flex min-w-0 items-center gap-3">
+      <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border-default bg-neutral-50">
+        {showLogo ? (
+          <img
+            src={shop.logoUrl!}
+            alt={`${shop.name} logo`}
+            className="h-full w-full object-cover"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <span className="text-sm font-bold text-text-muted">
+            {shop.name?.trim().charAt(0).toUpperCase() || "S"}
+          </span>
+        )}
+      </div>
+
+      <div className="min-w-0 space-y-0.5">
+        <p className="truncate font-semibold text-text-primary" title={shop.name}>
+          {shop.name}
         </p>
-      )}
+
+        {shop.description && (
+          <p className="truncate text-xs text-text-muted" title={shop.description}>
+            {shop.description}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ export type Feedback = {
   customerName: string;
   customerPhone: string | null;
   customerEmail: string;
+  avatarUrl: string | null;
 
   orderItemId: string;
   rating: number;

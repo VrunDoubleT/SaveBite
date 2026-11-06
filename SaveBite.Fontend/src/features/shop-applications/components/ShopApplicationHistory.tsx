@@ -248,9 +248,6 @@ function ApplicationDetails({
           </InfoCard>
 
           <InfoCard title="Payment">
-            <InfoRow label="Bank">{valueOrDash(application.bankName)}</InfoRow>
-            <InfoRow label="Account holder">{valueOrDash(application.bankAccountHolder)}</InfoRow>
-            <InfoRow label="Account number">{valueOrDash(application.bankAccountNumber)}</InfoRow>
             <InfoRow label="PayOS">
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${

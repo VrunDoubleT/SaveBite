@@ -10,6 +10,7 @@ export interface ShopOwnerManagement {
 export interface ShopListManagement {
   id: string;
   name: string;
+  logoUrl: string | null;
   description: string | null;
   status: ShopStatus;
   city: string | null;

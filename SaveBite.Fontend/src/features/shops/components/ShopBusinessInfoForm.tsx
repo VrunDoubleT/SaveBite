@@ -10,6 +10,7 @@ import {
 } from "@/features/shops/schemas/ownerShop.schema";
 import { getApiErrorMessage, getApiValidationErrors } from "@/shared/api";
 import { useAddressLocation } from "@/features/addresses/hooks/useAddressLocation";
+import { AddressLocationMap } from "@/features/addresses/components/AddressLocationMap";
 import type {
   AddressCoordinates,
   ResolvedAddress,
@@ -533,6 +534,17 @@ export function ShopBusinessInfoForm({
                 />
               </FormField>
             </div>
+            <div className="mt-4">
+              <AddressLocationMap
+                point={
+                  shop.latitude != null && shop.longitude != null
+                    ? { latitude: Number(shop.latitude), longitude: Number(shop.longitude) }
+                    : null
+                }
+                disabled={isSaving}
+                onSelect={location.selectPoint}
+              />
+            </div>
           </HighlightCard>
 
           <HighlightCard className="grid gap-4 sm:grid-cols-2">
@@ -581,6 +593,7 @@ export function ShopBusinessInfoForm({
             <FormField label="Opening time" error={errors.openingTime?.message}>
               <input
                 type="time"
+                lang="en-GB"
                 {...register("openingTime")}
                 aria-invalid={!!errors.openingTime}
                 className={`${inputClass} tabular-nums`}
@@ -589,6 +602,7 @@ export function ShopBusinessInfoForm({
             <FormField label="Closing time" error={errors.closingTime?.message}>
               <input
                 type="time"
+                lang="en-GB"
                 {...register("closingTime")}
                 aria-invalid={!!errors.closingTime}
                 className={`${inputClass} tabular-nums`}

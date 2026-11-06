@@ -1,5 +1,6 @@
 import { EyeOff, Mail, Phone, Star, Store, Undo2 } from "lucide-react";
 import type { Feedback, FeedbackStatus } from "../types/feedback.types";
+import { FeedbackCustomerAvatar } from "./FeedbackCustomerAvatar";
 
 /* ---------- Status helpers ---------- */
 
@@ -105,6 +106,7 @@ export function FeedbackTable({ items, onModerate }: FeedbackTableProps) {
                 {/* Customer */}
                 <td className="px-5 py-4">
                   <div className="flex items-start gap-3">
+                    <FeedbackCustomerAvatar avatarUrl={item.avatarUrl} customerName={customer} />
                     <div className="min-w-0 flex-1 space-y-1">
                       <p className="truncate font-medium text-text-primary" title={customer}>
                         {customer}

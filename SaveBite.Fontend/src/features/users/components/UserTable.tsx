@@ -1,6 +1,7 @@
 import { Eye, Shield, ShoppingBag } from "lucide-react";
 import type { AdminUser } from "@/features/users/types/user.types";
 import { UserStatusBadge } from "./UserStatusBadge";
+import { UserAvatar } from "./UserAvatar";
 
 interface UserTableProps {
   users: AdminUser[];
@@ -22,27 +23,43 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
           <th className="px-6 py-4 font-semibold text-right">Actions</th>
         </tr>
       </thead>
+
       <tbody className="divide-y divide-border-default text-text-primary">
         {users.map((u) => {
           const isProtected = u.id === currentUserId || u.role === "Admin";
 
           return (
             <tr key={u.id} className="hover:bg-neutral-50/50 transition-colors">
+              {/* User Profile */}
               <td className="px-6 py-4">
-                <p className="font-semibold text-text-primary">{u.fullName}</p>
-                <p className="text-xs text-text-muted mt-0.5">{u.email}</p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <UserAvatar avatarUrl={u.avatarUrl} fullName={u.fullName} />
+
+                  <div className="min-w-0">
+                    <p className="font-semibold text-text-primary truncate">{u.fullName}</p>
+                    <p className="text-xs text-text-muted mt-0.5 truncate">{u.email}</p>
+                  </div>
+                </div>
               </td>
+
+              {/* Role */}
               <td className="px-6 py-4">
                 <span className="rounded-md bg-neutral-100 border border-neutral-200 px-2 py-1.5 text-[11px] font-bold text-neutral-700 uppercase tracking-wider">
                   {u.role}
                 </span>
               </td>
+
+              {/* Account Status */}
               <td className="px-6 py-4">
                 <UserStatusBadge status={u.status} />
               </td>
+
+              {/* Customer Status */}
               <td className="px-6 py-4">
                 <UserStatusBadge status={u.customerStatus} />
               </td>
+
+              {/* Actions */}
               <td className="px-6 py-4 text-right">
                 <div className="flex justify-end gap-2">
                   <button
@@ -52,19 +69,29 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
                   >
                     <Eye className="size-4.5" />
                   </button>
+
                   {!isProtected ? (
                     <>
                       <button
                         onClick={() => onAction(u, false)}
                         title={`${u.status === "Active" ? "Suspend" : "Reactivate"} System Account`}
-                        className={`p-1.5 rounded transition ${u.status === "Active" ? "text-neutral-500 hover:text-danger hover:bg-red-50" : "text-danger hover:text-primary-600 hover:bg-primary-50"}`}
+                        className={`p-1.5 rounded transition ${
+                          u.status === "Active"
+                            ? "text-neutral-500 hover:text-danger hover:bg-red-50"
+                            : "text-danger hover:text-primary-600 hover:bg-primary-50"
+                        }`}
                       >
                         <Shield className="size-4.5" />
                       </button>
+
                       <button
                         onClick={() => onAction(u, true)}
                         title={`${u.customerStatus === "Active" ? "Suspend" : "Reactivate"} Customer Profile`}
-                        className={`p-1.5 rounded transition ${u.customerStatus === "Active" ? "text-neutral-500 hover:text-danger hover:bg-red-50" : "text-danger hover:text-primary-600 hover:bg-primary-50"}`}
+                        className={`p-1.5 rounded transition ${
+                          u.customerStatus === "Active"
+                            ? "text-neutral-500 hover:text-danger hover:bg-red-50"
+                            : "text-danger hover:text-primary-600 hover:bg-primary-50"
+                        }`}
                       >
                         <ShoppingBag className="size-4.5" />
                       </button>
@@ -79,6 +106,7 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
             </tr>
           );
         })}
+
         {users.length === 0 && (
           <tr>
             <td colSpan={5} className="p-10 text-center text-text-muted">

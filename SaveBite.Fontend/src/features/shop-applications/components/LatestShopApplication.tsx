@@ -5,7 +5,6 @@ import {
   Clock3,
   FileText,
   Hourglass,
-  Landmark,
   MapPin,
   Pencil,
   Store,
@@ -110,16 +109,6 @@ function formatTime(value?: string | null) {
   return value.length >= 5 ? value.slice(0, 5) : value;
 }
 
-function maskAccountNumber(value?: string | null) {
-  if (!value) return "—";
-
-  if (value.length <= 4) {
-    return value;
-  }
-
-  return `•••• ${value.slice(-4)}`;
-}
-
 function formatDate(value?: string | null) {
   if (!value) return "—";
 
@@ -183,7 +172,10 @@ function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
   return (
     <ol className="grid grid-cols-3" aria-label="Application progress">
       {steps.map((step, index) => (
-        <li key={step.label} className="relative flex min-w-0 flex-col items-center gap-1.5 text-center">
+        <li
+          key={step.label}
+          className="relative flex min-w-0 flex-col items-center gap-1.5 text-center"
+        >
           {index < steps.length - 1 && (
             <span
               aria-hidden="true"
@@ -341,7 +333,7 @@ export default function LatestShopApplication({
         />
       )}
       {application && status && (
-<Card padding="none" aria-label="Latest shop application" className="overflow-hidden">
+        <Card padding="none" aria-label="Latest shop application" className="overflow-hidden">
           {application.coverImageUrl && (
             <MediaImage
               src={application.coverImageUrl}
@@ -418,22 +410,9 @@ export default function LatestShopApplication({
                   {application.businessLicenseNo || "—"}
                 </InfoRow>
               </div>
-              <div className="grid gap-x-6 sm:grid-cols-2">
-                <InfoRow icon={<Landmark size={16} />} label="Bank account">
-                  {application.bankName || "—"}
-                  {application.bankAccountNumber
-                    ? ` · ${maskAccountNumber(application.bankAccountNumber)}`
-                    : ""}
-                  {application.bankAccountHolder && (
-                    <span className="mt-0.5 block text-caption font-normal text-text-secondary">
-                      {application.bankAccountHolder}
-                    </span>
-                  )}
-                </InfoRow>
-                <InfoRow icon={<CalendarDays size={16} />} label="Submitted on">
-                  {formatDate(application.createdAt)}
-                </InfoRow>
-              </div>
+              <InfoRow icon={<CalendarDays size={16} />} label="Submitted on">
+                {formatDate(application.createdAt)}
+              </InfoRow>
             </dl>
             {application.status !== "Approved" && (
               <div className="flex flex-wrap justify-end gap-2 border-t border-border-default pt-3">

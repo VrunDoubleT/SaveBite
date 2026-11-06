@@ -80,10 +80,7 @@ export const shopStaffApi = {
   },
 
   async updateStaff(staffId: string, input: UpdateStaffInfoInput) {
-    return httpClient.put<ApiResponse<null>>(
-      API_ENDPOINTS.SHOP_STAFFS.DETAIL(staffId),
-      input,
-    );
+    return httpClient.put<ApiResponse<null>>(API_ENDPOINTS.SHOP_STAFFS.DETAIL(staffId), input);
   },
 
   async removeStaff(staffId: string) {

@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Package,
   ShieldCheck,
-  ShoppingBag,
   Store,
   Users,
   Tags,
@@ -37,24 +36,24 @@ const navigation = [
     icon: Package,
   },
   {
-    to: APP_PATHS.ADMIN_ORDERS,
-    label: "Orders",
-    icon: ShoppingBag,
-  },
-  {
     to: APP_PATHS.ADMIN_STORES,
     label: "Stores",
     icon: Store,
   },
   {
-    to: APP_PATHS.ADMIN_TRUST,
-    label: "Trust Score",
-    icon: ShieldCheck,
-  },
-  {
     to: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
     label: "Store Applications",
     icon: ClipboardCheck,
+  },
+  {
+    to: APP_PATHS.ADMIN_FEEDBACK,
+    label: "Feedback",
+    icon: MessageSquare,
+  },
+  {
+    to: APP_PATHS.ADMIN_TRUST,
+    label: "Trust Score",
+    icon: ShieldCheck,
   },
   {
     to: APP_PATHS.ADMIN_PLATFORM_FEE,
@@ -65,11 +64,6 @@ const navigation = [
     to: APP_PATHS.ADMIN_PLATFORM_PAYOS_CONFIG,
     label: "PayOS Settings",
     icon: KeyRound,
-  },
-  {
-    to: APP_PATHS.ADMIN_FEEDBACK,
-    label: "Feedback",
-    icon: MessageSquare,
   },
   {
     to: APP_PATHS.ADMIN_AUDIT_LOGS,
