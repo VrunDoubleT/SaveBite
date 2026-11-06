@@ -2,11 +2,7 @@ export interface AdminUser {
   id: string;
   email: string;
   fullName: string;
-<<<<<<< HEAD
-  avatarUrl: string | null;
-=======
   avatarUrl?: string | null;
->>>>>>> origin/fix-04
   role: string;
   status: string;
   customerStatus: string;

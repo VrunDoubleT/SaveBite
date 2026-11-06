@@ -1,7 +1,6 @@
 import { Eye, Shield, ShoppingBag } from "lucide-react";
 import type { AdminUser } from "@/features/users/types/user.types";
 import { UserStatusBadge } from "./UserStatusBadge";
-import { UserAvatar } from "./UserAvatar";
 
 interface UserTableProps {
   users: AdminUser[];
