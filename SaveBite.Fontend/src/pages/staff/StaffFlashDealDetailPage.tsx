@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
+import { FlashDealStatusHistory } from "@/features/flash-deals/components/FlashDealStatusHistory";
 import {
   FlashDealStatusEnum,
   FlashDealVariantStatusEnum,
@@ -403,6 +404,7 @@ export function StaffFlashDealDetailPage() {
           </table>
         </div>
       </div>
+      <FlashDealStatusHistory history={deal.statusHistory ?? []} />
       <FlashDealStockHistory flashDealId={deal.id} />
     </div>
   );

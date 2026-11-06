@@ -5,8 +5,10 @@ import type { FeedbackItem } from "@/features/feedbacks/types/feedback.types";
 import { getApiErrorMessage } from "@/shared/api";
 import { toast } from "@/shared/stores/toastStore";
 import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 export function StoreOwnerReviewsPage() {
+  const shopSuspended = useShopSuspended();
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -72,6 +74,7 @@ export function StoreOwnerReviewsPage() {
   };
 
   const handleReply = async (feedbackId: string, content: string) => {
+    if (shopSuspended) return;
     const reply = await feedbackApi.replyFeedback(feedbackId, { content });
     setFeedbacks((prev) =>
       prev.map((item) => (item.id === feedbackId ? { ...item, reply } : item)),
@@ -79,6 +82,7 @@ export function StoreOwnerReviewsPage() {
   };
 
   const handleEditReply = async (feedbackId: string, content: string) => {
+    if (shopSuspended) return;
     const reply = await feedbackApi.editReply(feedbackId, { content });
     setFeedbacks((prev) =>
       prev.map((item) => (item.id === feedbackId ? { ...item, reply } : item)),
@@ -86,11 +90,10 @@ export function StoreOwnerReviewsPage() {
   };
 
   const handleDeleteReply = async (feedbackId: string) => {
+    if (shopSuspended) return;
     await feedbackApi.deleteReply(feedbackId);
     setFeedbacks((prev) =>
-      prev.map((item) =>
-        item.id === feedbackId ? { ...item, reply: undefined } : item,
-      ),
+      prev.map((item) => (item.id === feedbackId ? { ...item, reply: undefined } : item)),
     );
   };
 
@@ -116,6 +119,7 @@ export function StoreOwnerReviewsPage() {
         onEditReply={handleEditReply}
         onDeleteReply={handleDeleteReply}
         showShopName={false}
+        mutationsDisabled={shopSuspended}
       />
     </div>
   );

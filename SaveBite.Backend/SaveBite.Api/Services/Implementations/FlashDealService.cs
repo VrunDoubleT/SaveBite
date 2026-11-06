@@ -490,6 +490,16 @@ public sealed class FlashDealService : IFlashDealService
             CreatedAt = now,
             UpdatedAt = now
         };
+        _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+        {
+            FlashDealId = deal.Id,
+            FromStatus = null,
+            ToStatus = initialStatus,
+            ChangedByType = "Shop",
+            ChangedByUserId = userId,
+            Note = "Deal created.",
+            CreatedAt = now
+        });
 
         var existingVariants = product.Variants.ToDictionary(v => v.Id);
         foreach (var reqVariant in request.Variants)
@@ -709,9 +719,19 @@ public sealed class FlashDealService : IFlashDealService
             throw AppException.BadRequest("This flash deal is already finished or cancelled.");
         }
 
+        var previousStatus = deal.Status;
         deal.Status = FlashDealStatus.Cancelled;
         deal.LifecycleSyncedAt = null;
         deal.UpdatedAt = DateTime.UtcNow;
+        _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+        {
+            FlashDealId = deal.Id,
+            FromStatus = previousStatus,
+            ToStatus = FlashDealStatus.Cancelled,
+            ChangedByType = "Shop",
+            ChangedByUserId = userId,
+            CreatedAt = deal.UpdatedAt
+        });
         await _dealRepository.UpdateAsync(deal, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         // Publish lifecycle completion; customer DB queries already exclude this deal.
@@ -720,6 +740,59 @@ public sealed class FlashDealService : IFlashDealService
             new FlashDealEvent { FlashDealId = deal.Id },
             cancellationToken);
 
+    }
+    // Cancel live and scheduled deals when the shop is suspended; retries safely skip already closed deals.
+    public async Task CancelOpenDealsForSuspendedShopAsync(Guid shopId, CancellationToken cancellationToken = default)
+    {
+        var closedDealIds = new List<Guid>();
+        await using (var transaction = await _db.Database.BeginTransactionAsync(cancellationToken))
+        {
+            var dealIds = await _db.FlashDeals
+                .Where(deal => deal.ShopId == shopId
+                    && (deal.Status == FlashDealStatus.Pending
+                        || deal.Status == FlashDealStatus.OnSale
+                        || deal.Status == FlashDealStatus.SoldOut))
+                .OrderBy(deal => deal.Id)
+                .Select(deal => deal.Id)
+                .ToListAsync(cancellationToken);
+
+            foreach (var dealId in dealIds)
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT id FROM flash_deals WHERE id = {dealId} FOR UPDATE",
+                    cancellationToken);
+                var deal = await _dealRepository.GetShopDealByIdAsync(shopId, dealId, cancellationToken);
+                if (deal == null || deal.Status is not (FlashDealStatus.Pending or FlashDealStatus.OnSale or FlashDealStatus.SoldOut))
+                    continue;
+
+                var previousStatus = deal.Status;
+                deal.Status = FlashDealStatus.Cancelled;
+                deal.LifecycleSyncedAt = null;
+                deal.UpdatedAt = DateTime.UtcNow;
+                _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+                {
+                    FlashDealId = deal.Id,
+                    FromStatus = previousStatus,
+                    ToStatus = FlashDealStatus.Cancelled,
+                    ChangedByType = "System",
+                    Note = "Automatically cancelled because the shop was suspended.",
+                    CreatedAt = deal.UpdatedAt
+                });
+                await _dealRepository.UpdateAsync(deal, cancellationToken);
+                closedDealIds.Add(deal.Id);
+            }
+
+            await _db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        foreach (var dealId in closedDealIds)
+        {
+            await TryPublishLifecycleAsync(
+                RabbitMqRoutingKeys.FlashDealClosed,
+                new FlashDealEvent { FlashDealId = dealId },
+                cancellationToken);
+        }
     }
     // 6. Hide Flash Deal
     public async Task HideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
@@ -733,9 +806,19 @@ public sealed class FlashDealService : IFlashDealService
         {
             throw AppException.BadRequest("Only active or pending deals can be hidden.");
         }
+        var previousStatus = deal.Status;
         deal.Status = FlashDealStatus.Hidden;
         deal.LifecycleSyncedAt = null;
         deal.UpdatedAt = DateTime.UtcNow;
+        _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+        {
+            FlashDealId = deal.Id,
+            FromStatus = previousStatus,
+            ToStatus = deal.Status,
+            ChangedByType = "Shop",
+            ChangedByUserId = userId,
+            CreatedAt = deal.UpdatedAt
+        });
         await _dealRepository.UpdateAsync(deal, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         // Publish the visibility change for lifecycle processing.
@@ -764,9 +847,19 @@ public sealed class FlashDealService : IFlashDealService
         }
         if (await WarningDealPolicy.IsBlockedAsync(_db, deal.ProductId, cancellationToken))
             throw AppException.Conflict("Product has an overdue warning and cannot reopen deals.");
+        var previousStatus = deal.Status;
         deal.Status = now >= deal.SaleStartTime ? FlashDealStatus.OnSale : FlashDealStatus.Pending;
         deal.LifecycleSyncedAt = null;
         deal.UpdatedAt = now;
+        _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+        {
+            FlashDealId = deal.Id,
+            FromStatus = previousStatus,
+            ToStatus = deal.Status,
+            ChangedByType = "Shop",
+            ChangedByUserId = userId,
+            CreatedAt = now
+        });
         await _dealRepository.UpdateAsync(deal, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         // If already due, let the lifecycle consumer validate and process the opening.
@@ -826,6 +919,17 @@ public sealed class FlashDealService : IFlashDealService
             Status = deal.Status,
             CreatedAt = deal.CreatedAt,
             UpdatedAt = deal.UpdatedAt,
+            StatusHistory = deal.StatusHistory
+                .OrderByDescending(history => history.CreatedAt)
+                .Select(history => new ShopFlashDealStatusHistoryResponse
+                {
+                    FromStatus = history.FromStatus,
+                    ToStatus = history.ToStatus,
+                    ChangedByType = history.ChangedByType,
+                    ChangedByUserId = history.ChangedByUserId,
+                    Note = history.Note,
+                    CreatedAt = history.CreatedAt
+                }).ToList(),
             Variants = deal.Variants.Select(v => new ShopFlashDealVariantDetailResponse
             {
                 Id = v.Id,

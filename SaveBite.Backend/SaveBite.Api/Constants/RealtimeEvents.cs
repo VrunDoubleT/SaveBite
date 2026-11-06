@@ -6,6 +6,7 @@ public static class RealtimeEvents
     public const string ShopPendingOrdersChanged = "shop.orders.pending.changed";
     public const string CustomerOrdersChanged = "customer.orders.changed";
     public const string ShopOrdersChanged = "shop.orders.changed";
+    public const string ShopStatusChanged = "shop.status.changed";
     public const string CartChanged = "cart.changed";
 
     // Keep cart notification reasons beside the shared event names.

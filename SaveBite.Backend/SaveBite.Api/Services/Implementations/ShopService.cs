@@ -24,13 +24,17 @@ public sealed class ShopService : IShopService
     private readonly IUserAddressRepository _userAddressRepository;
     private readonly ICloudinaryService _cloudinaryService;
     private readonly IAdminAuditWriter _audit;
+    private readonly IShopSuspensionCleanupService _suspensionCleanup;
+    private readonly IShopStatusEventService _shopStatusEvents;
 
     public ShopService(
         IShopRepository shopRepository,
         IUserAddressRepository userAddressRepository,
         ICloudinaryService cloudinaryService,
         IAdminAuditWriter audit,
-        INotificationQueue notifications, AppDbContext db)
+        INotificationQueue notifications, AppDbContext db,
+        IShopSuspensionCleanupService suspensionCleanup,
+        IShopStatusEventService shopStatusEvents)
     {
         _db = db;
         _notifications = notifications;
@@ -38,6 +42,8 @@ public sealed class ShopService : IShopService
         _userAddressRepository = userAddressRepository;
         _cloudinaryService = cloudinaryService;
         _audit = audit;
+        _suspensionCleanup = suspensionCleanup;
+        _shopStatusEvents = shopStatusEvents;
     }
 
     public async Task<ShopSummaryResponse> GetOwnerShopAsync(
@@ -512,10 +518,11 @@ public sealed class ShopService : IShopService
 
         var currentStatus = shop.Status;
                   
-        if (currentStatus == targetStatus)
+        var statusChanged = currentStatus != targetStatus;
+        if (!statusChanged && targetStatus != ShopStatus.Suspended)
             throw AppException.Conflict("Shop already has this status.");
         
-        var isAllowed = currentStatus switch
+        var isAllowed = !statusChanged || currentStatus switch
         {
             ShopStatus.Active => targetStatus is ShopStatus.Paused or ShopStatus.Suspended,
             ShopStatus.Paused => targetStatus is ShopStatus.Active or ShopStatus.Suspended,
@@ -536,34 +543,44 @@ public sealed class ShopService : IShopService
             Status = currentStatus.ToString()
         };
 
-        shop.SuspendedForPlatformFees = false; // An administrator decision must never be undone by fee payment.
-        shop.Status = targetStatus;
-        shop.UpdatedAt = DateTime.UtcNow;
-        var auditEntry = _audit.Record(new AuditLog
+        if (statusChanged)
         {
-            Id = Guid.NewGuid(),
-            ActorUserId = adminId,
-            Action = "SHOP_STATUS_UPDATED",
-            TargetType = "Shop",
-            TargetId = shopId,
-            Reason = reason,
-            OldValuesJson = JsonSerializer.Serialize(oldValues),
-            NewValuesJson = JsonSerializer.Serialize(new { Status = targetStatus.ToString() }),
-            CreatedAt = DateTime.UtcNow
-        });
-        await _shopRepository.SaveChangesAsync(ct);
+            shop.SuspendedForPlatformFees = false; // An administrator decision must never be undone by fee payment.
+            shop.Status = targetStatus;
+            shop.UpdatedAt = DateTime.UtcNow;
+            var auditEntry = _audit.Record(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                ActorUserId = adminId,
+                Action = "SHOP_STATUS_UPDATED",
+                TargetType = "Shop",
+                TargetId = shopId,
+                Reason = reason,
+                OldValuesJson = JsonSerializer.Serialize(oldValues),
+                NewValuesJson = JsonSerializer.Serialize(new { Status = targetStatus.ToString() }),
+                CreatedAt = DateTime.UtcNow
+            });
+            await _shopRepository.SaveChangesAsync(ct);
 
-        await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
-            NotificationType.ShopStatusChanged, "Shop status updated",
-            $"{shop.Name}: {currentStatus} → {targetStatus}." + (string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}"),
-            "/store-owner/profile", $"shop-status:{auditEntry.Id}"), ct);
+            await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
+                NotificationType.ShopStatusChanged, "Shop status updated",
+                $"{shop.Name}: {currentStatus} → {targetStatus}." + (string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}"),
+                "/store-owner/profile", $"shop-status:{auditEntry.Id}"), ct);
+        }
         await transaction.CommitAsync(ct);
+
+        if (statusChanged)
+            await _shopStatusEvents.NotifyChangedAsync(shopId, targetStatus.ToString(), ct);
+        if (targetStatus == ShopStatus.Suspended)
+            await _suspensionCleanup.CleanupAsync(shopId, ct);
 
         return new ModerationActionResponse
         {
             TargetId = shopId,
             Action = "SHOP_STATUS_UPDATED",
-            Message = $"Shop status changed from {currentStatus} to {targetStatus}."
+            Message = statusChanged
+                ? $"Shop status changed from {currentStatus} to {targetStatus}."
+                : "Shop suspension cleanup was retried."
         };
     }
     

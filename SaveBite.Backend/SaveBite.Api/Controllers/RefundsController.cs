@@ -67,22 +67,22 @@ public class RefundsController : ControllerBase
         => Ok(ApiResponse<RefundResponse>.Ok(await _service.GetAsync(UserId(), refundId, true, ct)));
 
     // Approve the full amount of an email-confirmed customer request before its deadline.
-    [HttpPost("shop/{refundId:guid}/approve"), StoreOwnerActiveAccess]
+    [HttpPost("shop/{refundId:guid}/approve"), StoreOwnerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<RefundResponse>>> Approve(Guid refundId, CancellationToken ct)
         => await CommittedAsync(_service.ReviewAsync(UserId(), refundId, true, null, ct), ct);
 
     // Reject a customer request with a reason visible to the customer; never reject a mandatory system refund.
-    [HttpPost("shop/{refundId:guid}/reject"), StoreOwnerActiveAccess]
+    [HttpPost("shop/{refundId:guid}/reject"), StoreOwnerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<RefundResponse>>> Reject(Guid refundId, RejectShopOrderRequest request, CancellationToken ct)
         => await CommittedAsync(_service.ReviewAsync(UserId(), refundId, false, request.Reason, ct), ct);
 
     // Record the owner's full manual transfer, timestamp and required proof; update accumulated value once.
-    [HttpPost("shop/{refundId:guid}/transfer"), StoreOwnerActiveAccess]
+    [HttpPost("shop/{refundId:guid}/transfer"), StoreOwnerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<RefundResponse>>> Transfer(Guid refundId, RefundTransferRequest request, CancellationToken ct)
         => await CommittedAsync(_service.TransferAsync(UserId(), refundId, request, ct), ct);
 
     // Generate VietQR using only the approved amount and email-confirmed bank destination.
-    [HttpPost("shop/{refundId:guid}/vietqr"), StoreOwnerActiveAccess]
+    [HttpPost("shop/{refundId:guid}/vietqr"), StoreOwnerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<RefundQrResponse>>> VietQr(Guid refundId, CancellationToken ct)
         => Ok(ApiResponse<RefundQrResponse>.Ok(await _service.GenerateQrAsync(UserId(), refundId, ct)));
 

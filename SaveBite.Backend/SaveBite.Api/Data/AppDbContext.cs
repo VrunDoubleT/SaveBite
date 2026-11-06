@@ -53,6 +53,7 @@ public class AppDbContext : DbContext
     // Flash deals.
     public DbSet<FlashDeal> FlashDeals => Set<FlashDeal>();
     public DbSet<FlashDealVariant> FlashDealVariants => Set<FlashDealVariant>();
+    public DbSet<FlashDealStatusHistory> FlashDealStatusHistories => Set<FlashDealStatusHistory>();
     // Cart & Orders.
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Payment> Payments => Set<Payment>();

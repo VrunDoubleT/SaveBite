@@ -11,6 +11,7 @@ import type {
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 import PayOSSection from "@/features/shops/components/PayOSSection";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 const emptyConfig: ShopPaymentConfigView = {
   payosClientId: "",
@@ -87,6 +88,7 @@ function SectionSkeleton() {
 }
 
 export function PaymentSettingsPage() {
+  const shopSuspended = useShopSuspended();
   const [config, setConfig] = useState<ShopPaymentConfigView>(emptyConfig);
 
   const [loading, setLoading] = useState(true);
@@ -123,6 +125,7 @@ export function PaymentSettingsPage() {
 
   // Save PayOS configuration
   const handleSave = async (values: UpdateShopPaymentConfigValues): Promise<void> => {
+    if (shopSuspended) return;
     setSaving(true);
 
     try {
@@ -230,6 +233,7 @@ export function PaymentSettingsPage() {
         <div className="space-y-6">
           {/* PayOS configuration */}
           <PayOSSection
+            disabled={shopSuspended}
             initial={{
               payosClientId: config.payosClientId,
               hasPayosApiKey: config.hasPayosApiKey,

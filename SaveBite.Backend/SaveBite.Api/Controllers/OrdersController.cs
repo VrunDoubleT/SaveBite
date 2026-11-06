@@ -80,17 +80,17 @@ public sealed class OrdersController : ControllerBase
         => Ok(ApiResponse<ShopOrderResponse>.Ok(await _shopOrders.GetAsync(UserId(), shopId, orderId, ct)));
     // Confirm a Pending order before five minutes have elapsed since its required payment or deposit succeeded.
     [HttpPost("shops/{shopId:guid}/{orderId:guid}/confirm")]
-    [StoreOwnerOrStaffActiveAccess]
+    [StoreOwnerOrStaffAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<ShopOrderResponse>>> Confirm(Guid shopId, Guid orderId, CancellationToken ct)
         => Ok(ApiResponse<ShopOrderResponse>.Ok(await _shopOrders.ActionAsync(UserId(), shopId, orderId, "confirm", ct: ct)));
     // Reject only a Pending order with a reason, release applicable stock, and request refund of collected funds.
     [HttpPost("shops/{shopId:guid}/{orderId:guid}/reject")]
-    [StoreOwnerOrStaffActiveAccess]
+    [StoreOwnerOrStaffAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<ShopOrderResponse>>> Reject(Guid shopId, Guid orderId, RejectShopOrderRequest request, CancellationToken ct)
         => Ok(ApiResponse<ShopOrderResponse>.Ok(await _shopOrders.ActionAsync(UserId(), shopId, orderId, "reject", request.Reason, ct)));
     // Advance only Confirmed to Preparing or Preparing to ReadyForPickup and record the acting shop operator.
     [HttpPost("shops/{shopId:guid}/{orderId:guid}/preparation")]
-    [StoreOwnerOrStaffActiveAccess]
+    [StoreOwnerOrStaffAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<ShopOrderResponse>>> Preparation(Guid shopId, Guid orderId, PreparationStatusRequest request, CancellationToken ct)
     {
         if (request.Status is not ("Preparing" or "ReadyForPickup")) throw AppException.BadRequest("Choose Preparing or ReadyForPickup.");
@@ -98,14 +98,14 @@ public sealed class OrdersController : ControllerBase
     }
     // Complete only a ReadyForPickup order before its hard deadline after handover and verification of full payment.
     [HttpPost("shops/{shopId:guid}/{orderId:guid}/complete")]
-    [StoreOwnerOrStaffActiveAccess]
+    [StoreOwnerOrStaffAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<ShopOrderResponse>>> Complete(Guid shopId, Guid orderId,
         [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] CompleteShopOrderRequest? request = null,
         CancellationToken ct = default)
         => Ok(ApiResponse<ShopOrderResponse>.Ok(await _shopOrders.ActionAsync(UserId(), shopId, orderId, "complete", ct: ct, cashReceived: request?.CashReceived ?? false)));
     // Generate or reuse a QR/link for the recorded PayAtShop balance without accepting an amount from the client.
     [HttpPost("shops/{shopId:guid}/{orderId:guid}/remaining-payment")]
-    [StoreOwnerOrStaffActiveAccess]
+    [StoreOwnerOrStaffAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<ShopOrderResponse>>> Remaining(Guid shopId, Guid orderId, CancellationToken ct)
         => Ok(ApiResponse<ShopOrderResponse>.Ok(await _shopOrders.RemainingPaymentAsync(UserId(), shopId, orderId, ct)));
 
@@ -116,7 +116,7 @@ public sealed class OrdersController : ControllerBase
         => Ok(ApiResponse<RefundImageResponse>.Ok(await images.UploadAsync(UserId(), orderId, false, request.File, request.Purpose, ct)));
 
     // Upload transfer proof only for the active owner of the order's shop.
-    [HttpPost("shop/{orderId:guid}/refunds/images"), StoreOwnerActiveAccess, RequestSizeLimit(6 * 1024 * 1024)]
+    [HttpPost("shop/{orderId:guid}/refunds/images"), StoreOwnerAnyStatusAccess, RequestSizeLimit(6 * 1024 * 1024)]
     public async Task<ActionResult<ApiResponse<RefundImageResponse>>> UploadOwnerProof(Guid orderId,
         [FromForm] RefundImageUploadRequest request, [FromServices] IRefundImageService images, CancellationToken ct)
         => Ok(ApiResponse<RefundImageResponse>.Ok(await images.UploadAsync(UserId(), orderId, true, request.File, "transfer-proof", ct)));
@@ -155,7 +155,7 @@ public sealed class OrdersController : ControllerBase
         => await RefundCommittedAsync(_refunds.VerifyAsync(UserId(), await RequiredSystemRefundIdAsync(orderId, ct), request.Code, ct), ct);
 
     // Preserve the existing owner's manual transfer route while delegating to the same audited refund command.
-    [HttpPost("shop/{orderId:guid}/refund/transfer"), StoreOwnerActiveAccess]
+    [HttpPost("shop/{orderId:guid}/refund/transfer"), StoreOwnerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<RefundResponse>>> SystemTransfer(Guid orderId, RecordRefundTransferRequest request, CancellationToken ct)
     {
         var id = await _refunds.SystemRefundIdAsync(UserId(), orderId, ct, forShop: true) ?? throw AppException.NotFound();

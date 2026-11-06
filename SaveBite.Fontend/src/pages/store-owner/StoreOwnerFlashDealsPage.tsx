@@ -11,11 +11,13 @@ import { CancelFlashDealModal } from "@/features/flash-deals/components/CancelFl
 import { ToggleVisibilityModal } from "@/features/flash-deals/components/ToggleVisibilityModal";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 type FilterTab = "all" | "pending" | "running" | "ended" | "hidden";
 
 export function StoreOwnerFlashDealsPage() {
   const navigate = useNavigate();
+  const shopSuspended = useShopSuspended();
   const [deals, setDeals] = useState<ShopFlashDealListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
@@ -140,7 +142,7 @@ export function StoreOwnerFlashDealsPage() {
 
   // Confirm toggle visibility via modal
   async function handleConfirmToggleVisibility() {
-    if (!togglingDeal) return;
+    if (!togglingDeal || shopSuspended) return;
     try {
       setToggleModalLoading(true);
       if (togglingDeal.status === FlashDealStatusEnum.Hidden) {
@@ -161,7 +163,7 @@ export function StoreOwnerFlashDealsPage() {
 
   // Confirm cancel via modal
   async function handleConfirmCancel() {
-    if (!cancellingDeal) return;
+    if (!cancellingDeal || shopSuspended) return;
     try {
       setCancelModalLoading(true);
       await flashDealApi.cancelFlashDeal(cancellingDeal.id);
@@ -201,8 +203,14 @@ export function StoreOwnerFlashDealsPage() {
         </div>
         <button
           type="button"
+          disabled={shopSuspended}
+          title={
+            shopSuspended
+              ? "Creating flash deals is unavailable while your shop is suspended."
+              : undefined
+          }
           onClick={() => navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_CREATE)}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="size-4" />
           <span>Create Flash Deal</span>
@@ -544,8 +552,9 @@ export function StoreOwnerFlashDealsPage() {
                             (isHidden ? (
                               <button
                                 type="button"
+                                disabled={shopSuspended}
                                 onClick={() => setTogglingDeal(deal)}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-500 px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition hover:bg-amber-600 active:scale-95"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-500 px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition hover:bg-amber-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                                 title="Click to unhide this deal for customers"
                               >
                                 <Eye className="size-3.5" />
@@ -554,8 +563,9 @@ export function StoreOwnerFlashDealsPage() {
                             ) : (
                               <button
                                 type="button"
+                                disabled={shopSuspended}
                                 onClick={() => setTogglingDeal(deal)}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 shadow-2xs transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 shadow-2xs transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
                                 title="Click to temporarily hide this deal from customers"
                               >
                                 <EyeOff className="size-3.5 text-neutral-500" />
@@ -581,13 +591,14 @@ export function StoreOwnerFlashDealsPage() {
                           {state !== "ended" && (
                             <button
                               type="button"
+                              disabled={shopSuspended}
                               title="Edit deal"
                               onClick={() =>
                                 navigate(
                                   APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id),
                                 )
                               }
-                              className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-2xs transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900"
+                              className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-2xs transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <Edit2 className="size-3.5" />
                             </button>
@@ -597,9 +608,10 @@ export function StoreOwnerFlashDealsPage() {
                           {state !== "ended" && (
                             <button
                               type="button"
+                              disabled={shopSuspended}
                               title="Cancel deal"
                               onClick={() => setCancellingDeal(deal)}
-                              className="rounded-lg border border-red-200 bg-red-50/50 p-1.5 text-red-600 shadow-2xs transition hover:border-red-300 hover:bg-red-100"
+                              className="rounded-lg border border-red-200 bg-red-50/50 p-1.5 text-red-600 shadow-2xs transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <XCircle className="size-3.5" />
                             </button>

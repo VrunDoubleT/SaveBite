@@ -17,6 +17,7 @@ public interface IFlashDealService
     Task<ShopFlashDealDetailResponse> CreateDealAsync(Guid userId, CreateFlashDealRequest request, CancellationToken cancellationToken = default);
     Task<ShopFlashDealDetailResponse> UpdateDealAsync(Guid userId, Guid dealId, UpdateFlashDealRequest request, CancellationToken cancellationToken = default);
     Task CancelDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default);
+    Task CancelOpenDealsForSuspendedShopAsync(Guid shopId, CancellationToken cancellationToken = default);
     Task HideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default);
     Task UnhideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default);
     Task<List<ShopEligibleProductResponse>> GetShopEligibleProductsAsync(Guid userId, CancellationToken cancellationToken = default);

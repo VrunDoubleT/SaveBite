@@ -327,6 +327,54 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("flash_deals", (string)null);
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.FlashDealStatusHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("ChangedByType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("changed_by_type");
+
+                    b.Property<Guid?>("ChangedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("changed_by_user_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("FlashDealId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("flash_deal_id");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("from_status");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("to_status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FlashDealId", "CreatedAt");
+
+                    b.ToTable("flash_deal_status_history", (string)null);
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.FlashDealVariant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3920,6 +3968,17 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("Shop");
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.FlashDealStatusHistory", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.FlashDeal", "FlashDeal")
+                        .WithMany("StatusHistory")
+                        .HasForeignKey("FlashDealId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("FlashDeal");
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.FlashDealVariant", b =>
                 {
                     b.HasOne("SaveBite.Backend.Models.Entities.FlashDeal", "FlashDeal")
@@ -4940,6 +4999,8 @@ namespace SaveBite.Backend.Data.Migrations
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.FlashDeal", b =>
                 {
+                    b.Navigation("StatusHistory");
+
                     b.Navigation("Variants");
                 });
 

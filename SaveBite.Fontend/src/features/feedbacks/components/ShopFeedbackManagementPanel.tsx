@@ -35,6 +35,7 @@ interface ShopFeedbackManagementPanelProps {
   onEditReply: (feedbackId: string, content: string) => Promise<void>;
   onDeleteReply: (feedbackId: string) => Promise<void>;
   showShopName?: boolean;
+  mutationsDisabled?: boolean;
 }
 
 export function ShopFeedbackManagementPanel({
@@ -57,6 +58,7 @@ export function ShopFeedbackManagementPanel({
   onEditReply,
   onDeleteReply,
   showShopName = false,
+  mutationsDisabled = false,
 }: ShopFeedbackManagementPanelProps) {
   const currentUser = useAuthStore((state) => state.user);
   const isStoreOwner = currentUser?.role === "storeOwner";
@@ -79,18 +81,20 @@ export function ShopFeedbackManagementPanel({
   const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
 
   const openReplyModal = (feedback: FeedbackItem) => {
+    if (mutationsDisabled) return;
     setReplyTarget(feedback);
     setReplyContent("");
   };
 
   const openEditReplyModal = (feedback: FeedbackItem) => {
+    if (mutationsDisabled) return;
     setEditReplyTarget(feedback);
     setEditReplyContent(feedback.reply?.content ?? "");
   };
 
   const handleReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyTarget || !replyContent.trim()) return;
+    if (mutationsDisabled || !replyTarget || !replyContent.trim()) return;
     try {
       setIsSubmittingReply(true);
       await onReply(replyTarget.id, replyContent.trim());
@@ -106,7 +110,7 @@ export function ShopFeedbackManagementPanel({
 
   const handleEditReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editReplyTarget || !editReplyContent.trim()) return;
+    if (mutationsDisabled || !editReplyTarget || !editReplyContent.trim()) return;
     try {
       setIsSubmittingEdit(true);
       await onEditReply(editReplyTarget.id, editReplyContent.trim());
@@ -121,7 +125,7 @@ export function ShopFeedbackManagementPanel({
   };
 
   const handleDeleteReplySubmit = async () => {
-    if (!deleteReplyTarget) return;
+    if (mutationsDisabled || !deleteReplyTarget) return;
     try {
       setIsSubmittingDelete(true);
       await onDeleteReply(deleteReplyTarget.id);
@@ -377,9 +381,7 @@ export function ShopFeedbackManagementPanel({
                     {item.productName}
                   </span>
                   {item.variantName && (
-                    <span className="text-[11px] text-neutral-500">
-                      {item.variantName}
-                    </span>
+                    <span className="text-[11px] text-neutral-500">{item.variantName}</span>
                   )}
                 </div>
               </div>
@@ -436,7 +438,7 @@ export function ShopFeedbackManagementPanel({
                       const isOwnReply = Boolean(
                         currentUser &&
                         item.reply?.repliedByUserId &&
-                        item.reply.repliedByUserId.toLowerCase() === currentUser.id.toLowerCase()
+                        item.reply.repliedByUserId.toLowerCase() === currentUser.id.toLowerCase(),
                       );
                       const canEditReply = isOwnReply;
                       const canDeleteReply = isStoreOwner || (isStaff && isOwnReply);
@@ -446,8 +448,9 @@ export function ShopFeedbackManagementPanel({
                           {canEditReply && (
                             <button
                               type="button"
+                              disabled={mutationsDisabled}
                               onClick={() => openEditReplyModal(item)}
-                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 hover:bg-emerald-100/60 hover:text-emerald-800 transition"
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 hover:bg-emerald-100/60 hover:text-emerald-800 transition disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <Pencil size={12} />
                               Edit
@@ -456,8 +459,9 @@ export function ShopFeedbackManagementPanel({
                           {canDeleteReply && (
                             <button
                               type="button"
+                              disabled={mutationsDisabled}
                               onClick={() => setDeleteReplyTarget(item)}
-                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 transition"
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 transition disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <Trash2 size={12} />
                               Delete
@@ -475,8 +479,9 @@ export function ShopFeedbackManagementPanel({
                 <div className="mt-4 flex items-center justify-end border-t border-neutral-100 pt-3">
                   <button
                     type="button"
+                    disabled={mutationsDisabled}
                     onClick={() => openReplyModal(item)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-700 transition"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Send size={12} />
                     Reply to customer
@@ -542,7 +547,7 @@ export function ShopFeedbackManagementPanel({
 
       {/* Create Reply Modal */}
       <SharedModal
-        isOpen={Boolean(replyTarget)}
+        isOpen={Boolean(replyTarget) && !mutationsDisabled}
         onClose={() => !isSubmittingReply && setReplyTarget(null)}
         title={`Reply to ${replyTarget?.customerName || "Customer"}`}
         maxWidthClass="max-w-lg"
@@ -553,26 +558,20 @@ export function ShopFeedbackManagementPanel({
               {replyTarget?.productName} ({replyTarget?.rating}/5 ⭐)
             </p>
             {replyTarget?.comment && (
-              <p className="mt-1 text-neutral-600 italic">
-                &ldquo;{replyTarget.comment}&rdquo;
-              </p>
+              <p className="mt-1 text-neutral-600 italic">&ldquo;{replyTarget.comment}&rdquo;</p>
             )}
           </div>
 
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs font-medium text-neutral-700">
-                Your Response
-              </label>
-              <span className="text-[11px] text-neutral-400">
-                {replyContent.length}/2000
-              </span>
+              <label className="block text-xs font-medium text-neutral-700">Your Response</label>
+              <span className="text-[11px] text-neutral-400">{replyContent.length}/2000</span>
             </div>
             <textarea
               rows={4}
               maxLength={2000}
               required
-              disabled={isSubmittingReply}
+              disabled={isSubmittingReply || mutationsDisabled}
               value={replyContent}
               onChange={(e) => setReplyContent(e.target.value)}
               placeholder="Thank the customer for their feedback and share any updates or care instructions..."
@@ -591,7 +590,7 @@ export function ShopFeedbackManagementPanel({
             </button>
             <button
               type="submit"
-              disabled={isSubmittingReply || !replyContent.trim()}
+              disabled={isSubmittingReply || mutationsDisabled || !replyContent.trim()}
               className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
             >
               {isSubmittingReply ? "Submitting..." : "Send response"}
@@ -602,7 +601,7 @@ export function ShopFeedbackManagementPanel({
 
       {/* Edit Reply Modal */}
       <SharedModal
-        isOpen={Boolean(editReplyTarget)}
+        isOpen={Boolean(editReplyTarget) && !mutationsDisabled}
         onClose={() => !isSubmittingEdit && setEditReplyTarget(null)}
         title="Edit Response"
         maxWidthClass="max-w-lg"
@@ -610,18 +609,14 @@ export function ShopFeedbackManagementPanel({
         <form onSubmit={handleEditReplySubmit} className="space-y-4">
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs font-medium text-neutral-700">
-                Edit Response
-              </label>
-              <span className="text-[11px] text-neutral-400">
-                {editReplyContent.length}/2000
-              </span>
+              <label className="block text-xs font-medium text-neutral-700">Edit Response</label>
+              <span className="text-[11px] text-neutral-400">{editReplyContent.length}/2000</span>
             </div>
             <textarea
               rows={4}
               maxLength={2000}
               required
-              disabled={isSubmittingEdit}
+              disabled={isSubmittingEdit || mutationsDisabled}
               value={editReplyContent}
               onChange={(e) => setEditReplyContent(e.target.value)}
               placeholder="Update your response..."
@@ -640,7 +635,7 @@ export function ShopFeedbackManagementPanel({
             </button>
             <button
               type="submit"
-              disabled={isSubmittingEdit || !editReplyContent.trim()}
+              disabled={isSubmittingEdit || mutationsDisabled || !editReplyContent.trim()}
               className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
             >
               {isSubmittingEdit ? "Saving..." : "Save changes"}
@@ -651,20 +646,21 @@ export function ShopFeedbackManagementPanel({
 
       {/* Delete Reply Confirmation Modal */}
       <SharedModal
-        isOpen={Boolean(deleteReplyTarget)}
+        isOpen={Boolean(deleteReplyTarget) && !mutationsDisabled}
         onClose={() => !isSubmittingDelete && setDeleteReplyTarget(null)}
         title="Delete Response?"
         maxWidthClass="max-w-md"
       >
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-neutral-600">
-            Are you sure you want to delete your response to this review? The customer will no longer see your response.
+            Are you sure you want to delete your response to this review? The customer will no
+            longer see your response.
           </p>
 
           <div className="flex items-center justify-end gap-2 pt-2">
             <button
               type="button"
-              disabled={isSubmittingDelete}
+              disabled={isSubmittingDelete || mutationsDisabled}
               onClick={() => setDeleteReplyTarget(null)}
               className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
             >
@@ -672,7 +668,7 @@ export function ShopFeedbackManagementPanel({
             </button>
             <button
               type="button"
-              disabled={isSubmittingDelete}
+              disabled={isSubmittingDelete || mutationsDisabled}
               onClick={handleDeleteReplySubmit}
               className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
             >

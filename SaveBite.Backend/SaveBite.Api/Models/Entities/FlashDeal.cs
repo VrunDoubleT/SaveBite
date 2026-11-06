@@ -24,4 +24,5 @@ public class FlashDeal
     public Shop Shop { get; set; } = null!;
     public Product Product { get; set; } = null!;
     public ICollection<FlashDealVariant> Variants { get; set; } = new List<FlashDealVariant>();
+    public ICollection<FlashDealStatusHistory> StatusHistory { get; set; } = new List<FlashDealStatusHistory>();
 }

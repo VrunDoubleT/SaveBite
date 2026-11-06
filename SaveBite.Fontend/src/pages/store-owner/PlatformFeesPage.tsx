@@ -135,8 +135,8 @@ export function PlatformFeesPage() {
         </button>
       </div>
 
-      {/* Warning banner if shop is suspended due to overdue fee */}
-      {(hasOverdue || shop?.status === "Suspended") && (
+      {/* Overdue fee guidance stays on this page; shop suspension is shown by the workspace layout. */}
+      {hasOverdue && (
         <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-4 text-rose-900 shadow-2xs">
           <div className="flex items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700">
@@ -144,16 +144,11 @@ export function PlatformFeesPage() {
             </span>
             <div className="flex-1 text-xs sm:text-sm">
               <h3 className="font-bold text-rose-900">
-                {shop?.status === "Suspended"
-                  ? shop.suspendedForPlatformFees
-                    ? "Your store is suspended due to overdue platform fees"
-                    : "Your store has been suspended by an administrator"
-                  : "Attention: You have overdue platform fee statements!"}
+                Attention: You have overdue platform fee statements!
               </h3>
               <p className="mt-1 text-rose-800 leading-normal">
-                {shop?.status === "Suspended" && !shop.suspendedForPlatformFees
-                  ? "Contact support about the administrator suspension. Paying platform fees will not lift this suspension."
-                  : "Settle all overdue balances below to automatically reactivate your store operations."}
+                Settle all overdue balances below. Fee-related suspensions are lifted automatically
+                after all outstanding balances are paid.
               </p>
             </div>
           </div>

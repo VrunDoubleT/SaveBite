@@ -8,6 +8,7 @@ import { GalleryEditor } from "../components/GalleryEditor";
 import { AttributesEditor } from "../components/AttributesEditor";
 import { VariantPrices } from "../components/VariantPrices";
 import type { DraftAttribute, PriceMap } from "../types/product.types";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 import {
   appendAttributes,
   appendPrices,
@@ -20,6 +21,7 @@ import {
 
 export function CreateProductPage() {
   const { categories, productPath } = useProductWorkspace();
+  const shopSuspended = useShopSuspended();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -32,7 +34,7 @@ export function CreateProductPage() {
   const variants = combinations(attributes);
   async function submit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || shopSuspended) return;
     const images = [
       ...files,
       ...attributes.flatMap((a) => a.values.flatMap((v) => (v.image ? [v.image] : []))),
@@ -84,7 +86,10 @@ export function CreateProductPage() {
         <p className="mt-2 text-sm text-text-secondary">Set up once and reuse across sales.</p>
       </div>
       <form onSubmit={submit} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-70">
+        <fieldset
+          disabled={busy || shopSuspended}
+          className="min-w-0 space-y-5 disabled:opacity-70"
+        >
           <Panel
             title="01 · Product information"
             description="Clear names and descriptions help customers choose."
@@ -204,7 +209,7 @@ export function CreateProductPage() {
           <button
             type="submit"
             className={`${primaryButton} w-full`}
-            disabled={busy || variants.count > 100 || !categories.length}
+            disabled={busy || shopSuspended || variants.count > 100 || !categories.length}
           >
             {busy ? (
               <LoaderCircle className="size-4 animate-spin" />

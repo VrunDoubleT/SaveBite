@@ -196,13 +196,23 @@ public sealed class ProductRepository : IProductRepository
 
         await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE product_id = {product.Id} ORDER BY id FOR UPDATE", ct);
         var affectedDeals = await _db.FlashDeals.Where(d => d.ProductId == product.Id
-            && d.Status != FlashDealStatus.Cancelled && d.Status != FlashDealStatus.Closed).Select(d => d.Id).ToListAsync(ct);
-        foreach (var id in affectedDeals)
+            && d.Status != FlashDealStatus.Cancelled && d.Status != FlashDealStatus.Closed)
+            .Select(d => new { d.Id, d.Status }).ToListAsync(ct);
+        foreach (var deal in affectedDeals)
         {
-            SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(_db, id, product.ShopId);
-            _db.Add(new OrderEventOutbox { Id = Guid.NewGuid(), EventKey = $"product-removal:{product.Id}:deal:{id}",
+            SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(_db, deal.Id, product.ShopId);
+            _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+            {
+                FlashDealId = deal.Id,
+                FromStatus = deal.Status,
+                ToStatus = FlashDealStatus.Cancelled,
+                ChangedByType = "System",
+                Note = "Automatically cancelled because the product was removed for a violation.",
+                CreatedAt = DateTime.UtcNow
+            });
+            _db.Add(new OrderEventOutbox { Id = Guid.NewGuid(), EventKey = $"product-removal:{product.Id}:deal:{deal.Id}",
                 RoutingKey = RabbitMqRoutingKeys.FlashDealClosed,
-                PayloadJson = JsonSerializer.Serialize(new FlashDealEvent { FlashDealId = id }), CreatedAt = DateTime.UtcNow });
+                PayloadJson = JsonSerializer.Serialize(new FlashDealEvent { FlashDealId = deal.Id }), CreatedAt = DateTime.UtcNow });
         }
 
         await _db.FlashDeals

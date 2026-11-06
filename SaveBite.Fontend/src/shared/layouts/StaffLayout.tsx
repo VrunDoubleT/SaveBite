@@ -55,6 +55,7 @@ export function StaffLayout() {
         title="Staff workspace"
         subtitle="Daily store operations"
         navigationLabel="Staff navigation"
+        shopId={shopId}
         navigation={navigation}
       />
     </RestockWorkspaceProvider>

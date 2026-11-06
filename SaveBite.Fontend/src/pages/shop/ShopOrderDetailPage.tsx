@@ -15,6 +15,7 @@ import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney"
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import { getApiErrorMessage } from "@/shared/api";
 import { useAuthStore } from "@/shared/stores/authStore";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 export function ShopOrderDetailPage() {
   const { shopId, orderId } = useParams();
   const userId = useAuthStore((state) => state.user?.id);
@@ -22,6 +23,7 @@ export function ShopOrderDetailPage() {
 }
 function ShopOrderDetailPageContent() {
   const { shopId: staffShopId, orderId = "" } = useParams();
+  const shopSuspended = useShopSuspended(staffShopId);
   const [shopId, setShopId] = useState(staffShopId ?? "");
   const orderRevision = useShopOrderEventsStore(
     (state) => state.orderRevisions[`${shopId}:${orderId}`] ?? 0,
@@ -232,6 +234,7 @@ function ShopOrderDetailPageContent() {
                       <button
                         disabled={
                           busy ||
+                          shopSuspended ||
                           !active ||
                           !verified ||
                           !data.confirmationDeadlineAt ||
@@ -248,7 +251,7 @@ function ShopOrderDetailPageContent() {
                         </p>
                       )}
                       <button
-                        disabled={busy || !active}
+                        disabled={busy || shopSuspended || !active}
                         onClick={() => setRejecting(!rejecting)}
                         className="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
                       >

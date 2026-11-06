@@ -5,9 +5,9 @@ namespace SaveBite.Backend.Repositories.Interfaces;
 // Provide shop access checks, order queries and fulfillment audit persistence.
 public interface IShopOrderRepository
 {
-    Task<bool> RequireAccessAsync(Guid userId, Guid shopId, CancellationToken ct);
+    Task<bool> RequireAccessAsync(Guid userId, Guid shopId, CancellationToken ct, bool allowSuspended = false);
     Task<bool> RequireViewAccessAsync(Guid userId, Guid shopId, CancellationToken ct);
-    Task<SaveBite.Backend.Models.DTOs.ShopOrderActor> ActorAsync(Guid userId, Guid shopId, CancellationToken ct);
+    Task<SaveBite.Backend.Models.DTOs.ShopOrderActor> ActorAsync(Guid userId, Guid shopId, CancellationToken ct, bool allowSuspended = false);
     Task<int> PendingCountAsync(Guid shopId, CancellationToken ct);
     Task<Guid> OwnerShopAsync(Guid userId, CancellationToken ct);
     Task<Order?> GetAsync(Guid shopId, Guid orderId, CancellationToken ct);

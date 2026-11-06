@@ -77,7 +77,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
 
             case RabbitMqRoutingKeys.FlashDealClosed:
             case RabbitMqRoutingKeys.FlashDealExpired:
-                await HandleDealClosedOrExpiredAsync(dealEvent.FlashDealId, dealRepository, cancellationToken);
+                await HandleDealClosedOrExpiredAsync(dealEvent.FlashDealId, db, dealRepository, cancellationToken);
                 break;
 
             case RabbitMqRoutingKeys.FlashDealHidden:
@@ -123,7 +123,17 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         // Update DB to 'OnSale'  if currently 'Pending'
         if (deal.Status == FlashDealStatus.Pending)
         {
+            var previousStatus = deal.Status;
             deal.Status = FlashDealStatus.OnSale;
+            db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+            {
+                FlashDealId = deal.Id,
+                FromStatus = previousStatus,
+                ToStatus = FlashDealStatus.OnSale,
+                ChangedByType = "System",
+                Note = "Deal sale start time was reached.",
+                CreatedAt = DateTime.UtcNow
+            });
             await dealRepository.UpdateStatusAsync(deal.Id, FlashDealStatus.OnSale, cancellationToken);
         }
 
@@ -131,7 +141,19 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
             && (long)v.TotalQuantity - v.ReservedQuantity - v.SoldQuantity > 0) ? FlashDealStatus.OnSale : FlashDealStatus.SoldOut;
         if (deal.Status != inventoryStatus)
         {
+            var previousStatus = deal.Status;
             deal.Status = inventoryStatus;
+            db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+            {
+                FlashDealId = deal.Id,
+                FromStatus = previousStatus,
+                ToStatus = inventoryStatus,
+                ChangedByType = "System",
+                Note = inventoryStatus == FlashDealStatus.SoldOut
+                    ? "Deal marked sold out because no deal inventory is available."
+                    : "Deal inventory became available.",
+                CreatedAt = DateTime.UtcNow
+            });
             await dealRepository.UpdateStatusAsync(deal.Id, inventoryStatus, cancellationToken);
         }
 
@@ -144,6 +166,7 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
 
     private async Task HandleDealClosedOrExpiredAsync(
         Guid flashDealId,
+        AppDbContext db,
         IFlashDealRepository dealRepository,
         CancellationToken cancellationToken)
     {
@@ -152,7 +175,17 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
 
         if (deal.Status != FlashDealStatus.Closed && deal.Status != FlashDealStatus.Cancelled)
         {
+            var previousStatus = deal.Status;
             deal.Status = FlashDealStatus.Closed;
+            db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+            {
+                FlashDealId = deal.Id,
+                FromStatus = previousStatus,
+                ToStatus = FlashDealStatus.Closed,
+                ChangedByType = "System",
+                Note = "Deal order period ended.",
+                CreatedAt = DateTime.UtcNow
+            });
             await dealRepository.UpdateStatusAsync(deal.Id, FlashDealStatus.Closed, cancellationToken);
         }
     }

@@ -126,7 +126,15 @@ export function OpenStateBadge({
   );
 }
 
-export function ShopProfileHeader({ shop, onEdit }: { shop: OwnerShop; onEdit: () => void }) {
+export function ShopProfileHeader({
+  shop,
+  onEdit,
+  editDisabled = false,
+}: {
+  shop: OwnerShop;
+  onEdit: () => void;
+  editDisabled?: boolean;
+}) {
   const area = [shop.district, shop.city].filter(Boolean).join(", ");
   const open = shop.openingTime?.slice(0, 5);
   const close = shop.closingTime?.slice(0, 5);
@@ -179,8 +187,12 @@ export function ShopProfileHeader({ shop, onEdit }: { shop: OwnerShop; onEdit: (
 
           <button
             type="button"
+            disabled={editDisabled}
+            title={
+              editDisabled ? "Editing is unavailable while your shop is suspended." : undefined
+            }
             onClick={onEdit}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Pencil size={16} aria-hidden />
             <span className="hidden sm:inline">Edit business info</span>

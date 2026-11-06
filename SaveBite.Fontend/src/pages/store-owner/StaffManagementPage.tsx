@@ -20,8 +20,10 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/shared/api/httpClient";
 
 import { toast } from "@/shared/stores/toastStore";
 import { Pagination, usePagination } from "@/shared/components/pagination";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 export function StaffManagementPage() {
+  const shopSuspended = useShopSuspended();
   const [staffs, setStaffs] = useState<ShopStaff[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -67,7 +69,7 @@ export function StaffManagementPage() {
   // --------------------------------------------------
 
   async function handleUpdateStaff(data: UpdateStaffInfoInput) {
-    if (!editingStaff) {
+    if (!editingStaff || shopSuspended) {
       return;
     }
 
@@ -90,7 +92,7 @@ export function StaffManagementPage() {
   // --------------------------------------------------
 
   async function handleRemoveStaff() {
-    if (!removingStaff) {
+    if (!removingStaff || shopSuspended) {
       return;
     }
 
@@ -113,6 +115,7 @@ export function StaffManagementPage() {
   // --------------------------------------------------
 
   async function handleInviteStaff(userId: string) {
+    if (shopSuspended) return;
     try {
       setInviting(true);
       const response = await shopStaffApi.inviteStaff({
@@ -204,7 +207,12 @@ export function StaffManagementPage() {
 
           <button
             type="button"
-            disabled={inviting}
+            disabled={inviting || shopSuspended}
+            title={
+              shopSuspended
+                ? "Inviting staff is unavailable while your shop is suspended."
+                : undefined
+            }
             onClick={() => setInviteModalOpen(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -264,6 +272,7 @@ export function StaffManagementPage() {
         <div className="space-y-4">
           <StaffTable
             staffs={paginatedStaffs}
+            actionsDisabled={shopSuspended}
             onEdit={(staff) => {
               setEditingStaff(staff);
             }}
@@ -293,7 +302,7 @@ export function StaffManagementPage() {
       )}
 
       {/* Edit modal */}
-      {editingStaff && (
+      {editingStaff && !shopSuspended && (
         <EditStaffModal
           staff={editingStaff}
           loading={updating}
@@ -307,7 +316,7 @@ export function StaffManagementPage() {
       )}
 
       {/* Invite modal */}
-      {inviteModalOpen && (
+      {inviteModalOpen && !shopSuspended && (
         <InviteStaffModal
           loading={inviting}
           onClose={() => {
@@ -320,7 +329,7 @@ export function StaffManagementPage() {
       )}
 
       {/* Remove modal */}
-      {removingStaff && (
+      {removingStaff && !shopSuspended && (
         <RemoveStaffModal
           staff={removingStaff}
           loading={removing}

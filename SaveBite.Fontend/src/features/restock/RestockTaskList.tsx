@@ -5,6 +5,7 @@ import { getApiErrorMessage } from "@/shared/api";
 import { OrderResalePanel } from "@/features/shop-orders/components/OrderResalePanel";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import { formatCartMoney } from "@/features/cart/utils/formatCartMoney";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 import { useRestockWorkspace } from "./restockContext";
 import { restockApi, type RestockPage } from "./restockApi";
 
@@ -21,6 +22,7 @@ export function RestockTaskList({
 }) {
   const { shopId, revision, refresh, error: workspaceError } = useRestockWorkspace();
   const { shopId: staffShopId } = useParams();
+  const shopSuspended = useShopSuspended(shopId);
   const [result, setResult] = useState<{
     data: RestockPage;
     revision: number;
@@ -158,7 +160,7 @@ export function RestockTaskList({
               shopId={shopId}
               orderId={task.orderId}
               revision={revision}
-              readOnly={readOnly}
+              readOnly={readOnly || shopSuspended}
               initialData={task.decision}
               onChanged={() => {
                 refresh();

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using System.Security.Cryptography;
 using System.Text;
@@ -114,16 +115,23 @@ public sealed class ShopOrderService : IShopOrderService
     // Validate and commit a shop state transition with payment checks, audit history and job updates.
     public async Task<ShopOrderResponse> ActionAsync(Guid userId, Guid shopId, Guid orderId, string action, string? reason = null, CancellationToken ct = default, bool cashReceived = false)
     {
-        // Recheck active shop access before any reconciliation or other side effect.
-        await _shops.RequireAccessAsync(userId, shopId, ct);
+        var allowSuspended = action is "Preparing" or "ReadyForPickup" or "complete";
+        await _shops.RequireAccessAsync(userId, shopId, ct, allowSuspended);
+        var current = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
+        if (allowSuspended && current.Shop.Status == ShopStatus.Suspended
+            && current.Status is not (OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.ReadyForPickup))
+            throw AppException.Conflict("Only orders confirmed before the shop was suspended can still be processed.");
         await GetAsync(userId, shopId, orderId, ct);
-        // Reconcile only after active shop access and order visibility have been checked for this command.
+        // Reconcile only after shop access and order visibility have been checked for this command.
         await _payments.ReconcileOrderAsync(orderId, false, ct);
         string? confirmationJobId = null;
         await _orders.WithOrderLockAsync(orderId, async () =>
         {
-            await _shops.RequireAccessAsync(userId, shopId, ct);
+            await _shops.RequireAccessAsync(userId, shopId, ct, allowSuspended);
             var order = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
+            if (allowSuspended && order.Shop.Status == ShopStatus.Suspended
+                && order.Status is not (OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.ReadyForPickup))
+                throw AppException.Conflict("Only orders confirmed before the shop was suspended can still be processed.");
             confirmationJobId = order.ConfirmationExpirationJobId;
             var target = action switch
             {
@@ -163,7 +171,7 @@ public sealed class ShopOrderService : IShopOrderService
                 if (action == "ReadyForPickup") order.ReadyAt = Now;
                 if (action == "complete") { order.CompletedAt = Now; order.RemainingAmount = 0; order.IsLateArrival = order.SoftDeadlineAt < Now; }
             }
-            ChangeStatus(order, target, await _shops.ActorAsync(userId, shopId, ct), action == "reject" ? reason! : action == "complete" && cashReceived ? "Completed after receiving the remaining balance in cash." : "Shop order operation: " + action);
+            ChangeStatus(order, target, await _shops.ActorAsync(userId, shopId, ct, allowSuspended), action == "reject" ? reason! : action == "complete" && cashReceived ? "Completed after receiving the remaining balance in cash." : "Shop order operation: " + action);
             await _orders.SaveAsync(ct);
             if (target == OrderStatus.Completed) await _eventPublisher.QueueCompletedAsync(order, ct);
             return true;
@@ -224,15 +232,21 @@ public sealed class ShopOrderService : IShopOrderService
     // Create or reuse the recorded PayAtShop balance payment and its provider QR link.
     public async Task<ShopOrderResponse> RemainingPaymentAsync(Guid userId, Guid shopId, Guid orderId, CancellationToken ct = default)
     {
-        // This endpoint creates/reuses a payment link and therefore requires an active shop.
-        await _shops.RequireAccessAsync(userId, shopId, ct);
+        await _shops.RequireAccessAsync(userId, shopId, ct, allowSuspended: true);
+        var current = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
+        if (current.Shop.Status == ShopStatus.Suspended
+            && current.Status is not (OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.ReadyForPickup))
+            throw AppException.Conflict("Only previously confirmed orders can receive remaining-payment links while the shop is suspended.");
         await GetAsync(userId, shopId, orderId, ct);
-        // Reconcile only after active shop access and order visibility have been checked for this command.
+        // Reconcile only after shop access and order visibility have been checked for this command.
         await _payments.ReconcileOrderAsync(orderId, false, ct);
         await _orders.WithOrderLockAsync(orderId, async () =>
         {
-            await _shops.RequireAccessAsync(userId, shopId, ct);
+            await _shops.RequireAccessAsync(userId, shopId, ct, allowSuspended: true);
             var order = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
+            if (order.Shop.Status == ShopStatus.Suspended
+                && order.Status is not (OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.ReadyForPickup))
+                throw AppException.Conflict("Only previously confirmed orders can receive remaining-payment links while the shop is suspended.");
             if (order.PaymentMethod != PaymentMethod.PayAtShop || order.Status is not (OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.ReadyForPickup)
                 || order.HardDeadlineAt <= Now || order.RemainingAmount <= 0 || order.PaymentReviewRequired
                 || CheckoutOrderMapper.RequiredPayment(order)?.Status != PaymentStatus.Succeeded)
@@ -371,6 +385,55 @@ public sealed class ShopOrderService : IShopOrderService
         order.Refunds.Add(refund);
         _shops.AddRefund(refund);
         return refund;
+    }
+    // Cancel pending orders after a shop suspension, releasing reservations and opening required refunds.
+    public async Task CancelPendingOrdersForSuspendedShopAsync(Guid shopId, CancellationToken ct = default)
+    {
+        var orderIds = await _db.Orders.AsNoTracking()
+            .Where(order => order.ShopId == shopId && order.Status == OrderStatus.Pending)
+            .OrderBy(order => order.CreatedAt)
+            .Select(order => order.Id)
+            .ToListAsync(ct);
+
+        foreach (var orderId in orderIds)
+        {
+            var result = await _orders.WithOrderLockAsync<(bool Changed, string? ConfirmationJobId)>(orderId, async () =>
+            {
+                var order = await _shops.GetAsync(shopId, orderId, ct);
+                if (order == null || order.Status != OrderStatus.Pending)
+                    return (Changed: false, ConfirmationJobId: (string?)null);
+
+                var confirmationJobId = order.ConfirmationExpirationJobId;
+                await CloseUnfulfilledAsync(
+                    order,
+                    order.Shop.OwnerUserId,
+                    "Order automatically cancelled because the shop was suspended.",
+                    ct);
+                order.CancelledAt = Now;
+                order.CancelReason = "Shop suspended";
+                order.CancelledBy = null;
+                ChangeStatus(order, OrderStatus.Cancelled, null,
+                    "Order automatically cancelled because the shop was suspended; collected funds require refund.");
+                await _orders.SaveAsync(ct);
+                return (Changed: true, ConfirmationJobId: confirmationJobId);
+            }, ct);
+
+            if (!result.Changed)
+                continue;
+
+            if (result.ConfirmationJobId != null)
+            {
+                try { _confirmationScheduler.Delete(result.ConfirmationJobId); }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not delete confirmation job {JobId} for suspended-shop order {OrderId}.",
+                        result.ConfirmationJobId, orderId);
+                }
+            }
+
+            await _inventorySync.SyncAsync(orderId, ct);
+            await _orderEvents.NotifyAsync(shopId, orderId, RealtimeEvents.OrderReasons.Cancelled, ct);
+        }
     }
     // Close unpaid provider links and preserve any verified money collected during closure.
     private async Task CloseLinksAsync(Order order, CancellationToken ct)
@@ -542,7 +605,8 @@ public sealed class ShopOrderService : IShopOrderService
         if (string.IsNullOrWhiteSpace(reference) || reference.Length > 150) throw AppException.BadRequest("A bank transfer reference is required.");
         return await _orders.WithOrderLockAsync(orderId, async () =>
         {
-            if (!await _shops.RequireAccessAsync(userId, shopId, ct)) throw AppException.Forbidden("Only the shop owner may record a refund transfer.");
+            if (!await _shops.RequireAccessAsync(userId, shopId, ct, allowSuspended: true))
+                throw AppException.Forbidden("Only the shop owner may record a refund transfer.");
             var order = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
             var f = order.Refunds.SingleOrDefault(x => x.RefundType == RefundType.ShopCancellation) ?? throw AppException.NotFound();
             if (f.Status == RefundStatus.Transferred && f.TransferReference == reference.Trim()) return MapRefund(f);
@@ -552,7 +616,7 @@ public sealed class ShopOrderService : IShopOrderService
             var transferredNow = f.RequestedAmount - f.TransferredAmount;
             f.TransferredAmount = f.RequestedAmount;
             f.Status = RefundStatus.Transferred; f.TransferReference = reference.Trim(); f.TransferredAt = Now; f.ReviewedBy = userId; f.ReviewedAt = Now; f.UpdatedAt = Now;
-            AddActivity(order, await _shops.ActorAsync(userId, shopId, ct), $"Recorded refund bank transfer of {transferredNow} VND: " + reference.Trim());
+            AddActivity(order, await _shops.ActorAsync(userId, shopId, ct, allowSuspended: true), $"Recorded refund bank transfer of {transferredNow} VND: " + reference.Trim());
           
             order.RefundedAmount += transferredNow;
             f.FeeAdjustedAt = null; f.AccumulatedValueReclaimedAt = null;

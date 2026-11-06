@@ -5,7 +5,11 @@ import { StaffStatusBadge } from "./StaffStatusBadge";
 import { formatStaffName } from "@/features/shop-staffs/utils/formatStaffName";
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+  return new Date(date).toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
 }
 
 // Take up to 2 initials from the user's name for the avatar
@@ -20,23 +24,27 @@ function getInitials(name: string) {
 
 interface Props {
   staffs: ShopStaff[];
+  actionsDisabled?: boolean;
   onView?: (staff: ShopStaff) => void;
   onEdit?: (staff: ShopStaff) => void;
   onRemove?: (staff: ShopStaff) => void;
 }
 
-const HEAD_CELL = "px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500";
+const HEAD_CELL =
+  "px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500";
 
 const ICON_BUTTON =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900";
 
-export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
+export function StaffTable({ staffs, actionsDisabled = false, onView, onEdit, onRemove }: Props) {
   if (staffs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-200 bg-white py-16 text-center shadow-2xs">
         <Users className="mb-3 h-10 w-10 text-neutral-300" />
         <p className="font-medium text-neutral-900">No staff yet</p>
-        <p className="mt-1 text-sm text-neutral-500">Invite your first staff member to get started.</p>
+        <p className="mt-1 text-sm text-neutral-500">
+          Invite your first staff member to get started.
+        </p>
       </div>
     );
   }
@@ -103,7 +111,8 @@ export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
                     <button
                       type="button"
                       title="Edit"
-                      className={ICON_BUTTON}
+                      disabled={actionsDisabled}
+                      className={`${ICON_BUTTON} disabled:cursor-not-allowed disabled:opacity-40`}
                       onClick={() => onEdit?.(staff)}
                     >
                       <Pencil size={16} />
@@ -111,7 +120,8 @@ export function StaffTable({ staffs, onView, onEdit, onRemove }: Props) {
                     <button
                       type="button"
                       title="Remove"
-                      className={`${ICON_BUTTON} hover:bg-red-50 hover:text-red-600`}
+                      disabled={actionsDisabled}
+                      className={`${ICON_BUTTON} hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40`}
                       onClick={() => onRemove?.(staff)}
                     >
                       <Trash2 size={16} />

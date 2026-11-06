@@ -7,6 +7,7 @@ using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Text.Json;
 
@@ -69,6 +70,50 @@ public sealed class UserService : IUserService
                 defaultAddress.IsDefault)
             : null;
 
+        var shopsQuery = _db.Shops.AsNoTracking();
+        if (user.Role == UserRole.StoreOwner)
+        {
+            shopsQuery = shopsQuery.Where(shop => shop.OwnerUserId == userId);
+        }
+        else if (user.Role == UserRole.Staff)
+        {
+            shopsQuery = shopsQuery.Where(shop =>
+                shop.StaffMembers.Any(member =>
+                    member.UserId == userId && member.Status == ShopStaffStatus.Active));
+        }
+        else
+        {
+            shopsQuery = shopsQuery.Where(_ => false);
+        }
+
+        var shop = await shopsQuery
+            .Select(shop => new
+            {
+                shop.Id,
+                shop.Status,
+                shop.SuspendedForPlatformFees,
+                SuspensionReason = shop.Status == ShopStatus.Suspended && !shop.SuspendedForPlatformFees
+                    ? _db.AuditLogs
+                        .Where(log =>
+                            log.TargetType == "Shop" &&
+                            log.TargetId == shop.Id &&
+                            log.Action == "SHOP_STATUS_UPDATED")
+                        .OrderByDescending(log => log.CreatedAt)
+                        .ThenByDescending(log => log.Id)
+                        .Select(log => log.Reason)
+                        .FirstOrDefault()
+                    : null
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var shopResponse = shop is null
+            ? null
+            : new CurrentUserShopResponse(
+                shop.Id,
+                shop.Status.ToString(),
+                shop.SuspendedForPlatformFees,
+                shop.SuspensionReason);
+
         return new CurrentUserResponse(
             user.Id,
             user.Email,
@@ -77,7 +122,8 @@ public sealed class UserService : IUserService
             user.AvatarUrl,
             user.Role.ToString(),
             user.CustomerStatus.ToString(),
-            addressResponse);
+            addressResponse,
+            shopResponse);
     }
 
     public async Task<PagedResult<UserSummaryResponse>> GetUsersAsync(GetUsersRequest request, CancellationToken cancellationToken = default)
@@ -322,5 +368,6 @@ public sealed class UserService : IUserService
             user.FullName,
             user.AvatarUrl,
             user.Role.ToString(),
-            user.CustomerStatus.ToString());
+            user.CustomerStatus.ToString(),
+            Shop: null);
 }

@@ -27,6 +27,7 @@ type PayOSInitialValues = {
 };
 
 type PayOSSectionProps = {
+  disabled?: boolean;
   initial: PayOSInitialValues;
   saving: boolean;
   onSave: (values: PayOSValues) => Promise<void>;
@@ -164,7 +165,12 @@ function PayOSField({
   );
 }
 
-export default function PayOSSection({ initial, saving, onSave }: PayOSSectionProps) {
+export default function PayOSSection({
+  initial,
+  saving,
+  onSave,
+  disabled = false,
+}: PayOSSectionProps) {
   const id = useId();
 
   const [values, setValues] = useState<PayOSValues>({
@@ -236,6 +242,7 @@ export default function PayOSSection({ initial, saving, onSave }: PayOSSectionPr
   };
 
   const handleSave = async () => {
+    if (disabled) return;
     const nextErrors = getFieldErrors(schema, values);
 
     setErrors(nextErrors);
@@ -297,8 +304,9 @@ export default function PayOSSection({ initial, saving, onSave }: PayOSSectionPr
         {!editing && (
           <button
             type="button"
+            disabled={disabled}
             onClick={startEditing}
-            className={isConfigured ? softButton : primaryButton}
+            className={`${isConfigured ? softButton : primaryButton} disabled:cursor-not-allowed disabled:opacity-50`}
           >
             <Pencil size={15} />
             {isConfigured ? "Edit PayOS Settings" : "Set up PayOS"}
@@ -446,7 +454,7 @@ export default function PayOSSection({ initial, saving, onSave }: PayOSSectionPr
             <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || disabled}
                 onClick={handleCancel}
                 className={ghostButton}
               >
@@ -456,7 +464,7 @@ export default function PayOSSection({ initial, saving, onSave }: PayOSSectionPr
 
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || disabled}
                 onClick={() => void handleSave()}
                 className={primaryButton}
               >

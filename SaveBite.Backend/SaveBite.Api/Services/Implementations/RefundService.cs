@@ -390,7 +390,7 @@ public class RefundService : IRefundService
             if (readOnly)
                 await _shops.RequireViewAccessAsync(userId, shopId, ct);
             else
-                await _shops.RequireAccessAsync(userId, shopId, ct);
+                await _shops.RequireAccessAsync(userId, shopId, ct, allowSuspended: true);
 
             if (f.Order.ShopId != shopId || (f.RefundType == RefundType.CustomerRequest
                 && (f.Order.Status != OrderStatus.Completed || f.DestinationConfirmedAt == null)))

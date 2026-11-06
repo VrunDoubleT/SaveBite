@@ -15,6 +15,7 @@ import {
 } from "../components/ProductUi";
 import { ProductListSkeleton } from "../components/ProductListSkeleton";
 import { money } from "../utils/productForm";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 const statuses: { value: number | ""; label: string }[] = [
   { value: 0, label: "Active" },
@@ -23,6 +24,7 @@ const statuses: { value: number | ""; label: string }[] = [
 
 export function ProductListPage() {
   const { shop, categories, productPath } = useProductWorkspace();
+  const shopSuspended = useShopSuspended();
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState<{
     page: number;
@@ -65,10 +67,21 @@ export function ProductListPage() {
             Manage your products, variants, and prices.
           </p>
         </div>
-        <Link to={productPath("/new")} className={primaryButton}>
-          <Plus className="size-4" />
-          Add product
-        </Link>
+        {shopSuspended ? (
+          <span
+            aria-disabled="true"
+            title="Creating products is unavailable while your shop is suspended."
+            className={`${primaryButton} pointer-events-none cursor-not-allowed opacity-50`}
+          >
+            <Plus className="size-4" />
+            Add product
+          </span>
+        ) : (
+          <Link to={productPath("/new")} className={primaryButton}>
+            <Plus className="size-4" />
+            Add product
+          </Link>
+        )}
       </div>
       {/* Summary counters */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
@@ -271,6 +284,15 @@ export function ProductListPage() {
                 >
                   Clear filters
                 </button>
+              ) : shopSuspended ? (
+                <span
+                  aria-disabled="true"
+                  title="Creating products is unavailable while your shop is suspended."
+                  className={`${primaryButton} pointer-events-none cursor-not-allowed opacity-50`}
+                >
+                  <Plus className="size-4" />
+                  Add product
+                </span>
               ) : (
                 <Link to={productPath("/new")} className={primaryButton}>
                   <Plus className="size-4" />

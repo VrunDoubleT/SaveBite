@@ -54,7 +54,7 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
 
     public async Task<RestockSummaryResponse> SummaryAsync(Guid actor, Guid shopId, CancellationToken ct)
     {
-        await shops.RequireAccessAsync(actor, shopId, ct);
+        await shops.RequireViewAccessAsync(actor, shopId, ct);
         var now = clock.GetUtcNow().UtcDateTime;
         var pending = Scope(shopId).Where(o => o.ResaleDecisionDeadlineAt > now
             && o.Items.Any(i => i.ResaleDecisionStatus == ResaleDecisionStatus.Pending));
@@ -64,7 +64,7 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
     public async Task<PagedResult<RestockTaskResponse>> ListAsync(Guid actor, Guid shopId, bool pendingOnly,
         int page, int pageSize, CancellationToken ct, Guid? flashDealId = null)
     {
-        await shops.RequireAccessAsync(actor, shopId, ct);
+        await shops.RequireViewAccessAsync(actor, shopId, ct);
         if (page < 1 || page > 100000 || pageSize is < 1 or > 50)
             throw AppException.BadRequest("Invalid page or page size.");
         var now = clock.GetUtcNow().UtcDateTime;

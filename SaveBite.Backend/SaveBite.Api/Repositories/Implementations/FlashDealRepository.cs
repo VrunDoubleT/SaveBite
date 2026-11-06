@@ -160,6 +160,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
             .Include(d => d.Product).ThenInclude(p => p.Category)
             .Include(d => d.Product).ThenInclude(p => p.Attributes).ThenInclude(a => a.Values)
             .Include(d => d.Variants).ThenInclude(v => v.Variant).ThenInclude(pv => pv.VariantValues).ThenInclude(vv => vv.AttributeValue).ThenInclude(av => av.Attribute)
+            .Include(d => d.StatusHistory)
             .FirstOrDefaultAsync(d => d.Id == dealId && d.ShopId == shopId, cancellationToken);
     }
     // Check if there is an existing overlapping deal for the same product in this shop.

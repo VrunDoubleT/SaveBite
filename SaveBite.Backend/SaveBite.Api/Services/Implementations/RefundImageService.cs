@@ -20,6 +20,7 @@ public class RefundImageService : IRefundImageService
         {
             if (purpose != "transfer-proof") throw AppException.Forbidden();
             var shopId = await _shops.OwnerShopAsync(userId, ct);
+            await _shops.RequireAccessAsync(userId, shopId, ct, allowSuspended: true);
             _ = await _shops.GetAsync(shopId, orderId, ct) ?? throw AppException.NotFound();
         }
         else

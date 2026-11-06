@@ -112,8 +112,18 @@ public sealed class WarningService : IWarningService
                 .ToListAsync(ct);
             foreach (var deal in activeDeals)
             {
+                var previousStatus = deal.Status;
                 deal.Status = FlashDealStatus.Cancelled;
                 deal.UpdatedAt = now;
+                _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+                {
+                    FlashDealId = deal.Id,
+                    FromStatus = previousStatus,
+                    ToStatus = FlashDealStatus.Cancelled,
+                    ChangedByType = "System",
+                    Note = $"Automatically cancelled after an administrator warning: {reason}",
+                    CreatedAt = now
+                });
             }
 
             var warningId = Guid.NewGuid();

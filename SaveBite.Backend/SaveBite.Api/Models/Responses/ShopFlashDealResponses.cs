@@ -52,7 +52,18 @@ public class ShopFlashDealDetailResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    public List<ShopFlashDealStatusHistoryResponse> StatusHistory { get; set; } = new();
     public List<ShopFlashDealVariantDetailResponse> Variants { get; set; } = new();
+}
+
+public class ShopFlashDealStatusHistoryResponse
+{
+    public FlashDealStatus? FromStatus { get; set; }
+    public FlashDealStatus ToStatus { get; set; }
+    public string ChangedByType { get; set; } = string.Empty;
+    public Guid? ChangedByUserId { get; set; }
+    public string? Note { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 // Detailed response for each variant within a shop flash deal.

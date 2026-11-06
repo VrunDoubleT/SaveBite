@@ -7,8 +7,10 @@ import { ShopBusinessInfoForm } from "@/features/shops/components/ShopBusinessIn
 import type { OwnerShop, UpdateBusinessInfo } from "@/features/shops/types/ownerShop.types";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 export function ShopProfilePage() {
+  const shopSuspended = useShopSuspended();
   const [shop, setShop] = useState<OwnerShop | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -34,6 +36,7 @@ export function ShopProfilePage() {
     logo: File | null,
     coverImage: File | null,
   ) {
+    if (shopSuspended) return;
     setIsSaving(true);
     try {
       await ownerShopApi.updateBusinessInfo(input);
@@ -82,7 +85,7 @@ export function ShopProfilePage() {
           </p>
         </div>
       </div>
-      {isEditing ? (
+      {isEditing && !shopSuspended ? (
         <ShopBusinessInfoForm
           shop={shop}
           isSaving={isSaving}
@@ -91,7 +94,11 @@ export function ShopProfilePage() {
         />
       ) : (
         <>
-          <ShopProfileHeader shop={shop} onEdit={() => setIsEditing(true)} />
+          <ShopProfileHeader
+            shop={shop}
+            onEdit={() => setIsEditing(true)}
+            editDisabled={shopSuspended}
+          />
           <ShopProfileDetails shop={shop} />
         </>
       )}

@@ -35,6 +35,8 @@ public static class ServiceExtensions
         services.AddScoped<IUserAddressService, UserAddressService>();
 
         services.AddScoped<IShopService, ShopService>();
+        services.AddScoped<IShopSuspensionCleanupService, ShopSuspensionCleanupService>();
+        services.AddScoped<IShopStatusEventService, ShopStatusEventService>();
         services.AddScoped<IFlashDealService, FlashDealService>();
         services.AddScoped<ITrustScoreService, TrustScoreService>();
         services.AddScoped<ITrustOrderService, TrustOrderService>();

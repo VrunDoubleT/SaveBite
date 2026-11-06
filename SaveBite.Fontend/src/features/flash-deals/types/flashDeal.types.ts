@@ -159,7 +159,17 @@ export interface ShopFlashDealDetail {
   status: FlashDealStatusEnum | number;
   createdAt: string;
   updatedAt: string;
+  statusHistory: ShopFlashDealStatusHistory[];
   variants: ShopFlashDealVariantDetail[];
+}
+
+export interface ShopFlashDealStatusHistory {
+  fromStatus?: FlashDealStatusEnum | number | null;
+  toStatus: FlashDealStatusEnum | number;
+  changedByType: "Shop" | "System" | string;
+  changedByUserId?: string | null;
+  note?: string | null;
+  createdAt: string;
 }
 
 export interface ShopEligibleProductVariant {

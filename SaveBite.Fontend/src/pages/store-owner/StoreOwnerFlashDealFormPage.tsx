@@ -23,6 +23,7 @@ import {
 import { toast } from "@/shared/stores/toastStore";
 import { MIN_AMOUNT_VND, MIN_AMOUNT_TEXT } from "@/shared/config/money";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 interface FormVariantState {
   variantId: string;
@@ -42,6 +43,7 @@ export function StoreOwnerFlashDealFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEditMode = Boolean(id);
   const navigate = useNavigate();
+  const shopSuspended = useShopSuspended();
 
   // Loading states
   const [initialLoading, setInitialLoading] = useState(true);
@@ -503,6 +505,7 @@ export function StoreOwnerFlashDealFormPage() {
   // Submit form
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (shopSuspended) return;
 
     if (!selectedProductId) {
       toast.error("Please select a product.");
@@ -635,6 +638,10 @@ export function StoreOwnerFlashDealFormPage() {
         </p>
       </div>
 
+      <fieldset
+        disabled={shopSuspended}
+        className="space-y-6 disabled:opacity-60"
+      >
       {/* Block 1: Product Selection */}
       <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
         <h2 className="text-sm font-bold text-neutral-900">Product Information</h2>
@@ -1335,6 +1342,8 @@ export function StoreOwnerFlashDealFormPage() {
         )}
       </div>
 
+      </fieldset>
+
       {/* Footer Actions */}
       <div className="flex items-center justify-end gap-3 pt-2">
         <button
@@ -1346,7 +1355,7 @@ export function StoreOwnerFlashDealFormPage() {
         </button>
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || shopSuspended}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-60"
         >
           {submitting && <Loader2 className="size-3.5 animate-spin" />}

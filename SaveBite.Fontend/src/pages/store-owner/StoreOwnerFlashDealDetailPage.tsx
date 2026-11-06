@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
+import { FlashDealStatusHistory } from "@/features/flash-deals/components/FlashDealStatusHistory";
 import {
   FlashDealStatusEnum,
   FlashDealVariantStatusEnum,
@@ -27,8 +28,10 @@ import { CancelFlashDealModal } from "@/features/flash-deals/components/CancelFl
 import { ToggleVisibilityModal } from "@/features/flash-deals/components/ToggleVisibilityModal";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 export function StoreOwnerFlashDealDetailPage() {
+  const shopSuspended = useShopSuspended();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { revision: stockRevision } = useRestockWorkspace();
@@ -121,7 +124,7 @@ export function StoreOwnerFlashDealDetailPage() {
 
   // Handle confirm toggle visibility via modal
   async function handleConfirmToggleVisibility() {
-    if (!deal) return;
+    if (!deal || shopSuspended) return;
     try {
       setVisibilityModalLoading(true);
       if (deal.status === FlashDealStatusEnum.Hidden) {
@@ -142,7 +145,7 @@ export function StoreOwnerFlashDealDetailPage() {
 
   // Handle confirm cancel deal
   async function handleConfirmCancel() {
-    if (!deal) return;
+    if (!deal || shopSuspended) return;
     try {
       setCancelLoading(true);
       await flashDealApi.cancelFlashDeal(deal.id);
@@ -214,8 +217,9 @@ export function StoreOwnerFlashDealDetailPage() {
           </div>
           <button
             type="button"
+            disabled={shopSuspended}
             onClick={() => setIsVisibilityModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-400 bg-amber-500 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-600 active:scale-95"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-400 bg-amber-500 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Eye className="size-4" />
             <span>Unhide Deal Now</span>
@@ -254,8 +258,9 @@ export function StoreOwnerFlashDealDetailPage() {
               {isHidden ? (
                 <button
                   type="button"
+                  disabled={shopSuspended}
                   onClick={() => setIsVisibilityModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-500 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-600 active:scale-95"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-500 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Eye className="size-3.5" />
                   <span>Unhide Deal</span>
@@ -263,8 +268,9 @@ export function StoreOwnerFlashDealDetailPage() {
               ) : (
                 <button
                   type="button"
+                  disabled={shopSuspended}
                   onClick={() => setIsVisibilityModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-medium text-neutral-700 shadow-2xs transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-medium text-neutral-700 shadow-2xs transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <EyeOff className="size-3.5 text-neutral-500" />
                   <span>Hide Deal</span>
@@ -274,10 +280,11 @@ export function StoreOwnerFlashDealDetailPage() {
               {/* Edit button */}
               <button
                 type="button"
+                disabled={shopSuspended}
                 onClick={() =>
                   navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id))
                 }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Edit2 className="size-3.5" />
                 <span>Edit</span>
@@ -286,8 +293,9 @@ export function StoreOwnerFlashDealDetailPage() {
               {/* Cancel deal button */}
               <button
                 type="button"
+                disabled={shopSuspended}
                 onClick={() => setIsCancelModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/50 px-3 py-2 text-xs font-semibold text-red-600 shadow-2xs transition hover:bg-red-100/60"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/50 px-3 py-2 text-xs font-semibold text-red-600 shadow-2xs transition hover:bg-red-100/60 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <XCircle className="size-3.5" />
                 <span>Cancel Deal</span>
@@ -536,7 +544,7 @@ export function StoreOwnerFlashDealDetailPage() {
           </table>
         </div>
       </div>
-
+      <FlashDealStatusHistory history={deal.statusHistory ?? []} />
       <FlashDealStockHistory flashDealId={deal.id} />
 
       {/* Pop-up Modal for Hide / Unhide Deal */}

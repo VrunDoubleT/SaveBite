@@ -7,6 +7,7 @@ import type { StaffInvitation } from "@/features/shop-staffs/types/shopStaff.typ
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 import { Pagination, usePagination } from "@/shared/components/pagination";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("en-US", {
@@ -117,6 +118,7 @@ function RevokeInvitationModal({ invitation, loading, onClose, onConfirm }: Revo
 
 export function StoreOwnerStaffInvitationsPage() {
   const navigate = useNavigate();
+  const shopSuspended = useShopSuspended();
 
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -152,7 +154,7 @@ export function StoreOwnerStaffInvitationsPage() {
   }, []);
 
   async function handleRevoke() {
-    if (!selectedInvitation) return;
+    if (!selectedInvitation || shopSuspended) return;
 
     try {
       setRevoking(true);
@@ -169,7 +171,9 @@ export function StoreOwnerStaffInvitationsPage() {
   }
 
   const pendingCount = invitations.filter((item) => item.status.toLowerCase() === "pending").length;
-  const acceptedCount = invitations.filter((item) => item.status.toLowerCase() === "accepted").length;
+  const acceptedCount = invitations.filter(
+    (item) => item.status.toLowerCase() === "accepted",
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -297,14 +301,18 @@ export function StoreOwnerStaffInvitationsPage() {
                             {invitation.invitedUserName?.charAt(0).toUpperCase() ?? "U"}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{invitation.invitedUserName}</p>
+                            <p className="font-medium text-gray-900">
+                              {invitation.invitedUserName}
+                            </p>
                             <p className="text-sm text-gray-500">{invitation.invitedUserEmail}</p>
                           </div>
                         </div>
                       </td>
 
                       <td className="px-6 py-4">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClass(invitation.status)}`}>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClass(invitation.status)}`}
+                        >
                           {getStatusLabel(invitation.status)}
                         </span>
                       </td>
@@ -321,8 +329,14 @@ export function StoreOwnerStaffInvitationsPage() {
                         {isPending ? (
                           <button
                             type="button"
+                            disabled={shopSuspended}
+                            title={
+                              shopSuspended
+                                ? "Managing invitations is unavailable while your shop is suspended."
+                                : undefined
+                            }
                             onClick={() => setSelectedInvitation(invitation)}
-                            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Trash2 size={16} />
                             Revoke
@@ -347,8 +361,7 @@ export function StoreOwnerStaffInvitationsPage() {
                 pageSize={10}
                 itemLabel="invitations"
                 onPageChange={setCurrentPage}
-                showFirstLast = {true}
-        
+                showFirstLast={true}
               />
             </div>
           )}
@@ -356,7 +369,7 @@ export function StoreOwnerStaffInvitationsPage() {
       )}
 
       {/* Revoke modal */}
-      {selectedInvitation && (
+      {selectedInvitation && !shopSuspended && (
         <RevokeInvitationModal
           invitation={selectedInvitation}
           loading={revoking}

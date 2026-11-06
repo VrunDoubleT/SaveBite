@@ -20,7 +20,20 @@ public sealed class DealInventoryService(AppDbContext db, IFlashDealRepository d
         var target = available && deal.Product.DeletedAt == null && deal.Shop.Status == ShopStatus.Active
             ? FlashDealStatus.OnSale : FlashDealStatus.SoldOut;
         if (deal.Status != target)
+        {
+            db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+            {
+                FlashDealId = deal.Id,
+                FromStatus = deal.Status,
+                ToStatus = target,
+                ChangedByType = "System",
+                Note = target == FlashDealStatus.SoldOut
+                    ? "Deal marked sold out because no sellable inventory is available."
+                    : "Deal returned to sale after sellable inventory became available.",
+                CreatedAt = now
+            });
             await db.FlashDeals.Where(d => d.Id == dealId).ExecuteUpdateAsync(set => set.SetProperty(d => d.Status, target).SetProperty(d => d.UpdatedAt, now), ct);
+        }
         deal.Status = target;
         // Both status and inventory are read directly from PostgreSQL by customers.
         await db.FlashDeals.Where(d => d.Id == dealId).ExecuteUpdateAsync(set => set.SetProperty(d => d.LifecycleSyncedAt, (DateTime?)now), ct);
