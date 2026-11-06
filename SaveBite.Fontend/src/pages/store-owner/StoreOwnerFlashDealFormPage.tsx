@@ -87,8 +87,15 @@ export function StoreOwnerFlashDealFormPage() {
   // Configured variants with checkbox selection
   const [variants, setVariants] = useState<FormVariantState[]>([]);
 
-  // Whether current deal is already OnSale
-  const isDealOnSale = isEditMode && existingDeal?.status === FlashDealStatusEnum.OnSale;
+  // Whether current deal is ended
+  const isDealEnded = existingDeal
+    ? existingDeal.status === FlashDealStatusEnum.Closed ||
+      existingDeal.status === FlashDealStatusEnum.Cancelled ||
+      new Date(existingDeal.orderEndTime).getTime() <= Date.now()
+    : false;
+
+  // Whether current deal is already active OnSale
+  const isDealOnSale = isEditMode && existingDeal?.status === FlashDealStatusEnum.OnSale && !isDealEnded;
 
   function parseTimeToMinutes(timeStr: string): number {
     const [h, m] = timeStr.split(":").map(Number);
@@ -101,6 +108,7 @@ export function StoreOwnerFlashDealFormPage() {
     closingTime: string | null | undefined
   ): boolean {
     if (!openingTime || !closingTime) return true;
+    if (openingTime.slice(0, 5) === closingTime.slice(0, 5)) return true; // 00:00 - 00:00 is full day
     const timeMins = parseTimeToMinutes(timeStr);
     const openMins = parseTimeToMinutes(openingTime);
     const closeMins = parseTimeToMinutes(closingTime);
@@ -184,14 +192,30 @@ export function StoreOwnerFlashDealFormPage() {
           const deal = await flashDealApi.getShopFlashDealDetail(id);
           setExistingDeal(deal);
           setSelectedProductId(deal.productId);
-          setSaleMode(deal.status === FlashDealStatusEnum.OnSale ? "immediate" : "scheduled");
 
-          const start = new Date(deal.saleStartTime);
-          const end = new Date(deal.orderEndTime);
-          setStartTime(formatTime(start));
-          setEndTime(formatTime(end));
-          const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
-          setDurationMins(diff > 0 ? diff : 60);
+          const isEnded =
+            deal.status === FlashDealStatusEnum.Closed ||
+            deal.status === FlashDealStatusEnum.Cancelled ||
+            new Date(deal.orderEndTime).getTime() <= Date.now();
+
+          if (isEnded) {
+            setSaleMode("immediate");
+            const now = new Date();
+            const start = new Date(now.getTime() + 15 * 60 * 1000);
+            const end = new Date(now.getTime() + 60 * 60 * 1000);
+            setStartTime(formatTime(start));
+            setEndTime(formatTime(end));
+            setDurationMins(60);
+          } else {
+            setSaleMode(deal.status === FlashDealStatusEnum.OnSale ? "immediate" : "scheduled");
+
+            const start = new Date(deal.saleStartTime);
+            const end = new Date(deal.orderEndTime);
+            setStartTime(formatTime(start));
+            setEndTime(formatTime(end));
+            const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
+            setDurationMins(diff > 0 ? diff : 60);
+          }
 
           const prod = products.find((p) => p.id === deal.productId);
           const existingMap = new Map(deal.variants.map((v) => [v.variantId, v]));
@@ -291,16 +315,21 @@ export function StoreOwnerFlashDealFormPage() {
   // Schedule Summary & Validity
   const scheduleSummary = useMemo(() => {
     const now = new Date();
-    const isImmediate = !isEditMode
+    const isImmediate = (!isEditMode || isDealEnded)
       ? saleMode === "immediate"
       : existingDeal?.status === FlashDealStatusEnum.OnSale;
 
-    const start = isImmediate ? now : getStartTimestamp("scheduled", startTime);
+    const start = isDealOnSale && existingDeal
+      ? new Date(existingDeal.saleStartTime)
+      : (isImmediate ? now : getStartTimestamp("scheduled", startTime));
     const end = getEndTimestamp(start, endTime, durationMins || 60);
 
     const diffMs = end.getTime() - start.getTime();
     const computedDurationMins = Math.round(diffMs / (1000 * 60));
-    const isDurationValid = computedDurationMins >= 30 && computedDurationMins <= 120;
+    // For active OnSale deals: end time must be in future (> now), and total duration <= 120 mins
+    const isDurationValid = isDealOnSale
+      ? end.getTime() > now.getTime() && computedDurationMins <= 120
+      : computedDurationMins >= 30 && computedDurationMins <= 120;
 
     let isAdvanceValid = true;
     let advanceErrorMessage = "";
@@ -319,7 +348,15 @@ export function StoreOwnerFlashDealFormPage() {
 
     let durationErrorMessage = "";
     if (!isDurationValid) {
-      durationErrorMessage = `Deal duration must be between 30 and 120 minutes (currently ${computedDurationMins} mins).`;
+      if (isDealOnSale) {
+        if (end.getTime() <= now.getTime()) {
+          durationErrorMessage = "Order end time must be in the future.";
+        } else if (computedDurationMins > 120) {
+          durationErrorMessage = `Deal duration from start time cannot exceed 120 minutes (currently ${computedDurationMins} mins).`;
+        }
+      } else {
+        durationErrorMessage = `Deal duration must be between 30 and 120 minutes (currently ${computedDurationMins} mins).`;
+      }
     }
 
     let operatingHoursErrorMessage = "";
@@ -363,16 +400,18 @@ export function StoreOwnerFlashDealFormPage() {
       isImmediate,
       isNextDay,
     };
-  }, [startTime, endTime, durationMins, saleMode, isEditMode, isDealOnSale, existingDeal]);
+  }, [startTime, endTime, durationMins, saleMode, isEditMode, isDealOnSale, isDealEnded, existingDeal, shopOperatingHours]);
 
   // Quick duration selection
   function handleSelectDuration(mins: number) {
     setDurationMins(mins);
     const now = new Date();
-    const isImmediate = !isEditMode
+    const isImmediate = (!isEditMode || isDealEnded)
       ? saleMode === "immediate"
       : existingDeal?.status === FlashDealStatusEnum.OnSale;
-    const start = isImmediate ? now : getStartTimestamp("scheduled", startTime);
+    const start = isDealOnSale && existingDeal
+      ? new Date(existingDeal.saleStartTime)
+      : (isImmediate ? now : getStartTimestamp("scheduled", startTime));
     const end = new Date(start.getTime() + mins * 60 * 1000);
     setEndTime(formatTime(end));
   }
@@ -382,10 +421,12 @@ export function StoreOwnerFlashDealFormPage() {
     setEndTime(newEndTime);
     if (!newEndTime) return;
     const now = new Date();
-    const isImmediate = !isEditMode
+    const isImmediate = (!isEditMode || isDealEnded)
       ? saleMode === "immediate"
       : existingDeal?.status === FlashDealStatusEnum.OnSale;
-    const start = isImmediate ? now : getStartTimestamp("scheduled", startTime);
+    const start = isDealOnSale && existingDeal
+      ? new Date(existingDeal.saleStartTime)
+      : (isImmediate ? now : getStartTimestamp("scheduled", startTime));
     const end = getEndTimestamp(start, newEndTime);
     const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
     setDurationMins(diff);
@@ -512,7 +553,7 @@ export function StoreOwnerFlashDealFormPage() {
       return;
     }
 
-    const isImmediate = !isEditMode
+    const isImmediate = (!isEditMode || isDealEnded)
       ? saleMode === "immediate"
       : existingDeal?.status === FlashDealStatusEnum.OnSale;
 
@@ -569,8 +610,12 @@ export function StoreOwnerFlashDealFormPage() {
     try {
       setSubmitting(true);
       if (isEditMode && id) {
+        const payloadStartTime = (isImmediate && isDealEnded)
+          ? new Date().toISOString()
+          : startDateObj.toISOString();
+
         await flashDealApi.updateFlashDeal(id, {
-          saleStartTime: startDateObj.toISOString(),
+          saleStartTime: payloadStartTime,
           orderEndTime: endDateObj.toISOString(),
           shopClosingTime: closingDateObj.toISOString(),
           variants: selectedVariants.map((v) => ({
@@ -580,7 +625,7 @@ export function StoreOwnerFlashDealFormPage() {
             status: v.status ?? FlashDealVariantStatusEnum.Active,
           })),
         });
-        toast.success("Flash deal updated successfully!");
+        toast.success(isDealEnded ? "Flash deal re-opened successfully!" : "Flash deal updated successfully!");
       } else {
         await flashDealApi.createFlashDeal({
           productId: selectedProductId,
@@ -631,10 +676,12 @@ export function StoreOwnerFlashDealFormPage() {
       {/* Title */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
-          {isEditMode ? "Edit Flash Deal" : "Create Flash Deal"}
+          {isDealEnded ? "Re-open Flash Deal" : isEditMode ? "Edit Flash Deal" : "Create Flash Deal"}
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Select a product, configure deal timing, and tick variants to offer special flash prices.
+          {isDealEnded
+            ? "Configure new deal timing and prices to re-open this flash deal for sale."
+            : "Select a product, configure deal timing, and tick variants to offer special flash prices."}
         </p>
       </div>
 
@@ -833,13 +880,13 @@ export function StoreOwnerFlashDealFormPage() {
               {/* Option 1: Sell Immediately */}
               <button
                 type="button"
-                disabled={isEditMode}
+                disabled={isEditMode && !isDealEnded}
                 onClick={() => handleSwitchMode("immediate")}
                 className={`group relative flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all ${
                   saleMode === "immediate"
                     ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
                     : "border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50"
-                } ${isEditMode ? "opacity-75 cursor-not-allowed" : ""}`}
+                } ${isEditMode && !isDealEnded ? "opacity-75 cursor-not-allowed" : ""}`}
               >
                 <div
                   className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
@@ -873,13 +920,13 @@ export function StoreOwnerFlashDealFormPage() {
               {/* Option 2: Schedule for Later */}
               <button
                 type="button"
-                disabled={isEditMode}
+                disabled={isEditMode && !isDealEnded}
                 onClick={() => handleSwitchMode("scheduled")}
                 className={`group relative flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all ${
                   saleMode === "scheduled"
                     ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
                     : "border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50"
-                } ${isEditMode ? "opacity-75 cursor-not-allowed" : ""}`}
+                } ${isEditMode && !isDealEnded ? "opacity-75 cursor-not-allowed" : ""}`}
               >
                 <div
                   className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
@@ -1359,7 +1406,7 @@ export function StoreOwnerFlashDealFormPage() {
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-60"
         >
           {submitting && <Loader2 className="size-3.5 animate-spin" />}
-          <span>Save Flash Deal</span>
+          <span>{isDealEnded ? "Re-open Flash Deal" : "Save Flash Deal"}</span>
         </button>
       </div>
     </form>

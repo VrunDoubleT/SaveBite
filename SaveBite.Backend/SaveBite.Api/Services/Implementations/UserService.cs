@@ -199,22 +199,20 @@ public sealed class UserService : IUserService
             {
                 var newCustomerStatus = request.IsSuspended ? CustomerStatus.Suspended : CustomerStatus.Active;
                 if (user.CustomerStatus == newCustomerStatus)
-                    throw AppException.Conflict($"Customer profile is already {newCustomerStatus.ToString().ToLower()}.");
+                    throw AppException.Conflict($"Customer features are already {newCustomerStatus.ToString().ToLower()}.");
 
                 user.CustomerStatus = newCustomerStatus;
                 LogAccountStatusChange(adminId, targetUserId,
                     request.IsSuspended ? UserStatus.Suspended : UserStatus.Active,
                     AccountStatusLogTarget.Customer, request.Reason, now);
                 LogAudit(adminId, targetUserId,
-                    request.IsSuspended ? "SuspendCustomer" : "ReactivateCustomer",
+                    request.IsSuspended ? "SuspendCustomerFeatures" : "ReactivateCustomerFeatures",
                     request.Reason,
                     JsonSerializer.Serialize(new { CustomerStatus = newCustomerStatus.ToString() }),
                     now);
-                if (request.IsSuspended)
-                    await _refreshTokenService.RevokeAllAsync(targetUserId, "Customer profile suspended by Administrator.", cancellationToken);
-                    await _realtime.SendToUserAsync(targetUserId, "account.locked", new { userId = targetUserId, isCustomerProfile = true, reason = request.Reason });
 
-                _logger.LogInformation("Admin {AdminId} {Action} customer profile for {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
+                // When admin bans customer features, only send notification (do not revoke session or lock out system account)
+                _logger.LogInformation("Admin {AdminId} {Action} customer features for {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
             }
             else
             {
@@ -230,8 +228,10 @@ public sealed class UserService : IUserService
                     JsonSerializer.Serialize(new { Status = newAccountStatus.ToString() }),
                     now);
                 if (request.IsSuspended)
+                {
                     await _refreshTokenService.RevokeAllAsync(targetUserId, "Account suspended by Administrator.", cancellationToken);
                     await _realtime.SendToUserAsync(targetUserId, "account.locked", new { userId = targetUserId, isCustomerProfile = false, reason = request.Reason });
+                }
 
                 _logger.LogInformation("Admin {AdminId} {Action} account {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
             }
@@ -239,10 +239,13 @@ public sealed class UserService : IUserService
             user.UpdatedAt = now;
             await _repository.SaveChangesAsync(cancellationToken);
 
-                await _notifications.EnqueueAsync(NotificationTarget.AccountStatusSubject(targetUserId), new CreateNotificationCommand(
-                    NotificationType.AccountStatusChanged, "Account access updated",
-                    $"An administrator {(request.IsSuspended ? "suspended" : "reactivated")} your {(request.IsCustomerProfile ? "customer profile" : "account")}. Reason: {request.Reason.Trim()}",
-                    "/account/profile", $"account-status:{targetUserId}:{now.Ticks}"), cancellationToken);
+            await _notifications.EnqueueAsync(NotificationTarget.AccountStatusSubject(targetUserId), new CreateNotificationCommand(
+                NotificationType.AccountStatusChanged,
+                request.IsCustomerProfile ? "Cập nhật chức năng khách hàng" : "Account access updated",
+                request.IsCustomerProfile
+                    ? $"Quản trị viên đã {(request.IsSuspended ? "tạm khóa" : "mở lại")} chức năng khách hàng của bạn. Lý do: {request.Reason.Trim()}"
+                    : $"An administrator {(request.IsSuspended ? "suspended" : "reactivated")} your account. Reason: {request.Reason.Trim()}",
+                "/account/profile", $"account-status:{targetUserId}:{now.Ticks}"), cancellationToken);
 
         }, cancellationToken);
     }

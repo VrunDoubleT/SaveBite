@@ -3,6 +3,7 @@ import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import { categoryApi } from "@/features/categories/api/categoryApi";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { useDebounce } from "@/shared/hooks/useDebounce";
+import { useFlashDealRealtime } from "./useFlashDealRealtime";
 import type { DealFilterState, FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
 
@@ -556,6 +557,47 @@ export function useNearbyFlashDeals() {
     if (!isLocationReady) return;
     void fetchInitialDeals();
   }, [isLocationReady, fetchInitialDeals]);
+
+  // Real-time SignalR connection for public updates (deal changes, shop status changes)
+  useFlashDealRealtime("all", undefined, () => {
+    void checkNewerDeals();
+  });
+
+  // Real-time synchronization when admin blocks a store: immediately remove its loaded deals
+  useEffect(() => {
+    const handleShopStatus = (e: Event) => {
+      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
+      const blockedShopId = detail?.shopId?.toLowerCase();
+      if (!blockedShopId) return;
+
+      const isInactive = detail.status !== "Active" || detail.isBlocked;
+      if (isInactive) {
+        setDeals((prev) => {
+          const hasBlocked = prev.some((d) => d.shopId?.toLowerCase() === blockedShopId);
+          if (!hasBlocked) return prev;
+          const next = prev.filter((d) => d.shopId?.toLowerCase() !== blockedShopId);
+          cachedDeals = next;
+          return next;
+        });
+
+        setSelectedShop((prev) => {
+          if (!prev) return null;
+          const wasBlocked = dealsRef.current.some(
+            (d) =>
+              d.shopId?.toLowerCase() === blockedShopId &&
+              d.shopName?.toLowerCase() === prev.toLowerCase(),
+          );
+          return wasBlocked ? null : prev;
+        });
+        setPendingNewDeals((prev) => prev.filter((d) => d.shopId?.toLowerCase() !== blockedShopId));
+      } else {
+        void checkNewerDeals();
+      }
+    };
+
+    window.addEventListener("shop:status-changed", handleShopStatus);
+    return () => window.removeEventListener("shop:status-changed", handleShopStatus);
+  }, [checkNewerDeals]);
 
   // Periodically every 45s check for new deals using Cursor 2
   useEffect(() => {

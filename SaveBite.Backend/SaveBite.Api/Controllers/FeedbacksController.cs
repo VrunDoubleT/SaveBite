@@ -38,8 +38,9 @@ public sealed class FeedbacksController : ControllerBase
     // Upload feedback image (Cloudinary)
     [HttpPost("images")]
     [CustomerAccess]
+    [RequestSizeLimit(6 * 1024 * 1024)]
     public async Task<ActionResult<ApiResponse<string>>> UploadImage(
-        IFormFile file,
+        [FromForm] IFormFile file,
         CancellationToken ct)
     {
         if (file is null || file.Length == 0)

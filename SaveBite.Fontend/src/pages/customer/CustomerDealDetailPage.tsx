@@ -87,6 +87,23 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
     setRevision((value) => value + 1);
   });
 
+  // Real-time synchronization when admin blocks the shop of this deal
+  useEffect(() => {
+    const handleShopStatus = (e: Event) => {
+      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
+      if (detail?.shopId && deal?.shopId && detail.shopId.toLowerCase() === deal.shopId.toLowerCase()) {
+        if (detail.status !== "Active" || detail.isBlocked) {
+          setDeal(null);
+          setError("This flash deal is unavailable because the store has been suspended or is currently inactive.");
+        } else {
+          setRevision((v) => v + 1);
+        }
+      }
+    };
+    window.addEventListener("shop:status-changed", handleShopStatus);
+    return () => window.removeEventListener("shop:status-changed", handleShopStatus);
+  }, [deal?.shopId]);
+
   useEffect(() => {
     if (!id) return;
     let isMounted = true;

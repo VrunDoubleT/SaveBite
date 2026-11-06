@@ -69,7 +69,7 @@ export const feedbackApi = {
       API_ENDPOINTS.FEEDBACKS.IMAGES,
       formData,
       {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: { "Content-Type": undefined },
       },
     );
     return response.data.data;

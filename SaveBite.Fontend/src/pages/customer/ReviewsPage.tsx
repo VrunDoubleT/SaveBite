@@ -25,10 +25,12 @@ export function ReviewsPage() {
   const lastFetchedPage = useRef<number | null>(null);
 
   const fetchReviews = useCallback(
-    async (targetPage = 1, targetFeedbackId?: string) => {
+    async (targetPage = 1, targetFeedbackId?: string, silent = false) => {
       try {
-        setIsLoading(true);
-        setLoadError("");
+        if (!silent) {
+          setIsLoading(true);
+          setLoadError("");
+        }
         const data = await feedbackApi.getHistory(targetPage, pageSize, targetFeedbackId);
         lastFetchedPage.current = data.page;
         setReviews(data.items);
@@ -36,10 +38,14 @@ export function ReviewsPage() {
         setTotalPages(data.totalPages);
         setTotalItems(data.totalItems);
       } catch (error) {
-        setLoadError(getApiErrorMessage(error));
-        toast.error(getApiErrorMessage(error) || "Failed to load your review history.");
+        if (!silent) {
+          setLoadError(getApiErrorMessage(error));
+          toast.error(getApiErrorMessage(error) || "Failed to load your review history.");
+        }
       } finally {
-        setIsLoading(false);
+        if (!silent) {
+          setIsLoading(false);
+        }
       }
     },
     [pageSize],
@@ -60,9 +66,13 @@ export function ReviewsPage() {
 
   // Real-time synchronization when feedback is invalidated or user switches back to this tab
   useEffect(() => {
-    return subscribeFeedbackSync(() => {
+    return subscribeFeedbackSync((detail) => {
+      if (detail?.action === "hide" && detail.feedbackId) {
+        setReviews((prev) => prev.filter((item) => item.id !== detail.feedbackId));
+        setTotalItems((prev) => Math.max(0, prev - 1));
+      }
       lastFetchedPage.current = null;
-      void fetchReviews(page);
+      void fetchReviews(page, undefined, true);
     });
   }, [fetchReviews, page]);
 

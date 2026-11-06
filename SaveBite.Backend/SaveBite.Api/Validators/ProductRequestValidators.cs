@@ -66,11 +66,11 @@ public sealed class CreateProductRequestValidator : AbstractValidator<CreateProd
     public CreateProductRequestValidator(ProductImageFileValidator images,
         CreateProductAttributeRequestValidator attributes, ProductVariantPriceRequestValidator variants)
     {
-        RuleFor(x => x.CategoryId).NotEmpty();
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.CategoryId).NotEmpty().WithMessage("Please select a category.");
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Please enter a product name.").MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(ProductLimits.DescriptionLength);
         RuleFor(x => x.Images).Cascade(CascadeMode.Stop).NotNull()
-            .Must(x => x.Count <= ProductLimits.Images).WithMessage("At most 10 gallery images are allowed.");
+            .Must(x => x.Count is >= 1 and <= ProductLimits.Images).WithMessage("Please provide between 1 and 10 gallery images.");
         RuleForEach(x => x.Images).NotNull().SetValidator(images);
         RuleFor(x => x.Attributes).Cascade(CascadeMode.Stop).NotNull()
             .Must(x => x.Count <= ProductLimits.Attributes).WithMessage("At most 3 attributes are allowed.");
@@ -86,8 +86,8 @@ public sealed class UpdateProductRequestValidator : AbstractValidator<UpdateProd
 {
     public UpdateProductRequestValidator()
     {
-        RuleFor(x => x.CategoryId).NotEmpty();
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.CategoryId).NotEmpty().WithMessage("Please select a category.");
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Please enter a product name.").MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(ProductLimits.DescriptionLength);
     }
 }
@@ -103,6 +103,9 @@ public sealed class UpdateProductImagesRequestValidator : AbstractValidator<Upda
         RuleFor(x => x.Images).Cascade(CascadeMode.Stop).NotNull()
             .Must(x => x.Count <= ProductLimits.Images).WithMessage("At most 10 gallery images are allowed.");
         RuleForEach(x => x.Images).NotNull().SetValidator(images);
+        RuleFor(x => x)
+            .Must(x => x.RetainedImageIds.Count + x.Images.Count is >= 1 and <= ProductLimits.Images)
+            .WithMessage("Product must have between 1 and 10 gallery images.");
     }
 }
 

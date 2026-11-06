@@ -1,5 +1,6 @@
 import { useAuthStore } from "@/shared/stores/authStore";
 import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
+import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 import { ShopFollowControls } from "@/features/shop-follows/components/ShopFollowControls";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
@@ -87,7 +88,68 @@ function ShopContent({ shopId }: { shopId: string }) {
   const dealRealtimeStatus = useFlashDealRealtime("shop", shopId, () => {
     setIsDealsLoading(true);
     setDealsAttempt((value) => value + 1);
+    setProfileAttempt((value) => value + 1);
+    setReviewsAttempt((value) => value + 1);
   });
+
+  // Real-time synchronization when admin hides feedback: update reviews and star rating immediately
+  useEffect(() => {
+    return subscribeFeedbackSync((detail) => {
+      if (!detail?.shopId || detail.shopId.toLowerCase() === shopId.toLowerCase()) {
+        if (detail?.action === "hide" && detail.feedbackId) {
+          setReviewsSummary((prev) => {
+            if (!prev) return prev;
+            const target = prev.reviews.items.find((r) => r.id === detail.feedbackId);
+            const rating = detail.rating ?? target?.rating;
+            const updatedItems = prev.reviews.items.filter((r) => r.id !== detail.feedbackId);
+            const newTotal = Math.max(0, prev.totalReviews - 1);
+            const breakdown = { ...prev.ratingBreakdown };
+            if (rating && breakdown[rating]) {
+              breakdown[rating] = Math.max(0, breakdown[rating] - 1);
+            }
+            let sumRating = 0;
+            let sumCount = 0;
+            for (let s = 1; s <= 5; s++) {
+              const c = breakdown[s] ?? 0;
+              sumRating += s * c;
+              sumCount += c;
+            }
+            const newAvg = sumCount > 0 ? sumRating / sumCount : 0;
+            return {
+              ...prev,
+              averageRating: newAvg,
+              totalReviews: newTotal,
+              ratingBreakdown: breakdown,
+              reviews: {
+                ...prev.reviews,
+                items: updatedItems,
+                totalItems: Math.max(0, prev.reviews.totalItems - 1),
+              },
+            };
+          });
+        }
+        setReviewsAttempt((v) => v + 1);
+        setProfileAttempt((v) => v + 1);
+      }
+    });
+  }, [shopId]);
+
+  // Real-time synchronization when admin blocks/locks this store
+  useEffect(() => {
+    const handleShopStatus = (e: Event) => {
+      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
+      if (detail?.shopId && detail.shopId.toLowerCase() === shopId.toLowerCase()) {
+        if (detail.status !== "Active" || detail.isBlocked) {
+          setProfile(null);
+          setDeals([]);
+        }
+        setProfileAttempt((v) => v + 1);
+        setDealsAttempt((v) => v + 1);
+      }
+    };
+    window.addEventListener("shop:status-changed", handleShopStatus);
+    return () => window.removeEventListener("shop:status-changed", handleShopStatus);
+  }, [shopId]);
 
   useEffect(() => {
     let active = true;
@@ -239,7 +301,9 @@ function ShopContent({ shopId }: { shopId: string }) {
     );
   const operatingHours =
     profile.openingTime && profile.closingTime
-      ? `${profile.openingTime.slice(0, 5)} – ${profile.closingTime.slice(0, 5)}`
+      ? (profile.openingTime.slice(0, 5) === profile.closingTime.slice(0, 5)
+          ? "00:00 – 00:00 (Mở cả ngày / 24/7)"
+          : `${profile.openingTime.slice(0, 5)} – ${profile.closingTime.slice(0, 5)}`)
       : "Opening hours not provided";
   const averageRating = reviewsSummary?.averageRating ?? profile.averageRating;
   const totalReviewsCount = reviewsSummary?.totalReviews ?? profile.totalReviews;

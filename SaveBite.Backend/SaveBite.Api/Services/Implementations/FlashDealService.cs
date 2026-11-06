@@ -1042,6 +1042,7 @@ public sealed class FlashDealService : IFlashDealService
 
     private static bool IsWithinOperatingHours(TimeOnly opening, TimeOnly closing, TimeOnly time)
     {
+        if (opening == closing) return true;
         return opening <= closing
             ? time >= opening && time <= closing
             : time >= opening || time <= closing;

@@ -250,31 +250,43 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
     setError("");
   }
 
-  function addDocument(type: ShopDocumentType, file?: File) {
-    if (!file) return;
+  function addDocuments(type: ShopDocumentType, files: File[]) {
+    if (!files || files.length === 0) return;
 
     setDocuments((current) => {
-      const filtered = current.filter((document) => document.type !== type);
-
-      return [
-        ...filtered,
-        {
-          type,
-          file,
-        },
-      ];
+      if (type === "Other") {
+        const remainingSlots = 10 - current.length;
+        if (remainingSlots <= 0) {
+          setFieldErrors((prev) => ({ ...prev, documents: "You can upload up to 10 documents in total." }));
+          return current;
+        }
+        const filesToAdd = files.slice(0, remainingSlots);
+        if (files.length > remainingSlots) {
+          setFieldErrors((prev) => ({ ...prev, documents: `Only ${remainingSlots} more document(s) could be added (max 10 total).` }));
+        } else {
+          setFieldErrors((prev) => ({ ...prev, documents: undefined }));
+        }
+        return [
+          ...current,
+          ...filesToAdd.map((file) => ({ type, file })),
+        ];
+      } else {
+        // BusinessLicense or FoodSafetyCertificate: replace previous of same type
+        const filtered = current.filter((document) => document.type !== type);
+        if (filtered.length >= 10) {
+          setFieldErrors((prev) => ({ ...prev, documents: "You can upload up to 10 documents in total." }));
+          return current;
+        }
+        setFieldErrors((prev) => ({ ...prev, documents: undefined }));
+        return [...filtered, { type, file: files[0] }];
+      }
     });
-
-    setFieldErrors((current) => ({
-      ...current,
-      documents: undefined,
-    }));
 
     setError("");
   }
 
-  function removeDocument(type: ShopDocumentType) {
-    setDocuments((current) => current.filter((document) => document.type !== type));
+  function removeDocument(indexToRemove: number) {
+    setDocuments((current) => current.filter((_, index) => index !== indexToRemove));
     setFieldErrors((current) => ({
       ...current,
       documents: undefined,
@@ -612,14 +624,16 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
 
             {documents.length > 0 && (
               <div className="mb-5">
-                <p className="mb-2 text-sm font-medium text-text-primary">Ready to upload</p>
+                <p className="mb-2 text-sm font-medium text-text-primary">
+                  Ready to upload ({documents.length}/10)
+                </p>
 
                 <div className="space-y-2">
-                  {documents.map((document) => (
+                  {documents.map((document, index) => (
                     <NewDocument
-                      key={document.type}
+                      key={`${document.type}-${document.file.name}-${index}`}
                       document={document}
-                      onRemove={() => removeDocument(document.type)}
+                      onRemove={() => removeDocument(index)}
                     />
                   ))}
                 </div>
@@ -632,7 +646,7 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
               </p>
             )}
 
-            <DocumentUploader onAdd={addDocument} />
+            <DocumentUploader onAdd={addDocuments} />
           </Section>
 
           {/* PayOS */}
@@ -1031,7 +1045,7 @@ function NewDocument({
   );
 }
 
-function DocumentUploader({ onAdd }: { onAdd: (type: ShopDocumentType, file?: File) => void }) {
+function DocumentUploader({ onAdd }: { onAdd: (type: ShopDocumentType, files: File[]) => void }) {
   const [type, setType] = useState<ShopDocumentType>("BusinessLicense");
 
   return (
@@ -1052,16 +1066,16 @@ function DocumentUploader({ onAdd }: { onAdd: (type: ShopDocumentType, file?: Fi
           className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-primary-200 bg-bg-surface px-4 py-2.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50 ${focusRing}`}
         >
           <Upload size={16} />
-          Choose file
+          {type === "Other" ? "Choose file(s)" : "Choose file"}
           <input
             type="file"
+            multiple={type === "Other"}
             accept="application/pdf,image/jpeg,image/png,image/webp"
             className="sr-only"
             onChange={(event) => {
-              const file = event.target.files?.[0];
-
-              if (file) {
-                onAdd(type, file);
+              const fileList = event.target.files;
+              if (fileList && fileList.length > 0) {
+                onAdd(type, Array.from(fileList));
               }
 
               event.currentTarget.value = "";
@@ -1071,7 +1085,7 @@ function DocumentUploader({ onAdd }: { onAdd: (type: ShopDocumentType, file?: Fi
       </div>
 
       <p className="mt-3 text-xs text-text-secondary">
-        PDF, JPG, PNG or WebP. Choosing the same document type again replaces the previous file.
+        PDF, JPG, PNG or WebP. Tối đa 10 tài liệu cho tất cả các loại. Với "Other document", bạn có thể chọn nhiều file.
       </p>
     </div>
   );

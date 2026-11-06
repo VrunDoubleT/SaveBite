@@ -38,4 +38,7 @@ public static class RealtimeEvents
     public const string NotificationReceived = "notification.received";
     public const string NotificationRead = "notification.read";
     public const string NotificationDeleted = "notification.deleted";
+
+    // Moderation & store status
+    public const string FeedbackChanged = "feedback.changed";
 }
