@@ -32,11 +32,6 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
             <tr key={u.id} className="hover:bg-neutral-50/50 transition-colors">
               {/* User Profile */}
               <td className="px-6 py-4">
-<<<<<<< HEAD
-                <div className="flex items-center gap-3 min-w-0">
-                  <UserAvatar avatarUrl={u.avatarUrl} fullName={u.fullName} />
-
-=======
                 <div className="flex items-center gap-3">
                   <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-100 text-xs font-bold text-neutral-600">
                     {u.avatarUrl ? (
@@ -45,7 +40,6 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
                       <span>{(u.fullName || "U").charAt(0).toUpperCase()}</span>
                     )}
                   </div>
->>>>>>> origin/fix-04
                   <div className="min-w-0">
                     <p className="font-semibold text-text-primary truncate">{u.fullName}</p>
                     <p className="text-xs text-text-muted mt-0.5 truncate">{u.email}</p>
@@ -87,17 +81,10 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
                       <button
                         onClick={() => onAction(u, false)}
                         title={`${u.status === "Active" ? "Suspend" : "Reactivate"} System Account`}
-<<<<<<< HEAD
-                        className={`p-1.5 rounded transition ${
-                          u.status === "Active"
-                            ? "text-neutral-500 hover:text-danger hover:bg-red-50"
-                            : "text-danger hover:text-primary-600 hover:bg-primary-50"
-=======
                         className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold shadow-2xs transition ${
                           u.status === "Active"
                             ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
                             : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
->>>>>>> origin/fix-04
                         }`}
                       >
                         <Shield className="size-3.5" />
@@ -107,17 +94,10 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
                       <button
                         onClick={() => onAction(u, true)}
                         title={`${u.customerStatus === "Active" ? "Suspend" : "Reactivate"} Customer Profile`}
-<<<<<<< HEAD
-                        className={`p-1.5 rounded transition ${
-                          u.customerStatus === "Active"
-                            ? "text-neutral-500 hover:text-danger hover:bg-red-50"
-                            : "text-danger hover:text-primary-600 hover:bg-primary-50"
-=======
                         className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold shadow-2xs transition ${
                           u.customerStatus === "Active"
                             ? "border-red-200 bg-red-50 text-red-800 hover:bg-red-100"
                             : "border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100"
->>>>>>> origin/fix-04
                         }`}
                       >
                         <ShoppingBag className="size-3.5" />

@@ -320,13 +320,6 @@ export function StoreOwnerFlashDealFormPage() {
       durationErrorMessage = `Deal duration must be between 30 and 120 minutes (currently ${computedDurationMins} mins).`;
     }
 
-<<<<<<< HEAD
-    const isValid = diffMs > 0 && isDurationValid && isAdvanceValid;
-    const errorMessage =
-      advanceErrorMessage ||
-      durationErrorMessage ||
-      (diffMs <= 0 ? "End time must be after start time." : "");
-=======
     let operatingHoursErrorMessage = "";
     if (shopOperatingHours?.openingTime && shopOperatingHours?.closingTime) {
       const startHM = formatTime(start);
@@ -341,7 +334,6 @@ export function StoreOwnerFlashDealFormPage() {
 
     const isValid = diffMs > 0 && isDurationValid && isAdvanceValid && !operatingHoursErrorMessage;
     const errorMessage = advanceErrorMessage || durationErrorMessage || operatingHoursErrorMessage || (diffMs <= 0 ? "End time must be after start time." : "");
->>>>>>> origin/fix-04
 
     const hours = Math.floor(computedDurationMins / 60);
     const minutes = computedDurationMins % 60;

@@ -830,15 +830,6 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                   </Link>
                 </h2>
               </div>
-<<<<<<< HEAD
-              <div className="w-full max-w-64">
-                <ShopFollowControls
-                  compact
-                  shopId={deal.shopId}
-                  shopName={deal.shopName}
-                  ownerUserId={deal.shopOwnerUserId}
-                />
-=======
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   to={`/shops/${deal.shopId}`}
@@ -850,7 +841,6 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                 <div className="w-full max-w-48 sm:w-auto">
                   <ShopFollowControls compact shopId={deal.shopId} shopName={deal.shopName} />
                 </div>
->>>>>>> origin/fix-04
               </div>
             </div>
           </div>
