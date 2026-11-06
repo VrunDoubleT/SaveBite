@@ -29,7 +29,7 @@ public sealed class TrustOrderRepository : ITrustOrderRepository
     // Read the idempotency receipt independently of whether an earning or penalty rule existed.
     public async Task<bool> IsProcessedAsync(Guid orderId, CancellationToken ct)
         => await _db.Set<TrustOrderProcessing>().AnyAsync(x => x.OrderId == orderId, ct)
-            || await _db.TrustScoreHistories.AnyAsync(x => x.OrderId == orderId, ct)
+            || await _db.TrustProgressHistories.AnyAsync(x => x.OrderId == orderId, ct)
             || await _db.NoShowPenalties.AnyAsync(x => x.OrderId == orderId, ct);
     public Task<UserTrustScore?> ScoreAsync(Guid userId, CancellationToken ct)
         => _db.UserTrustScores.SingleOrDefaultAsync(x => x.UserId == userId, ct);

@@ -118,9 +118,12 @@ public sealed class TrustScoreService : ITrustScoreService
 
         var items = paged.Items.Select(history =>
         {
-            var expectedReason = history.EventType == TrustScoreEventType.NoShow
-                ? TrustLevelChangeReason.NoShowPenalty
-                : TrustLevelChangeReason.RequirementsMet;
+            var expectedReason = history.EventType switch
+            {
+                TrustScoreEventType.NoShow => TrustLevelChangeReason.NoShowPenalty,
+                TrustScoreEventType.RefundReclaimed => TrustLevelChangeReason.RefundTransferred,
+                _ => TrustLevelChangeReason.RequirementsMet
+            };
             var change = history.OrderId is null
                 ? null
                 : levelChanges.LastOrDefault(l => l.OrderId == history.OrderId && l.Reason == expectedReason);
@@ -136,7 +139,10 @@ public sealed class TrustScoreService : ITrustScoreService
                 history.Order?.OrderCode,
                 history.CreatedAt,
                 change?.PreviousTrustLevel?.Name,
-                change?.NewTrustLevel?.Name);
+                change?.NewTrustLevel?.Name,
+                history.ValueBefore,
+                history.ValueDelta,
+                history.ValueAfter);
         }).ToList();
 
         return PagedResult<TrustScoreHistoryItemResponse>.Create(items, paged.Page, paged.PageSize, paged.TotalItems);
@@ -248,7 +254,7 @@ public sealed class TrustScoreService : ITrustScoreService
 
     private static PenaltyItemResponse ToPenaltyItem(NoShowPenalty penalty)
     {
-        var reason = penalty.TrustScoreHistories
+        var reason = penalty.TrustProgressHistories
             .Where(h => h.EventType == TrustScoreEventType.NoShow && !string.IsNullOrWhiteSpace(h.Reason))
             .OrderBy(h => h.CreatedAt)
             .Select(h => h.Reason)

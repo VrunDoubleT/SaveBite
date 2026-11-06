@@ -2,7 +2,8 @@ using SaveBite.Backend.Models.Enums;
 
 namespace SaveBite.Backend.Models.Entities;
 
-public class TrustScoreHistory
+// Unified progress ledger of a customer: one row per change of trust score and/or accumulated order value.
+public class TrustProgressHistory
 {
     public Guid Id { get; set; }
 
@@ -21,6 +22,13 @@ public class TrustScoreHistory
     public int ScoreDelta { get; set; }
 
     public int ScoreAfter { get; set; }
+
+    // Accumulated order value (money) before / change / after this event, same idea as the score columns.
+    public decimal ValueBefore { get; set; }
+
+    public decimal ValueDelta { get; set; }
+
+    public decimal ValueAfter { get; set; }
 
     public string? Reason { get; set; }
 

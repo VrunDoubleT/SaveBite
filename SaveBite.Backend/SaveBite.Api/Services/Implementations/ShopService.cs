@@ -24,14 +24,17 @@ public sealed class ShopService : IShopService
     private readonly IUserAddressRepository _userAddressRepository;
     private readonly ICloudinaryService _cloudinaryService;
     private readonly IAdminAuditWriter _audit;
+    private readonly IRealtimePublisher _realtime;
 
     public ShopService(
         IShopRepository shopRepository,
         IUserAddressRepository userAddressRepository,
         ICloudinaryService cloudinaryService,
         IAdminAuditWriter audit,
-        INotificationQueue notifications, AppDbContext db)
+        INotificationQueue notifications, AppDbContext db,
+        IRealtimePublisher realtime)
     {
+        _realtime = realtime;
         _db = db;
         _notifications = notifications;
         _shopRepository = shopRepository;
@@ -558,6 +561,16 @@ public sealed class ShopService : IShopService
             $"{shop.Name}: {currentStatus} → {targetStatus}." + (string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}"),
             "/store-owner/profile", $"shop-status:{auditEntry.Id}"), ct);
         await transaction.CommitAsync(ct);
+
+        // Realtime: tell the shop owner's open tabs to reload the shop (status / reason) without a page refresh.
+        // Sent only after the commit so the client always reads the new status; failures are swallowed by the publisher.
+        await _realtime.SendToUserAsync(shop.OwnerUserId, "shop.status.changed", new
+        {
+            shopId,
+            previousStatus = currentStatus.ToString(),
+            status = targetStatus.ToString(),
+            reason
+        });
 
         return new ModerationActionResponse
         {

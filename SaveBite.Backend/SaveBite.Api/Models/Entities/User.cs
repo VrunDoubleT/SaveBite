@@ -32,7 +32,7 @@ public class User
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public ICollection<NoShowPenalty> NoShowPenalties { get; set; } = new List<NoShowPenalty>();
-    public ICollection<TrustScoreHistory> TrustScoreHistories { get; set; } = new List<TrustScoreHistory>();
+    public ICollection<TrustProgressHistory> TrustProgressHistories { get; set; } = new List<TrustProgressHistory>();
     public ICollection<UserTrustLevelHistory> TrustLevelHistories { get; set; } = new List<UserTrustLevelHistory>();
     public ICollection<UserRoleChangeLog> RoleChangeLogs { get; set; } = new List<UserRoleChangeLog>();
     public Shop? OwnedShop { get; set; }

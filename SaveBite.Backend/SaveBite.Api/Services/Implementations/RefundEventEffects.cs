@@ -79,7 +79,7 @@ public sealed class RefundEventEffects(AppDbContext db, TimeProvider clock, ITru
             var receipt = await db.Set<TrustOrderProcessing>().SingleOrDefaultAsync(p => p.OrderId == orderId, ct);
             if (order.Status == OrderStatus.Completed)
             {
-                if (receipt == null && await db.TrustScoreHistories.AnyAsync(h => h.OrderId == orderId && h.EventType == TrustScoreEventType.OrderCompleted, ct))
+                if (receipt == null && await db.TrustProgressHistories.AnyAsync(h => h.OrderId == orderId && h.EventType == TrustScoreEventType.OrderCompleted, ct))
                 {
                     receipt = new TrustOrderProcessing { OrderId = orderId, ProcessedAt = now,
                         CreditedOrderValue = Math.Max(0, order.TotalAmount - order.Refunds.Where(f => f.Id != refundId && f.AccumulatedValueReclaimedAt != null).Sum(f => f.TransferredAmount)) };
@@ -95,8 +95,16 @@ public sealed class RefundEventEffects(AppDbContext db, TimeProvider clock, ITru
                         var score = await db.UserTrustScores.SingleAsync(p => p.UserId == order.CustomerId, ct);
                         var levels = await db.TrustLevels.Include(l => l.Requirement).Where(l => l.IsActive).OrderBy(l => l.Rank).ToListAsync(ct);
                         if (levels.Count == 0) throw new InvalidOperationException("Active trust levels are required.");
+                        var valueBefore = progress.AccumulatedOrderValue;
                         progress.AccumulatedOrderValue = Math.Max(0, progress.AccumulatedOrderValue - reclaim);
                         progress.UpdatedAt = now;
+                        // Ledger row: score is unchanged, only the accumulated money goes down.
+                        db.Add(new TrustProgressHistory { Id = Guid.NewGuid(), UserId = order.CustomerId, OrderId = order.Id,
+                            EventType = TrustScoreEventType.RefundReclaimed,
+                            ScoreBefore = score.CurrentScore, ScoreDelta = 0, ScoreAfter = score.CurrentScore,
+                            ValueBefore = valueBefore, ValueDelta = progress.AccumulatedOrderValue - valueBefore,
+                            ValueAfter = progress.AccumulatedOrderValue,
+                            Reason = $"Refund on order {order.OrderCode} reclaimed accumulated order value.", CreatedAt = now });
                         receipt.CreditedOrderValue -= reclaim;
                         var level = levels.Where(l => l.Requirement != null && l.Requirement.MinScore <= score.CurrentScore
                             && l.Requirement.MinCompletedOrders <= progress.CompletedOrdersCount

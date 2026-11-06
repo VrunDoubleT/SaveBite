@@ -4,12 +4,12 @@ using SaveBite.Backend.Models.Entities;
 
 namespace SaveBite.Backend.Data.Configurations;
 
-public class TrustScoreHistoryConfiguration
-    : IEntityTypeConfiguration<TrustScoreHistory>
+public class TrustProgressHistoryConfiguration
+    : IEntityTypeConfiguration<TrustProgressHistory>
 {
-    public void Configure(EntityTypeBuilder<TrustScoreHistory> builder)
+    public void Configure(EntityTypeBuilder<TrustProgressHistory> builder)
     {
-        builder.ToTable("trust_score_history");
+        builder.ToTable("trust_progress_history");
 
         builder.HasKey(x => x.Id);
 
@@ -48,6 +48,24 @@ public class TrustScoreHistoryConfiguration
             .HasColumnName("score_after")
             .IsRequired();
 
+        builder.Property(x => x.ValueBefore)
+            .HasColumnName("value_before")
+            .HasPrecision(12, 2)
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(x => x.ValueDelta)
+            .HasColumnName("value_delta")
+            .HasPrecision(12, 2)
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(x => x.ValueAfter)
+            .HasColumnName("value_after")
+            .HasPrecision(12, 2)
+            .HasDefaultValue(0m)
+            .IsRequired();
+
         builder.Property(x => x.Reason)
             .HasColumnName("reason")
             .HasColumnType("text");
@@ -58,12 +76,12 @@ public class TrustScoreHistoryConfiguration
             .IsRequired();
 
         builder.HasOne(x => x.User)
-            .WithMany(x => x.TrustScoreHistories)
+            .WithMany(x => x.TrustProgressHistories)
             .HasForeignKey(x => x.UserId)
             .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasOne(x => x.Order)
-            .WithMany(x => x.TrustScoreHistories)
+            .WithMany(x => x.TrustProgressHistories)
             .HasForeignKey(x => x.OrderId)
             .OnDelete(DeleteBehavior.NoAction);
 
@@ -73,7 +91,7 @@ public class TrustScoreHistoryConfiguration
             .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasOne(x => x.NoShowPenalty)
-            .WithMany(x => x.TrustScoreHistories)
+            .WithMany(x => x.TrustProgressHistories)
             .HasForeignKey(x => x.NoShowPenaltyId)
             .OnDelete(DeleteBehavior.NoAction);
     }
