@@ -255,17 +255,28 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
               </Card>
               <Card padding="none" aria-label="Shop and ordered products" className="overflow-hidden">
                 <header className="flex items-center gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
-                  <MediaImage
-                    src={order.shopLogoUrl}
-                    alt={order.shopName}
-                    fallbackIcon={Store}
-                    showFallbackLabel={false}
-                    className="size-10 shrink-0 rounded-md"
-                  />
+                  <Link
+                    to={APP_PATHS.SHOP_DETAIL.replace(":id", encodeURIComponent(order.shopId))}
+                    className="shrink-0 transition-opacity hover:opacity-80"
+                    aria-label={`Visit ${order.shopName}`}
+                  >
+                    <MediaImage
+                      src={order.shopLogoUrl}
+                      alt={order.shopName}
+                      fallbackIcon={Store}
+                      showFallbackLabel={false}
+                      className="size-10 shrink-0 rounded-md cursor-pointer"
+                    />
+                  </Link>
                   <div className="min-w-0">
                     <p className="text-caption font-medium text-text-secondary">Pickup shop</p>
                     <h2 className="mt-0.5 break-words text-section font-bold text-text-primary">
-                      {order.shopName}
+                      <Link
+                        to={APP_PATHS.SHOP_DETAIL.replace(":id", encodeURIComponent(order.shopId))}
+                        className="transition-colors hover:text-primary-700 hover:underline cursor-pointer"
+                      >
+                        {order.shopName}
+                      </Link>
                     </h2>
                     {order.shopAddress && (
                       <p className="mt-1 flex items-start gap-1.5 text-caption text-text-secondary">

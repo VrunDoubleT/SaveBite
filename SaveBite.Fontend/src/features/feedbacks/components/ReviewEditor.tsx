@@ -129,14 +129,21 @@ export function ReviewEditor({
                 const files = event.target.files;
                 if (!files || files.length === 0) return;
                 const remainingSlots = 5 - images.length;
+                if (remainingSlots <= 0) {
+                  setPhotoWarning({
+                    isOpen: true,
+                    selectedCount: files.length,
+                    maxAllowed: 0,
+                  });
+                  if (input.current) input.current.value = "";
+                  return;
+                }
                 if (files.length > remainingSlots) {
                   setPhotoWarning({
                     isOpen: true,
                     selectedCount: files.length,
-                    maxAllowed: Math.max(0, remainingSlots),
+                    maxAllowed: remainingSlots,
                   });
-                  if (input.current) input.current.value = "";
-                  return;
                 }
                 void onUpload(files).finally(() => {
                   if (input.current) input.current.value = "";

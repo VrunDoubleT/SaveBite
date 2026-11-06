@@ -93,8 +93,14 @@ public sealed class UpdateBusinessInfoRequestValidator : AbstractValidator<Updat
         RuleFor(x => x.Longitude).InclusiveBetween(-180d, 180d).WithMessage("Longitude must be between -180 and 180.");
 
         RuleFor(x => x.ClosingTime)
+<<<<<<< Updated upstream
             .Must((request, closing) => !request.OpeningTime.HasValue || !closing.HasValue || closing.Value > request.OpeningTime.Value)
             .WithMessage("Closing time must be later than opening time.");
+=======
+            .NotEqual(x => x.OpeningTime)
+            .When(x => x.OpeningTime.HasValue && x.ClosingTime.HasValue && !(x.OpeningTime.Value == TimeOnly.MinValue && x.ClosingTime.Value == TimeOnly.MinValue))
+            .WithMessage("Giờ mở cửa và giờ đóng cửa không được trùng nhau (trừ trường hợp 00:00 - 00:00 mở cả ngày).");
+>>>>>>> Stashed changes
     }
 }
 

@@ -265,29 +265,30 @@ export function StoreOwnerFlashDealDetailPage() {
                   <span>Hide Deal</span>
                 </button>
               )}
-
-              {/* Edit button */}
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id))
-                }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50"
-              >
-                <Edit2 className="size-3.5" />
-                <span>Edit</span>
-              </button>
-
-              {/* Cancel deal button */}
-              <button
-                type="button"
-                onClick={() => setIsCancelModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/50 px-3 py-2 text-xs font-semibold text-red-600 shadow-2xs transition hover:bg-red-100/60"
-              >
-                <XCircle className="size-3.5" />
-                <span>Cancel Deal</span>
-              </button>
             </>
+          )}
+
+          {/* Edit button - always available even when deal has ended so store owner can edit sale time to reopen */}
+          <button
+            type="button"
+            onClick={() =>
+              navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id))
+            }
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50"
+          >
+            <Edit2 className="size-3.5" />
+            <span>{isCancelled ? "Edit / Re-open" : "Edit"}</span>
+          </button>
+
+          {!isCancelled && (
+            <button
+              type="button"
+              onClick={() => setIsCancelModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/50 px-3 py-2 text-xs font-semibold text-red-600 shadow-2xs transition hover:bg-red-100/60"
+            >
+              <XCircle className="size-3.5" />
+              <span>Cancel Deal</span>
+            </button>
           )}
         </div>
       </div>

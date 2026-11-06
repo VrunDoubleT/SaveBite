@@ -57,13 +57,14 @@ export function validateAttributes(drafts: DraftAttribute[], existing: ProductAt
     return "Attribute names must contain 1–100 characters.";
   if (new Set(names).size !== names.length) return "Attribute names must be unique.";
   for (const a of drafts) {
+    const attrName = a.name.trim() || "attribute";
     const old = existing.find((x) => x.id === a.id)?.values ?? [];
     const values = [...old, ...a.values].map((v) => v.value.trim().toLocaleLowerCase("vi"));
     if (!values.length || values.length > LIMITS.values)
-      return `Attribute ${a.name} needs 1–20 values.`;
+      return `Attribute "${attrName}" needs 1–20 values.`;
     if (values.some((v) => !v || v.length > 100))
-      return `Values for ${a.name} must contain 1–100 characters.`;
-    if (new Set(values).size !== values.length) return `Values for ${a.name} must be unique.`;
+      return `Values for "${attrName}" must contain 1–100 characters.`;
+    if (new Set(values).size !== values.length) return `Values for "${attrName}" must be unique.`;
   }
   return "";
 }
@@ -71,12 +72,27 @@ export function validatePrices(rows: Combination[], prices: PriceMap) {
   if (!rows.length) return "Add attribute values to create variants.";
   for (const row of rows) {
     const p = prices[row.key];
+<<<<<<< Updated upstream
     if (!p || !/^\d+(\.\d{1,2})?$/.test(p.originalPrice) || !/^\d+(\.\d{1,2})?$/.test(p.dealPrice))
       return `Enter both prices with up to 2 decimal places for ${row.label}.`;
     const original = Number(p.originalPrice),
       deal = Number(p.dealPrice);
     if (original <= 0 || original >= 10_000_000_000 || deal < 0 || deal >= original)
       return `Original price must be positive and deal price must be lower for ${row.label}.`;
+=======
+    if (!p || !p.originalPrice?.trim() || !p.dealPrice?.trim())
+      return `Please enter both original price and deal price for ${row.label}.`;
+    if (!/^\d+$/.test(p.originalPrice.trim()) || !/^\d+$/.test(p.dealPrice.trim()))
+      return `Enter both prices as whole VND amounts for ${row.label}.`;
+    const original = Number(p.originalPrice),
+      deal = Number(p.dealPrice);
+    if (original < MIN_AMOUNT_VND || deal < MIN_AMOUNT_VND)
+      return `Prices must be at least ${MIN_AMOUNT_TEXT} VND for ${row.label}.`;
+    if (original >= 10_000_000_000 || deal >= 10_000_000_000)
+      return `Prices must be less than 10,000,000,000 VND for ${row.label}.`;
+    if (deal >= original)
+      return `Deal price must be lower than original price for ${row.label}.`;
+>>>>>>> Stashed changes
   }
   return "";
 }

@@ -165,6 +165,8 @@ public sealed class ProductService : IProductService
         var product = await RequireProductAsync(userId, productId, false, ct);
         if (request.RetainedImageIds.Count + request.Images.Count > ProductLimits.Images)
             throw AppException.BadRequest("At most 10 gallery images are allowed.");
+        if (request.RetainedImageIds.Count + request.Images.Count < 1)
+            throw AppException.BadRequest("Product must have at least 1 gallery image.");
         var existing = product.Images.ToDictionary(x => x.Id);
         if (request.RetainedImageIds.Any(id => !existing.ContainsKey(id)))
             throw AppException.BadRequest("Every retained image must belong to this product.");

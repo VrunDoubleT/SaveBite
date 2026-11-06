@@ -274,16 +274,27 @@ function CustomerOrders({
           >
             <header className="space-y-4 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
               <div className="flex items-start gap-3">
-                <MediaImage
-                  src={order.shopLogoUrl}
-                  alt=""
-                  fallbackIcon={Store}
-                  showFallbackLabel={false}
-                  className="size-10 shrink-0 rounded-md"
-                />
+                <Link
+                  to={APP_PATHS.SHOP_DETAIL.replace(":id", encodeURIComponent(order.shopId))}
+                  className="shrink-0 transition-opacity hover:opacity-80"
+                  aria-label={`Visit ${order.shopName}`}
+                >
+                  <MediaImage
+                    src={order.shopLogoUrl}
+                    alt={order.shopName}
+                    fallbackIcon={Store}
+                    showFallbackLabel={false}
+                    className="size-10 shrink-0 rounded-md cursor-pointer"
+                  />
+                </Link>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
-                    {order.shopName}
+                    <Link
+                      to={APP_PATHS.SHOP_DETAIL.replace(":id", encodeURIComponent(order.shopId))}
+                      className="transition-colors hover:text-primary-700 hover:underline cursor-pointer"
+                    >
+                      {order.shopName}
+                    </Link>
                   </h2>
                   {order.shopAddress && (
                     <p className="mt-1 flex items-start gap-1 text-caption text-text-secondary">

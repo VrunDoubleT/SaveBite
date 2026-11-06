@@ -7,6 +7,8 @@ import { createRealtimeClient } from "@/shared/realtime/realtimeClient";
 import { subscribeCartEvents } from "@/features/cart/realtime/subscribeCartEvents";
 import { subscribeNotificationEvents } from "@/features/notifications/realtime/subscribeNotificationEvents";
 import { useNotificationStore } from "@/features/notifications/stores/notificationStore";
+import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
+import { emitFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 
 // Own the connection at session level instead of starting a socket in each page or header.
 export function RealtimeProvider({ children }: PropsWithChildren) {
@@ -20,8 +22,19 @@ export function RealtimeProvider({ children }: PropsWithChildren) {
     const detach = subscriptions.attach(client);
     const unsubscribeCart = customerActive ? subscribeCartEvents(client) : () => {};
     const unsubscribeNotifications = subscribeNotificationEvents(client);
+    const unsubscribeFeedback = client.on(REALTIME_EVENTS.FEEDBACK_CHANGED, (event) => {
+      const data = event.data as { feedbackId?: string; action?: string; shopId?: string; rating?: number };
+      if (data) {
+        emitFeedbackSync(data.action ?? "hide", data.feedbackId, data);
+      }
+    });
+    const unsubscribeShopStatus = client.on(REALTIME_EVENTS.SHOP_STATUS_CHANGED, (event) => {
+      window.dispatchEvent(new CustomEvent("shop:status-changed", { detail: event.data }));
+    });
     void client.start();
     return () => {
+      unsubscribeShopStatus();
+      unsubscribeFeedback();
       unsubscribeNotifications();
       unsubscribeCart();
       detach();

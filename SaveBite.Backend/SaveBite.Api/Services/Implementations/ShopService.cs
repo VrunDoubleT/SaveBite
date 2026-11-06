@@ -2,6 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
+using Microsoft.AspNetCore.SignalR;
+using SaveBite.Backend.Constants;
+using SaveBite.Backend.Hubs;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Messaging.Constants;
@@ -24,13 +27,18 @@ public sealed class ShopService : IShopService
     private readonly IUserAddressRepository _userAddressRepository;
     private readonly ICloudinaryService _cloudinaryService;
     private readonly IAdminAuditWriter _audit;
+    private readonly IHubContext<FlashDealsHub, IApplicationClient>? _dealHub;
+    private readonly IRealtimePublisher? _realtime;
 
     public ShopService(
         IShopRepository shopRepository,
         IUserAddressRepository userAddressRepository,
         ICloudinaryService cloudinaryService,
         IAdminAuditWriter audit,
-        INotificationQueue notifications, AppDbContext db)
+        INotificationQueue notifications,
+        AppDbContext db,
+        IHubContext<FlashDealsHub, IApplicationClient>? dealHub = null,
+        IRealtimePublisher? realtime = null)
     {
         _db = db;
         _notifications = notifications;
@@ -38,6 +46,8 @@ public sealed class ShopService : IShopService
         _userAddressRepository = userAddressRepository;
         _cloudinaryService = cloudinaryService;
         _audit = audit;
+        _dealHub = dealHub;
+        _realtime = realtime;
     }
 
     public async Task<ShopSummaryResponse> GetOwnerShopAsync(
@@ -256,6 +266,7 @@ public sealed class ShopService : IShopService
     private static bool CheckIsOpen(TimeOnly? opening, TimeOnly? closing, TimeOnly now)
     {
         if (!opening.HasValue || !closing.HasValue) return true;
+        if (opening.Value == closing.Value) return true; // 00:00 - 00:00 or same opening/closing means open 24/7 (full day)
         return opening.Value <= closing.Value
             ? now >= opening.Value && now <= closing.Value
             : now >= opening.Value || now <= closing.Value;
@@ -321,6 +332,11 @@ public sealed class ShopService : IShopService
     {
         var shop = await _shopRepository.GetShopByOwnerUserIdAsync(ownerUserId, cancellationToken)
                    ?? throw AppException.NotFound("Shop not found.");
+
+        if (shop.OpeningTime != request.OpeningTime || shop.ClosingTime != request.ClosingTime)
+        {
+            await ValidateOperatingHoursChangeAsync(shop.Id, request.OpeningTime, request.ClosingTime, cancellationToken);
+        }
 
         shop.Name = request.Name.Trim();
         shop.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
@@ -556,6 +572,39 @@ public sealed class ShopService : IShopService
             "/account/workspace", $"shop-status:{auditEntry.Id}"), ct);
         await transaction.CommitAsync(ct);
 
+        var isBlocked = targetStatus != ShopStatus.Active;
+        var eventData = new
+        {
+            shopId = shop.Id,
+            status = targetStatus.ToString(),
+            isBlocked
+        };
+
+        if (_realtime != null)
+        {
+            await _realtime.SendToAllAsync(RealtimeEvents.ShopStatusChanged, eventData);
+            await _realtime.SendToUserAsync(shop.OwnerUserId, RealtimeEvents.ShopStatusChanged, eventData);
+        }
+
+        if (_dealHub != null)
+        {
+            var envelope = new RealtimeEvent(Guid.NewGuid(), RealtimeEvents.ShopStatusChanged, 1, DateTime.UtcNow, eventData);
+            await _dealHub.Clients.All.ReceiveEvent(envelope);
+            await _dealHub.Clients.Group(FlashDealsHub.ShopGroup(shop.Id)).ReceiveEvent(envelope);
+
+            var dealIds = await _db.FlashDeals
+                .AsNoTracking()
+                .Where(d => d.ShopId == shop.Id)
+                .Select(d => d.Id)
+                .ToListAsync(ct);
+
+            foreach (var dealId in dealIds)
+            {
+                var dealEnvelope = new RealtimeEvent(Guid.NewGuid(), "flashdeal.changed", 1, DateTime.UtcNow, new { dealId, shopId = shop.Id });
+                await _dealHub.Clients.Group(FlashDealsHub.DealGroup(dealId)).ReceiveEvent(dealEnvelope);
+            }
+        }
+
         return new ModerationActionResponse
         {
             TargetId = shopId,
@@ -577,5 +626,130 @@ public sealed class ShopService : IShopService
                 return property.Value.GetString();
         }
         return null;
+    }
+
+    private async Task ValidateOperatingHoursChangeAsync(
+        Guid shopId,
+        TimeOnly? newOpening,
+        TimeOnly? newClosing,
+        CancellationToken cancellationToken)
+    {
+        if (newOpening.HasValue && newClosing.HasValue && newOpening.Value == newClosing.Value)
+        {
+            throw AppException.BadRequest("Giờ mở cửa và giờ đóng cửa không được trùng nhau.");
+        }
+
+        if (!newClosing.HasValue && !newOpening.HasValue)
+        {
+            return;
+        }
+
+        var nowUtc = DateTime.UtcNow;
+
+        // 1. Kiểm tra các Flash Deal đang mở bán (OnSale) hoặc đã lên lịch (Pending)
+        var activeDeals = await _db.FlashDeals
+            .AsNoTracking()
+            .Include(d => d.Product)
+            .Where(d => d.ShopId == shopId
+                && (d.Status == FlashDealStatus.Pending || d.Status == FlashDealStatus.OnSale)
+                && d.OrderEndTime > nowUtc)
+            .OrderBy(d => d.OrderEndTime)
+            .ToListAsync(cancellationToken);
+
+        if (activeDeals.Count > 0)
+        {
+            var conflictingDeals = activeDeals.Where(deal =>
+            {
+                var dealStartLocal = TimeOnly.FromDateTime(deal.SaleStartTime.AddHours(7));
+                var dealEndLocal = TimeOnly.FromDateTime(deal.OrderEndTime.AddHours(7));
+                var startMinute = new TimeOnly(dealStartLocal.Hour, dealStartLocal.Minute);
+                var endMinute = new TimeOnly(dealEndLocal.Hour, dealEndLocal.Minute);
+                return !IsTimeWithinWindow(newOpening, newClosing, startMinute) ||
+                       !IsTimeWithinWindow(newOpening, newClosing, endMinute);
+            }).ToList();
+
+            if (conflictingDeals.Count > 0)
+            {
+                var firstDeal = conflictingDeals[0];
+                var firstDealEndLocal = TimeOnly.FromDateTime(firstDeal.OrderEndTime.AddHours(7));
+                var statusText = firstDeal.Status == FlashDealStatus.OnSale ? "đang mở bán" : "đã lên lịch";
+                var productName = firstDeal.Product?.Name ?? "sản phẩm";
+
+                var hoursText = newOpening.HasValue && newClosing.HasValue
+                    ? $"{newOpening.Value:HH\\:mm} - {newClosing.Value:HH\\:mm}"
+                    : (newClosing.HasValue ? $"đóng cửa lúc {newClosing.Value:HH\\:mm}" : $"mở cửa lúc {newOpening!.Value:HH\\:mm}");
+
+                throw AppException.BadRequest(
+                    $"Không thể đổi giờ hoạt động sang ({hoursText}). " +
+                    $"Cửa hàng đang có {conflictingDeals.Count} Flash Deal ({statusText}: '{productName}') " +
+                    $"kết thúc lúc {firstDealEndLocal:HH\\:mm}, vượt quá khung giờ hoạt động mới. " +
+                    $"Vui lòng kết thúc hoặc hủy các Flash Deal này trước khi thay đổi giờ hoạt động.");
+            }
+        }
+
+        // 2. Kiểm tra các đơn hàng đang xử lý hoặc chờ nhận hàng có hạn chót nhận hàng (HardDeadlineAt)
+        var activeOrderStatuses = new[]
+        {
+            OrderStatus.AwaitingPayment,
+            OrderStatus.Pending,
+            OrderStatus.Confirmed,
+            OrderStatus.Preparing,
+            OrderStatus.ReadyForPickup
+        };
+
+        var activeOrders = await _db.Orders
+            .AsNoTracking()
+            .Where(o => o.ShopId == shopId
+                && activeOrderStatuses.Contains(o.Status)
+                && o.HardDeadlineAt.HasValue
+                && o.HardDeadlineAt.Value > nowUtc)
+            .OrderBy(o => o.HardDeadlineAt)
+            .ToListAsync(cancellationToken);
+
+        if (activeOrders.Count > 0)
+        {
+            var conflictingOrders = activeOrders.Where(o =>
+            {
+                var pickupLocal = TimeOnly.FromDateTime(o.HardDeadlineAt!.Value.AddHours(7));
+                var pickupMinute = new TimeOnly(pickupLocal.Hour, pickupLocal.Minute);
+                return !IsTimeWithinWindow(newOpening, newClosing, pickupMinute);
+            }).ToList();
+
+            if (conflictingOrders.Count > 0)
+            {
+                var firstOrder = conflictingOrders[0];
+                var pickupDeadlineLocal = TimeOnly.FromDateTime(firstOrder.HardDeadlineAt!.Value.AddHours(7));
+
+                var hoursText = newClosing.HasValue ? $"đóng cửa lúc {newClosing.Value:HH\\:mm}" : "mới";
+
+                throw AppException.BadRequest(
+                    $"Không thể đổi giờ hoạt động sang khung giờ {hoursText}. " +
+                    $"Cửa hàng đang có {conflictingOrders.Count} đơn hàng đang chờ khách nhận " +
+                    $"(Đơn #{firstOrder.OrderCode} có hạn chót nhận lúc {pickupDeadlineLocal:HH\\:mm}), " +
+                    $"nằm ngoài giờ mở cửa mới. Vui lòng hoàn tất hoặc xử lý các đơn hàng này trước khi đổi giờ.");
+            }
+        }
+    }
+
+    private static bool IsTimeWithinWindow(TimeOnly? opening, TimeOnly? closing, TimeOnly time)
+    {
+        if (opening.HasValue && closing.HasValue)
+        {
+            return opening.Value <= closing.Value
+                ? time >= opening.Value && time <= closing.Value
+                : time >= opening.Value || time <= closing.Value;
+        }
+
+        if (closing.HasValue)
+        {
+            return time <= closing.Value;
+        }
+
+        if (opening.HasValue)
+        {
+            return time >= opening.Value;
+        }
+
+        return true;
     }
 }

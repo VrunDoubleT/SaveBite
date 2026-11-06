@@ -41,10 +41,14 @@ export function CreateProductPage() {
       ? "Please enter a product name."
       : !categoryId
         ? "Please select a category."
-        : validateAttributes(attributes) ||
-          (variants.count > 100 ? "A product cannot have more than 100 variants." : "") ||
-          validatePrices(variants.rows, prices) ||
-          fileError(images);
+        : files.length === 0
+          ? "Please upload at least 1 gallery image."
+          : files.length > 10
+            ? "At most 10 gallery images are allowed."
+            : validateAttributes(attributes) ||
+              (variants.count > 100 ? "A product cannot have more than 100 variants." : "") ||
+              validatePrices(variants.rows, prices) ||
+              fileError(images);
     if (validation) {
       setError(validation);
       return;

@@ -37,6 +37,14 @@ export function ProductImagesPanel({
           onSubmit={async (e) => {
             e.preventDefault();
             if (busy) return;
+            if (existing.length + files.length === 0) {
+              setError("Product must have at least 1 gallery image.");
+              return;
+            }
+            if (existing.length + files.length > 10) {
+              setError("At most 10 gallery images are allowed.");
+              return;
+            }
             const message = fileError(files);
             if (message) {
               setError(message);
@@ -68,8 +76,8 @@ export function ProductImagesPanel({
             />
           </fieldset>
           {!existing.length && !files.length && (
-            <p className="text-sm text-amber-700">
-              Saving now will remove all gallery images from this product.
+            <p className="text-sm text-red-600">
+              Product must have at least 1 gallery image.
             </p>
           )}
           {error && <Alert>{error}</Alert>}

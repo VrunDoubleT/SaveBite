@@ -17,26 +17,29 @@ export function StoreOwnerReviewsPage() {
   const [activeReplyFilter, setActiveReplyFilter] = useState<boolean | null>(null);
   const [isToday, setIsToday] = useState(false);
 
-  const fetchFeedbacks = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await feedbackApi.getShopFeedbacks({
-        page,
-        pageSize,
-        rating: activeRating ?? undefined,
-        hasReply: activeReplyFilter ?? undefined,
-        isToday: isToday || undefined,
-      });
+  const fetchFeedbacks = useCallback(
+    async (silent = false) => {
+      if (!silent) setIsLoading(true);
+      try {
+        const response = await feedbackApi.getShopFeedbacks({
+          page,
+          pageSize,
+          rating: activeRating ?? undefined,
+          hasReply: activeReplyFilter ?? undefined,
+          isToday: isToday || undefined,
+        });
 
-      setFeedbacks(response.items);
-      setTotalItems(response.totalItems);
-      setTotalPages(response.totalPages);
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [page, pageSize, activeRating, activeReplyFilter, isToday]);
+        setFeedbacks(response.items);
+        setTotalItems(response.totalItems);
+        setTotalPages(response.totalPages);
+      } catch (error) {
+        if (!silent) toast.error(getApiErrorMessage(error));
+      } finally {
+        if (!silent) setIsLoading(false);
+      }
+    },
+    [page, pageSize, activeRating, activeReplyFilter, isToday],
+  );
 
   useEffect(() => {
     void fetchFeedbacks();
@@ -44,8 +47,13 @@ export function StoreOwnerReviewsPage() {
 
   // Auto-refresh when feedback status changes or user focuses this tab
   useEffect(() => {
-    return subscribeFeedbackSync(() => {
-      void fetchFeedbacks();
+    return subscribeFeedbackSync((detail) => {
+      if (detail?.action === "hide" && detail.feedbackId) {
+        // Hide immediately like customer feedback
+        setFeedbacks((prev) => prev.filter((item) => item.id !== detail.feedbackId));
+        setTotalItems((prev) => Math.max(0, prev - 1));
+      }
+      void fetchFeedbacks(true);
     });
   }, [fetchFeedbacks]);
 

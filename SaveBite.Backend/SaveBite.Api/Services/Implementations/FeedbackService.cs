@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
+using Microsoft.AspNetCore.SignalR;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Hubs;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Events;
 using SaveBite.Backend.Messaging.Interfaces;
@@ -21,13 +24,23 @@ public sealed class FeedbackService : IFeedbackService
     private readonly IFeedbackRepository _feedbackRepo;
     private readonly INotificationQueue _notifications;
     private readonly IAdminAuditWriter _audit;
+    private readonly IHubContext<FlashDealsHub, IApplicationClient>? _dealHub;
+    private readonly IRealtimePublisher? _realtime;
 
-    public FeedbackService(IFeedbackRepository feedbackRepo, INotificationQueue notifications, SaveBite.Backend.Data.AppDbContext db, IAdminAuditWriter audit)
+    public FeedbackService(
+        IFeedbackRepository feedbackRepo,
+        INotificationQueue notifications,
+        SaveBite.Backend.Data.AppDbContext db,
+        IAdminAuditWriter audit,
+        IHubContext<FlashDealsHub, IApplicationClient>? dealHub = null,
+        IRealtimePublisher? realtime = null)
     {
         _feedbackRepo = feedbackRepo;
         _notifications = notifications;
         _db = db;
         _audit = audit;
+        _dealHub = dealHub;
+        _realtime = realtime;
     }
 
     public async Task<PagedResult<FeedbackResponse>> ListAsync(int page, int pageSize, FeedbackStatus? status, string? search, CancellationToken ct = default)
@@ -115,6 +128,42 @@ public sealed class FeedbackService : IFeedbackService
                     $"An administrator restored your review of {productName}.",
                     "/account/reviews", $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
             }
+
+            var shopId = feedback.Product?.ShopId;
+            if (!shopId.HasValue || shopId == Guid.Empty)
+            {
+                shopId = await _db.ProductFeedbacks
+                    .AsNoTracking()
+                    .Where(f => f.Id == feedbackId)
+                    .Select(f => (Guid?)f.Product.ShopId)
+                    .FirstOrDefaultAsync(ct);
+            }
+
+            var eventData = new
+            {
+                feedbackId = feedback.Id,
+                shopId = shopId ?? Guid.Empty,
+                productId = feedback.ProductId,
+                rating = feedback.Rating,
+                action = restore ? "restore" : "hide"
+            };
+
+            if (_realtime != null)
+            {
+                await _realtime.SendToAllAsync(RealtimeEvents.FeedbackChanged, eventData);
+                await _realtime.SendToUserAsync(feedback.UserId, RealtimeEvents.FeedbackChanged, eventData);
+            }
+
+            if (_dealHub != null)
+            {
+                var envelope = new RealtimeEvent(Guid.NewGuid(), RealtimeEvents.FeedbackChanged, 1, DateTime.UtcNow, eventData);
+                await _dealHub.Clients.All.ReceiveEvent(envelope);
+                if (shopId.HasValue && shopId.Value != Guid.Empty)
+                {
+                    await _dealHub.Clients.Group(FlashDealsHub.ShopGroup(shopId.Value)).ReceiveEvent(envelope);
+                }
+            }
+
             return new ModerationActionResponse
             {
                 TargetId = feedbackId, Action = restore ? "FEEDBACK_RESTORED" : "FEEDBACK_HIDDEN",
@@ -220,50 +269,68 @@ public sealed class FeedbackService : IFeedbackService
     // Edit Feedback
     public async Task<FeedbackResponses.FeedbackItemResponse> EditFeedbackAsync(Guid userId, Guid feedbackId, FeedbackRequests.UpdateFeedbackRequest request, CancellationToken ct = default)
     {
-        var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct);
-        if (feedback is null)
-            throw AppException.NotFound("Feedback not found.");
-
-        if (feedback.UserId != userId)
-            throw AppException.Forbidden("You do not have permission to edit this feedback.");
-
-        if (feedback.Status != FeedbackStatus.Visible)
-            throw AppException.BadRequest("Cannot edit feedback that has been removed or hidden.");
-
-        var now = DateTime.UtcNow;
-        if (feedback.CreatedAt.AddDays(30) < now)
-            throw AppException.BadRequest("Feedback can only be edited within 30 days of submission.");
-
-        if (feedback.EditCount >= 3)
-            throw AppException.BadRequest("Feedback can only be edited a maximum of 3 times.");
-
-        feedback.EditCount++;
-        feedback.Rating = request.Rating;
-        feedback.Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
-        feedback.UpdatedAt = now;
-
-        if (request.Images != null)
+        return await NotificationTransaction.RunAsync(_db, async () =>
         {
-            var newImages = request.Images
-                .Where(imgUrl => !string.IsNullOrWhiteSpace(imgUrl))
-                .Take(5)
-                .Select((imgUrl, index) => new ProductFeedbackImage
-                {
-                    Id = Guid.NewGuid(),
-                    ProductFeedbackId = feedback.Id,
-                    ImageUrl = imgUrl.Trim(),
-                    SortOrder = index,
-                    CreatedAt = now
-                })
-                .ToList();
+            var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct);
+            if (feedback is null)
+                throw AppException.NotFound("Feedback not found.");
 
-            await _feedbackRepo.ReplaceFeedbackImagesAsync(feedback.Id, newImages, ct);
-            feedback.Images = newImages;
-        }
+            if (feedback.UserId != userId)
+                throw AppException.Forbidden("You do not have permission to edit this feedback.");
 
-        await _feedbackRepo.UpdateAsync(feedback, ct);
+            if (feedback.Status != FeedbackStatus.Visible)
+                throw AppException.BadRequest("Cannot edit feedback that has been removed or hidden.");
 
-        return MapToResponse(feedback);
+            var now = DateTime.UtcNow;
+            if (feedback.CreatedAt.AddDays(30) < now)
+                throw AppException.BadRequest("Feedback can only be edited within 30 days of submission.");
+
+            if (feedback.EditCount >= 3)
+                throw AppException.BadRequest("Feedback can only be edited a maximum of 3 times.");
+
+            feedback.EditCount++;
+            feedback.Rating = request.Rating;
+            feedback.Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
+            feedback.UpdatedAt = now;
+
+            if (request.Images != null)
+            {
+                var newImages = request.Images
+                    .Where(imgUrl => !string.IsNullOrWhiteSpace(imgUrl))
+                    .Take(5)
+                    .Select((imgUrl, index) => new ProductFeedbackImage
+                    {
+                        Id = Guid.NewGuid(),
+                        ProductFeedbackId = feedback.Id,
+                        ImageUrl = imgUrl.Trim(),
+                        SortOrder = index,
+                        CreatedAt = now
+                    })
+                    .ToList();
+
+                await _feedbackRepo.ReplaceFeedbackImagesAsync(feedback.Id, newImages, ct);
+                feedback.Images = newImages;
+            }
+
+            await _feedbackRepo.UpdateAsync(feedback, ct);
+
+            // Notify shop owner and staff if customer updated review with low rating (<= 3 stars)
+            var shopId = feedback.OrderItem?.Order?.ShopId ?? feedback.Product?.ShopId;
+            if (shopId.HasValue && request.Rating <= 3)
+            {
+                var customerName = feedback.User?.FullName ?? "A customer";
+                var productName = feedback.Product?.Name ?? "product";
+                var body = $"{customerName} updated their review to {request.Rating} stars for {productName}.";
+                await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(shopId.Value), new CreateNotificationCommand(
+                    NotificationType.FeedbackReceived, "Customer updated review (low rating)", body,
+                    "/store-owner/reviews", $"feedback:{feedback.Id}:edited:owner:{now.Ticks}"), ct);
+                await _notifications.EnqueueAsync(NotificationTarget.ShopStaff(shopId.Value), new CreateNotificationCommand(
+                    NotificationType.FeedbackReceived, "Customer updated review (low rating)", body,
+                    $"/staff/shops/{shopId.Value}/reviews", $"feedback:{feedback.Id}:edited:staff:{now.Ticks}"), ct);
+            }
+
+            return MapToResponse(feedback);
+        }, ct);
     }
 
     // Delete Feedback (Soft Delete)
@@ -366,23 +433,46 @@ public sealed class FeedbackService : IFeedbackService
     // Delete Reply (Shop & Admin)
     public async Task DeleteFeedbackReplyAsync(Guid userId, Guid feedbackId, CancellationToken ct = default)
     {
-        var canManage = await _feedbackRepo.CanManageFeedbackReplyAsync(userId, feedbackId, ct);
-        if (!canManage)
-            throw AppException.Forbidden("You do not have permission to delete replies for this shop's feedback.");
-
-        var existingReply = await _feedbackRepo.GetReplyByFeedbackIdAsync(feedbackId, ct);
-        if (existingReply is null)
-            throw AppException.NotFound("Reply not found.");
-
-        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
-        if (user != null && user.Role != UserRole.Admin)
+        await NotificationTransaction.RunAsync(_db, async () =>
         {
-            var isOwner = await _feedbackRepo.IsShopOwnerForFeedbackAsync(userId, feedbackId, ct);
-            if (!isOwner && existingReply.RepliedByUserId != userId)
-                throw AppException.Forbidden("You can only delete your own reply.");
-        }
+            var canManage = await _feedbackRepo.CanManageFeedbackReplyAsync(userId, feedbackId, ct);
+            if (!canManage)
+                throw AppException.Forbidden("You do not have permission to delete replies for this shop's feedback.");
 
-        await _feedbackRepo.DeleteReplyAsync(existingReply, ct);
+            var existingReply = await _feedbackRepo.GetReplyByFeedbackIdAsync(feedbackId, ct);
+            if (existingReply is null)
+                throw AppException.NotFound("Reply not found.");
+
+            var isOwner = false;
+            var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
+            if (user != null && user.Role != UserRole.Admin)
+            {
+                isOwner = await _feedbackRepo.IsShopOwnerForFeedbackAsync(userId, feedbackId, ct);
+                if (!isOwner && existingReply.RepliedByUserId != userId)
+                    throw AppException.Forbidden("You can only delete your own reply.");
+            }
+
+            var repliedStaffId = existingReply.RepliedByUserId;
+            var isStaffReply = repliedStaffId != userId;
+
+            await _feedbackRepo.DeleteReplyAsync(existingReply, ct);
+
+            // Notify staff member if the shop owner deleted their reply
+            if (isOwner && isStaffReply)
+            {
+                var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct);
+                var shopId = feedback?.OrderItem?.Order?.ShopId ?? feedback?.Product?.ShopId;
+                var now = DateTime.UtcNow;
+                var ownerName = user?.FullName ?? "The store owner";
+                var url = shopId.HasValue ? $"/staff/shops/{shopId.Value}/reviews" : "/staff/reviews";
+                await _notifications.EnqueueAsync(NotificationTarget.User(repliedStaffId), new CreateNotificationCommand(
+                    NotificationType.FeedbackReceived,
+                    "Feedback reply removed",
+                    $"{ownerName} removed your reply on a customer review.",
+                    url,
+                    $"feedback-reply:deleted:{existingReply.Id}:{now.Ticks}"), ct);
+            }
+        }, ct);
     }
 
     // View Feedback for Shop

@@ -15,4 +15,6 @@ export const REALTIME_EVENTS = {
   NOTIFICATION_RECEIVED: "notification.received",
   NOTIFICATION_READ: "notification.read",
   NOTIFICATION_DELETED: "notification.deleted",
+  FEEDBACK_CHANGED: "feedback.changed",
+  SHOP_STATUS_CHANGED: "shop.status.changed",
 } as const;

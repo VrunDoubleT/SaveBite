@@ -559,6 +559,7 @@ export function StoreOwnerFlashDealsPage() {
                             <Eye className="size-3.5" />
                           </button>
 
+<<<<<<< Updated upstream
                           {/* Edit */}
                           {state !== "ended" && (
                             <button
@@ -574,6 +575,21 @@ export function StoreOwnerFlashDealsPage() {
                               <Edit2 className="size-3.5" />
                             </button>
                           )}
+=======
+                          {/* Edit - always available including ended deals so store owner can re-open */}
+                          <button
+                            type="button"
+                            title={state === "ended" ? "Edit deal timing to re-open" : "Edit deal"}
+                            onClick={() =>
+                              navigate(
+                                APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id),
+                              )
+                            }
+                            className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-2xs transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900"
+                          >
+                            <Edit2 className="size-3.5" />
+                          </button>
+>>>>>>> Stashed changes
 
                           {/* Cancel - Opens Confirmation Modal */}
                           {state !== "ended" && (
