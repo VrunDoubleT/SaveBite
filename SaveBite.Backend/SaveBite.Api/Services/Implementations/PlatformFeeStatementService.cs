@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
@@ -527,7 +528,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             _audit.Record(new AuditLog
             {
                 ActorUserId = initiatedByAdminId,
-                Action = "PROCESS_OVERDUE_PLATFORM_FEES",
+                Action = AuditActionTypes.ProcessOverduePlatformFees,
                 TargetType = "PlatformFeeOverdueProcessingRun",
                 TargetId = Guid.NewGuid(),
                 NewValuesJson = JsonSerializer.Serialize(new { SuspendedShopCount = suspendedCount, TriggeredAt = now }),
@@ -680,7 +681,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             Id = Guid.NewGuid(),
             ActorUserId = adminId,
             ActorType = AuditActorType.User,
-            Action = "RecordExternalPlatformFeePayment",
+            Action = AuditActionTypes.RecordExternalPlatformFeePayment,
             TargetType = "PlatformFeeStatement",
             TargetId = statement.Id,
             NewValuesJson = JsonSerializer.Serialize(new { Amount = request.Amount, ReferenceCode = refCode, Note = request.Note }),
@@ -708,7 +709,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             _audit.Record(new AuditLog
             {
                 ActorUserId = initiatedByAdminId,
-                Action = "GENERATE_MONTHLY_PLATFORM_FEE_STATEMENTS",
+                Action = AuditActionTypes.GenerateMonthlyPlatformFeeStatements,
                 TargetType = "PlatformFeeStatementGenerationRun",
                 TargetId = Guid.NewGuid(),
                 NewValuesJson = JsonSerializer.Serialize(new
@@ -856,8 +857,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
     {
         var statement = await _repository.GetStatementDetailAsync(statementId, ct) ?? throw AppException.NotFound();
         await TryNotifyAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
-            NotificationType.PlatformFeePaid, "Platform fee payment received",
-            $"Payment for {statement.Shop.Name}, period {statement.BillingMonth:D2}/{statement.BillingYear}, has been recorded.",
+            NotificationType.PlatformFeePaid, NotificationMessages.PlatformFees.PaymentReceivedTitle,
+            NotificationMessages.PlatformFees.PaymentReceivedBody(statement.Shop.Name, statement.BillingMonth, statement.BillingYear),
             $"/store-owner/platform-fees/{statement.Id}", $"platform-fee:{statement.Id}:paid"), ct);
     }
 
@@ -870,9 +871,10 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             var overdue = statement.DueAt <= now;
             await TryNotifyAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
                 overdue ? NotificationType.PlatformFeeOverdue : NotificationType.PlatformFeeDueSoon,
-                overdue ? "Platform fee overdue" : "Platform fee due within 24 hours",
-                $"{statement.Shop.Name}: {statement.TotalFeeAmount:N0} VND is due on {statement.DueAt:dd/MM/yyyy HH:mm} UTC." +
-                    (overdue ? " Please settle the statement to restore shop access." : " Please pay before the deadline."),
+                overdue ? NotificationMessages.PlatformFees.OverdueTitle : NotificationMessages.PlatformFees.DueSoonTitle,
+                overdue ? NotificationMessages.PlatformFees.OverdueBody(statement.Shop.Name, statement.TotalFeeAmount, statement.DueAt)
+                        : NotificationMessages.PlatformFees.DueSoonBody(statement.Shop.Name, statement.TotalFeeAmount, statement.DueAt),
+
                 $"/store-owner/platform-fees/{statement.Id}", $"platform-fee:{statement.Id}:{(overdue ? "overdue" : "due-soon")}"), ct);
         }
     }
@@ -883,11 +885,11 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         var statements = await _repository.GetStatementsForPeriodAsync(year, month, ct);
         foreach (var statement in statements)
         {
-            var paymentInfo = statement.TotalFeeAmount == 0 ? "No payment is required."
-                : $"Amount: {statement.TotalFeeAmount:N0} VND." + (statement.DueAt.HasValue ? $" Due: {statement.DueAt:dd/MM/yyyy}." : "");
+            var paymentInfo = statement.TotalFeeAmount == 0 ? NotificationMessages.PlatformFees.PaymentNotRequired
+                : NotificationMessages.PlatformFees.PaymentRequiredInfo(statement.TotalFeeAmount, statement.DueAt);
             await TryNotifyAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
-                NotificationType.PlatformFeeStatementIssued, "Monthly platform fee statement",
-                $"{statement.Shop.Name}: your platform fee statement for {month:D2}/{year} is available. {paymentInfo}",
+                NotificationType.PlatformFeeStatementIssued, NotificationMessages.PlatformFees.MonthlyStatementIssuedTitle,
+                NotificationMessages.PlatformFees.MonthlyStatementIssuedBody(statement.Shop.Name, month, year, paymentInfo),
                 $"/store-owner/platform-fees/{statement.Id}", $"platform-fee-statement:{statement.Id}:issued"), ct);
         }
     }

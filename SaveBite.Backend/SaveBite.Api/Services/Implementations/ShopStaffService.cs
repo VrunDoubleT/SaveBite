@@ -134,8 +134,8 @@ public class ShopStaffService(
            );
            if (previousStatus != staff.Status)
                await notifications.EnqueueAsync(NotificationTarget.User(staff.UserId), new CreateNotificationCommand(
-                   NotificationType.StaffStatusChanged, "Staff access updated",
-                   $"Your staff access at {shop.Name} is now {staff.Status}.", "/account/workspace",
+                   NotificationType.StaffStatusChanged, NotificationMessages.Staff.StaffStatusUpdatedTitle,
+                   NotificationMessages.Staff.StaffStatusUpdatedBody(shop.Name, staff.Status), "/account/workspace",
                    $"staff-status:{staff.Id}:{staff.Status}:{Guid.NewGuid()}"), cancellationToken);
 
            return (staff.UserId, StatusChanged: previousStatus != staff.Status, ShopId: shop.Id);
@@ -214,8 +214,8 @@ public class ShopStaffService(
                 cancellationToken
             );
             await notifications.EnqueueAsync(NotificationTarget.User(staff.UserId), new CreateNotificationCommand(
-                NotificationType.StaffStatusChanged, "Staff membership removed",
-                $"Your staff membership at {shop.Name} has been removed.", "/account/workspace",
+                NotificationType.StaffStatusChanged, NotificationMessages.Staff.StaffMembershipRemovedTitle,
+                NotificationMessages.Staff.StaffMembershipRemovedBody(shop.Name), "/account/workspace",
                 $"staff-removed:{staff.Id}:{Guid.NewGuid()}"), cancellationToken);
 
             return staff.UserId;
@@ -520,8 +520,8 @@ public class ShopStaffService(
                 cancellationToken
             );
             await notifications.EnqueueAsync(NotificationTarget.User(staff.Shop.OwnerUserId), new CreateNotificationCommand(
-                NotificationType.StaffLeftShop, "A staff member left your shop",
-                $"{staff.DisplayName} has left {staff.Shop.Name}.", "/store-owner/staff",
+                NotificationType.StaffLeftShop, NotificationMessages.Staff.StaffLeftShopTitle,
+                NotificationMessages.Staff.StaffLeftShopBody(staff.DisplayName, staff.Shop.Name), "/store-owner/staff",
                 $"staff-left:{staff.Id}:{Guid.NewGuid()}"), cancellationToken);
 
             return staff.Shop.OwnerUserId;

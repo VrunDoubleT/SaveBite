@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -139,7 +140,7 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
         _audit.Record(new AuditLog
         {
             ActorUserId = adminId,
-            Action = "PLATFORM_PAYOS_CONFIG_UPDATED",
+            Action = AuditActionTypes.PlatformPayOsConfigUpdated,
             TargetType = "PlatformPayOsConfig",
             TargetId = ConfigId,
             OldValuesJson = JsonSerializer.Serialize(new

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Data;
 
 namespace SaveBite.Backend.Extensions;
@@ -17,8 +18,11 @@ public static class DatabaseExtensions
                 "Postgres connection string is not configured.");
         }
 
-        services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        services.AddDbContext<AppDbContext>((sp, options) =>
+        {
+            options.UseNpgsql(connectionString);
+            options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+        });
 
         return services;
     }

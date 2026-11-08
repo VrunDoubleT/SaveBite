@@ -1,3 +1,4 @@
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
@@ -359,8 +360,8 @@ public class RefundService : IRefundService
             && refund.Status == RefundStatus.PendingVerification)
         {
             await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.Shop.OwnerUserId), new CreateNotificationCommand(
-                NotificationType.RefundRequestCreated, "New refund request",
-                $"{refund.Order.Customer.FullName} requested a refund for order {refund.Order.OrderCode}.",
+                NotificationType.RefundRequestCreated, NotificationMessages.Refunds.NewRefundRequestTitle,
+                NotificationMessages.Refunds.NewRefundRequestBody(refund.Order.Customer.FullName, refund.Order.OrderCode),
                 $"/store-owner/orders/{refund.OrderId}", $"refund:{id}:requested:owner"), ct);
             return;
         }
@@ -372,7 +373,7 @@ public class RefundService : IRefundService
         };
         if (type == null) return;
         await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.CustomerId), new CreateNotificationCommand(
-            type.Value, "Refund status updated", $"Refund for order {refund.Order.OrderCode}: {refund.Status}. {refund.RejectReason}",
+            type.Value, NotificationMessages.Refunds.RefundStatusUpdatedTitle, NotificationMessages.Refunds.RefundStatusUpdatedBody(refund.Order.OrderCode, refund.Status, refund.RejectReason),
             $"/account/refunds/{id}", $"refund:{id}:{type}"), ct);
     }
     private async Task<Refund> LoadAsync(Guid id, bool tracked, CancellationToken ct)

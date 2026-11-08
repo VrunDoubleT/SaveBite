@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Authorization;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -47,7 +48,7 @@ public sealed class AdminEmailDeliveriesController(AppDbContext db, IAdminAuditW
         if (!request.WasSent)
             await db.Set<OrderEventOutbox>().Where(e => e.EventKey == row.DeliveryKey)
                 .ExecuteUpdateAsync(s => s.SetProperty(e => e.PublishedAt, (DateTime?)null), ct);
-        audit.Record(new AuditLog { ActorUserId = actorId, Action = "ResolveEmailDelivery", TargetType = "EmailDelivery", TargetId = row.Id,
+        audit.Record(new AuditLog { ActorUserId = actorId, Action = AuditActionTypes.ResolveEmailDelivery, TargetType = "EmailDelivery", TargetId = row.Id,
             OldValuesJson = JsonSerializer.Serialize(new { Status = before }),
             NewValuesJson = JsonSerializer.Serialize(new { row.Status }), Reason = request.Reason.Trim() });
         await db.SaveChangesAsync(ct);

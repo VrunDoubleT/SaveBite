@@ -1,3 +1,4 @@
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Models.Enums;
 
 namespace SaveBite.Backend.Models.Entities;
@@ -32,6 +33,7 @@ public class Refund
     public string? TransferReference { get; set; }
     public DateTime? TransferredAt { get; set; }
 
+    [AuditIgnore]
     public string? VerificationCodeHash { get; set; }
     public DateTime? VerificationExpiresAt { get; set; }
     public DateTime? DestinationConfirmedAt { get; set; }

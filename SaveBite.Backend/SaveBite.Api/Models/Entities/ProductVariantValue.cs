@@ -1,5 +1,8 @@
+using SaveBite.Backend.Audit;
+
 namespace SaveBite.Backend.Models.Entities;
 
+[NoAudit]
 public class ProductVariantValue
 {
     public Guid VariantId { get; set; }

@@ -1,3 +1,4 @@
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Helpers;
 using System.Text.Json;
@@ -144,7 +145,7 @@ public sealed class WarningService : IWarningService
             _audit.Record(new AuditLog
             {
                 ActorUserId = adminId,
-                Action = "PRODUCT_WARNING_ISSUED",
+                Action = AuditActionTypes.ProductWarningIssued,
                 TargetType = "Product",
                 TargetId = productId,
                 Reason = reason,
@@ -163,14 +164,14 @@ public sealed class WarningService : IWarningService
             });
             await _db.SaveChangesAsync(ct);
             await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
-                NotificationType.ProductNeedsRevision, "Product correction requested",
-                $"{product.Name}: {reason} Required correction: {requiredCorrection}. Submit corrections within 7 days.",
+                NotificationType.ProductNeedsRevision, NotificationMessages.DealsAndProducts.ProductCorrectionRequestedTitle,
+                NotificationMessages.DealsAndProducts.ProductCorrectionRequestedBody(product.Name, reason, requiredCorrection),
                 "/store-owner/warnings", $"product-warning:{warningId}"), ct);
 
             return new ModerationActionResponse
             {
                 TargetId = product.ShopId,
-                Action = "SHOP_WARNING_ISSUED",
+                Action = AuditActionTypes.ShopWarningIssued,
                 Message = "Warning saved. The shop has seven days to submit corrections."
             };
 
@@ -187,7 +188,7 @@ public sealed class WarningService : IWarningService
             ProductName = warning.ProductName,
             RequiredCorrection = warning.RequiredCorrection,
             ShopId = warning.ShopId,
-            Action = "SHOP_WARNING_ISSUED",
+            Action = AuditActionTypes.ShopWarningIssued,
             Reason = warning.Reason,
             NewValuesJson = JsonSerializer.Serialize(new { warning.ProductId, warning.ProductName, warning.RequiredCorrection }),
             IssuedByUserId = warning.IssuedByUserId,

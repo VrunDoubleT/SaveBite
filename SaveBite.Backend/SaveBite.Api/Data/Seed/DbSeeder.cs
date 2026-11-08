@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Constants;
+using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 
@@ -13,7 +14,7 @@ public static class DbSeeder
     {
         var hasBaseSeed = await context.Users.AnyAsync(x => x.Email == MarkerEmail);
         var hasExtendedSeed = await context.Set<AuditLog>()
-            .AnyAsync(x => x.Action == "SEED_V2_COMPLETED");
+            .AnyAsync(x => x.Action == AuditActionTypes.SeedV2Completed);
 
         if (hasBaseSeed && hasExtendedSeed)
         {
@@ -435,7 +436,7 @@ public static class DbSeeder
                 Id = Id(12),
                 ActorUserId = Id(1),
                 ActorType = AuditActorType.User,
-                Action = "SUSPEND_CUSTOMER_ACCESS",
+                Action = AuditActionTypes.SuspendCustomerAccess,
                 TargetType = "User",
                 TargetId = Id(3),
                 OldValuesJson = "{\"customerStatus\":\"Active\"}",
@@ -1423,8 +1424,8 @@ public static class DbSeeder
                 Id = Id(113),
                 UserId = Id(4),
                 Type = NotificationType.OrderCompleted,
-                Title = "Don hang da hoan thanh",
-                Body = "Don SB-SEED-0001 da hoan thanh. Hay danh gia mon an.",
+                Title = NotificationMessages.Orders.OrderCompletedTitle,
+                Body = "Order SB-SEED-0001 has been completed. Feel free to leave a review.",
                 ActionUrl = $"/orders/{Id(50)}",
                 DeduplicationKey = "seed-order-completed-0001",
                 ReadAt = now.AddDays(-9),
@@ -1435,8 +1436,8 @@ public static class DbSeeder
                 Id = Id(114),
                 UserId = Id(2),
                 Type = NotificationType.RefundRequestCreated,
-                Title = "Co yeu cau hoan tien moi",
-                Body = "Khach hang tao yeu cau hoan tien cho don SB-SEED-0001.",
+                Title = NotificationMessages.Refunds.NewRefundRequestTitle,
+                Body = "A customer requested a refund for order SB-SEED-0001.",
                 ActionUrl = $"/shops/orders/{Id(50)}/refund",
                 DeduplicationKey = "seed-refund-created-0001",
                 CreatedAt = now.AddDays(-9)
@@ -1478,7 +1479,7 @@ public static class DbSeeder
         {
             Id = Id(199),
             ActorType = AuditActorType.System,
-            Action = "SEED_V2_COMPLETED",
+            Action = AuditActionTypes.SeedV2Completed,
             TargetType = "Database",
             TargetId = Id(199),
             NewValuesJson = "{\"version\":2,\"status\":\"completed\"}",
@@ -1531,7 +1532,7 @@ public static class DbSeeder
             {
                 Id = Id(123),
                 ActorType = AuditActorType.System,
-                Action = "REFRESH_TOKEN_ROTATED",
+                Action = AuditActionTypes.RefreshTokenRotated,
                 TargetType = "RefreshToken",
                 TargetId = Id(121),
                 NewValuesJson = "{\"replacedByTokenId\":\"00000000-0000-0000-0000-000000000011\"}",
@@ -1624,8 +1625,8 @@ public static class DbSeeder
                 Id = Id(128),
                 UserId = Id(4),
                 Type = NotificationType.ShopApplicationApproved,
-                Title = "Ho so shop da duoc duyet",
-                Body = "Ho so Quan Nho Thu Ha da duoc phe duyet.",
+                Title = NotificationMessages.ShopApplications.ApplicationReviewedTitle,
+                Body = "The shop application for Quan Nho Thu Ha has been approved.",
                 ActionUrl = $"/shops/{Id(127)}",
                 DeduplicationKey = "seed-shop-approved-0002",
                 ReadAt = now.AddDays(-14),
@@ -1637,8 +1638,8 @@ public static class DbSeeder
                 Id = Id(129),
                 UserId = Id(3),
                 Type = NotificationType.StaffInvitationAccepted,
-                Title = "Da tham gia shop",
-                Body = "Ban da tro thanh nhan vien cua Bep Xanh Cuoi Ngay.",
+                Title = NotificationMessages.Staff.StaffJoinedShopTitle,
+                Body = "You have joined Bep Xanh Cuoi Ngay as a staff member.",
                 ActionUrl = $"/shops/{Id(22)}",
                 DeduplicationKey = "seed-staff-accepted-0001",
                 ReadAt = now.AddMonths(-1),
@@ -2030,8 +2031,8 @@ public static class DbSeeder
                 Id = Id(182),
                 UserId = Id(4),
                 Type = NotificationType.PaymentSucceeded,
-                Title = "Thanh toan thanh cong",
-                Body = "Thanh toan cho don SB-SEED-0003 da thanh cong.",
+                Title = NotificationMessages.Payments.PaymentSucceededTitle,
+                Body = "Payment for order SB-SEED-0003 was successful.",
                 ActionUrl = $"/orders/{Id(52)}",
                 DeduplicationKey = "seed-payment-success-0003",
                 ReadAt = now.AddDays(-2),
@@ -2042,8 +2043,8 @@ public static class DbSeeder
                 Id = Id(183),
                 UserId = Id(4),
                 Type = NotificationType.NoShowPenaltyCreated,
-                Title = "Gioi han nhan tai shop",
-                Body = "Tai khoan bi gioi han tam thoi do khong den nhan don SB-SEED-0002.",
+                Title = NotificationMessages.TrustAndPenalties.MissedPickupPenaltyTitle,
+                Body = "Your account was restricted due to a missed pickup on order SB-SEED-0002.",
                 ActionUrl = "/account/trust-score",
                 DeduplicationKey = "seed-no-show-penalty-0002",
                 ReadAt = now.AddDays(-7),
@@ -2054,8 +2055,8 @@ public static class DbSeeder
                 Id = Id(184),
                 UserId = Id(2),
                 Type = NotificationType.ProductNeedsRevision,
-                Title = "San pham can chinh sua",
-                Body = "Banh mi thit nuong can bo sung thong tin thanh phan.",
+                Title = NotificationMessages.DealsAndProducts.ProductCorrectionRequestedTitle,
+                Body = "Banh mi thit nuong requires ingredient information corrections.",
                 ActionUrl = $"/products/{Id(31)}/revisions",
                 DeduplicationKey = "seed-product-revision-0002",
                 CreatedAt = now.AddDays(-6)
@@ -2065,8 +2066,8 @@ public static class DbSeeder
                 Id = Id(185),
                 UserId = Id(4),
                 Type = NotificationType.RefundApproved,
-                Title = "Yeu cau hoan tien da duoc duyet",
-                Body = "Yeu cau hoan tien cua don SB-SEED-0001 da duoc duyet.",
+                Title = NotificationMessages.Refunds.RefundStatusUpdatedTitle,
+                Body = "The refund request for order SB-SEED-0001 has been approved.",
                 ActionUrl = $"/refunds/{Id(79)}",
                 DeduplicationKey = "seed-refund-approved-0001",
                 ReadAt = now.AddDays(-8),

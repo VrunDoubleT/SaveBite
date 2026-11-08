@@ -98,7 +98,7 @@ public sealed class UserService : IUserService
                         .Where(log =>
                             log.TargetType == "Shop" &&
                             log.TargetId == shop.Id &&
-                            log.Action == "SHOP_STATUS_UPDATED")
+                            log.Action == AuditActionTypes.ShopStatusUpdated)
                         .OrderByDescending(log => log.CreatedAt)
                         .ThenByDescending(log => log.Id)
                         .Select(log => log.Reason)
@@ -207,7 +207,7 @@ public sealed class UserService : IUserService
                     request.IsSuspended ? UserStatus.Suspended : UserStatus.Active,
                     AccountStatusLogTarget.Customer, request.Reason, now);
                 LogAudit(adminId, targetUserId,
-                    request.IsSuspended ? "SuspendCustomerFeatures" : "ReactivateCustomerFeatures",
+                    request.IsSuspended ? AuditActionTypes.SuspendCustomerFeatures : AuditActionTypes.ReactivateCustomerFeatures,
                     request.Reason,
                     JsonSerializer.Serialize(new { CustomerStatus = newCustomerStatus.ToString() }),
                     now);
@@ -223,7 +223,7 @@ public sealed class UserService : IUserService
                 user.Status = newAccountStatus;
                 LogAccountStatusChange(adminId, targetUserId, newAccountStatus, AccountStatusLogTarget.Account, request.Reason, now);
                 LogAudit(adminId, targetUserId,
-                    request.IsSuspended ? "SuspendAccount" : "ReactivateAccount",
+                    request.IsSuspended ? AuditActionTypes.SuspendAccount : AuditActionTypes.ReactivateAccount,
                     request.Reason,
                     JsonSerializer.Serialize(new { Status = newAccountStatus.ToString() }),
                     now);
@@ -240,10 +240,12 @@ public sealed class UserService : IUserService
 
             await _notifications.EnqueueAsync(NotificationTarget.AccountStatusSubject(targetUserId), new CreateNotificationCommand(
                 NotificationType.AccountStatusChanged,
-                request.IsCustomerProfile ? "Cập nhật chức năng khách hàng" : "Account access updated",
                 request.IsCustomerProfile
-                    ? $"Quản trị viên đã {(request.IsSuspended ? "tạm khóa" : "mở lại")} chức năng khách hàng của bạn. Lý do: {request.Reason.Trim()}"
-                    : $"An administrator {(request.IsSuspended ? "suspended" : "reactivated")} your account. Reason: {request.Reason.Trim()}",
+                    ? NotificationMessages.Accounts.CustomerAccessUpdatedTitle
+                    : NotificationMessages.Accounts.AccountAccessUpdatedTitle,
+                request.IsCustomerProfile
+                    ? NotificationMessages.Accounts.CustomerAccessUpdatedBody(request.IsSuspended, request.Reason)
+                    : NotificationMessages.Accounts.AccountAccessUpdatedBody(request.IsSuspended, request.Reason),
                 "/account/profile", $"account-status:{targetUserId}:{now.Ticks}"), cancellationToken);
 
         }, cancellationToken);

@@ -99,7 +99,7 @@ public sealed class FeedbackService : IFeedbackService
             _audit.Record(new AuditLog
             {
                 ActorUserId = adminId,
-                Action = restore ? "FEEDBACK_RESTORED" : "FEEDBACK_HIDDEN",
+                Action = restore ? AuditActionTypes.FeedbackRestored : AuditActionTypes.FeedbackHidden,
                 TargetType = "ProductFeedback",
                 TargetId = feedbackId,
                 Reason = cleanReason,
@@ -118,15 +118,15 @@ public sealed class FeedbackService : IFeedbackService
             if (!restore)
             {
                 await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
-                    NotificationType.FeedbackRemovedByAdmin, "Your review was removed",
-                    $"An administrator removed your review of {productName}. Reason: {cleanReason}",
+                    NotificationType.FeedbackRemovedByAdmin, NotificationMessages.Feedback.ReviewRemovedByAdminTitle,
+                    NotificationMessages.Feedback.ReviewRemovedByAdminBody(productName, cleanReason),
                     "/account/reviews", $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
             }
             else
             {
                 await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
-                    NotificationType.FeedbackReceived, "Your review was restored",
-                    $"An administrator restored your review of {productName}.",
+                    NotificationType.FeedbackReceived, NotificationMessages.Feedback.ReviewRestoredByAdminTitle,
+                    NotificationMessages.Feedback.ReviewRestoredByAdminBody(productName),
                     "/account/reviews", $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
             }
 
@@ -235,12 +235,12 @@ public sealed class FeedbackService : IFeedbackService
 
             var created = await _feedbackRepo.CreateAsync(feedback, ct);
             var shopId = orderItem.Order.ShopId;
-            var body = $"{created.User.FullName} left a {created.Rating}-star review for {created.Product.Name}.";
+            var body = NotificationMessages.Feedback.NewCustomerReviewBody(created.User.FullName, created.Rating, created.Product.Name);
             await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(shopId), new CreateNotificationCommand(
-                NotificationType.FeedbackReceived, "New customer review", body,
+                NotificationType.FeedbackReceived, NotificationMessages.Feedback.NewCustomerReviewTitle, body,
                 "/store-owner/reviews", $"feedback:{created.Id}:created:owner"), ct);
             await _notifications.EnqueueAsync(NotificationTarget.ShopStaff(shopId), new CreateNotificationCommand(
-                NotificationType.FeedbackReceived, "New customer review", body,
+                NotificationType.FeedbackReceived, NotificationMessages.Feedback.NewCustomerReviewTitle, body,
                 $"/staff/shops/{shopId}/reviews", $"feedback:{created.Id}:created:staff"), ct);
 
             return MapToResponse(created);
@@ -324,12 +324,12 @@ public sealed class FeedbackService : IFeedbackService
             {
                 var customerName = feedback.User?.FullName ?? "A customer";
                 var productName = feedback.Product?.Name ?? "product";
-                var body = $"{customerName} updated their review to {request.Rating} stars for {productName}.";
+                var body = NotificationMessages.Feedback.ReviewUpdatedLowRatingBody(customerName, request.Rating, productName);
                 await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(shopId.Value), new CreateNotificationCommand(
-                    NotificationType.FeedbackReceived, "Customer updated review (low rating)", body,
+                    NotificationType.FeedbackReceived, NotificationMessages.Feedback.ReviewUpdatedLowRatingTitle, body,
                     "/store-owner/reviews", $"feedback:{feedback.Id}:edited:owner:{now.Ticks}"), ct);
                 await _notifications.EnqueueAsync(NotificationTarget.ShopStaff(shopId.Value), new CreateNotificationCommand(
-                    NotificationType.FeedbackReceived, "Customer updated review (low rating)", body,
+                    NotificationType.FeedbackReceived, NotificationMessages.Feedback.ReviewUpdatedLowRatingTitle, body,
                     $"/staff/shops/{shopId.Value}/reviews", $"feedback:{feedback.Id}:edited:staff:{now.Ticks}"), ct);
             }
 
@@ -389,8 +389,8 @@ public sealed class FeedbackService : IFeedbackService
             var created = await _feedbackRepo.CreateReplyAsync(reply, ct);
             await AddReplyActivityLogAsync(userId, feedback, now, ct);
             await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
-                NotificationType.FeedbackReplied, "Your review has a reply",
-                $"{feedback.OrderItem.Order.Shop.Name} replied to your review of {feedback.Product.Name}.",
+                NotificationType.FeedbackReplied, NotificationMessages.Feedback.ReviewRepliedTitle,
+                NotificationMessages.Feedback.ReviewRepliedBody(feedback.OrderItem.Order.Shop.Name, feedback.Product.Name),
                 $"/account/reviews?feedbackId={feedbackId}", $"feedback:{feedbackId}:reply:{created.Id}"), ct);
 
             return new FeedbackResponses.FeedbackReplyResponse(
@@ -517,8 +517,8 @@ public sealed class FeedbackService : IFeedbackService
                 var url = shopId.HasValue ? $"/staff/shops/{shopId.Value}/reviews" : "/staff/reviews";
                 await _notifications.EnqueueAsync(NotificationTarget.User(repliedStaffId), new CreateNotificationCommand(
                     NotificationType.FeedbackReceived,
-                    "Feedback reply removed",
-                    $"{ownerName} removed your reply on a customer review.",
+                    NotificationMessages.Feedback.FeedbackReplyRemovedTitle,
+                    NotificationMessages.Feedback.FeedbackReplyRemovedBody(ownerName),
                     url,
                     $"feedback-reply:deleted:{existingReply.Id}:{now.Ticks}"), ct);
             }

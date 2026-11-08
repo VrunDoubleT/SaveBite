@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -214,7 +215,7 @@ public sealed class ShopRepository : IShopRepository
     public async Task<IReadOnlyList<AuditLog>> GetShopStatusHistoryAsync(Guid shopId, CancellationToken ct)
     {
         return await _context.AuditLogs.AsNoTracking()
-            .Where(log => log.TargetType == "Shop" && log.TargetId == shopId && log.Action == "SHOP_STATUS_UPDATED")
+            .Where(log => log.TargetType == "Shop" && log.TargetId == shopId && log.Action == AuditActionTypes.ShopStatusUpdated)
             .OrderByDescending(log => log.CreatedAt)
             .ThenByDescending(log => log.Id)
             .ToListAsync(ct);

@@ -564,7 +564,7 @@ public sealed class ShopService : IShopService
             {
                 Id = Guid.NewGuid(),
                 ActorUserId = adminId,
-                Action = "SHOP_STATUS_UPDATED",
+                Action = AuditActionTypes.ShopStatusUpdated,
                 TargetType = "Shop",
                 TargetId = shopId,
                 Reason = reason,
@@ -575,8 +575,8 @@ public sealed class ShopService : IShopService
             await _shopRepository.SaveChangesAsync(ct);
 
             await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
-                NotificationType.ShopStatusChanged, "Shop status updated",
-                $"{shop.Name}: {currentStatus} → {targetStatus}." + (string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}"),
+                NotificationType.ShopStatusChanged, NotificationMessages.Shop.ShopStatusUpdatedTitle,
+                NotificationMessages.Shop.ShopStatusUpdatedBody(shop.Name, currentStatus, targetStatus, reason),
                 "/store-owner/profile", $"shop-status:{auditEntry.Id}"), ct);
         }
         await transaction.CommitAsync(ct);
@@ -598,7 +598,7 @@ public sealed class ShopService : IShopService
         return new ModerationActionResponse
         {
             TargetId = shopId,
-            Action = "SHOP_STATUS_UPDATED",
+            Action = AuditActionTypes.ShopStatusUpdated,
             Message = statusChanged
                 ? $"Shop status changed from {currentStatus} to {targetStatus}."
                 : "Shop suspension cleanup was retried."

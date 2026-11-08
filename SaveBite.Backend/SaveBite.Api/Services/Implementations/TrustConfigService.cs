@@ -1,3 +1,4 @@
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -161,7 +162,7 @@ public sealed class TrustConfigService : ITrustConfigService
                     _repository.AddDepositRanges(rangeEntities);
 
                 WriteLevelHistory(newLevel, 1, TrustLevelChangeType.Created, affectedUserCount: 0, adminId, now);
-                WriteAudit(adminId, "CreateTrustLevel", "TrustLevel", newLevel.Id, null, SnapshotTrustLevel(newLevel), now);
+                WriteAudit(adminId, AuditActionTypes.CreateTrustLevel, "TrustLevel", newLevel.Id, null, SnapshotTrustLevel(newLevel), now);
 
                 await _repository.SaveChangesAsync(ct);
                 _logger.LogInformation("New Trust Level created. LevelId: {LevelId}, Name: {Name}, Rank: {Rank}",
@@ -205,7 +206,7 @@ public sealed class TrustConfigService : ITrustConfigService
             counts.GetValueOrDefault(level.Id),
             adminId,
             now);
-        WriteAudit(adminId, "UpdateTrustLevelInfo", "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
+        WriteAudit(adminId, AuditActionTypes.UpdateTrustLevelInfo, "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
         try
         {
@@ -324,7 +325,7 @@ public sealed class TrustConfigService : ITrustConfigService
                         affectedScores.Count,
                         adminId,
                         now);
-                    WriteAudit(adminId, "DeactivateTrustLevel", "TrustLevel", level.Id, oldValues,
+                    WriteAudit(adminId, AuditActionTypes.DeactivateTrustLevel, "TrustLevel", level.Id, oldValues,
                         new { Level = SnapshotTrustLevel(level), AffectedUserCount = affectedScores.Count }, now);
 
                     await _repository.SaveChangesAsync(ct);
@@ -368,7 +369,7 @@ public sealed class TrustConfigService : ITrustConfigService
                         affectedUserCount: 0,
                         adminId,
                         now);
-                    WriteAudit(adminId, "ReactivateTrustLevel", "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
+                    WriteAudit(adminId, AuditActionTypes.ReactivateTrustLevel, "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
                     await _repository.SaveChangesAsync(ct);
 
@@ -377,7 +378,7 @@ public sealed class TrustConfigService : ITrustConfigService
 
                 foreach (var notice in notices)
                     await _notifications.EnqueueAsync(NotificationTarget.User(notice.UserId), new CreateNotificationCommand(
-                        NotificationType.TrustLevelChanged, "Trust level updated", $"Your trust level is now {notice.Name} after an administrator updated the level configuration.",
+                        NotificationType.TrustLevelChanged, NotificationMessages.TrustAndPenalties.TrustLevelUpdatedTitle, NotificationMessages.TrustAndPenalties.TrustLevelUpdatedFromConfigBody(notice.Name),
                         "/account/trust-score", $"trust-level:{notice.HistoryId}"), ct);
                 var updatedCounts = await _repository.GetUserCountsByLevelAsync(ct);
                 return ToLevelResponse(level, updatedCounts);
@@ -442,7 +443,7 @@ public sealed class TrustConfigService : ITrustConfigService
                 counts.GetValueOrDefault(level.Id),
                 adminId,
                 now);
-            WriteAudit(adminId, "UpdateTrustLevelBenefits", "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
+            WriteAudit(adminId, AuditActionTypes.UpdateTrustLevelBenefits, "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
             try
             {
@@ -708,7 +709,7 @@ public sealed class TrustConfigService : ITrustConfigService
                 counts.GetValueOrDefault(level.Id),
                 adminId,
                 now);
-            WriteAudit(adminId, "UpdateTrustLevelRequirement", "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
+            WriteAudit(adminId, AuditActionTypes.UpdateTrustLevelRequirement, "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
             try
             {
@@ -819,7 +820,7 @@ public sealed class TrustConfigService : ITrustConfigService
         };
 
         _repository.AddPenaltyRule(rule);
-        WriteAudit(adminId, "CreatePenaltyRule", "RecoveryRequirementRule", rule.Id, null, SnapshotPenaltyRule(rule), now);
+        WriteAudit(adminId, AuditActionTypes.CreatePenaltyRule, "RecoveryRequirementRule", rule.Id, null, SnapshotPenaltyRule(rule), now);
 
         try
         {
@@ -866,7 +867,7 @@ public sealed class TrustConfigService : ITrustConfigService
         rule.EffectiveFrom = effectiveFrom;
         rule.EffectiveTo = effectiveTo;
 
-        WriteAudit(adminId, "UpdatePenaltyRule", "RecoveryRequirementRule", rule.Id, old, SnapshotPenaltyRule(rule), now);
+        WriteAudit(adminId, AuditActionTypes.UpdatePenaltyRule, "RecoveryRequirementRule", rule.Id, old, SnapshotPenaltyRule(rule), now);
 
         try
         {
@@ -904,7 +905,7 @@ public sealed class TrustConfigService : ITrustConfigService
 
         var old = SnapshotPenaltyRule(rule);
         _repository.RemovePenaltyRule(rule);
-        WriteAudit(adminId, "DeletePenaltyRule", "RecoveryRequirementRule", rule.Id, old, new { Deleted = true }, now);
+        WriteAudit(adminId, AuditActionTypes.DeletePenaltyRule, "RecoveryRequirementRule", rule.Id, old, new { Deleted = true }, now);
 
         await _repository.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Future penalty rule deleted. RuleId: {RuleId}", rule.Id);
@@ -984,11 +985,11 @@ public sealed class TrustConfigService : ITrustConfigService
 
     public Task<TrustScoreRuleResponse> UpdateScoreRuleAsync(
         Guid adminId, Guid ruleId, UpdateTrustScoreRuleRequest request, CancellationToken cancellationToken = default)
-        => UpdateRuleAsync(adminId, ruleId, request, earningOnly: false, "UpdateTrustScoreRule", cancellationToken);
+        => UpdateRuleAsync(adminId, ruleId, request, earningOnly: false, AuditActionTypes.UpdateTrustScoreRule, cancellationToken);
 
     public Task<TrustScoreRuleResponse> UpdateEarningRuleAsync(
         Guid adminId, Guid ruleId, UpdateTrustScoreRuleRequest request, CancellationToken cancellationToken = default)
-        => UpdateRuleAsync(adminId, ruleId, request, earningOnly: true, "UpdateTrustEarningRule", cancellationToken);
+        => UpdateRuleAsync(adminId, ruleId, request, earningOnly: true, AuditActionTypes.UpdateTrustEarningRule, cancellationToken);
 
     private async Task<IReadOnlyList<TrustScoreRuleResponse>> GetRulesAsync(bool earningOnly, CancellationToken cancellationToken)
     {

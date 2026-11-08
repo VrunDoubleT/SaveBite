@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Audit;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -7,7 +9,7 @@ using StaffInvitation = SaveBite.Backend.Models.Entities.StaffInvitation;
 
 namespace SaveBite.Backend.Repositories.Implementations;
 
-public sealed class StaffInvitationRepository(AppDbContext context)
+public sealed class StaffInvitationRepository(AppDbContext context, IAuditWriter audit)
     : IStaffInvitationRepository
 {
     private const string StatusPending =
@@ -33,6 +35,13 @@ public sealed class StaffInvitationRepository(AppDbContext context)
             entry.Property(i => i.Status).OriginalValue = status;
             entry.Property(i => i.RespondedAt).CurrentValue = now;
             entry.Property(i => i.RespondedAt).OriginalValue = now;
+        }
+        if (changed)
+        {
+            audit.Record("StaffInvitation", invitationId, AuditActionTypes.Update,
+                new { Status = StatusPending },
+                new { Status = status, RespondedAt = (DateTime?)now });
+            await context.SaveChangesAsync(cancellationToken);
         }
         return changed;
     }

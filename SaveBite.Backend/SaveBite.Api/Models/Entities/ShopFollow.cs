@@ -1,7 +1,9 @@
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Models.Enums;
 
 namespace SaveBite.Backend.Models.Entities;
 
+[NoAudit]
 public sealed class ShopFollow
 {
     public Guid CustomerId { get; set; }

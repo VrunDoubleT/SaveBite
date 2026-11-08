@@ -1,5 +1,8 @@
+using SaveBite.Backend.Audit;
+
 namespace SaveBite.Backend.Uploads;
 
+[NoAudit]
 public sealed class UploadSession
 {
     public Guid Id { get; set; }
@@ -12,6 +15,7 @@ public sealed class UploadSession
     public Guid? ResultId { get; set; }
     public List<UploadAsset> Assets { get; set; } = [];
 }
+[NoAudit]
 public sealed class UploadAsset
 {
     public Guid Id { get; set; }

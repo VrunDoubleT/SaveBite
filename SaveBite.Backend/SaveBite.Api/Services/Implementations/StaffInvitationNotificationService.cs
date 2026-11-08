@@ -1,3 +1,4 @@
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
@@ -25,23 +26,29 @@ public sealed class StaffInvitationNotificationService(IStaffInvitationRepositor
         {
             case StaffInvitationStatus.Pending:
                 await Send(invitation.InvitedUserId, NotificationType.StaffInvitationReceived,
-                    "New staff invitation", $"{shop} invited you to join their team. Respond within 3 days.", CustomerUrl, "customer");
+                    NotificationMessages.Staff.StaffInvitationReceivedTitle,
+                    NotificationMessages.Staff.StaffInvitationReceivedBody(shop), CustomerUrl, "customer");
                 break;
             case StaffInvitationStatus.Accepted:
                 await Send(invitation.Shop.OwnerUserId, NotificationType.StaffInvitationAccepted,
-                    "Staff invitation accepted", $"{customer} accepted your invitation and joined {shop}.", OwnerUrl, "owner");
+                    NotificationMessages.Staff.StaffInvitationAcceptedTitle,
+                    NotificationMessages.Staff.StaffInvitationAcceptedBody(customer, shop), OwnerUrl, "owner");
                 await Send(invitation.InvitedUserId, NotificationType.StaffJoinedShop,
-                    "Welcome to the team", $"You have joined {shop} as a staff member.", CustomerUrl, "customer");
+                    NotificationMessages.Staff.StaffJoinedShopTitle,
+                    NotificationMessages.Staff.StaffJoinedShopBody(shop), CustomerUrl, "customer");
                 break;
             case StaffInvitationStatus.Declined:
                 await Send(invitation.Shop.OwnerUserId, NotificationType.StaffInvitationDeclined,
-                    "Staff invitation declined", $"{customer} declined your invitation to join {shop}.", OwnerUrl, "owner");
+                    NotificationMessages.Staff.StaffInvitationDeclinedTitle,
+                    NotificationMessages.Staff.StaffInvitationDeclinedBody(customer, shop), OwnerUrl, "owner");
                 break;
             case StaffInvitationStatus.Expired:
                 await Send(invitation.Shop.OwnerUserId, NotificationType.StaffInvitationExpired,
-                    "Staff invitation expired", $"The invitation for {customer} to join {shop} expired without a response.", OwnerUrl, "owner");
+                    NotificationMessages.Staff.StaffInvitationExpiredTitle,
+                    NotificationMessages.Staff.StaffInvitationExpiredOwnerBody(customer, shop), OwnerUrl, "owner");
                 await Send(invitation.InvitedUserId, NotificationType.StaffInvitationExpired,
-                    "Staff invitation expired", $"Your invitation to join {shop} has expired.", CustomerUrl, "customer");
+                    NotificationMessages.Staff.StaffInvitationExpiredTitle,
+                    NotificationMessages.Staff.StaffInvitationExpiredCustomerBody(shop), CustomerUrl, "customer");
                 break;
         }
     }

@@ -463,7 +463,7 @@ public sealed class ProductService : IProductService
             _audit.Record(new AuditLog
             {
                 ActorUserId = adminId,
-                Action = "PRODUCT_CONTENT_APPROVED",
+                Action = AuditActionTypes.ProductContentApproved,
                 TargetType = "ProductRevision",
                 TargetId = revision.Id,
                 OldValuesJson = JsonSerializer.Serialize(oldValues),
@@ -480,8 +480,8 @@ public sealed class ProductService : IProductService
             });
             await _repository.SaveChangesAsync(ct);
             await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
-                NotificationType.ProductContentApproved, "Product content approved",
-                $"The content of {product.Name} has been approved by an administrator.",
+                NotificationType.ProductContentApproved, NotificationMessages.DealsAndProducts.ProductContentApprovedTitle,
+                NotificationMessages.DealsAndProducts.ProductContentApprovedBody(product.Name),
                 $"/store-owner/products/{productId}", $"product:{productId}:revision:{revisionId}:approved"), ct);
             return new ModerationActionResponse { TargetId = productId, Action = "PRODUCT_CONTENT_APPROVED", Message = "Current content revision approved." };
 
@@ -670,7 +670,7 @@ public sealed class ProductService : IProductService
             {
                 Id = Guid.NewGuid(),
                 ActorUserId = adminId,
-                Action = "PRODUCT_REMOVED_VIOLATION",
+                Action = AuditActionTypes.ProductRemovedViolation,
                 TargetType = "Product",
                 TargetId = productId,
                 Reason = reason,
@@ -686,14 +686,14 @@ public sealed class ProductService : IProductService
             await _repository.RemoveProductForViolationAndCancelDealsAsync(product, ct);
 
             await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
-                NotificationType.ProductRemoved, "Product removed for a violation",
-                $"{product.Name} was removed by an administrator. Reason: {reason}",
+                NotificationType.ProductRemoved, NotificationMessages.DealsAndProducts.ProductRemovedViolationTitle,
+                NotificationMessages.DealsAndProducts.ProductRemovedViolationBody(product.Name, reason),
                 "/store-owner/products", $"product-removed:{auditEntry.Id}"), ct);
 
             return new ModerationActionResponse
             {
                 TargetId = productId,
-                Action = "PRODUCT_REMOVED_VIOLATION",
+                Action = AuditActionTypes.ProductRemovedViolation,
                 Message = "Product removed and associated flash deals cancelled."
             };
 

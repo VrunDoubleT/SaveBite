@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -81,7 +82,7 @@ public sealed class CategoryService : ICategoryService
         _audit.Record(new AuditLog
         {
             ActorUserId = adminId,
-            Action = "CATEGORY_CREATED",
+            Action = AuditActionTypes.CategoryCreated,
             TargetType = "Category",
             TargetId = category.Id,
             NewValuesJson = JsonSerializer.Serialize(new
@@ -121,7 +122,7 @@ public sealed class CategoryService : ICategoryService
         _audit.Record(new AuditLog
         {
             ActorUserId = adminId,
-            Action = "CATEGORY_UPDATED",
+            Action = AuditActionTypes.CategoryUpdated,
             TargetType = "Category",
             TargetId = category.Id,
             OldValuesJson = JsonSerializer.Serialize(oldValues),
@@ -152,7 +153,7 @@ public sealed class CategoryService : ICategoryService
         _audit.Record(new AuditLog
         {
             ActorUserId = adminId,
-            Action = request.IsActive ? "CATEGORY_ACTIVATED" : "CATEGORY_DEACTIVATED",
+            Action = request.IsActive ? AuditActionTypes.CategoryActivated : AuditActionTypes.CategoryDeactivated,
             TargetType = "Category",
             TargetId = category.Id,
             OldValuesJson = JsonSerializer.Serialize(new { IsActive = oldIsActive }),
@@ -185,7 +186,7 @@ public sealed class CategoryService : ICategoryService
         _audit.Record(new AuditLog
         {
             ActorUserId = adminId,
-            Action = "CATEGORY_DELETED",
+            Action = AuditActionTypes.CategoryDeleted,
             TargetType = "Category",
             TargetId = category.Id,
             OldValuesJson = JsonSerializer.Serialize(oldValues),

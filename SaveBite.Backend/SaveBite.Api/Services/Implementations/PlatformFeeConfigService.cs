@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SaveBite.Backend.Constants;
 using Microsoft.Extensions.Logging;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -112,7 +113,7 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
                     Id = Guid.NewGuid(),
                     ActorUserId = adminId,
                     ActorType = AuditActorType.User,
-                    Action = "UpdateScheduledFeeConfiguration",
+                    Action = AuditActionTypes.UpdateScheduledFeeConfiguration,
                     TargetType = "PlatformFeeConfig",
                     TargetId = existingUpcoming.Id,
                     OldValuesJson = JsonSerializer.Serialize(new { FeeRate = oldRate, EffectiveFrom = oldEffective }),
@@ -146,7 +147,7 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
                     Id = Guid.NewGuid(),
                     ActorUserId = adminId,
                     ActorType = AuditActorType.User,
-                    Action = "CreateScheduledFeeConfiguration",
+                    Action = AuditActionTypes.CreateScheduledFeeConfiguration,
                     TargetType = "PlatformFeeConfig",
                     TargetId = resultConfig.Id,
                     OldValuesJson = null,
@@ -207,7 +208,7 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
                 Id = Guid.NewGuid(),
                 ActorUserId = adminId,
                 ActorType = AuditActorType.User,
-                Action = "UpdateFeeConfiguration",
+                Action = AuditActionTypes.UpdateFeeConfiguration,
                 TargetType = "PlatformFeeConfig",
                 TargetId = resultConfig.Id,
                 OldValuesJson = currentConfig == null
@@ -265,7 +266,7 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
             Id = Guid.NewGuid(),
             ActorUserId = adminId,
             ActorType = AuditActorType.User,
-            Action = "CancelScheduledFeeConfiguration",
+            Action = AuditActionTypes.CancelScheduledFeeConfiguration,
             TargetType = "PlatformFeeConfig",
             TargetId = config.Id,
             OldValuesJson = JsonSerializer.Serialize(new { config.FeeRate, config.EffectiveFrom }),

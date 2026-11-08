@@ -1,6 +1,9 @@
+using SaveBite.Backend.Audit;
+
 namespace SaveBite.Backend.Models.Entities;
 
 // A lifetime receipt consumes the order's single customer refund submission, even after withdrawal or rejection.
+[NoAudit]
 public class OrderRefundRequest
 {
     public Guid OrderId { get; set; }

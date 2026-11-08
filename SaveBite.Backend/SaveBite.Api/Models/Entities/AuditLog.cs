@@ -1,7 +1,9 @@
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Models.Enums;
 
 namespace SaveBite.Backend.Models.Entities;
 
+[NoAudit]
 public class AuditLog
 {
     public Guid Id { get; set; }

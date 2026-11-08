@@ -1,3 +1,4 @@
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Models.Enums;
@@ -21,11 +22,12 @@ public sealed class PickupDeadlineReminderJob(ICheckoutRepository orders, INotif
             var due = PickupReminderPolicy.DueAt(order.ConfirmedAt ?? order.CreatedAt, deadline);
             if (now < due) throw new InvalidOperationException("Pickup reminder ran before its scheduled time.");
             var localDeadline = deadline.AddHours(7);
-            var body = $"Order {order.OrderCode} at {order.Shop.Name} must be collected before {localDeadline:dd/MM/yyyy HH:mm} (UTC+7). " +
-                $"Address: {order.Shop.AddressLine}. Please collect it before this hard deadline to avoid a missed pickup.";
+            var body = NotificationMessages.Orders.PickupDeadlineApproachingBody(
+                order.OrderCode, order.Shop.Name, localDeadline, order.Shop.AddressLine);
+
             await notifications.EnqueueAsync(NotificationTarget.User(order.CustomerId), new CreateNotificationCommand(
-                NotificationType.PickupDeadlineApproaching, "Pickup deadline approaching", body,
-                $"/orders/{orderId}", $"pickup-deadline:{orderId}:{deadline.Ticks}"), ct);
+                NotificationType.PickupDeadlineApproaching, NotificationMessages.Orders.PickupDeadlineApproachingTitle, body,
+                NotificationActionUrls.CustomerOrder(orderId), $"pickup-deadline:{orderId}:{deadline.Ticks}"), ct);
             var key = $"pickup-email:{orderId}:{deadline.Ticks / 10}";
             db.Add(new SaveBite.Backend.Models.Entities.OrderEventOutbox
             {

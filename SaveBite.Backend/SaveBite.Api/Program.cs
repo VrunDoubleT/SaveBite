@@ -1,6 +1,7 @@
 using SaveBite.Backend.Messaging.Consumer.ProductWarnings;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.BackgroundJobs.Extensions;
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Data.Seed;
 using SaveBite.Backend.Extensions;
@@ -29,6 +30,7 @@ builder.Services.AddRealtime();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+builder.Services.AddAuditServices();
 builder.Services.AddDatabase(builder.Configuration);
 builder.Services.AddBackgroundJobs(builder.Configuration);
 
@@ -57,6 +59,9 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider
         .GetRequiredService<AppDbContext>();
+
+    var auditContext = scope.ServiceProvider.GetRequiredService<IAuditContext>();
+    auditContext.Enabled = false;
 
     await context.Database.MigrateAsync();
     await DbSeeder.SeedAsync(context);

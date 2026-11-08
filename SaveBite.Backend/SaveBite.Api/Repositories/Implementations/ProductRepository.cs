@@ -2,6 +2,8 @@ using System.Text.Json;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Events;
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Audit;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -15,7 +17,13 @@ namespace SaveBite.Backend.Repositories.Implementations;
 public sealed class ProductRepository : IProductRepository
 {
     private readonly AppDbContext _db;
-    public ProductRepository(AppDbContext db) => _db = db;
+    private readonly IAuditWriter _audit;
+
+    public ProductRepository(AppDbContext db, IAuditWriter audit)
+    {
+        _db = db;
+        _audit = audit;
+    }
 
     public async Task<ProductOptionsResponse> GetOptionsAsync(Guid userId, CancellationToken ct)
     {
@@ -230,6 +238,14 @@ public sealed class ProductRepository : IProductRepository
                         x => x.UpdatedAt,
                         DateTime.UtcNow),
                 ct);
+
+        foreach (var deal in affectedDeals)
+        {
+            _audit.Record("FlashDeal", deal.Id, AuditActionTypes.Update,
+                new { Status = deal.Status },
+                new { Status = FlashDealStatus.Cancelled },
+                reason: "Product changed, deals cancelled");
+        }
 
         await _db.SaveChangesAsync(ct);
         if (transaction != null) await transaction.CommitAsync(ct);

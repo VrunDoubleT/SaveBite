@@ -129,8 +129,8 @@ public sealed class ShopApplicationService : IShopApplicationService
             NotificationTarget.Admins(),
             new CreateNotificationCommand(
                 NotificationType.ShopApplicationSubmitted,
-                "New shop registration application",
-                $"A new shop registration application has been submitted for '{application.Name}'. Please review the application.",
+                NotificationMessages.ShopApplications.NewApplicationSubmittedTitle,
+                NotificationMessages.ShopApplications.NewApplicationSubmittedBody(application.Name),
                 NotificationActionUrls.AdminShopApplications(),
                 $"shop-application:{application.Id}:revision:{application.RevisionNumber}:submitted"
             ),
@@ -216,8 +216,8 @@ public sealed class ShopApplicationService : IShopApplicationService
             NotificationTarget.Admins(),
             new CreateNotificationCommand(
                 NotificationType.ShopApplicationSubmitted,
-                "Shop registration application resubmitted",
-                $"Shop registration application for '{application.Name}' has been resubmitted for review.",
+                NotificationMessages.ShopApplications.ApplicationResubmittedTitle,
+                NotificationMessages.ShopApplications.ApplicationResubmittedBody(application.Name),
                 NotificationActionUrls.AdminShopApplications(),
                 $"shop-application:{application.Id}:revision:{application.RevisionNumber}:resubmitted"
             ),
@@ -467,7 +467,7 @@ public sealed class ShopApplicationService : IShopApplicationService
             _audit.Record(new AuditLog
             {
                 ActorUserId = adminId,
-                Action = "SHOP_APPLICATION_REVIEWED",
+                Action = AuditActionTypes.ShopApplicationReviewed,
                 TargetType = "ShopApplication",
                 TargetId = application.Id,
                 OldValuesJson = JsonSerializer.Serialize(new
@@ -494,8 +494,8 @@ public sealed class ShopApplicationService : IShopApplicationService
                 _ => NotificationType.ShopApplicationNeedsRevision
             };
             await _notifications.EnqueueAsync(NotificationTarget.User(application.ApplicantUserId), new CreateNotificationCommand(
-                notificationType, "Shop application reviewed",
-                $"Your application for {application.Name} is now {nextStatus}. {request.Note?.Trim()}",
+                notificationType, NotificationMessages.ShopApplications.ApplicationReviewedTitle,
+                NotificationMessages.ShopApplications.ApplicationReviewedBody(application.Name, nextStatus, request.Note),
                 "/account/shop-application", $"shop-application:{application.Id}:revision:{application.RevisionNumber}:{nextStatus}"), cancellationToken);
 
             return (Response: Map(application), application.ApplicantUserId, application.Id,

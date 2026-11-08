@@ -23,8 +23,8 @@ public sealed class ShopDealNotificationService(AppDbContext db, INotificationSe
             || deal.Product.DeletedAt != null || now < deal.SaleStartTime || now >= deal.OrderEndTime
             || now >= deal.ShopClosingTime) return;
         await notifications.SendAsync(NotificationTarget.ShopFollowers(data.ShopId, data.OpenedAt),
-            new CreateNotificationCommand(NotificationType.FlashDealAvailable, $"New Flash Deal from {deal.Shop.Name}!",
-                $"'{deal.Product.Name}' is now on sale. Order now before it runs out!",
+            new CreateNotificationCommand(NotificationType.FlashDealAvailable, NotificationMessages.DealsAndProducts.FlashDealAvailableTitle(deal.Shop.Name),
+                NotificationMessages.DealsAndProducts.FlashDealAvailableBody(deal.Product.Name),
                 NotificationActionUrls.FlashDeal(deal.Id), $"flash-deal-opened:{deal.Id}"), ct);
     }
 }
