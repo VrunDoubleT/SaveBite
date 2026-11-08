@@ -1,12 +1,8 @@
 import {
-  Avatar,
-  Badge,
-  Button,
-  Card,
-  ErrorState,
-  IconButton,
-  Skeleton,
-} from "@/shared/components/ui";
+  CustomerActionFileInput,
+  CustomerActionButton,
+} from "@/shared/components/CustomerMutationControls";
+import { Avatar, Badge, Card, ErrorState, IconButton, Skeleton } from "@/shared/components/ui";
 import { getApiErrorMessage } from "@/shared/api";
 import { toast } from "@/shared/stores/toastStore";
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
@@ -186,9 +182,9 @@ export function UserProfileCard() {
                   <Camera className="size-4" aria-hidden="true" />
                 </IconButton>
 
-                <input
+                <CustomerActionFileInput
                   ref={fileInputRef}
-                  type="file"
+
                   accept={ALLOWED_AVATAR_TYPES.join(",")}
                   className="hidden"
                   onChange={handleFileInputChange}
@@ -225,7 +221,7 @@ export function UserProfileCard() {
 
         {!isEditing && (
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-            <Button
+            <CustomerActionButton
               type="button"
               onClick={handleEditToggle}
               disabled={isChangingPassword}
@@ -233,8 +229,8 @@ export function UserProfileCard() {
             >
               <Pencil className="size-4" aria-hidden="true" />
               Edit profile
-            </Button>
-            <Button
+            </CustomerActionButton>
+            <CustomerActionButton
               variant="secondary"
               ref={passwordButtonRef}
               type="button"
@@ -246,7 +242,7 @@ export function UserProfileCard() {
             >
               <LockKeyhole className="size-4" aria-hidden="true" />
               Change password
-            </Button>
+            </CustomerActionButton>
           </div>
         )}
       </div>

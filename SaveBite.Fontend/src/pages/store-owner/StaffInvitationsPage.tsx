@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
+import { subscribeStaffEvents } from "@/features/shop-staffs/realtime/subscribeStaffEvents";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Mail, RefreshCw, Send, Trash2, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
@@ -119,6 +121,8 @@ function RevokeInvitationModal({ invitation, loading, onClose, onConfirm }: Revo
 export function StoreOwnerStaffInvitationsPage() {
   const navigate = useNavigate();
   const shopSuspended = useShopSuspended();
+  const realtime = useRealtimeSubscriptions();
+  const loadState = useRef({ version: 0 });
 
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -136,22 +140,34 @@ export function StoreOwnerStaffInvitationsPage() {
     initialPageSize: 10,
   });
 
-  async function loadInvitations() {
-    try {
-      setLoading(true);
-      const result = await shopStaffApi.getInvitations();
-      setInvitations(result);
-    } catch (error) {
-      console.error(error);
-      toast.error(getApiErrorMessage(error) || "Unable to load staff invitations.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const loadInvitations = useCallback(
+    async (showLoading = true) => {
+      const version = ++loadState.current.version;
+      try {
+        if (showLoading) setLoading(true);
+        const result = await shopStaffApi.getInvitations(true);
+        if (version === loadState.current.version) setInvitations(result);
+      } catch (error) {
+        if (version !== loadState.current.version) return;
+        console.error(error);
+        toast.error(getApiErrorMessage(error) || "Unable to load staff invitations.");
+      } finally {
+        if (version === loadState.current.version) setLoading(false);
+      }
+    },
+    [loadState],
+  );
 
   useEffect(() => {
-    void loadInvitations();
-  }, []);
+    const initial = window.setTimeout(() => void loadInvitations(), 0);
+    const off = subscribeStaffEvents(realtime, "invitations", () => loadInvitations(false));
+    const currentLoadState = loadState.current;
+    return () => {
+      window.clearTimeout(initial);
+      off();
+      currentLoadState.version++;
+    };
+  }, [realtime, loadInvitations, loadState]);
 
   async function handleRevoke() {
     if (!selectedInvitation || shopSuspended) return;

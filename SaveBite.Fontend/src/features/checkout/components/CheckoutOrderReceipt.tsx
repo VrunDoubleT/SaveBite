@@ -1,4 +1,5 @@
-import { Button, Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
+import { Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
 import { CustomerOrderRefunds } from "@/features/refunds/components/CustomerOrderRefunds";
@@ -7,7 +8,7 @@ import { OrderPickupCode } from "./OrderPickupCode";
 import { OrderStatusPanel } from "./OrderStatusPanel";
 import { CancelOrderAction } from "./CancelOrderAction";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { CreditCard, Clock3, Store, MapPin, ShoppingBag } from "lucide-react";
 import { OrderItems, type OrderReviewTarget } from "@/features/orders/components/OrderItems";
 import { OrderPaymentAmounts } from "@/features/orders/components/OrderPaymentAmounts";
@@ -21,22 +22,62 @@ import { checkoutTime, safePaymentUrl } from "../utils/checkoutPolicy";
 import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
 import { getApiErrorMessage } from "@/shared/api";
 import { useCartStore } from "@/features/cart/stores/cartStore";
+import { getUploadDraft } from "@/shared/uploads/uploadDraftStore";
+import { useAuthStore } from "@/shared/stores/authStore";
 
 export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
   const realtime = useRealtimeSubscriptions();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const userId = useAuthStore((state) => state.user?.id);
   const [order, setOrder] = useState<CheckoutOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [ratingItemId, setRatingItemId] = useState<string | null>(null);
+  const [ratingUploadDraftId, setRatingUploadDraftId] = useState<string>();
   const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<OrderReviewTarget | null>(
     null,
   );
+  const [editingUploadDraftId, setEditingUploadDraftId] = useState<string>();
   const [now, setNow] = useState(Date.now);
   const alive = useRef(true);
   const revision = useRef(0);
   const operation = useRef(false);
   const pending = order?.paymentStatus === "Pending" && order.status === "AwaitingPayment";
   const expired = !!order?.paymentExpiresAt && Date.parse(order.paymentExpiresAt) <= now;
+  const resumeUploadDraftId = (location.state as { uploadDraftId?: string } | null)?.uploadDraftId;
+
+  useEffect(() => {
+    if (!resumeUploadDraftId) return;
+    let active = true;
+    void getUploadDraft(resumeUploadDraftId)
+      .then((draft) => {
+        if (!active) return;
+        const form = draft?.formData as
+          | { kind?: string; orderItemId?: string; feedbackId?: string }
+          | undefined;
+        if (!draft || draft.userId !== userId || draft.purpose !== "feedback" || !form) {
+          setError("This saved review is unavailable or has expired.");
+          return;
+        }
+        if (form.kind === "create-review" && form.orderItemId) {
+          setRatingItemId(form.orderItemId);
+          setRatingUploadDraftId(draft.id);
+        } else if (form.kind === "edit-review" && form.feedbackId) {
+          setEditingFeedbackTarget({ feedbackId: form.feedbackId });
+          setEditingUploadDraftId(draft.id);
+        } else {
+          setError("This saved review is unavailable or has expired.");
+        }
+      })
+      .catch((error) => setError(getApiErrorMessage(error)))
+      .finally(() => {
+        if (active) navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+      });
+    return () => {
+      active = false;
+    };
+  }, [resumeUploadDraftId, userId, navigate, location.pathname, location.search]);
 
   useEffect(() => {
     alive.current = true;
@@ -134,18 +175,27 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
     <div className="min-w-0 py-6 sm:py-8">
       <RateOrderModal
         isOpen={ratingItemId !== null}
-        onClose={() => setRatingItemId(null)}
+        onClose={() => {
+          setRatingItemId(null);
+          setRatingUploadDraftId(undefined);
+        }}
         order={order}
         focusOrderItemId={ratingItemId || undefined}
+        uploadDraftId={ratingUploadDraftId}
         onSubmitted={() => void update(() => orderApi.order(orderId))}
       />
       <EditReviewModal
         isOpen={Boolean(editingFeedbackTarget)}
-        onClose={() => setEditingFeedbackTarget(null)}
+        onClose={() => {
+          setEditingFeedbackTarget(null);
+          setEditingUploadDraftId(undefined);
+        }}
         feedbackId={editingFeedbackTarget?.feedbackId ?? null}
         initialProductName={editingFeedbackTarget?.productName}
         initialVariantName={editingFeedbackTarget?.variantName}
         initialImageUrl={editingFeedbackTarget?.imageUrl}
+        orderId={orderId}
+        uploadDraftId={editingUploadDraftId}
         onUpdated={() => void update(() => orderApi.order(orderId))}
       />
       <div className="mb-6 space-y-3">
@@ -253,7 +303,11 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                   </details>
                 </div>
               </Card>
-              <Card padding="none" aria-label="Shop and ordered products" className="overflow-hidden">
+              <Card
+                padding="none"
+                aria-label="Shop and ordered products"
+                className="overflow-hidden"
+              >
                 <header className="flex items-center gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
                   <Link
                     to={APP_PATHS.SHOP_DETAIL.replace(":id", encodeURIComponent(order.shopId))}
@@ -351,7 +405,7 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                     <p className="text-caption text-text-secondary">
                       Payment deadline: {checkoutTime(order.paymentExpiresAt)}
                     </p>
-                    <Button
+                    <CustomerActionButton
                       loading={busy}
                       size="md"
                       type="button"
@@ -365,7 +419,7 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                         : expired
                           ? "Payment expired · Verifying"
                           : `${order.paymentMethod === "PayAtShop" ? "Pay deposit" : "Pay online"} ${money(order.requiredOnlineAmount)}`}
-                    </Button>
+                    </CustomerActionButton>
                   </div>
                 )}
                 {order.policy && (

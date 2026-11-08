@@ -1,17 +1,26 @@
+import { UploadDraftChoice } from "@/shared/uploads/UploadDraftChoice";
+import { UploadTaskGuard } from "@/shared/uploads/UploadTaskGuard";
+import {
+  CustomerMutationForm,
+  CustomerActionButton,
+} from "@/shared/components/CustomerMutationControls";
 import { Button, Input, MediaImage } from "@/shared/components/ui";
 import { authInputStyle } from "@/shared/components/ui/inputStyles";
 import { Package } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CheckoutOrder } from "@/features/checkout/types/checkout.types";
 import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
 import type { Refund } from "../types/refund.types";
 import { refundApi } from "../api/refundApi";
-import { uploadRefundFiles } from "../api/uploadRefundFiles";
 import { validateDistinctRefundPhotos } from "../utils/validateDistinctRefundPhotos";
 import { RefundFileUpload } from "./RefundFileUpload";
+import { useLocation } from "react-router-dom";
+import { useAuthStore } from "@/shared/stores/authStore";
+import { getUploadDraft, removeUploadDraft } from "@/shared/uploads/uploadDraftStore";
+import { startOrResumeUploadDraft } from "@/shared/uploads/uploadDrafts";
 
 // Keep request drafts local to the form; upload only after all selected items pass validation.
-export function RefundRequestForm({
+function RefundRequestFormContent({
   order,
   busy,
   mutate,
@@ -30,12 +39,37 @@ export function RefundRequestForm({
     items?: string;
   }>({});
   const [evidence, setEvidence] = useState<Record<string, File[]>>({});
+  const [activeDraftId, setActiveDraftId] = useState<string>();
+  const location = useLocation();
+  const userId = useAuthStore((state) => state.user?.id);
+  useEffect(() => {
+    const draftId = (location.state as { uploadDraftId?: string } | null)?.uploadDraftId;
+    if (!draftId || !userId) return;
+    let active = true;
+    void getUploadDraft(draftId).then((draft) => {
+      if (!active || !draft || draft.userId !== userId) return;
+      const saved = draft.formData as {
+        orderId?: string;
+        selected?: Record<string, number>;
+        reasons?: Record<string, string>;
+        evidence?: Record<string, File[]>;
+      };
+      if (saved.orderId !== order.id) return;
+      setActiveDraftId(draft.id);
+      setSelected(saved.selected ?? {});
+      setReasons(saved.reasons ?? {});
+      setEvidence(saved.evidence ?? {});
+    });
+    return () => {
+      active = false;
+    };
+  }, [location.state, order.id, userId]);
   const selectedAmount = order.items.reduce(
     (total, item) => total + item.unitPrice * (selected[item.orderItemId] || 0),
     0,
   );
   return (
-    <form
+    <CustomerMutationForm
       noValidate
       className="min-w-0 space-y-5"
       aria-label="Refund request"
@@ -73,21 +107,47 @@ export function RefundRequestForm({
         void mutate(async () => {
           const choices = Object.entries(selected).filter(([, quantity]) => quantity > 0);
           await validateDistinctRefundPhotos(choices.flatMap(([id]) => evidence[id] || []));
-          const items = [];
-          for (const [orderItemId, quantity] of choices) {
-            const images = await uploadRefundFiles(
-              order.id,
-              evidence[orderItemId] || [],
-              "request-evidence",
-            );
-            items.push({
+          if (!userId) throw new Error("Sign in before uploading refund evidence.");
+          const files = choices.flatMap(([orderItemId]) =>
+            (evidence[orderItemId] ?? []).map((file) => ({
+              field: `evidence:${orderItemId}`,
+              file,
+            })),
+          );
+          const draftId = activeDraftId ?? crypto.randomUUID();
+          setActiveDraftId(draftId);
+          const draft = await startOrResumeUploadDraft(
+            {
+              draftId,
+              userId,
+              purpose: "refund:request-evidence",
+              targetId: order.id,
+              title: `Refund request for order ${order.orderCode}`,
+              path: location.pathname,
+              formData: { orderId: order.id, selected, reasons, evidence },
+              files,
+            },
+            draftId,
+          );
+          setActiveDraftId(draft.id);
+          const items = choices.map(([orderItemId, quantity]) => {
+            const evidenceUrls = draft.files
+              .filter((file) => file.field === `evidence:${orderItemId}`)
+              .map((file) => file.url)
+              .filter((url): url is string => Boolean(url));
+            if (evidenceUrls.length !== (evidence[orderItemId]?.length ?? 0))
+              throw new Error("Some evidence photos are not uploaded yet. Retry the upload.");
+            return {
               orderItemId,
               quantity,
               reason: reasons[orderItemId].trim(),
-              evidenceUrls: images.map((image) => image.url),
-            });
-          }
-          return refundApi.request(order.id, items);
+              evidenceUrls,
+            };
+          });
+          const result = await refundApi.request(order.id, items);
+          await removeUploadDraft(draft.id);
+          setActiveDraftId(undefined);
+          return result;
         });
       }}
     >
@@ -267,11 +327,23 @@ export function RefundRequestForm({
           <Button variant="secondary" disabled={busy} onClick={onClose} className="min-h-11">
             Cancel
           </Button>
-          <Button type="submit" loading={busy} disabled={busy} className="min-h-11">
+          <CustomerActionButton type="submit" loading={busy} disabled={busy} className="min-h-11">
             {busy ? "Submitting…" : "Submit refund request"}
-          </Button>
+          </CustomerActionButton>
         </div>
       </div>
-    </form>
+    </CustomerMutationForm>
+  );
+}
+
+export function RefundRequestForm(props: Parameters<typeof RefundRequestFormContent>[0]) {
+  return (
+    <UploadTaskGuard scope={{ purpose: "refund:request-evidence", targetIds: [props.order.id] }}>
+      <UploadDraftChoice
+        scope={{ purpose: "refund:request-evidence", targetIds: [props.order.id] }}
+      >
+        {(draftId) => <RefundRequestFormContent key={draftId ?? "new"} {...props} />}
+      </UploadDraftChoice>
+    </UploadTaskGuard>
   );
 }

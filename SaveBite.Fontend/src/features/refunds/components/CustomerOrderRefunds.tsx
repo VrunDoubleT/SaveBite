@@ -1,4 +1,7 @@
-import { Badge, ButtonLink, Card } from "@/shared/components/ui";
+import { isUploadCancelled } from "@/shared/uploads/uploadErrors";
+import { toast } from "@/shared/stores/toastStore";
+import { CustomerActionLink } from "@/shared/components/CustomerMutationControls";
+import { Badge, Card } from "@/shared/components/ui";
 import { RefundCard } from "./RefundCard";
 import { refundEligibility } from "../utils/refundEligibility";
 import { APP_PATHS } from "@/app/router/paths";
@@ -76,7 +79,11 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
       setRefunds((items) => [changed, ...items.filter((item) => item.id !== changed.id)]);
       setLoaded(true);
     } catch (e) {
-      if (alive.current) setError(getApiErrorMessage(e));
+      if (isUploadCancelled(e))
+        toast.info(
+          "Upload stopped. Your refund draft is saved; edit it or submit again when ready.",
+        );
+      else if (alive.current) setError(getApiErrorMessage(e));
     } finally {
       operation.current = false;
       if (alive.current) setBusy(false);
@@ -113,12 +120,12 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
             </p>
           )}
           {eligible && (
-            <ButtonLink
+            <CustomerActionLink
               to={APP_PATHS.ORDER_REFUND_REQUEST.replace(":orderId", encodeURIComponent(order.id))}
               className="mt-3 min-h-11"
             >
               Request refund
-            </ButtonLink>
+            </CustomerActionLink>
           )}
           {!loaded && !error && (
             <p className="mt-3 text-caption text-text-secondary">Loading refund eligibility…</p>

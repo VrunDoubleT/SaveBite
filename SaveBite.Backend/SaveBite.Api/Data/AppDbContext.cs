@@ -1,17 +1,22 @@
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Uploads;
 
 namespace SaveBite.Backend.Data;
 
 public class AppDbContext : DbContext
 {
     private readonly SaveBite.Backend.Services.Implementations.NotificationOutboxDelivery? _notificationDelivery;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
 
     public AppDbContext(DbContextOptions<AppDbContext> options,
-        SaveBite.Backend.Services.Implementations.NotificationOutboxDelivery? notificationDelivery = null)
+        SaveBite.Backend.Services.Implementations.NotificationOutboxDelivery? notificationDelivery = null,
+        IHttpContextAccessor? httpContextAccessor = null)
         : base(options)
     {
         _notificationDelivery = notificationDelivery;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -26,6 +31,11 @@ public class AppDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        var actorValue = _httpContextAccessor?.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? _httpContextAccessor?.HttpContext?.User.FindFirstValue("sub");
+        if (Guid.TryParse(actorValue, out var actorId))
+            await UploadAttachmentTracker.StageAsync(this, actorId, cancellationToken);
+
         foreach (var entry in ChangeTracker.Entries<FlashDeal>().Where(e => e.State is EntityState.Added or EntityState.Modified).ToArray())
             SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(this, entry.Entity.Id, entry.Entity.ShopId);
         foreach (var entry in ChangeTracker.Entries<OrderEventOutbox>().Where(e => e.State == EntityState.Added))
@@ -109,6 +119,8 @@ public class AppDbContext : DbContext
     public DbSet<ProductFeedbackModerationLog> ProductFeedbackModerationLogs => Set<ProductFeedbackModerationLog>();
     // Audit Logs.
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<UploadSession> UploadSessions => Set<UploadSession>();
+    public DbSet<UploadAsset> UploadAssets => Set<UploadAsset>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

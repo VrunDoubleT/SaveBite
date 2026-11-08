@@ -6,6 +6,7 @@ using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.BackgroundJobs.Jobs;
 using SaveBite.Backend.BackgroundJobs.Scheduling;
 using SaveBite.Backend.BackgroundJobs.Service;
+using SaveBite.Backend.Uploads;
 
 namespace SaveBite.Backend.BackgroundJobs.Extensions;
 
@@ -41,6 +42,7 @@ public static class HangfireExtensions
         services.AddScoped<PlatformFeeRecoveryJob>();
         services.AddScoped<PlatformFeeOverdueJob>();
         services.AddScoped<PlatformFeeMonthlyStatementJob>();
+        services.AddScoped<UploadCleanupJob>();
 
         services.AddOptions<HangfireOptions>()
             .Bind(configuration.GetSection(HangfireOptions.SectionName))
@@ -94,6 +96,7 @@ public static class HangfireExtensions
         recurring.AddOrUpdate<FlashDealRecoveryJob>("flash-deal-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
         recurring.AddOrUpdate<StaffInvitationRecoveryJob>("staff-invitation-recovery", job => job.ExecuteAsync(false, CancellationToken.None), Cron.Minutely());
         recurring.AddOrUpdate<PlatformFeeRecoveryJob>("platform-fee-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Hourly());
+        recurring.AddOrUpdate<UploadCleanupJob>("temporary-upload-cleanup", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
         recurring.RemoveIfExists("pickup-deadline-reminder-recovery");
         var jobs = app.Services.GetRequiredService<IBackgroundJobClient>();
         var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("BackgroundJobStartup");

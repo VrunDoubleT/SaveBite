@@ -1,4 +1,5 @@
 using SaveBite.Backend.Models.DTOs;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -211,8 +212,6 @@ public sealed class UserService : IUserService
                     JsonSerializer.Serialize(new { CustomerStatus = newCustomerStatus.ToString() }),
                     now);
 
-                // When admin bans customer features, only send notification (do not revoke session or lock out system account)
-                await _realtime.SendToUserAsync(targetUserId, "user.role.changed", new { userId = targetUserId, customerStatus = newCustomerStatus.ToString() });
                 _logger.LogInformation("Admin {AdminId} {Action} customer features for {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
             }
             else
@@ -231,7 +230,6 @@ public sealed class UserService : IUserService
                 if (request.IsSuspended)
                 {
                     await _refreshTokenService.RevokeAllAsync(targetUserId, "Account suspended by Administrator.", cancellationToken);
-                    await _realtime.SendToUserAsync(targetUserId, "account.locked", new { userId = targetUserId, isCustomerProfile = false, reason = request.Reason });
                 }
 
                 _logger.LogInformation("Admin {AdminId} {Action} account {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
@@ -249,6 +247,19 @@ public sealed class UserService : IUserService
                 "/account/profile", $"account-status:{targetUserId}:{now.Ticks}"), cancellationToken);
 
         }, cancellationToken);
+
+        // The client reloads /me; publish only after the updated status is committed.
+        if (request.IsCustomerProfile)
+            await _realtime.SendToUserAsync(targetUserId, RealtimeEvents.CustomerStatusChanged, new
+            {
+                userId = targetUserId,
+                customerStatus = request.IsSuspended ? "suspended" : "active"
+            });
+        else if (request.IsSuspended)
+            await _realtime.SendToUserAsync(targetUserId, "account.locked", new
+            {
+                userId = targetUserId, isCustomerProfile = false, reason = request.Reason
+            });
     }
 
     private async Task<User> GetAndValidateUserAsync(Guid userId, CancellationToken cancellationToken)

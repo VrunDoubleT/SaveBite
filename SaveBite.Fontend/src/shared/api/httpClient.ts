@@ -82,7 +82,9 @@ export async function getRealtimeAccessToken(): Promise<string> {
   }
   if (expiresAt > Date.now() + 30000) return token;
   try {
-    refreshRequest ??= refreshAccessToken().finally(() => { refreshRequest = null; });
+    refreshRequest ??= refreshAccessToken().finally(() => {
+      refreshRequest = null;
+    });
     return await refreshRequest;
   } catch (error) {
     notifyUnauthorized();
@@ -112,12 +114,20 @@ httpClient.interceptors.response.use(
 
     if (error.response?.status === 403) {
       const errorMsg = (error.response.data?.message ?? "").toLowerCase();
-      const errorCode = (error.response.data as { code?: string } | undefined)?.code ?? "";
+      const errorCode =
+        error.response.data?.errorCode ??
+        (error.response.data as { code?: string } | undefined)?.code ??
+        "";
+      if (errorCode === "CUSTOMER_SUSPENDED") {
+        window.dispatchEvent(new CustomEvent("account:refresh-requested"));
+        return Promise.reject(error);
+      }
       if (
         errorCode === "ACCOUNT_INACTIVE" ||
         errorCode === "ACCOUNT_SUSPENDED" ||
-        errorMsg.includes("suspended") ||
-        errorMsg.includes("inactive")
+        (!errorCode &&
+          (errorMsg.includes("this account is suspended") ||
+            errorMsg.includes("this account is inactive")))
       ) {
         useAccountSuspensionStore.getState().showSuspensionModal({
           reason: error.response.data?.message,
@@ -167,15 +177,13 @@ export function getApiErrorMessage(error: unknown): string {
 
   return error instanceof Error ? error.message : "An unknown error occurred.";
 }
-export function getApiErrorStatus(
-  error: unknown,
-): number | undefined {
+export function getApiErrorStatus(error: unknown): number | undefined {
   if (!axios.isAxiosError(error)) {
     return undefined;
   }
 
   return error.response?.status;
-} 
+}
 
 export function getApiValidationErrors(error: unknown): Record<string, string> {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) return {};

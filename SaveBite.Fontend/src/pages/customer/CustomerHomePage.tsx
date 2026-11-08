@@ -1,3 +1,5 @@
+import { useAuthStore } from "@/shared/stores/authStore";
+import { CustomerSuspensionBanner } from "@/shared/components/CustomerSuspensionBanner";
 import { useState } from "react";
 import { useHomePreferencesStore } from "@/features/shops/stores/homePreferencesStore";
 import {
@@ -19,6 +21,9 @@ import { DealSection } from "@/features/flash-deals/components/DealSection";
 import { NearbyStoresBrowser } from "@/features/shops/components/NearbyStoresBrowser";
 
 export function CustomerHomePage() {
+  const customerSuspended = useAuthStore(
+    (state) => state.isAuthenticated && state.user?.customerStatus === "suspended",
+  );
   const {
     deals,
     categoryCounts,
@@ -70,7 +75,9 @@ export function CustomerHomePage() {
 
   if (!isLocationReady) {
     return (
-      <div className="relative isolate h-[calc(100dvh-4rem)] w-full overflow-hidden">
+      <div
+        className={`relative isolate w-full overflow-hidden ${customerSuspended ? "min-h-[calc(100dvh-4rem)]" : "h-[calc(100dvh-4rem)]"}`}
+      >
         <div
           className="pointer-events-none absolute inset-0 -z-10 bg-cover bg-center"
           style={{
@@ -79,7 +86,12 @@ export function CustomerHomePage() {
           }}
           aria-hidden="true"
         />
-        <div className="mx-auto flex h-full w-full max-w-320 flex-col gap-3 px-4 py-3 sm:gap-4 sm:py-5 md:px-6">
+        <div
+          className={`mx-auto flex w-full max-w-320 flex-col gap-3 px-4 py-3 sm:gap-4 sm:py-5 md:px-6 ${customerSuspended ? "min-h-[calc(100dvh-4rem)]" : "h-full"}`}
+        >
+          <div className="shrink-0 empty:hidden">
+            <CustomerSuspensionBanner />
+          </div>
           <section
             aria-labelledby="location-welcome-heading"
             className="grid min-h-0 flex-1 grid-rows-[auto_minmax(180px,1fr)] items-center gap-3 overflow-hidden rounded-[1.75rem] border border-white/50 bg-white/[0.88] p-5 shadow-[0_24px_70px_rgba(16,33,26,.22)] backdrop-blur-xl sm:grid-cols-[1.05fr_.95fr] sm:grid-rows-1 sm:gap-5 sm:rounded-[2rem] sm:p-7 lg:gap-8 lg:px-14 lg:py-[clamp(2rem,6vh,4rem)]"
@@ -234,6 +246,7 @@ export function CustomerHomePage() {
   return (
     <div className="mx-auto w-full max-w-320 px-4 py-4 md:p-6">
       <div className="space-y-6 pb-6 sm:space-y-8 sm:pb-8">
+        <CustomerSuspensionBanner />
         <section
           aria-label="Browsing location"
           className="rounded-lg border border-border-default bg-bg-surface shadow-sm"

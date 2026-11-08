@@ -1,3 +1,7 @@
+import {
+  CustomerMutationForm,
+  CustomerActionButton,
+} from "@/shared/components/CustomerMutationControls";
 import { Button } from "@/shared/components/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LockKeyhole } from "lucide-react";
@@ -62,7 +66,7 @@ export function ChangePasswordSection({ onClose }: { onClose: () => void }) {
       <p className="mt-2 text-body text-text-secondary">
         Enter your current password to set a new one.
       </p>
-      <form className="space-y-4" onSubmit={submit} noValidate>
+      <CustomerMutationForm className="space-y-4" onSubmit={submit} noValidate>
         <fieldset disabled={isSubmitting || isLoggingOut} className="space-y-4 disabled:opacity-60">
           <PasswordField
             {...register("currentPassword")}
@@ -109,12 +113,12 @@ export function ChangePasswordSection({ onClose }: { onClose: () => void }) {
             >
               Cancel
             </Button>
-            <Button loading={isSubmitting} type="submit" className="min-h-11">
+            <CustomerActionButton loading={isSubmitting} type="submit" className="min-h-11">
               {isSubmitting ? "Changing password..." : "Save new password"}
-            </Button>
+            </CustomerActionButton>
           </div>
         </fieldset>
-      </form>
+      </CustomerMutationForm>
     </section>
   );
 }

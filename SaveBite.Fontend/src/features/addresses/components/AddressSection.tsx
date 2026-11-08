@@ -1,4 +1,5 @@
-import { Badge, Button, Card, EmptyState, ErrorState, Skeleton } from "@/shared/components/ui";
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
+import { Badge, Card, EmptyState, ErrorState, Skeleton } from "@/shared/components/ui";
 import { toast } from "@/shared/stores/toastStore";
 import { useEffect, useState } from "react";
 import { MapPin, Navigation, Pencil, Plus, Star, Trash2 } from "lucide-react";
@@ -124,10 +125,15 @@ export function AddressSection() {
         </div>
 
         {!isAdding && (
-          <Button type="button" onClick={openAddForm} disabled={isLoading} className="min-h-11">
+          <CustomerActionButton
+            type="button"
+            onClick={openAddForm}
+            disabled={isLoading}
+            className="min-h-11"
+          >
             <Plus className="size-4" aria-hidden="true" />
             Add new address
-          </Button>
+          </CustomerActionButton>
         )}
       </div>
 
@@ -167,10 +173,10 @@ export function AddressSection() {
             description="Save a location to find nearby deals more easily."
             icon={MapPin}
             action={
-              <Button variant="primary" onClick={openAddForm}>
+              <CustomerActionButton variant="primary" onClick={openAddForm}>
                 <Plus className="size-4" aria-hidden="true" />
                 Add an address
-              </Button>
+              </CustomerActionButton>
             }
           />
         )}
@@ -268,7 +274,7 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
 
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-default pt-3">
           {!address.isDefault && (
-            <Button
+            <CustomerActionButton
               variant="secondary"
               type="button"
               onClick={() => void runAction("default", onSetDefault)}
@@ -278,10 +284,10 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
             >
               <Star className="size-4" aria-hidden="true" />
               {pendingAction === "default" ? "Setting..." : "Set default"}
-            </Button>
+            </CustomerActionButton>
           )}
 
-          <Button
+          <CustomerActionButton
             variant="secondary"
             type="button"
             onClick={onEdit}
@@ -290,10 +296,10 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
           >
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit
-          </Button>
+          </CustomerActionButton>
 
           {!address.isDefault && (
-            <Button
+            <CustomerActionButton
               variant="secondary"
               type="button"
               onClick={() => void runAction("delete", onDelete)}
@@ -303,7 +309,7 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
             >
               <Trash2 className="size-4" aria-hidden="true" />
               {pendingAction === "delete" ? "Deleting..." : "Delete"}
-            </Button>
+            </CustomerActionButton>
           )}
         </div>
 

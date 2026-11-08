@@ -1,3 +1,7 @@
+import {
+  CustomerMutationForm,
+  CustomerActionButton,
+} from "@/shared/components/CustomerMutationControls";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -54,7 +58,12 @@ export function EditProfileForm({
     }
   });
   return (
-    <form className="space-y-4" onSubmit={submit} noValidate aria-labelledby="edit-profile-heading">
+    <CustomerMutationForm
+      className="space-y-4"
+      onSubmit={submit}
+      noValidate
+      aria-labelledby="edit-profile-heading"
+    >
       <div>
         <h3 id="edit-profile-heading" className="text-section font-semibold text-text-primary">
           Edit personal information
@@ -110,11 +119,16 @@ export function EditProfileForm({
           <X className="size-4" aria-hidden="true" />
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting} loading={isSubmitting} className="min-h-11">
+        <CustomerActionButton
+          type="submit"
+          disabled={isSubmitting}
+          loading={isSubmitting}
+          className="min-h-11"
+        >
           <Check className="size-4" aria-hidden="true" />
           {isSubmitting ? "Saving changes…" : "Save changes"}
-        </Button>
+        </CustomerActionButton>
       </div>
-    </form>
+    </CustomerMutationForm>
   );
 }

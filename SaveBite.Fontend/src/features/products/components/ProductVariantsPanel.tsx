@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { isUploadCancelled } from "@/shared/uploads/uploadErrors";
+import { toast } from "@/shared/stores/toastStore";
+import { UploadDraftChoice } from "@/shared/uploads/UploadDraftChoice";
+import { UploadTaskGuard } from "@/shared/uploads/UploadTaskGuard";
+import { useEffect, useState } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
+import { useLocation } from "react-router-dom";
+import { FieldError } from "./FieldError";
 import { Pencil, Plus, X } from "lucide-react";
-import { MIN_AMOUNT_VND, MIN_AMOUNT_TEXT } from "@/shared/config/money";
+import { MIN_AMOUNT_VND } from "@/shared/config/money";
 import { productApi } from "../api/productApi";
 import type { DraftAttribute, PriceMap, Product, ProductVariant } from "../types/product.types";
 import {
@@ -13,6 +20,8 @@ import {
   money,
   validateAttributes,
   validatePrices,
+  validateProductPrice,
+  PRODUCT_PRICE_STEP,
 } from "../utils/productForm";
 import { AttributesEditor } from "./AttributesEditor";
 import { VariantPrices } from "./VariantPrices";
@@ -25,6 +34,10 @@ import {
   secondaryButton,
   StatusBadge,
 } from "./ProductUi";
+import { useAuthStore } from "@/shared/stores/authStore";
+import { getUploadDraft, removeUploadDraft } from "@/shared/uploads/uploadDraftStore";
+import { startOrResumeUploadDraft, uploadReferences } from "@/shared/uploads/uploadDrafts";
+import { getApiErrorMessage } from "@/shared/api";
 
 export function ProductVariantsPanel({
   product,
@@ -33,13 +46,36 @@ export function ProductVariantsPanel({
   product: Product;
   onSaved: (product: Product) => void;
 }) {
+  const location = useLocation();
+  const userId = useAuthStore((state) => state.user?.id);
   const [adding, setAdding] = useState(false);
+  const [resumeError, setResumeError] = useState("");
+  useEffect(() => {
+    const draftId = (location.state as { uploadDraftId?: string } | null)?.uploadDraftId;
+    if (!draftId) return;
+    let active = true;
+    void getUploadDraft(draftId)
+      .then((draft) => {
+        if (!active) return;
+        if (!draft || draft.userId !== userId) {
+          setResumeError("This saved product work is unavailable or has expired.");
+          return;
+        }
+        const form = draft.formData as { operation?: string };
+        if (form.operation === "add-values") setAdding(true);
+      })
+      .catch((error) => setResumeError(getApiErrorMessage(error)));
+    return () => {
+      active = false;
+    };
+  }, [location.state, userId]);
   const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
   const valueNames = new Map(
     product.attributes.flatMap((a) => a.values.map((v) => [v.id, v.value] as const)),
   );
   return (
     <div className="space-y-5">
+      {resumeError && <Alert>{resumeError}</Alert>}
       <Panel
         title={`Product variants · ${product.variants.length}/100`}
         description="Manage prices, status, and attributes for your variants. Add values to create new variants."
@@ -137,7 +173,7 @@ export function ProductVariantsPanel({
   );
 }
 
-function AddValuesForm({
+function AddValuesFormContent({
   product,
   onCancel,
   onSaved,
@@ -146,12 +182,43 @@ function AddValuesForm({
   onCancel: () => void;
   onSaved: (product: Product) => void;
 }) {
-  const [drafts, setDrafts] = useState<DraftAttribute[]>(
-    product.attributes.map((a) => ({ id: a.id, name: a.name, values: [] })),
-  );
-  const [prices, setPrices] = useState<PriceMap>({}),
-    [busy, setBusy] = useState(false),
+  const location = useLocation();
+  const userId = useAuthStore((state) => state.user?.id);
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<{ drafts: DraftAttribute[]; prices: PriceMap }>({
+    defaultValues: {
+      drafts: product.attributes.map((a) => ({ id: a.id, name: a.name, values: [] })),
+      prices: {},
+    },
+    mode: "onChange",
+  });
+  const drafts = useWatch({ control, name: "drafts" });
+  const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [activeDraftId, setActiveDraftId] = useState<string>();
+  useEffect(() => {
+    const draftId = (location.state as { uploadDraftId?: string } | null)?.uploadDraftId;
+    if (!draftId || !userId) return;
+    let active = true;
+    void getUploadDraft(draftId).then((draft) => {
+      if (!active || !draft || draft.userId !== userId) return;
+      const saved = draft.formData as {
+        operation?: string;
+        drafts?: DraftAttribute[];
+        prices?: PriceMap;
+      };
+      if (saved.operation !== "add-values") return;
+      setActiveDraftId(draft.id);
+      reset({ drafts: saved.drafts ?? [], prices: saved.prices ?? {} });
+    });
+    return () => {
+      active = false;
+    };
+  }, [location.state, reset, userId]);
   const merged = product.attributes.map((a) => ({
     ...a,
     values: [...a.values, ...(drafts.find((d) => d.id === a.id)?.values ?? [])],
@@ -159,7 +226,6 @@ function AddValuesForm({
   const generated = combinations(merged);
   const existingKeys = new Set(product.variants.map((v) => combinationKey(v.valueIds)));
   const rows = generated.rows.filter((row) => !existingKeys.has(row.key));
-  const newCount = drafts.reduce((n, a) => n + a.values.length, 0);
   return (
     <Panel
       title="Add attribute values"
@@ -167,48 +233,118 @@ function AddValuesForm({
     >
       <form
         className="space-y-5"
-        onSubmit={async (e) => {
-          e.preventDefault();
+        noValidate
+        onSubmit={handleSubmit(async ({ drafts, prices }) => {
           if (busy) return;
-          const message = !newCount
-            ? "Add at least one new value."
-            : validateAttributes(drafts, product.attributes) ||
-              (generated.count > 100 ? "The total number of variants exceeds 100." : "") ||
-              validatePrices(rows, prices) ||
-              fileError(drafts.flatMap((a) => a.values.flatMap((v) => (v.image ? [v.image] : []))));
-          if (message) {
-            setError(message);
-            return;
-          }
           setBusy(true);
           setError("");
           const body = new FormData();
-          appendAttributes(body, drafts, true);
+          const included = drafts.filter((attribute) => attribute.values.length > 0);
           appendPrices(body, rows, prices);
           try {
+            const imageUploads = included.flatMap((attribute, attributeIndex) =>
+              attribute.values.flatMap((value, valueIndex) =>
+                value.image
+                  ? [
+                      {
+                        field: `Attributes[${attributeIndex}].Values[${valueIndex}].Image`,
+                        file: value.image,
+                      },
+                    ]
+                  : [],
+              ),
+            );
+            if (imageUploads.length) {
+              if (!userId) throw new Error("Sign in before uploading product images.");
+              const draftId = activeDraftId ?? crypto.randomUUID();
+              setActiveDraftId(draftId);
+              const draft = await startOrResumeUploadDraft(
+                {
+                  draftId,
+                  userId,
+                  purpose: "product",
+                  targetId: product.id,
+                  title: `Add values to ${product.name}`,
+                  path: `${location.pathname}?tab=variants`,
+                  formData: { operation: "add-values", drafts, prices },
+                  files: imageUploads,
+                },
+                draftId,
+              );
+              setActiveDraftId(draft.id);
+              appendAttributes(body, drafts, true, false);
+              body.append("__uploadAssets", JSON.stringify(uploadReferences(draft.files)));
+              onSaved(await productApi.addValues(product.id, body));
+              await removeUploadDraft(draft.id);
+              setActiveDraftId(undefined);
+              return;
+            }
+            appendAttributes(body, drafts, true);
             onSaved(await productApi.addValues(product.id, body));
           } catch (err) {
-            setError(describeError(err));
+            if (isUploadCancelled(err))
+              toast.info(
+                "Upload stopped. Your draft is saved; edit it or submit again when ready.",
+              );
+            else setError(describeError(err));
           } finally {
             setBusy(false);
           }
-        }}
+        })}
       >
         <fieldset disabled={busy} className="space-y-5">
-          <AttributesEditor
-            attributes={drafts}
-            onChange={setDrafts}
-            existing={product.attributes}
+          <Controller
+            control={control}
+            name="drafts"
+            rules={{
+              deps: "prices",
+              validate: (value) =>
+                !value.some((a) => a.values.length)
+                  ? "Add at least one new value."
+                  : validateAttributes(value, product.attributes) ||
+                    fileError(
+                      value.flatMap((a) => a.values.flatMap((v) => (v.image ? [v.image] : []))),
+                    ) ||
+                    true,
+            }}
+            render={({ field, fieldState }) => (
+              <AttributesEditor
+                attributes={field.value}
+                onChange={field.onChange}
+                existing={product.attributes}
+                showErrors={fieldState.invalid}
+                validationMessage={fieldState.error?.message}
+              />
+            )}
           />
           <div>
             <h3 className="mb-3 text-sm font-semibold">
               {rows.length} new variants · Total {generated.count}/100
             </h3>
-            <VariantPrices
-              rows={rows}
-              count={generated.count}
-              prices={prices}
-              onChange={setPrices}
+            <Controller
+              control={control}
+              name="prices"
+              rules={{
+                validate: (value) =>
+                  generated.count > 100
+                    ? "The total number of variants exceeds 100."
+                    : validatePrices(rows, value) || true,
+              }}
+              render={({ field, fieldState }) => (
+                <VariantPrices
+                  showErrors={fieldState.invalid}
+                  rows={rows}
+                  count={generated.count}
+                  prices={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <FieldError
+              id="add-values-prices-error"
+              message={
+                typeof errors.prices?.message === "string" ? errors.prices.message : undefined
+              }
             />
           </div>
         </fieldset>
@@ -218,7 +354,7 @@ function AddValuesForm({
             <X className="size-4" />
             Cancel
           </button>
-          <button className={primaryButton} disabled={busy || !newCount || generated.count > 100}>
+          <button className={primaryButton} disabled={busy}>
             {busy ? "Adding…" : "Save new values and variants"}
           </button>
         </div>
@@ -238,9 +374,25 @@ function EditVariantModal({
   onClose: () => void;
   onSaved: (product: Product) => void;
 }) {
-  const [originalPrice, setOriginalPrice] = useState(String(variant.originalPrice));
-  const [dealPrice, setDealPrice] = useState(String(variant.dealPrice));
-  const [isActive, setIsActive] = useState(variant.isActive);
+  const {
+    register,
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<{ originalPrice: string; dealPrice: string; isActive: boolean }>({
+    defaultValues: {
+      originalPrice: String(variant.originalPrice),
+      dealPrice: String(variant.dealPrice),
+      isActive: variant.isActive,
+    },
+    mode: "onTouched",
+  });
+  const originalPrice = useWatch({ control, name: "originalPrice" });
+  const dealPrice = useWatch({ control, name: "dealPrice" });
+  const priceRules = {
+    required: "Please enter a price.",
+    validate: (value: string) => validateProductPrice(value) || true,
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -250,36 +402,19 @@ function EditVariantModal({
   const variantTitle =
     variant.valueIds.map((id) => valueNames.get(id) ?? "—").join(" / ") || "Default";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async ({
+    originalPrice,
+    dealPrice,
+    isActive,
+  }: {
+    originalPrice: string;
+    dealPrice: string;
+    isActive: boolean;
+  }) => {
     if (busy) return;
 
     const op = Number(originalPrice);
     const dp = Number(dealPrice);
-
-    if (isNaN(op) || !Number.isInteger(op) || op < MIN_AMOUNT_VND) {
-      setError(`Original price must be a whole amount of at least ${MIN_AMOUNT_TEXT} VND.`);
-      return;
-    }
-    if (isNaN(dp) || !Number.isInteger(dp) || dp < MIN_AMOUNT_VND) {
-      setError(`Deal price must be a whole amount of at least ${MIN_AMOUNT_TEXT} VND.`);
-      return;
-    }
-    if (dp >= op) {
-      setError("Deal price must be less than original price.");
-      return;
-    }
-    if (op >= 10_000_000_000 || dp >= 10_000_000_000) {
-      setError("Prices must be less than 10,000,000,000 VND.");
-      return;
-    }
-    if (!isActive && product.status === 0) {
-      const hasOtherActive = product.variants.some((v) => v.id !== variant.id && v.isActive);
-      if (!hasOtherActive) {
-        setError("An active product must have at least one active variant.");
-        return;
-      }
-    }
 
     setBusy(true);
     setError("");
@@ -292,7 +427,9 @@ function EditVariantModal({
       onSaved(updated);
       onClose();
     } catch (err) {
-      setError(describeError(err));
+      if (isUploadCancelled(err))
+        toast.info("Upload stopped. Your draft is saved; edit it or submit again when ready.");
+      else setError(describeError(err));
     } finally {
       setBusy(false);
     }
@@ -300,7 +437,7 @@ function EditVariantModal({
 
   return (
     <Modal title={`Edit variant · ${variantTitle}`} busy={busy} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form noValidate onSubmit={handleSubmit(submit)} className="space-y-4">
         {variant.sku && (
           <div>
             <span className="text-xs font-medium text-neutral-500">SKU</span>
@@ -313,13 +450,15 @@ function EditVariantModal({
             Original price (VND) <span className="text-red-500">*</span>
             <input
               type="number"
-              step="1"
+              step={PRODUCT_PRICE_STEP}
               min={MIN_AMOUNT_VND}
               required
               className={inputClass}
-              value={originalPrice}
-              onChange={(e) => setOriginalPrice(e.target.value)}
+              {...register("originalPrice", { ...priceRules, deps: "dealPrice" })}
+              aria-invalid={!!errors.originalPrice}
+              aria-describedby="variant-originalPrice-error"
             />
+            <FieldError id="variant-originalPrice-error" message={errors.originalPrice?.message} />
           </label>
         </div>
 
@@ -328,13 +467,24 @@ function EditVariantModal({
             Deal price (VND) <span className="text-red-500">*</span>
             <input
               type="number"
-              step="1"
+              step={PRODUCT_PRICE_STEP}
               min={MIN_AMOUNT_VND}
               required
               className={inputClass}
-              value={dealPrice}
-              onChange={(e) => setDealPrice(e.target.value)}
+              {...register("dealPrice", {
+                ...priceRules,
+                validate: (value) => {
+                  const result = priceRules.validate(value);
+                  return result !== true
+                    ? result
+                    : Number(value) < Number(originalPrice) ||
+                        "Deal price must be less than original price.";
+                },
+              })}
+              aria-invalid={!!errors.dealPrice}
+              aria-describedby="variant-dealPrice-error"
             />
+            <FieldError id="variant-dealPrice-error" message={errors.dealPrice?.message} />
           </label>
           {Number(originalPrice) > 0 &&
             Number(dealPrice) >= MIN_AMOUNT_VND &&
@@ -353,8 +503,15 @@ function EditVariantModal({
           <input
             id="variant-active-toggle"
             type="checkbox"
-            checked={isActive}
-            onChange={(e) => setIsActive(e.target.checked)}
+            {...register("isActive", {
+              validate: (value) =>
+                value ||
+                product.status !== 0 ||
+                product.variants.some((v) => v.id !== variant.id && v.isActive) ||
+                "An active product must have at least one active variant.",
+            })}
+            aria-invalid={!!errors.isActive}
+            aria-describedby="variant-active-error"
             className="size-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
           />
           <label
@@ -365,6 +522,7 @@ function EditVariantModal({
           </label>
         </div>
 
+        <FieldError id="variant-active-error" message={errors.isActive?.message} />
         {error && <Alert>{error}</Alert>}
 
         <div className="mt-6 flex justify-end gap-3">
@@ -377,5 +535,19 @@ function EditVariantModal({
         </div>
       </form>
     </Modal>
+  );
+}
+
+function AddValuesForm(props: Parameters<typeof AddValuesFormContent>[0]) {
+  return (
+    <UploadTaskGuard
+      scope={{ purpose: "product", targetIds: [props.product.id], operation: "add-values" }}
+    >
+      <UploadDraftChoice
+        scope={{ purpose: "product", targetIds: [props.product.id], operation: "add-values" }}
+      >
+        {(draftId) => <AddValuesFormContent key={draftId ?? "new"} {...props} />}
+      </UploadDraftChoice>
+    </UploadTaskGuard>
   );
 }

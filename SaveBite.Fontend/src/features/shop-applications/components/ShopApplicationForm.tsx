@@ -1,3 +1,10 @@
+import { UploadTaskGuard } from "@/shared/uploads/UploadTaskGuard";
+import {
+  CustomerActionFileInput,
+  CustomerMutationForm,
+  CustomerActionNativeButton,
+} from "@/shared/components/CustomerMutationControls";
+import { OpeningHoursPicker } from "@/shared/components/ui/OpeningHoursPicker";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   CreditCard,
@@ -21,6 +28,16 @@ import { shopApplicationApi } from "../api/shopApplicationApi";
 import { validateShopApplication, validateLogoFile } from "../schemas/shopApplication.schema";
 import { AddressLocationMap } from "@/features/addresses/components/AddressLocationMap";
 import { useAddressLocation } from "@/features/addresses/hooks/useAddressLocation";
+import { useLocation } from "react-router-dom";
+import { APP_PATHS } from "@/app/router/paths";
+import { useAuthStore } from "@/shared/stores/authStore";
+import {
+  getUploadDraft,
+  releaseUploadDraft,
+  removeUploadDraft,
+} from "@/shared/uploads/uploadDraftStore";
+import { startOrResumeUploadDraft, uploadReferences } from "@/shared/uploads/uploadDrafts";
+import type { UploadReference } from "@/shared/uploads/uploadDrafts";
 import type {
   AddressCoordinates,
   ResolvedAddress,
@@ -127,7 +144,9 @@ function usePreviewUrl(file?: File) {
 }
 
 /*  Main form */
-export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
+function ShopApplicationFormContent({ application, onSaved, onCancel }: Props) {
+  const routeLocation = useLocation();
+  const userId = useAuthStore((state) => state.user?.id);
   const [form, setForm] = useState<FormValues>(() => toForm(application));
 
   const [logo, setLogo] = useState<File>();
@@ -135,6 +154,28 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
   const [documents, setDocuments] = useState<ShopDocumentUpload[]>([]);
 
   const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState("");
+  const uploadController = useRef<AbortController | null>(null);
+  const submittingRef = useRef(false);
+
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  function cancelOrEdit() {
+    if (submittingRef.current) return;
+    if (uploadController.current) {
+      uploadController.current.abort();
+      return;
+    }
+    onCancel();
+  }
+  const [activeDraftId, setActiveDraftId] = useState<string>();
 
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FormFieldErrors>({});
@@ -152,6 +193,31 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
     setError("");
     setFieldErrors({});
   }, [application]);
+
+  useEffect(() => {
+    const draftId = (routeLocation.state as { uploadDraftId?: string } | null)?.uploadDraftId;
+    if (!draftId || !userId) return;
+    let active = true;
+    void getUploadDraft(draftId).then((draft) => {
+      if (!active || !draft || draft.userId !== userId) return;
+      const saved = draft.formData as {
+        applicationId?: string;
+        form?: FormValues;
+        logo?: File;
+        coverImage?: File;
+        documents?: ShopDocumentUpload[];
+      };
+      if ((saved.applicationId ?? undefined) !== (application?.id ?? undefined)) return;
+      setActiveDraftId(draft.id);
+      if (saved.form) setForm(saved.form);
+      setLogo(saved.logo);
+      setCoverImage(saved.coverImage);
+      setDocuments(saved.documents ?? []);
+    });
+    return () => {
+      active = false;
+    };
+  }, [application?.id, routeLocation.state, userId]);
 
   useEffect(() => {
     if (error) {
@@ -254,32 +320,16 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
     if (!files || files.length === 0) return;
 
     setDocuments((current) => {
-      if (type === "Other") {
-        const remainingSlots = 10 - current.length;
-        if (remainingSlots <= 0) {
-          setFieldErrors((prev) => ({ ...prev, documents: "You can upload up to 10 documents in total." }));
-          return current;
-        }
-        const filesToAdd = files.slice(0, remainingSlots);
-        if (files.length > remainingSlots) {
-          setFieldErrors((prev) => ({ ...prev, documents: `Only ${remainingSlots} more document(s) could be added (max 10 total).` }));
-        } else {
-          setFieldErrors((prev) => ({ ...prev, documents: undefined }));
-        }
-        return [
-          ...current,
-          ...filesToAdd.map((file) => ({ type, file })),
-        ];
-      } else {
-        // BusinessLicense or FoodSafetyCertificate: replace previous of same type
-        const filtered = current.filter((document) => document.type !== type);
-        if (filtered.length >= 10) {
-          setFieldErrors((prev) => ({ ...prev, documents: "You can upload up to 10 documents in total." }));
-          return current;
-        }
-        setFieldErrors((prev) => ({ ...prev, documents: undefined }));
-        return [...filtered, { type, file: files[0] }];
-      }
+      const remainingSlots = Math.max(0, 10 - current.length);
+      const filesToAdd = files.slice(0, remainingSlots);
+      setFieldErrors((prev) => ({
+        ...prev,
+        documents:
+          files.length > remainingSlots
+            ? `Only ${remainingSlots} more document(s) can be added (max 10 total).`
+            : undefined,
+      }));
+      return [...current, ...filesToAdd.map((file) => ({ type, file }))];
     });
 
     setError("");
@@ -295,6 +345,8 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving || uploadController.current) return;
+    setUploadNotice("");
     setError("");
 
     const validation = validateShopApplication(
@@ -319,22 +371,82 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
     }
 
     setSaving(true);
+    const controller = new AbortController();
+    uploadController.current = controller;
+    let draftId = activeDraftId;
 
     try {
+      const uploads = [
+        ...(logo ? [{ field: "logo", file: logo }] : []),
+        ...(coverImage ? [{ field: "coverImage", file: coverImage }] : []),
+        ...documents.map(({ file }) => ({ field: "documents", file })),
+      ];
+      let references: UploadReference[] = [];
+      if (uploads.length) {
+        if (!userId) throw new Error("Sign in before uploading application files.");
+        const path = application
+          ? APP_PATHS.ACCOUNT_SHOP_APPLICATION_EDIT.replace(":applicationId", application.id)
+          : APP_PATHS.ACCOUNT_SHOP_APPLICATION_NEW;
+        draftId ??= crypto.randomUUID();
+        setActiveDraftId(draftId);
+        const draft = await startOrResumeUploadDraft(
+          {
+            draftId,
+            signal: controller.signal,
+            keepActiveUntilSubmitted: true,
+            userId,
+            purpose: "shop-application",
+            targetId: application?.id,
+            title: isEditing ? "Resubmit shop application" : "Register shop",
+            path,
+            formData: { applicationId: application?.id, form, logo, coverImage, documents },
+            files: uploads,
+          },
+          draftId,
+        );
+        setActiveDraftId(draft.id);
+        draftId = draft.id;
+        references = uploadReferences(draft.files);
+      }
+      controller.signal.throwIfAborted();
+      submittingRef.current = true;
+      setSubmitting(true);
       const result = isEditing
-        ? await shopApplicationApi.resubmit(application!.id, form, logo, coverImage, documents)
-        : await shopApplicationApi.create(form, logo, coverImage, documents);
+        ? await shopApplicationApi.resubmit(
+            application!.id,
+            form,
+            logo,
+            coverImage,
+            documents,
+            references,
+          )
+        : await shopApplicationApi.create(form, logo, coverImage, documents, references);
 
-      onSaved(result);
+      if (draftId) await removeUploadDraft(draftId);
+      setActiveDraftId(undefined);
+      if (mounted.current) onSaved(result);
     } catch (requestError) {
-      setError(getApiErrorMessage(requestError));
+      if (
+        controller.signal.aborted ||
+        (requestError instanceof DOMException && requestError.name === "AbortError")
+      ) {
+        setUploadNotice(
+          "Upload stopped. Your information and selected files are kept. Edit them and submit again when ready.",
+        );
+      } else {
+        setError(getApiErrorMessage(requestError));
+      }
     } finally {
+      if (draftId) releaseUploadDraft(draftId);
+      uploadController.current = null;
+      submittingRef.current = false;
+      setSubmitting(false);
       setSaving(false);
     }
   }
 
   return (
-    <form
+    <CustomerMutationForm
       onSubmit={handleSubmit}
       noValidate
       className="rounded-lg border border-border-default bg-bg-surface shadow-sm"
@@ -361,7 +473,8 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
 
         <button
           type="button"
-          onClick={onCancel}
+          onClick={cancelOrEdit}
+          disabled={submitting}
           className="rounded-full p-2 text-text-muted transition hover:bg-neutral-100 hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
           aria-label="Close"
         >
@@ -369,354 +482,350 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
         </button>
       </header>
 
-      <div className="px-4 py-2 sm:px-5">
-        {/* Error */}
-        {error && (
-          <div
-            ref={errorRef}
-            role="alert"
-            className="mt-6 flex items-start gap-3 rounded-md border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
-          >
-            <AlertCircle size={18} className="mt-0.5 shrink-0" />
-            <p>{error}</p>
-          </div>
-        )}
+      {uploadNotice && (
+        <p
+          role="status"
+          className="mx-4 mt-4 rounded-md bg-primary-50 p-3 text-sm text-primary-800 sm:mx-5"
+        >
+          {uploadNotice}
+        </p>
+      )}
+      <fieldset disabled={saving} className="min-w-0 border-0 p-0">
+        <div className="px-4 py-2 sm:px-5">
+          {/* Error */}
+          {error && (
+            <div
+              ref={errorRef}
+              role="alert"
+              className="mt-6 flex items-start gap-3 rounded-md border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+            >
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <p>{error}</p>
+            </div>
+          )}
 
-        <div className="divide-y divide-border-default">
-          {/* Shop information */}
-          <Section
-            icon={<Store size={18} />}
-            title="Shop information"
-            description="The basics customers and our review team will see."
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field
-                label="Shop name"
-                value={form.name}
-                onChange={(value) => setField("name", value)}
-                onBlur={() => validateField("name")}
-                placeholder="e.g. Sunrise Bakery"
-                required
-                error={fieldErrors.name}
-              />
-
-              <Field
-                label="Business license number"
-                value={form.businessLicenseNo}
-                onChange={(value) => setField("businessLicenseNo", value)}
-                onBlur={() => validateField("businessLicenseNo")}
-                placeholder="e.g. 0123456789"
-                required
-                error={fieldErrors.businessLicenseNo}
-              />
-
-              <label className={`${labelClass} md:col-span-2`}>
-                Description
-                <textarea
-                  className={`${inputClass} min-h-28 resize-y`}
-                  value={form.description}
-                  onChange={(event) => setField("description", event.target.value)}
-                  onBlur={() => validateField("description")}
-                  placeholder="Tell customers what your shop sells."
-                  maxLength={2000}
-                  aria-invalid={Boolean(fieldErrors.description)}
+          <div className="divide-y divide-border-default">
+            {/* Shop information */}
+            <Section
+              icon={<Store size={18} />}
+              title="Shop information"
+              description="The basics customers and our review team will see."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field
+                  label="Shop name"
+                  value={form.name}
+                  onChange={(value) => setField("name", value)}
+                  onBlur={() => validateField("name")}
+                  placeholder="e.g. Sunrise Bakery"
+                  required
+                  error={fieldErrors.name}
                 />
-                <span className="mt-1 block text-right text-xs font-normal text-text-muted">
-                  {form.description.length}/2000
-                </span>
-                {fieldErrors.description && (
-                  <span role="alert" className="mt-1 block text-xs font-normal text-danger">
-                    {fieldErrors.description}
+
+                <Field
+                  label="Business license number"
+                  value={form.businessLicenseNo}
+                  onChange={(value) => setField("businessLicenseNo", value)}
+                  onBlur={() => validateField("businessLicenseNo")}
+                  placeholder="e.g. 0123456789"
+                  required
+                  error={fieldErrors.businessLicenseNo}
+                />
+
+                <label className={`${labelClass} md:col-span-2`}>
+                  Description
+                  <textarea
+                    className={`${inputClass} min-h-28 resize-y`}
+                    value={form.description}
+                    onChange={(event) => setField("description", event.target.value)}
+                    onBlur={() => validateField("description")}
+                    placeholder="Tell customers what your shop sells."
+                    maxLength={2000}
+                    aria-invalid={Boolean(fieldErrors.description)}
+                  />
+                  <span className="mt-1 block text-right text-xs font-normal text-text-muted">
+                    {form.description.length}/2000
                   </span>
-                )}
-              </label>
-            </div>
-          </Section>
+                  {fieldErrors.description && (
+                    <span role="alert" className="mt-1 block text-xs font-normal text-danger">
+                      {fieldErrors.description}
+                    </span>
+                  )}
+                </label>
+              </div>
+            </Section>
 
-          {/* Branding */}
-          <Section
-            icon={<ImageIcon size={18} />}
-            title="Logo and cover"
-            description="This is how your shop will look. Click an image to change it."
-          >
-            <BrandingUploader
-              logo={logo}
-              cover={coverImage}
-              existingLogoUrl={application?.logoUrl}
-              existingCoverUrl={application?.coverImageUrl}
-              onLogoChange={handleLogoChange}
-              onCoverChange={setCoverImage}
-              logoError={fieldErrors.logo}
-            />
-          </Section>
-
-          {/* Address */}
-          <Section
-            icon={<MapPin size={18} />}
-            title="Shop address"
-            description="Your location is used for distance-based discovery."
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field
-                label="Address"
-                value={form.addressLine}
-                onChange={(value) => setField("addressLine", value)}
-                onBlur={() => validateField("addressLine")}
-                placeholder="House number and street"
-                required
-                error={fieldErrors.addressLine}
-                className="md:col-span-2"
+            {/* Branding */}
+            <Section
+              icon={<ImageIcon size={18} />}
+              title="Logo and cover"
+              description="This is how your shop will look. Click an image to change it."
+            >
+              <BrandingUploader
+                logo={logo}
+                cover={coverImage}
+                existingLogoUrl={application?.logoUrl}
+                existingCoverUrl={application?.coverImageUrl}
+                onLogoChange={handleLogoChange}
+                onCoverChange={setCoverImage}
+                logoError={fieldErrors.logo}
               />
+            </Section>
 
-              <Field
-                label="Ward"
-                value={form.ward}
-                onChange={(value) => setField("ward", value)}
-                onBlur={() => validateField("ward")}
-                error={fieldErrors.ward}
-              />
+            {/* Address */}
+            <Section
+              icon={<MapPin size={18} />}
+              title="Shop address"
+              description="Your location is used for distance-based discovery."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field
+                  label="Address"
+                  value={form.addressLine}
+                  onChange={(value) => setField("addressLine", value)}
+                  onBlur={() => validateField("addressLine")}
+                  placeholder="House number and street"
+                  required
+                  error={fieldErrors.addressLine}
+                  className="md:col-span-2"
+                />
 
-              <Field
-                label="District"
-                value={form.district}
-                onChange={(value) => setField("district", value)}
-                onBlur={() => validateField("district")}
-                error={fieldErrors.district}
-              />
+                <Field
+                  label="Ward"
+                  value={form.ward}
+                  onChange={(value) => setField("ward", value)}
+                  onBlur={() => validateField("ward")}
+                  error={fieldErrors.ward}
+                />
 
-              <Field
-                label="City"
-                value={form.city}
-                onChange={(value) => setField("city", value)}
-                onBlur={() => validateField("city")}
-                error={fieldErrors.city}
-                className="md:col-span-2"
-              />
-            </div>
+                <Field
+                  label="District"
+                  value={form.district}
+                  onChange={(value) => setField("district", value)}
+                  onBlur={() => validateField("district")}
+                  error={fieldErrors.district}
+                />
 
-            <div className="mt-5 rounded-md border border-border-default bg-neutral-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-text-primary">Coordinates</p>
-                  <p className="text-xs text-text-secondary">
-                    Use your current position or enter them manually.
-                  </p>
+                <Field
+                  label="City"
+                  value={form.city}
+                  onChange={(value) => setField("city", value)}
+                  onBlur={() => validateField("city")}
+                  error={fieldErrors.city}
+                  className="md:col-span-2"
+                />
+              </div>
+
+              <div className="mt-5 rounded-md border border-border-default bg-neutral-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Coordinates</p>
+                    <p className="text-xs text-text-secondary">
+                      Use your current position or enter them manually.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={useCurrentLocation}
+                    disabled={locating}
+                    className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-bg-surface px-4 py-2 text-sm font-semibold text-primary-700 transition hover:bg-primary-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-100 disabled:opacity-60"
+                  >
+                    {locating ? (
+                      <LoaderCircle size={16} className="animate-spin" />
+                    ) : (
+                      <MapPin size={16} />
+                    )}
+
+                    {locating ? "Locating…" : "Use current location"}
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={useCurrentLocation}
-                  disabled={locating}
-                  className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-bg-surface px-4 py-2 text-sm font-semibold text-primary-700 transition hover:bg-primary-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-100 disabled:opacity-60"
-                >
-                  {locating ? (
-                    <LoaderCircle size={16} className="animate-spin" />
-                  ) : (
-                    <MapPin size={16} />
-                  )}
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label="Latitude"
+                    type="number"
+                    step="any"
+                    value={form.latitude}
+                    onChange={(value) => setField("latitude", value)}
+                    onBlur={() => validateField("latitude")}
+                    placeholder="e.g. 9.2941"
+                    required
+                    error={fieldErrors.latitude}
+                  />
 
-                  {locating ? "Locating…" : "Use current location"}
-                </button>
+                  <Field
+                    label="Longitude"
+                    type="number"
+                    step="any"
+                    value={form.longitude}
+                    onChange={(value) => setField("longitude", value)}
+                    onBlur={() => validateField("longitude")}
+                    placeholder="e.g. 105.7216"
+                    required
+                    error={fieldErrors.longitude}
+                  />
+                </div>
+                {location.error && (
+                  <p role="alert" className="mt-3 text-xs text-danger">
+                    {location.error}
+                  </p>
+                )}
+                <div className="mt-4">
+                  <AddressLocationMap
+                    point={
+                      form.latitude && form.longitude
+                        ? { latitude: Number(form.latitude), longitude: Number(form.longitude) }
+                        : null
+                    }
+                    disabled={saving}
+                    onSelect={location.selectPoint}
+                  />
+                </div>
               </div>
+            </Section>
 
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <Field
-                  label="Latitude"
-                  type="number"
-                  step="any"
-                  value={form.latitude}
-                  onChange={(value) => setField("latitude", value)}
-                  onBlur={() => validateField("latitude")}
-                  placeholder="e.g. 9.2941"
-                  required
-                  error={fieldErrors.latitude}
-                />
+            {/* Opening hours */}
+            <Section
+              icon={<Clock3 size={18} />}
+              title="Opening hours"
+              description="When customers can pick up their orders."
+            >
+              <OpeningHoursPicker
+                openingTime={form.openingTime}
+                closingTime={form.closingTime}
+                onChange={({ openingTime, closingTime }) => {
+                  setField("openingTime", openingTime);
+                  setField("closingTime", closingTime);
+                }}
+                onBlur={validateField}
+                openingError={fieldErrors.openingTime}
+                closingError={fieldErrors.closingTime}
+                disabled={saving}
+              />
+            </Section>
 
-                <Field
-                  label="Longitude"
-                  type="number"
-                  step="any"
-                  value={form.longitude}
-                  onChange={(value) => setField("longitude", value)}
-                  onBlur={() => validateField("longitude")}
-                  placeholder="e.g. 105.7216"
-                  required
-                  error={fieldErrors.longitude}
-                />
-              </div>
-              {location.error && (
-                <p role="alert" className="mt-3 text-xs text-danger">
-                  {location.error}
+            {/* Documents */}
+            <Section
+              icon={<FileText size={18} />}
+              title="Supporting documents"
+              description="Add your business license or food safety certificate."
+            >
+              {application?.documents?.some(
+                (document) =>
+                  document.isCurrent &&
+                  !documents.some((upload) => upload.type === document.documentType),
+              ) ? (
+                <div className="mb-5">
+                  <p className="mb-2 text-sm font-medium text-text-primary">Current documents</p>
+
+                  <div className="space-y-2">
+                    {application.documents
+                      .filter(
+                        (document) =>
+                          document.isCurrent &&
+                          !documents.some((upload) => upload.type === document.documentType),
+                      )
+                      .map((document) => (
+                        <ExistingDocument key={document.id} document={document} />
+                      ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {documents.length > 0 && (
+                <div className="mb-5">
+                  <p className="mb-2 text-sm font-medium text-text-primary">
+                    Ready to upload ({documents.length}/10)
+                  </p>
+
+                  <div className="space-y-2">
+                    {documents.map((document, index) => (
+                      <NewDocument
+                        key={`${document.type}-${document.file.name}-${index}`}
+                        document={document}
+                        onRemove={() => removeDocument(index)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {fieldErrors.documents && (
+                <p role="alert" className="mb-3 text-xs text-danger">
+                  {fieldErrors.documents}
                 </p>
               )}
-              <div className="mt-4">
-                <AddressLocationMap
-                  point={
-                    form.latitude && form.longitude
-                      ? { latitude: Number(form.latitude), longitude: Number(form.longitude) }
-                      : null
-                  }
-                  disabled={saving}
-                  onSelect={location.selectPoint}
+
+              <DocumentUploader onAdd={addDocuments} />
+            </Section>
+
+            {/* PayOS */}
+            <Section
+              icon={<CreditCard size={18} />}
+              title="PayOS"
+              description="Connect PayOS to accept online payments."
+            >
+              {hasPayos ? (
+                <div className="mb-4 flex items-start gap-2.5 rounded-md border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+                  <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-primary-600" />
+
+                  <p>
+                    PayOS is already configured. Leave these fields empty to keep the current
+                    configuration.
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <Field
+                  label="Client ID"
+                  value={form.payosClientId}
+                  onChange={(value) => setField("payosClientId", value)}
+                  onBlur={() => validateField("payosClientId")}
+                  autoComplete="off"
+                  required={!hasPayos}
+                  error={fieldErrors.payosClientId}
+                />
+
+                <Field
+                  label="API key"
+                  type="password"
+                  value={form.payosApiKey}
+                  onChange={(value) => setField("payosApiKey", value)}
+                  onBlur={() => validateField("payosApiKey")}
+                  autoComplete="new-password"
+                  required={!hasPayos}
+                  error={fieldErrors.payosApiKey}
+                />
+
+                <Field
+                  label="Checksum key"
+                  type="password"
+                  value={form.payosChecksumKey}
+                  onChange={(value) => setField("payosChecksumKey", value)}
+                  onBlur={() => validateField("payosChecksumKey")}
+                  autoComplete="new-password"
+                  required={!hasPayos}
+                  error={fieldErrors.payosChecksumKey}
                 />
               </div>
-            </div>
-          </Section>
-
-          {/* Opening hours */}
-          <Section
-            icon={<Clock3 size={18} />}
-            title="Opening hours"
-            description="When customers can pick up their orders."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Opening time"
-                type="time"
-                lang="en-GB"
-                value={form.openingTime}
-                onChange={(value) => setField("openingTime", value)}
-                onBlur={() => validateField("openingTime")}
-                required
-                error={fieldErrors.openingTime}
-              />
-
-              <Field
-                label="Closing time"
-                type="time"
-                lang="en-GB"
-                value={form.closingTime}
-                onChange={(value) => setField("closingTime", value)}
-                onBlur={() => validateField("closingTime")}
-                required
-                error={fieldErrors.closingTime}
-              />
-            </div>
-            <p className="mt-2 text-xs text-text-muted">
-              Use 00:00 – 00:00 if your store is open all day (24/7).
-            </p>
-          </Section>
-
-          {/* Documents */}
-          <Section
-            icon={<FileText size={18} />}
-            title="Supporting documents"
-            description="Add your business license or food safety certificate."
-          >
-            {application?.documents?.some(
-              (document) =>
-                document.isCurrent &&
-                !documents.some((upload) => upload.type === document.documentType),
-            ) ? (
-              <div className="mb-5">
-                <p className="mb-2 text-sm font-medium text-text-primary">Current documents</p>
-
-                <div className="space-y-2">
-                  {application.documents
-                    .filter(
-                      (document) =>
-                        document.isCurrent &&
-                        !documents.some((upload) => upload.type === document.documentType),
-                    )
-                    .map((document) => (
-                      <ExistingDocument key={document.id} document={document} />
-                    ))}
-                </div>
-              </div>
-            ) : null}
-
-            {documents.length > 0 && (
-              <div className="mb-5">
-                <p className="mb-2 text-sm font-medium text-text-primary">
-                  Ready to upload ({documents.length}/10)
-                </p>
-
-                <div className="space-y-2">
-                  {documents.map((document, index) => (
-                    <NewDocument
-                      key={`${document.type}-${document.file.name}-${index}`}
-                      document={document}
-                      onRemove={() => removeDocument(index)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {fieldErrors.documents && (
-              <p role="alert" className="mb-3 text-xs text-danger">
-                {fieldErrors.documents}
-              </p>
-            )}
-
-            <DocumentUploader onAdd={addDocuments} />
-          </Section>
-
-          {/* PayOS */}
-          <Section
-            icon={<CreditCard size={18} />}
-            title="PayOS"
-            description="Connect PayOS to accept online payments."
-          >
-            {hasPayos ? (
-              <div className="mb-4 flex items-start gap-2.5 rounded-md border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
-                <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-primary-600" />
-
-                <p>
-                  PayOS is already configured. Leave these fields empty to keep the current
-                  configuration.
-                </p>
-              </div>
-            ) : null}
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <Field
-                label="Client ID"
-                value={form.payosClientId}
-                onChange={(value) => setField("payosClientId", value)}
-                onBlur={() => validateField("payosClientId")}
-                autoComplete="off"
-                required={!hasPayos}
-                error={fieldErrors.payosClientId}
-              />
-
-              <Field
-                label="API key"
-                type="password"
-                value={form.payosApiKey}
-                onChange={(value) => setField("payosApiKey", value)}
-                onBlur={() => validateField("payosApiKey")}
-                autoComplete="new-password"
-                required={!hasPayos}
-                error={fieldErrors.payosApiKey}
-              />
-
-              <Field
-                label="Checksum key"
-                type="password"
-                value={form.payosChecksumKey}
-                onChange={(value) => setField("payosChecksumKey", value)}
-                onBlur={() => validateField("payosChecksumKey")}
-                autoComplete="new-password"
-                required={!hasPayos}
-                error={fieldErrors.payosChecksumKey}
-              />
-            </div>
-          </Section>
+            </Section>
+          </div>
         </div>
-      </div>
-
+      </fieldset>
       {/* Actions */}
       <footer className="sticky bottom-0 z-20 flex flex-col-reverse gap-3 rounded-b-lg border-t border-border-default bg-bg-surface/90 px-4 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-end sm:px-5">
         <button
           type="button"
-          onClick={onCancel}
+          onClick={cancelOrEdit}
+          disabled={submitting}
           className="min-h-11 rounded-md border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-semibold text-text-secondary transition hover:bg-neutral-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-neutral-200"
         >
-          Cancel
+          {saving ? (submitting ? "Submitting…" : "Stop upload and edit") : "Cancel"}
         </button>
 
-        <button
+        <CustomerActionNativeButton
           type="submit"
           disabled={saving}
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-60"
@@ -724,9 +833,9 @@ export function ShopApplicationForm({ application, onSaved, onCancel }: Props) {
           {saving ? <LoaderCircle size={17} className="animate-spin" /> : <Save size={17} />}
 
           {saving ? "Saving…" : isEditing ? "Save and resubmit" : "Submit application"}
-        </button>
+        </CustomerActionNativeButton>
       </footer>
-    </form>
+    </CustomerMutationForm>
   );
 }
 
@@ -878,8 +987,7 @@ function BrandingUploader({
             </span>
           </div>
 
-          <input
-            type="file"
+          <CustomerActionFileInput
             accept={accept}
             className="sr-only"
             onChange={(event) => {
@@ -890,14 +998,14 @@ function BrandingUploader({
         </label>
 
         {cover && (
-          <button
+          <CustomerActionNativeButton
             type="button"
             onClick={() => onCoverChange(undefined)}
             className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-danger shadow transition hover:bg-white"
           >
             <X size={13} />
             Remove
-          </button>
+          </CustomerActionNativeButton>
         )}
 
         {/* Logo */}
@@ -922,8 +1030,7 @@ function BrandingUploader({
             <Upload size={20} className="text-white" />
           </div>
 
-          <input
-            type="file"
+          <CustomerActionFileInput
             accept={accept}
             className="sr-only"
             onChange={(event) => {
@@ -944,13 +1051,13 @@ function BrandingUploader({
             </p>
 
             {logo && (
-              <button
+              <CustomerActionNativeButton
                 type="button"
                 onClick={() => onLogoChange(undefined)}
                 className="shrink-0 text-xs font-medium text-danger hover:underline"
               >
                 Remove
-              </button>
+              </CustomerActionNativeButton>
             )}
           </div>
         </div>
@@ -1036,14 +1143,14 @@ function NewDocument({
         </p>
       </div>
 
-      <button
+      <CustomerActionNativeButton
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${documentText(document.type)}`}
         className="shrink-0 rounded-full p-1.5 text-text-muted transition hover:bg-danger/10 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-danger"
       >
         <X size={16} />
-      </button>
+      </CustomerActionNativeButton>
     </div>
   );
 }
@@ -1069,10 +1176,9 @@ function DocumentUploader({ onAdd }: { onAdd: (type: ShopDocumentType, files: Fi
           className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-primary-200 bg-bg-surface px-4 py-2.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50 ${focusRing}`}
         >
           <Upload size={16} />
-          {type === "Other" ? "Choose file(s)" : "Choose file"}
-          <input
-            type="file"
-            multiple={type === "Other"}
+          Choose files
+          <CustomerActionFileInput
+            multiple
             accept="application/pdf,image/jpeg,image/png,image/webp"
             className="sr-only"
             onChange={(event) => {
@@ -1088,8 +1194,17 @@ function DocumentUploader({ onAdd }: { onAdd: (type: ShopDocumentType, files: Fi
       </div>
 
       <p className="mt-3 text-xs text-text-secondary">
-        PDF, JPG, PNG or WebP. Up to 10 documents in total across all types. For "Other document", you can select multiple files.
+        PDF, JPG, PNG or WebP. Up to 10 documents in total across all types. Select multiple files
+        for any document type. Adding files keeps your current selection.
       </p>
     </div>
+  );
+}
+
+export function ShopApplicationForm(props: Parameters<typeof ShopApplicationFormContent>[0]) {
+  return (
+    <UploadTaskGuard scope={{ purpose: "shop-application" }}>
+      <ShopApplicationFormContent {...props} />
+    </UploadTaskGuard>
   );
 }

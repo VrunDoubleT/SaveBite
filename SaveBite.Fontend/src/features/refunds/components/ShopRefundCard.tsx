@@ -357,12 +357,13 @@ export function ShopRefundCard({
                 event.preventDefault();
                 void action(async () => {
                   const images = await uploadRefundFiles(refund.orderId, proof, "transfer-proof");
-                  return refundApi.transfer(
+                  const result = await refundApi.transfer(
                     refund.id,
                     reference.trim(),
                     transferTime ? new Date(transferTime).toISOString() : undefined,
                     images[0]?.url,
                   );
+                  return result;
                 });
               }}
             >

@@ -80,6 +80,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [addedSuccess, setAddedSuccess] = useState<boolean>(false);
+  const customerSuspended = useAuthStore((state) => state.user?.customerStatus === "suspended");
   const addCartItem = useCartStore((state) => state.addItem);
   const isAdding = useCartStore((state) => state.isMutating);
   useFlashDealRealtime("deal", id, () => {
@@ -90,7 +91,8 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
   // Real-time synchronization when admin blocks the shop of this deal
   useEffect(() => {
     const handleShopStatus = (e: Event) => {
-      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
+      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>)
+        .detail;
       const rawShopId = detail?.shopId || (detail as any)?.ShopId;
       const rawStatus = detail?.status || (detail as any)?.Status;
       const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
@@ -101,7 +103,9 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
         const isInactive = !rawStatus || rawStatus.toLowerCase() !== "active" || Boolean(isBlocked);
         if (isInactive) {
           setDeal(null);
-          setError("This flash deal is unavailable because the store has been suspended or is currently inactive.");
+          setError(
+            "This flash deal is unavailable because the store has been suspended or is currently inactive.",
+          );
         } else {
           setRevision((v) => v + 1);
         }
@@ -335,6 +339,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
   };
 
   const handleAddToCart = async () => {
+    if (useAuthStore.getState().user?.customerStatus === "suspended") return;
     if (!useAuthStore.getState().isAuthenticated) {
       navigate(APP_PATHS.LOGIN, {
         state: {
@@ -724,7 +729,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                   min={1}
                   max={activeVariant?.availableQuantity ?? 99}
                   value={quantityInput}
-                  disabled={!isPurchasable}
+                  disabled={customerSuspended || !isPurchasable}
                   onChange={(e) => {
                     const raw = e.target.value;
                     if (raw === "") {
@@ -795,16 +800,18 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
               size="lg"
               className="w-full whitespace-normal"
               loading={isAdding}
-              disabled={!isPurchasable}
+              disabled={customerSuspended || !isPurchasable}
               onClick={() => void handleAddToCart()}
             >
               <ShoppingBag className="size-5 shrink-0" aria-hidden="true" />
               <span>
-                {isAdding
-                  ? "Adding…"
-                  : !isPurchasable
-                    ? unpurchasableReason
-                    : `Add to cart · ${formatVnd(currentPrice * quantity)}`}
+                {customerSuspended
+                  ? "Customer features suspended"
+                  : isAdding
+                    ? "Adding…"
+                    : !isPurchasable
+                      ? unpurchasableReason
+                      : `Add to cart · ${formatVnd(currentPrice * quantity)}`}
               </span>
             </Button>
             {!isPurchasable && (

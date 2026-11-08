@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
+import { subscribeStaffEvents } from "@/features/shop-staffs/realtime/subscribeStaffEvents";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Mail, Plus, Search, UserCheck, UserX, Users } from "lucide-react";
 
@@ -24,6 +26,8 @@ import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 export function StaffManagementPage() {
   const shopSuspended = useShopSuspended();
+  const realtime = useRealtimeSubscriptions();
+  const loadState = useRef({ version: 0 });
   const [staffs, setStaffs] = useState<ShopStaff[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -47,22 +51,34 @@ export function StaffManagementPage() {
   // Load staff
   // --------------------------------------------------
 
-  async function loadStaff() {
-    try {
-      setLoading(true);
-      const result = await shopStaffApi.getStaffList();
-      setStaffs(result);
-    } catch (error) {
-      console.error(error);
-      toast.error(getApiErrorMessage(error) || "Unable to load the staff list.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const loadStaff = useCallback(
+    async (showLoading = true) => {
+      const version = ++loadState.current.version;
+      try {
+        if (showLoading) setLoading(true);
+        const result = await shopStaffApi.getStaffList(true);
+        if (version === loadState.current.version) setStaffs(result);
+      } catch (error) {
+        if (version !== loadState.current.version) return;
+        console.error(error);
+        toast.error(getApiErrorMessage(error) || "Unable to load the staff list.");
+      } finally {
+        if (version === loadState.current.version) setLoading(false);
+      }
+    },
+    [loadState],
+  );
 
   useEffect(() => {
-    void loadStaff();
-  }, []);
+    const initial = window.setTimeout(() => void loadStaff(), 0);
+    const off = subscribeStaffEvents(realtime, "staff", () => loadStaff(false));
+    const currentLoadState = loadState.current;
+    return () => {
+      window.clearTimeout(initial);
+      off();
+      currentLoadState.version++;
+    };
+  }, [realtime, loadStaff, loadState]);
 
   // --------------------------------------------------
   // Update staff

@@ -7,6 +7,11 @@ public static class RealtimeEvents
     public const string CustomerOrdersChanged = "customer.orders.changed";
     public const string ShopOrdersChanged = "shop.orders.changed";
     public const string ShopStatusChanged = "shop.status.changed";
+    public const string StaffInvitationsChanged = "staff.invitations.changed";
+    public const string ShopStaffChanged = "shop.staff.changed";
+    public const string CustomerStatusChanged = "customer.status.changed";
+    public const string UserRoleChanged = "user.role.changed";
+    public const string ShopApplicationReviewed = "shop.application.reviewed";
     public const string CartChanged = "cart.changed";
 
     // Keep cart notification reasons beside the shared event names.

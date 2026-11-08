@@ -1,3 +1,8 @@
+import {
+  CustomerActionFileInput,
+  CustomerMutationForm,
+  CustomerActionButton,
+} from "@/shared/components/CustomerMutationControls";
 import { useId, useRef, useState } from "react";
 import { Camera, MessageSquareQuote, Trash2 } from "lucide-react";
 import { Button, IconButton, MediaImage, Modal } from "@/shared/components/ui";
@@ -51,7 +56,7 @@ export function ReviewEditor({
   const busy = saving || uploading;
   return (
     <>
-      <form
+      <CustomerMutationForm
         aria-label="Edit review"
         className="space-y-4"
         onSubmit={(event) => {
@@ -61,22 +66,33 @@ export function ReviewEditor({
       >
         {canEdit === false && (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-            This review can no longer be edited because it has reached the limit of 3 edits or the 30-day edit period has expired.
+            This review can no longer be edited because it has reached the limit of 3 edits or the
+            30-day edit period has expired.
           </div>
         )}
         {typeof editCount === "number" && (
           <div className="flex items-center justify-between rounded-md bg-neutral-50 px-3 py-2 text-xs text-text-secondary">
-            <span>Edits used: <strong>{editCount}/3</strong></span>
-            <span>{Math.max(0, 3 - editCount)} edit(s) remaining (within 30 days)</span>
+            <span>
+              Edits used: <strong>{editCount}/3</strong>
+            </span>
           </div>
         )}
-        <fieldset disabled={busy || canEdit === false} className="min-w-0 space-y-4 disabled:opacity-60">
+        <fieldset
+          disabled={busy || canEdit === false}
+          className="min-w-0 space-y-4 disabled:opacity-60"
+        >
           <div className="rounded-md bg-accent-50/60 p-4">
             <p className="mb-3 text-body font-semibold text-text-primary">Your rating</p>
-            <StarRatingInput value={rating} onChange={onRating} disabled={busy || canEdit === false} size="lg" />
+            <StarRatingInput
+              value={rating}
+              onChange={onRating}
+              disabled={busy || canEdit === false}
+              size="lg"
+            />
             {rating <= 2 && (
               <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
-                We're sorry your experience wasn't ideal. Please leave detailed feedback so the store can address the issue and improve their service.
+                We're sorry your experience wasn't ideal. Please leave detailed feedback so the
+                store can address the issue and improve their service.
               </div>
             )}
           </div>
@@ -105,7 +121,7 @@ export function ReviewEditor({
                 Photos <span className="text-caption text-text-secondary">{images.length}/5</span>
               </p>
               {images.length < 5 && (
-                <Button
+                <CustomerActionButton
                   variant="secondary"
                   loading={uploading}
                   onClick={() => input.current?.click()}
@@ -113,15 +129,15 @@ export function ReviewEditor({
                 >
                   <Camera size={16} aria-hidden="true" />
                   Add photos
-                </Button>
+                </CustomerActionButton>
               )}
             </div>
             <p className="text-caption text-text-secondary">
               Up to 5 images · 5 MB each. Selected photos upload immediately.
             </p>
-            <input
+            <CustomerActionFileInput
               ref={input}
-              type="file"
+
               accept="image/*"
               multiple
               className="hidden"
@@ -200,11 +216,11 @@ export function ReviewEditor({
           <Button variant="secondary" disabled={busy} onClick={onCancel} className="min-h-11">
             Cancel
           </Button>
-          <Button type="submit" loading={saving} disabled={busy} className="min-h-11">
+          <CustomerActionButton type="submit" loading={saving} disabled={busy} className="min-h-11">
             Save changes
-          </Button>
+          </CustomerActionButton>
         </div>
-      </form>
+      </CustomerMutationForm>
       <Modal
         isOpen={!!preview}
         onClose={() => setPreview(null)}
@@ -229,10 +245,13 @@ export function ReviewEditor({
       >
         <div className="space-y-4">
           <p className="text-body text-text-secondary">
-            You selected <strong>{photoWarning.selectedCount}</strong> photos, but only <strong>{photoWarning.maxAllowed}</strong> more photo{photoWarning.maxAllowed === 1 ? "" : "s"} can be added (maximum 5 photos per review).
+            You selected <strong>{photoWarning.selectedCount}</strong> photos, but only{" "}
+            <strong>{photoWarning.maxAllowed}</strong> more photo
+            {photoWarning.maxAllowed === 1 ? "" : "s"} can be added (maximum 5 photos per review).
           </p>
           <p className="text-caption text-text-muted">
-            Please choose up to {photoWarning.maxAllowed} photo{photoWarning.maxAllowed === 1 ? "" : "s"}.
+            Please choose up to {photoWarning.maxAllowed} photo
+            {photoWarning.maxAllowed === 1 ? "" : "s"}.
           </p>
           <div className="flex justify-end">
             <Button

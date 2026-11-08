@@ -39,11 +39,15 @@ public sealed class ProductVariantPriceRequestValidator : AbstractValidator<Prod
             .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
             .WithMessage($"Original price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
             .Must(MoneyLimits.IsWholeVnd).WithMessage("Original price must be a whole VND amount.")
+            .Must(value => value % ProductLimits.PriceStepVnd == 0)
+            .WithMessage("Original price must be a multiple of 1,000 VND.")
             .PrecisionScale(12, 2, false);
         RuleFor(x => x.DealPrice)
             .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
             .WithMessage($"Deal price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
             .Must(MoneyLimits.IsWholeVnd).WithMessage("Deal price must be a whole VND amount.")
+            .Must(value => value % ProductLimits.PriceStepVnd == 0)
+            .WithMessage("Deal price must be a multiple of 1,000 VND.")
             .LessThan(x => x.OriginalPrice).WithMessage("Deal price must be less than original price.")
             .PrecisionScale(12, 2, false);
     }
@@ -172,11 +176,15 @@ public sealed class UpdateProductVariantRequestValidator : AbstractValidator<Upd
             .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
             .WithMessage($"Original price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
             .Must(MoneyLimits.IsWholeVnd).WithMessage("Original price must be a whole VND amount.")
+            .Must(value => value % ProductLimits.PriceStepVnd == 0)
+            .WithMessage("Original price must be a multiple of 1,000 VND.")
             .PrecisionScale(12, 2, false);
         RuleFor(x => x.DealPrice)
             .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
             .WithMessage($"Deal price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
             .Must(MoneyLimits.IsWholeVnd).WithMessage("Deal price must be a whole VND amount.")
+            .Must(value => value % ProductLimits.PriceStepVnd == 0)
+            .WithMessage("Deal price must be a multiple of 1,000 VND.")
             .LessThan(x => x.OriginalPrice).WithMessage("Deal price must be less than original price.")
             .PrecisionScale(12, 2, false);
     }

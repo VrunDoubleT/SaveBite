@@ -98,19 +98,10 @@ export function ReviewsPage() {
     }
   }, [feedbackIdParam, reviews]);
 
-  const handleUpdate = async (id: string, rating: number, comment?: string, images?: string[]) => {
-    try {
-      const updated = await feedbackApi.editFeedback(id, {
-        rating,
-        comment,
-        images,
-      });
-      setReviews((prev) => prev.map((item) => (item.id === id ? { ...item, ...updated } : item)));
-      toast.success("Review updated successfully.");
-    } catch (error) {
-      toast.error(getApiErrorMessage(error) || "Failed to update review.");
-      throw error;
-    }
+  const handleUpdated = (updated: FeedbackItem) => {
+    setReviews((prev) =>
+      prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
+    );
   };
 
   const handleDelete = async (id: string) => {
@@ -138,7 +129,7 @@ export function ReviewsPage() {
         <ReviewsPanel
           reviews={reviews}
           isLoading={isLoading}
-          onUpdate={handleUpdate}
+          onUpdated={handleUpdated}
           onDelete={handleDelete}
           highlightedId={highlightedId}
         />

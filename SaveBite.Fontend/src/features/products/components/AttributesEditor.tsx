@@ -1,25 +1,36 @@
 import { useState } from "react";
+import { FieldError } from "./FieldError";
 import { ImagePlus, Plus, Trash2, X } from "lucide-react";
 import type { DraftAttribute, ProductAttribute } from "../types/product.types";
-import { fileError, LIMITS } from "../utils/productForm";
+import { attributeErrors, validateAttributes, fileError, LIMITS } from "../utils/productForm";
 import { Alert, FilePreview, iconButton, inputClass, secondaryButton } from "./ProductUi";
 
 export function AttributesEditor({
   attributes,
   onChange,
   existing = [],
+  showErrors = false,
+  validationMessage,
 }: {
   attributes: DraftAttribute[];
   onChange: (attributes: DraftAttribute[]) => void;
   existing?: ProductAttribute[];
+  showErrors?: boolean;
+  validationMessage?: string;
 }) {
   const [error, setError] = useState("");
   const adding = existing.length > 0;
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const errors = attributeErrors(attributes, existing);
+  const touch = (id: string) => setTouched((previous) => ({ ...previous, [id]: true }));
   const update = (id: string, patch: Partial<DraftAttribute>) =>
     onChange(attributes.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   return (
     <div className="space-y-4">
       {error && <Alert>{error}</Alert>}
+      {validationMessage && !validateAttributes(attributes, existing) && (
+        <Alert>{validationMessage}</Alert>
+      )}
       {!attributes.length && (
         <p className="rounded-lg bg-neutral-50 p-4 text-sm leading-6 text-text-secondary">
           Products without attributes have one default variant. Add attributes for sizes, flavors,
@@ -30,7 +41,7 @@ export function AttributesEditor({
         const saved = existing.find((a) => a.id === attribute.id)?.values ?? [];
         return (
           <div key={attribute.id} className="rounded-lg border border-neutral-200 p-4">
-            <div className="mb-4 flex items-center gap-3">
+            <div className="mb-4 flex items-start gap-3">
               <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary-700">
                 {index + 1}
               </span>
@@ -43,8 +54,19 @@ export function AttributesEditor({
                     className={inputClass}
                     placeholder="E.g. Size"
                     maxLength={100}
+                    aria-invalid={
+                      !!((showErrors || touched[attribute.id]) && errors.names[attribute.id])
+                    }
+                    aria-describedby={`attribute-${attribute.id}-name-error`}
+                    onBlur={() => touch(attribute.id)}
                     value={attribute.name}
                     onChange={(e) => update(attribute.id, { name: e.target.value })}
+                  />
+                  <FieldError
+                    id={`attribute-${attribute.id}-name-error`}
+                    message={
+                      showErrors || touched[attribute.id] ? errors.names[attribute.id] : undefined
+                    }
                   />
                 </label>
               )}
@@ -73,21 +95,34 @@ export function AttributesEditor({
             )}
             <div className="space-y-2">
               {attribute.values.map((value, vi) => (
-                <div key={value.id} className="flex items-center gap-2">
-                  <input
-                    className={`${inputClass} mt-0!`}
-                    aria-label={`Value ${vi + 1} for ${attribute.name || `attribute ${index + 1}`}`}
-                    value={value.value}
-                    maxLength={100}
-                    placeholder="Enter a value, e.g. Small"
-                    onChange={(e) =>
-                      update(attribute.id, {
-                        values: attribute.values.map((v) =>
-                          v.id === value.id ? { ...v, value: e.target.value } : v,
-                        ),
-                      })
-                    }
-                  />
+                <div key={value.id} className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <input
+                      className={`${inputClass} mt-0!`}
+                      aria-label={`Value ${vi + 1} for ${attribute.name || `attribute ${index + 1}`}`}
+                      aria-invalid={
+                        !!((showErrors || touched[value.id]) && errors.values[value.id])
+                      }
+                      aria-describedby={`attribute-value-${value.id}-error`}
+                      onBlur={() => touch(value.id)}
+                      value={value.value}
+                      maxLength={100}
+                      placeholder="Enter a value, e.g. Small"
+                      onChange={(e) =>
+                        update(attribute.id, {
+                          values: attribute.values.map((v) =>
+                            v.id === value.id ? { ...v, value: e.target.value } : v,
+                          ),
+                        })
+                      }
+                    />
+                    <FieldError
+                      id={`attribute-value-${value.id}-error`}
+                      message={
+                        showErrors || touched[value.id] ? errors.values[value.id] : undefined
+                      }
+                    />
+                  </div>
                   <label
                     className="relative flex size-10 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 focus-within:ring-2 focus-within:ring-primary-400"
                     title="Choose a value image"
@@ -148,6 +183,10 @@ export function AttributesEditor({
                 </div>
               ))}
             </div>
+            <FieldError
+              id={`attribute-${attribute.id}-values-error`}
+              message={showErrors ? errors.blocks[attribute.id] : undefined}
+            />
             <button
               type="button"
               className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 disabled:opacity-40"

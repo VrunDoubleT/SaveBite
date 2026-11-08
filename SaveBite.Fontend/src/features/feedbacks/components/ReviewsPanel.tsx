@@ -1,3 +1,4 @@
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
 import { useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import { Button, ButtonLink, Card, EmptyState, Skeleton } from "@/shared/components/ui";
@@ -10,7 +11,7 @@ import { ReviewCard } from "./ReviewCard";
 interface ReviewsPanelProps {
   reviews: FeedbackItem[];
   onDelete: (id: string) => Promise<void>;
-  onUpdate: (id: string, rating: number, comment?: string, images?: string[]) => Promise<void>;
+  onUpdated: (review: FeedbackItem) => void;
   isLoading?: boolean;
   highlightedId?: string | null;
 }
@@ -18,7 +19,7 @@ interface ReviewsPanelProps {
 export function ReviewsPanel({
   reviews,
   onDelete,
-  onUpdate,
+  onUpdated,
   isLoading = false,
   highlightedId,
 }: ReviewsPanelProps) {
@@ -64,7 +65,7 @@ export function ReviewsPanel({
             <ReviewCard
               key={review.id}
               review={review}
-              onUpdate={onUpdate}
+              onUpdated={onUpdated}
               onRequestDelete={(review) => {
                 setDeleteError("");
                 setReviewToDelete(review);
@@ -114,7 +115,7 @@ export function ReviewsPanel({
             >
               Cancel
             </Button>
-            <Button
+            <CustomerActionButton
               variant="danger"
               loading={isDeleting}
               type="button"
@@ -123,7 +124,7 @@ export function ReviewsPanel({
               className="min-h-11"
             >
               {isDeleting ? "Deleting..." : "Delete review"}
-            </Button>
+            </CustomerActionButton>
           </div>
         </div>
       </SharedModal>

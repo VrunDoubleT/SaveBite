@@ -1,4 +1,8 @@
-import { Button, Input } from "@/shared/components/ui";
+import {
+  CustomerMutationForm,
+  CustomerActionButton,
+} from "@/shared/components/CustomerMutationControls";
+import { Input } from "@/shared/components/ui";
 import { useState } from "react";
 import { RefundBankSelect } from "./RefundBankSelect";
 import { refundBankName } from "../api/refundBanks";
@@ -45,7 +49,7 @@ export function RefundDestinationForm({
       </p>
       <div className="my-4 flex flex-wrap gap-2">
         {(["BankAccount", "QrImage"] as const).map((method) => (
-          <Button
+          <CustomerActionButton
             variant="secondary"
             type="button"
             aria-pressed={bank.receiverMethod === method}
@@ -58,10 +62,10 @@ export function RefundDestinationForm({
             className={`min-h-11 whitespace-normal ${bank.receiverMethod === method ? "!border-primary-200 !bg-primary-50 !text-primary-800" : ""}`}
           >
             {method === "BankAccount" ? "Enter bank details" : "Upload bank QR"}
-          </Button>
+          </CustomerActionButton>
         ))}
       </div>
-      <form
+      <CustomerMutationForm
         noValidate
         className="grid gap-3 sm:grid-cols-2"
         onSubmit={(event) => {
@@ -97,7 +101,8 @@ export function RefundDestinationForm({
               };
               setBank(destination);
             }
-            return refundApi.destination(refund.id, destination);
+            const result = await refundApi.destination(refund.id, destination);
+            return result;
           });
         }}
       >
@@ -194,17 +199,17 @@ export function RefundDestinationForm({
             </p>
           )}
         </label>
-        <Button
+        <CustomerActionButton
           type="submit"
           loading={busy}
           disabled={disabled}
           className="min-h-11 justify-self-start whitespace-normal sm:col-span-2"
         >
           {refund.confirmationExpiresAt ? "Resend confirmation email" : "Send confirmation email"}
-        </Button>
-      </form>
+        </CustomerActionButton>
+      </CustomerMutationForm>
       {refund.confirmationExpiresAt && (
-        <form
+        <CustomerMutationForm
           noValidate
           className="mt-4 flex flex-wrap items-end gap-2 border-t border-border-default pt-4"
           onSubmit={(event) => {
@@ -240,18 +245,18 @@ export function RefundDestinationForm({
               </p>
             )}
           </label>
-          <Button
+          <CustomerActionButton
             type="submit"
             loading={busy}
             disabled={disabled}
             className="min-h-11 whitespace-normal"
           >
             Confirm destination
-          </Button>
+          </CustomerActionButton>
           <p className="w-full text-caption text-text-muted">
             Code expires {checkoutTime(refund.confirmationExpiresAt)} · GMT+7
           </p>
-        </form>
+        </CustomerMutationForm>
       )}
     </div>
   );

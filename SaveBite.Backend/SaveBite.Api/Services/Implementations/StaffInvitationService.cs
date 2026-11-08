@@ -19,19 +19,30 @@ public sealed class StaffInvitationService(
     IShopStaffRepository staffRepository,
     IStaffInvitationScheduler scheduler,
     StaffInvitationNotificationService notifications,
-    SaveBite.Backend.Data.AppDbContext db
+    SaveBite.Backend.Data.AppDbContext db,
+    IRealtimePublisher realtime
 ) : IStaffInvitationService
 {
     private Task TryNotifyAsync(Guid invitationId, StaffInvitationStatus status, CancellationToken ct)
         => notifications.NotifyAsync(invitationId, status, ct);
 
-    private Task<bool> TransitionAndNotifyAsync(Guid id, string status, DateTime now, CancellationToken ct)
-        => NotificationTransaction.RunAsync(db, async () =>
+    private async Task<bool> TransitionAndNotifyAsync(Guid id, string status, DateTime now, CancellationToken ct)
+    {
+        var hasOuterTransaction = db.Database.CurrentTransaction != null;
+        var changed = await NotificationTransaction.RunAsync(db, async () =>
         {
-            var changed = await invitationRepository.TryTransitionPendingAsync(id, status, now, ct);
-            if (changed && status != StatusAccepted) await notifications.NotifyAsync(id, Enum.Parse<StaffInvitationStatus>(status), ct);
-            return changed;
+            var transitioned = await invitationRepository.TryTransitionPendingAsync(id, status, now, ct);
+            if (transitioned && status != StatusAccepted)
+                await notifications.NotifyAsync(id, Enum.Parse<StaffInvitationStatus>(status), ct);
+            return transitioned;
         }, ct);
+        if (changed && !hasOuterTransaction)
+        {
+            var invitation = await invitationRepository.GetInvitationByIdAsync(id, ct);
+            if (invitation != null) await StaffRealtimeEvents.InvitationChangedAsync(realtime, invitation);
+        }
+        return changed;
+    }
 
     private const string StatusPending =
         nameof(StaffInvitationStatus.Pending);
@@ -247,6 +258,7 @@ public sealed class StaffInvitationService(
             );
         }
 
+        await StaffRealtimeEvents.InvitationChangedAsync(realtime, created);
         scheduler.ScheduleExpiration(created.Id, created.InvitedAt.AddDays(InvitationLifetimeDays));
 
         return MapToInvitationResponse(created);
@@ -519,6 +531,15 @@ public sealed class StaffInvitationService(
 
             invitation.InvitedUser.UpdatedAt =
                 DateTime.UtcNow;
+            db.UserRoleChangeLogs.Add(new UserRoleChangeLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = currentUserId,
+                PreviousRole = UserRole.User,
+                NewRole = UserRole.Staff,
+                Reason = $"Accepted staff invitation {invitation.Id} for shop {invitation.ShopId}.",
+                CreatedAt = invitation.InvitedUser.UpdatedAt
+            });
         }
 
         await invitationRepository.UpdateInvitationAsync(
@@ -538,6 +559,13 @@ public sealed class StaffInvitationService(
         await transaction.CommitAsync(
             cancellationToken
         );
+        await StaffRealtimeEvents.InvitationChangedAsync(realtime, invitation, staffJoined: true);
+        await realtime.SendToUserAsync(currentUserId, RealtimeEvents.UserRoleChanged, new
+        {
+            userId = currentUserId,
+            shopId = invitation.ShopId,
+            reason = "staff-invitation-accepted"
+        });
     }
 
 

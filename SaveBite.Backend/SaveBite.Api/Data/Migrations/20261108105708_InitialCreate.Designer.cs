@@ -12,8 +12,8 @@ using SaveBite.Backend.Data;
 namespace SaveBite.Backend.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261106113120_AddFlashDealStatusHistory")]
-    partial class AddFlashDealStatusHistory
+    [Migration("20261108105708_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -2910,7 +2910,7 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasIndex("ApplicationId", "DocumentType")
                         .IsUnique()
                         .HasDatabaseName("ux_shop_application_current_document")
-                        .HasFilter("\"is_current\" = TRUE");
+                        .HasFilter("\"is_current\" = TRUE AND \"document_type\" <> 'Other'");
 
                     b.ToTable("shop_application_documents", null, t =>
                         {
@@ -3469,7 +3469,7 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("trust_order_processing", (string)null);
                 });
 
-            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustScoreHistory", b =>
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustProgressHistory", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -3519,6 +3519,27 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<decimal>("ValueAfter")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("value_after");
+
+                    b.Property<decimal>("ValueBefore")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("value_before");
+
+                    b.Property<decimal>("ValueDelta")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("value_delta");
+
                     b.HasKey("Id");
 
                     b.HasIndex("NoShowPenaltyId");
@@ -3529,7 +3550,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("trust_score_history", (string)null);
+                    b.ToTable("trust_progress_history", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustScoreRule", b =>
@@ -3902,6 +3923,135 @@ namespace SaveBite.Backend.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("user_trust_scores", (string)null);
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Uploads.UploadAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<long>("Bytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("bytes");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("metadata_json");
+
+                    b.Property<string>("PublicId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("ResourceType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("resource_type");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("Status")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("url");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("Url")
+                        .HasDatabaseName("ix_upload_assets_url");
+
+                    b.HasIndex("Status", "ExpiresAt")
+                        .HasDatabaseName("ix_upload_assets_status_expires_at");
+
+                    b.ToTable("upload_assets", (string)null);
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Uploads.UploadSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("purpose");
+
+                    b.Property<Guid?>("ResultId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("result_id");
+
+                    b.Property<string>("Status")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_upload_sessions_expires_at");
+
+                    b.HasIndex("UserId", "Status")
+                        .HasDatabaseName("ix_upload_sessions_user_status");
+
+                    b.ToTable("upload_sessions", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.AccountStatusLog", b =>
@@ -4858,15 +5008,15 @@ namespace SaveBite.Backend.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustScoreHistory", b =>
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustProgressHistory", b =>
                 {
                     b.HasOne("SaveBite.Backend.Models.Entities.NoShowPenalty", "NoShowPenalty")
-                        .WithMany("TrustScoreHistories")
+                        .WithMany("TrustProgressHistories")
                         .HasForeignKey("NoShowPenaltyId")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SaveBite.Backend.Models.Entities.Order", "Order")
-                        .WithMany("TrustScoreHistories")
+                        .WithMany("TrustProgressHistories")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.NoAction);
 
@@ -4876,7 +5026,7 @@ namespace SaveBite.Backend.Data.Migrations
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SaveBite.Backend.Models.Entities.User", "User")
-                        .WithMany("TrustScoreHistories")
+                        .WithMany("TrustProgressHistories")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
@@ -4993,6 +5143,26 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Uploads.UploadAsset", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Uploads.UploadSession", "Session")
+                        .WithMany("Assets")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Uploads.UploadSession", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Category", b =>
                 {
                     b.Navigation("ProductContentRevisions");
@@ -5020,7 +5190,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.Navigation("TrustLevelHistories");
 
-                    b.Navigation("TrustScoreHistories");
+                    b.Navigation("TrustProgressHistories");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Order", b =>
@@ -5043,7 +5213,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.Navigation("TrustLevelHistories");
 
-                    b.Navigation("TrustScoreHistories");
+                    b.Navigation("TrustProgressHistories");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.OrderItem", b =>
@@ -5256,13 +5426,18 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.Navigation("TrustLevelHistories");
 
-                    b.Navigation("TrustScore");
+                    b.Navigation("TrustProgressHistories");
 
-                    b.Navigation("TrustScoreHistories");
+                    b.Navigation("TrustScore");
 
                     b.Navigation("UploadedRefundEvidenceImages");
 
                     b.Navigation("UploadedShopApplicationDocuments");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Uploads.UploadSession", b =>
+                {
+                    b.Navigation("Assets");
                 });
 #pragma warning restore 612, 618
         }

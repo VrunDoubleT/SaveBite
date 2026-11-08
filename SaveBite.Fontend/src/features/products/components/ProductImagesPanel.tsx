@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { isUploadCancelled } from "@/shared/uploads/uploadErrors";
+import { toast } from "@/shared/stores/toastStore";
+import { UploadDraftChoice } from "@/shared/uploads/UploadDraftChoice";
+import { UploadTaskGuard } from "@/shared/uploads/UploadTaskGuard";
+import { useEffect, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { useLocation } from "react-router-dom";
+import { FieldError } from "./FieldError";
 import { Save, Upload } from "lucide-react";
 import { productApi } from "../api/productApi";
-import type { Product, ProductValue } from "../types/product.types";
+import type { Product, ProductValue, ProductImage } from "../types/product.types";
 import { describeError, fileError } from "../utils/productForm";
 import { GalleryEditor } from "./GalleryEditor";
 import {
@@ -12,8 +19,11 @@ import {
   ProductPhoto,
   secondaryButton,
 } from "./ProductUi";
+import { useAuthStore } from "@/shared/stores/authStore";
+import { getUploadDraft, removeUploadDraft } from "@/shared/uploads/uploadDraftStore";
+import { startOrResumeUploadDraft, uploadReferences } from "@/shared/uploads/uploadDrafts";
 
-export function ProductImagesPanel({
+function ProductImagesPanelContent({
   product,
 
   onSaved,
@@ -22,10 +32,54 @@ export function ProductImagesPanel({
 
   onSaved: (product: Product) => void;
 }) {
-  const [existing, setExisting] = useState(product.images.filter((i) => i.source === "product"));
-  const [files, setFiles] = useState<File[]>([]);
+  const location = useLocation();
+  const userId = useAuthStore((state) => state.user?.id);
+  const [activeDraftId, setActiveDraftId] = useState<string>();
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<{ gallery: { existing: ProductImage[]; files: File[] } }>({
+    defaultValues: {
+      gallery: { existing: product.images.filter((i) => i.source === "product"), files: [] },
+    },
+    mode: "onChange",
+  });
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  useEffect(() => {
+    const draftId = (location.state as { uploadDraftId?: string } | null)?.uploadDraftId;
+    if (!draftId || !userId) return;
+    let active = true;
+    void getUploadDraft(draftId).then((draft) => {
+      if (!active || !draft || draft.userId !== userId) return;
+      const saved = draft.formData as {
+        operation?: string;
+        retainedImageIds?: string[];
+        files?: File[];
+      };
+      if (saved.operation === "gallery") {
+        setActiveDraftId(draft.id);
+        const byId = new Map(
+          product.images
+            .filter((image) => image.source === "product")
+            .map((image) => [image.id, image]),
+        );
+        reset({
+          gallery: {
+            existing: (saved.retainedImageIds ?? [])
+              .map((id) => byId.get(id))
+              .filter((image): image is ProductImage => Boolean(image)),
+            files: saved.files ?? [],
+          },
+        });
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [location.state, product.images, reset, userId]);
   return (
     <div className="space-y-5">
       <Panel
@@ -34,52 +88,84 @@ export function ProductImagesPanel({
       >
         <form
           className="space-y-4"
-          onSubmit={async (e) => {
-            e.preventDefault();
+          noValidate
+          onSubmit={handleSubmit(async ({ gallery: { existing, files } }) => {
             if (busy) return;
-            if (existing.length + files.length === 0) {
-              setError("Product must have at least 1 gallery image.");
-              return;
-            }
-            if (existing.length + files.length > 10) {
-              setError("At most 10 gallery images are allowed.");
-              return;
-            }
-            const message = fileError(files);
-            if (message) {
-              setError(message);
-              return;
-            }
             setBusy(true);
             setError("");
             const form = new FormData();
+            let completedDraftId = activeDraftId;
             existing.forEach((image, i) => form.append(`RetainedImageIds[${i}]`, image.id));
-            files.forEach((file) => form.append("Images", file));
             try {
+              if (files.length) {
+                if (!userId) throw new Error("Sign in before uploading product images.");
+                completedDraftId ??= crypto.randomUUID();
+                setActiveDraftId(completedDraftId);
+                const draft = await startOrResumeUploadDraft(
+                  {
+                    draftId: completedDraftId,
+                    userId,
+                    purpose: "product",
+                    targetId: product.id,
+                    title: `Update gallery: ${product.name}`,
+                    path: `${location.pathname}?tab=images`,
+                    formData: {
+                      operation: "gallery",
+                      retainedImageIds: existing.map((image) => image.id),
+                      files,
+                    },
+                    files: files.map((file) => ({ field: "Images", file })),
+                  },
+                  completedDraftId,
+                );
+                completedDraftId = draft.id;
+                setActiveDraftId(draft.id);
+                form.append("__uploadAssets", JSON.stringify(uploadReferences(draft.files)));
+              }
               const saved = await productApi.images(product.id, form);
-              setExisting(saved.images.filter((i) => i.source === "product"));
-              setFiles([]);
+              if (completedDraftId) await removeUploadDraft(completedDraftId);
+              setActiveDraftId(undefined);
+              reset({
+                gallery: {
+                  existing: saved.images.filter((i) => i.source === "product"),
+                  files: [],
+                },
+              });
               onSaved(saved);
             } catch (err) {
-              setError(describeError(err));
+              if (isUploadCancelled(err))
+                toast.info(
+                  "Upload stopped. Your draft is saved; edit it or submit again when ready.",
+                );
+              else setError(describeError(err));
             } finally {
               setBusy(false);
             }
-          }}
+          })}
         >
           <fieldset disabled={busy}>
-            <GalleryEditor
-              existing={existing}
-              onExistingChange={setExisting}
-              files={files}
-              onFilesChange={setFiles}
+            <Controller
+              control={control}
+              name="gallery"
+              rules={{
+                validate: ({ existing, files }) =>
+                  existing.length + files.length === 0
+                    ? "Product must have at least 1 gallery image."
+                    : existing.length + files.length > 10
+                      ? "At most 10 gallery images are allowed."
+                      : fileError(files) || true,
+              }}
+              render={({ field }) => (
+                <GalleryEditor
+                  existing={field.value.existing}
+                  files={field.value.files}
+                  onExistingChange={(existing) => field.onChange({ ...field.value, existing })}
+                  onFilesChange={(files) => field.onChange({ ...field.value, files })}
+                />
+              )}
             />
           </fieldset>
-          {!existing.length && !files.length && (
-            <p className="text-sm text-red-600">
-              Product must have at least 1 gallery image.
-            </p>
-          )}
+          <FieldError id="product-gallery-error" message={errors.gallery?.message} />
           {error && <Alert>{error}</Alert>}
           <div className="flex justify-end">
             <button className={primaryButton} disabled={busy}>
@@ -206,10 +292,16 @@ function ValueImageEditor({
               setBusy(true);
               setError("");
               try {
-                onSaved(await productApi.valueImage(productId, value.id, file));
+                const body = new FormData();
+                body.append("Image", file);
+                onSaved(await productApi.valueImage(productId, value.id, body));
                 setFile(undefined);
               } catch (err) {
-                setError(describeError(err));
+                if (isUploadCancelled(err))
+                  toast.info(
+                    "Upload stopped. Your draft is saved; edit it or submit again when ready.",
+                  );
+                else setError(describeError(err));
               } finally {
                 setBusy(false);
               }
@@ -220,5 +312,19 @@ function ValueImageEditor({
         </div>
       )}
     </div>
+  );
+}
+
+export function ProductImagesPanel(props: Parameters<typeof ProductImagesPanelContent>[0]) {
+  return (
+    <UploadTaskGuard
+      scope={{ purpose: "product", targetIds: [props.product.id], operation: "gallery" }}
+    >
+      <UploadDraftChoice
+        scope={{ purpose: "product", targetIds: [props.product.id], operation: "gallery" }}
+      >
+        {(draftId) => <ProductImagesPanelContent key={draftId ?? "new"} {...props} />}
+      </UploadDraftChoice>
+    </UploadTaskGuard>
   );
 }

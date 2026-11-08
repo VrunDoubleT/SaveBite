@@ -1,3 +1,4 @@
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   CalendarDays,
@@ -76,7 +77,7 @@ const STATUS_META: Record<
     label: "Rejected",
     tone: "red",
     badge: "bg-danger-soft text-danger-strong ring-danger-soft",
-    dot: "bg-danger-soft0",
+    dot: "bg-danger-strong",
     notice: "border-danger-soft bg-danger-soft text-danger-strong",
     noticeTitle: "Your application wasn't approved",
     noticeBody: "You can update your application details and submit it again.",
@@ -147,11 +148,12 @@ function InfoRow({
 /* Review progress */
 function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
   const decided = status === "Approved" || status === "Rejected";
+  const needsRevision = status === "NeedsRevision";
   const steps = [
     { label: "Submitted", state: "done" as const },
     {
-      label: "Under review",
-      state: status === "Pending" ? ("active" as const) : ("done" as const),
+      label: needsRevision ? "Update required" : "Under review",
+      state: status === "Pending" || needsRevision ? ("active" as const) : ("done" as const),
     },
     {
       label: status === "Approved" ? "Approved" : status === "Rejected" ? "Rejected" : "Decision",
@@ -165,7 +167,7 @@ function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
   const circle = {
     done: "bg-primary-700 text-text-inverse",
     active: "bg-bg-surface text-accent-700 ring-2 ring-accent-300",
-    error: "bg-danger-soft0 text-text-inverse",
+    error: "bg-danger-strong text-text-inverse",
     todo: "bg-bg-surface text-text-muted ring-2 ring-border-default",
   };
 
@@ -174,6 +176,7 @@ function ReviewProgress({ status }: { status: ShopApplicationStatus }) {
       {steps.map((step, index) => (
         <li
           key={step.label}
+          aria-current={step.state === "active" ? "step" : undefined}
           className="relative flex min-w-0 flex-col items-center gap-1.5 text-center"
         >
           {index < steps.length - 1 && (
@@ -334,9 +337,9 @@ export default function LatestShopApplication({
           title="Register your shop"
           description="Submit your business details and documents to become a SaveBite Store Owner."
           action={
-            <Button onClick={handleStartApplication} className="min-h-11">
+            <CustomerActionButton onClick={handleStartApplication} className="min-h-11">
               Start application
-            </Button>
+            </CustomerActionButton>
           }
         />
       )}
@@ -401,6 +404,14 @@ export default function LatestShopApplication({
                 </div>
               )}
             </div>
+            {application.status === "NeedsRevision" && application.reviewLogs.filter((log) => log.note).length > 0 && (
+              <div className="rounded-md border border-accent-100 bg-accent-50 p-4">
+                <p className="text-sm font-semibold text-text-primary">Reviewer's feedback</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">
+                  {[...application.reviewLogs].filter((log) => log.note).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.note}
+                </p>
+              </div>
+            )}
             {application.description && (
               <p className="text-body text-text-secondary [overflow-wrap:anywhere]">
                 {application.description}
@@ -425,20 +436,20 @@ export default function LatestShopApplication({
             {application.status !== "Approved" && (
               <div className="flex flex-wrap justify-end gap-2 border-t border-border-default pt-3">
                 {application.status === "Pending" && (
-                  <Button
+                  <CustomerActionButton
                     variant="secondary"
                     disabled={cancelling}
                     onClick={() => setConfirmCancel(true)}
                     className="min-h-11 !text-danger-strong"
                   >
                     Cancel application
-                  </Button>
+                  </CustomerActionButton>
                 )}
                 {["Cancelled", "Rejected", "NeedsRevision"].includes(application.status) && (
-                  <Button onClick={handleEdit} className="min-h-11">
+                  <CustomerActionButton onClick={handleEdit} className="min-h-11">
                     <Pencil size={16} aria-hidden="true" />
                     Edit and resubmit
-                  </Button>
+                  </CustomerActionButton>
                 )}
               </div>
             )}
@@ -471,14 +482,14 @@ export default function LatestShopApplication({
           >
             Keep application
           </Button>
-          <Button
+          <CustomerActionButton
             variant="danger"
             loading={cancelling}
             onClick={() => void handleCancel()}
             className="min-h-11"
           >
             Confirm cancellation
-          </Button>
+          </CustomerActionButton>
         </div>
       </Modal>
     </div>

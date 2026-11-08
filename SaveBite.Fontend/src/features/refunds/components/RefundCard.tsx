@@ -1,3 +1,4 @@
+import { CustomerActionNativeButton } from "@/shared/components/CustomerMutationControls";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
@@ -71,7 +72,9 @@ export function RefundCard({
         </p>
       )}
       {refund.reviewDeadlineAt && active(refund) && (
-        <p className={`mt-2 text-caption ${refund.isOverdue ? "text-accent-700" : "text-text-secondary"}`}>
+        <p
+          className={`mt-2 text-caption ${refund.isOverdue ? "text-accent-700" : "text-text-secondary"}`}
+        >
           {refund.isOverdue
             ? "The processing deadline has passed. This refund will be closed automatically."
             : `Shop processing deadline: ${checkoutTime(refund.reviewDeadlineAt)} · GMT+7`}
@@ -96,7 +99,7 @@ export function RefundCard({
               <span>
                 Withdraw this refund request? You cannot submit another request for this order.
               </span>
-              <button
+              <CustomerActionNativeButton
                 type="button"
                 disabled={busy}
                 className="font-semibold text-danger-strong"
@@ -105,20 +108,20 @@ export function RefundCard({
                 }}
               >
                 Yes, withdraw
-              </button>
+              </CustomerActionNativeButton>
               <button type="button" disabled={busy} onClick={() => setWithdraw(false)}>
                 Keep request
               </button>
             </div>
           ) : (
-            <button
+            <CustomerActionNativeButton
               type="button"
               disabled={busy}
               className="rounded-lg border border-danger-soft bg-danger-soft px-3 py-2 text-caption font-semibold text-danger-strong transition-colors hover:border-danger-soft hover:bg-danger-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-strong disabled:opacity-50"
               onClick={() => setWithdraw(true)}
             >
               Withdraw request
-            </button>
+            </CustomerActionNativeButton>
           )}
         </div>
       )}

@@ -3,6 +3,7 @@ using CloudinaryDotNet.Actions;
 using Microsoft.Extensions.Options;
 using SaveBite.Backend.Configurations;
 using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.Uploads;
 
 namespace SaveBite.Backend.Services.Implementations;
 
@@ -38,6 +39,8 @@ public class CloudinaryService : ICloudinaryService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(file);
+        if (file is StoredUploadFile storedFile)
+            return storedFile.Use();
         ValidateFile(file);
 
         await using var stream = file.OpenReadStream();
@@ -228,6 +231,8 @@ public class CloudinaryService : ICloudinaryService
     public async Task<CloudinaryUploadResult> UploadDocumentAsync(IFormFile file, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(file);
+        if (file is StoredUploadFile storedFile)
+            return storedFile.Use();
 
         if (file.Length <= 0)
             throw new ArgumentException("The document file is empty.", nameof(file));
@@ -278,5 +283,80 @@ public class CloudinaryService : ICloudinaryService
             _logger.LogError(ex, "Error uploading document {FileName} to Cloudinary.", file.FileName);
             throw;
         }
+    }
+
+    public string TemporaryPublicId(Guid assetId)
+        => $"{_settings.UploadFolder}/temporary/{assetId:N}";
+
+    public async Task<CloudinaryUploadResult> UploadTemporaryAsync(
+        IFormFile file,
+        Guid assetId,
+        bool raw,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        if (raw)
+        {
+            if (file.ContentType != "application/pdf" || file.Length <= 0 ||
+                file.Length > _settings.MaxFileSizeBytes)
+                throw new ArgumentException("Upload a valid PDF within the configured size limit.", nameof(file));
+        }
+        else
+        {
+            ValidateFile(file);
+        }
+
+        await using var stream = file.OpenReadStream();
+        if (!raw && (!stream.CanSeek ||
+            !await HasValidImageSignatureAsync(stream, file.ContentType, cancellationToken)))
+            throw new ArgumentException("The file content does not match its declared image type.", nameof(file));
+
+        var publicId = TemporaryPublicId(assetId);
+        UploadResult result;
+        if (raw)
+        {
+            result = await _cloudinary.UploadAsync(new RawUploadParams
+            {
+                File = new FileDescription(Path.GetFileName(file.FileName), stream),
+                PublicId = publicId,
+                Overwrite = true,
+                Invalidate = true
+            });
+        }
+        else
+        {
+            result = await _cloudinary.UploadAsync(new ImageUploadParams
+            {
+                File = new FileDescription(Path.GetFileName(file.FileName), stream),
+                PublicId = publicId,
+                Overwrite = true,
+                Invalidate = true
+            }, cancellationToken);
+        }
+
+        if (result.StatusCode != System.Net.HttpStatusCode.OK ||
+            result.SecureUrl is null || string.IsNullOrWhiteSpace(result.PublicId))
+            throw new InvalidOperationException("Cloudinary did not accept the temporary upload.");
+
+        return new CloudinaryUploadResult(result.SecureUrl.ToString(), result.PublicId);
+    }
+
+    public async Task<bool> DeleteAssetAsync(
+        string publicId,
+        string resourceType,
+        CancellationToken cancellationToken = default)
+    {
+        var prefix = $"{_settings.UploadFolder}/temporary/";
+        if (!publicId.StartsWith(prefix, StringComparison.Ordinal) ||
+            resourceType is not ("image" or "raw"))
+            throw new ArgumentException("The asset is not an allowed temporary upload.", nameof(publicId));
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = await _cloudinary.DestroyAsync(new DeletionParams(publicId)
+        {
+            ResourceType = resourceType == "raw" ? ResourceType.Raw : ResourceType.Image,
+            Invalidate = true
+        });
+        return result.Result is "ok" or "not found";
     }
 }

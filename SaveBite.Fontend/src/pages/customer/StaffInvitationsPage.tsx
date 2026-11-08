@@ -1,13 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  ErrorState,
-  MediaImage,
-  Skeleton,
-} from "@/shared/components/ui";
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
+import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
+import { subscribeStaffEvents } from "@/features/shop-staffs/realtime/subscribeStaffEvents";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Badge, Card, EmptyState, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, Check, Clock3, Mail, MapPin, Store, X } from "lucide-react";
 import { staffInvitationApi } from "@/features/staff-invitations/api/staffInvitationApi";
@@ -37,6 +32,8 @@ function displayedStatus(invitation: StaffInvitation, now: number): StaffInvitat
 }
 
 export function CustomerStaffInvitationsPage() {
+  const realtime = useRealtimeSubscriptions();
+  const loadState = useRef({ version: 0 });
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -45,34 +42,36 @@ export function CustomerStaffInvitationsPage() {
   const refreshUser = useAuthStore((state) => state.refreshUser);
 
   const loadInvitations = useCallback(async () => {
+    const version = ++loadState.current.version;
     try {
-      const result = await staffInvitationApi.getMyInvitations();
+      const result = await staffInvitationApi.getMyInvitations(true);
+      if (version !== loadState.current.version) return;
       setInvitations(result);
       setError("");
       setNow(Date.now());
     } catch (err) {
+      if (version !== loadState.current.version) return;
       setError(getApiErrorMessage(err) || "Unable to load invitations. Please try again.");
     } finally {
-      setIsLoading(false);
+      if (version === loadState.current.version) setIsLoading(false);
     }
-  }, []);
+  }, [loadState]);
 
   useEffect(() => {
     const initial = window.setTimeout(() => void loadInvitations(), 0);
-    // Refresh status when Hangfire expires an invitation, including on returning to this tab.
-    const timer = window.setInterval(() => {
-      void loadInvitations();
-    }, 30_000);
+    const off = subscribeStaffEvents(realtime, "invitations", loadInvitations);
     const onFocus = () => {
       void loadInvitations();
     };
     window.addEventListener("focus", onFocus);
+    const currentLoadState = loadState.current;
     return () => {
       window.clearTimeout(initial);
-      window.clearInterval(timer);
+      off();
+      currentLoadState.version++;
       window.removeEventListener("focus", onFocus);
     };
-  }, [loadInvitations]);
+  }, [loadInvitations, realtime, loadState]);
 
   // Disable response buttons at the deadline even if the next server refresh has not completed.
   useEffect(() => {
@@ -200,7 +199,7 @@ export function CustomerStaffInvitationsPage() {
                     </p>
                     {pending && (
                       <div className="flex flex-wrap gap-2">
-                        <Button
+                        <CustomerActionButton
                           variant="secondary"
                           disabled={processingId !== null}
                           onClick={() => void respond(invitation, false)}
@@ -209,8 +208,8 @@ export function CustomerStaffInvitationsPage() {
                         >
                           <X size={14} aria-hidden="true" />
                           Decline
-                        </Button>
-                        <Button
+                        </CustomerActionButton>
+                        <CustomerActionButton
                           disabled={processingId !== null}
                           loading={processing}
                           onClick={() => void respond(invitation, true)}
@@ -219,7 +218,7 @@ export function CustomerStaffInvitationsPage() {
                         >
                           <Check size={14} aria-hidden="true" />
                           Accept
-                        </Button>
+                        </CustomerActionButton>
                       </div>
                     )}
                   </div>

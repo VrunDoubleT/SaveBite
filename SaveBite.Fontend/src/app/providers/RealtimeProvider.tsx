@@ -1,3 +1,4 @@
+import { subscribeAccountEvents } from "@/features/auth/realtime/subscribeAccountEvents";
 import { RealtimeContext } from "@/shared/realtime/realtimeContext";
 import { createRealtimeSubscriptions } from "@/shared/realtime/realtimeSubscriptions";
 import { useShopOrderEventsStore } from "@/features/shop-orders/stores/shopOrderEventsStore";
@@ -23,7 +24,12 @@ export function RealtimeProvider({ children }: PropsWithChildren) {
     const unsubscribeCart = customerActive ? subscribeCartEvents(client) : () => {};
     const unsubscribeNotifications = subscribeNotificationEvents(client);
     const unsubscribeFeedback = client.on(REALTIME_EVENTS.FEEDBACK_CHANGED, (event) => {
-      const data = event.data as { feedbackId?: string; action?: string; shopId?: string; rating?: number };
+      const data = event.data as {
+        feedbackId?: string;
+        action?: string;
+        shopId?: string;
+        rating?: number;
+      };
       if (data) {
         emitFeedbackSync(data.action ?? "hide", data.feedbackId, data);
       }
@@ -31,19 +37,10 @@ export function RealtimeProvider({ children }: PropsWithChildren) {
     const unsubscribeShopStatus = client.on(REALTIME_EVENTS.SHOP_STATUS_CHANGED, (event) => {
       window.dispatchEvent(new CustomEvent("shop:status-changed", { detail: event.data }));
     });
-    const unsubscribeShopApp = client.on("shop.application.reviewed", () => {
-      void useAuthStore.getState().refreshUser();
-      window.dispatchEvent(new CustomEvent("shop-application:updated"));
-      window.dispatchEvent(new CustomEvent("user:role-changed"));
-    });
-    const unsubscribeRole = client.on("user.role.changed", () => {
-      void useAuthStore.getState().refreshUser();
-      window.dispatchEvent(new CustomEvent("user:role-changed"));
-    });
+    const unsubscribeAccount = subscribeAccountEvents(client, userId);
     void client.start();
     return () => {
-      unsubscribeRole();
-      unsubscribeShopApp();
+      unsubscribeAccount();
       unsubscribeShopStatus();
       unsubscribeFeedback();
       unsubscribeNotifications();

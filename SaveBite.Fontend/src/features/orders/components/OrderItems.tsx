@@ -1,5 +1,6 @@
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
 import { CheckCircle2, Package, Star } from "lucide-react";
-import { Button, MediaImage } from "@/shared/components/ui";
+import { MediaImage } from "@/shared/components/ui";
 import type { CheckoutOrder } from "@/features/checkout/types/checkout.types";
 import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
 
@@ -50,16 +51,16 @@ export function OrderItems({
               {money(item.subtotal)}
             </p>
             {item.canReview && item.orderItemId && onRate ? (
-              <Button
+              <CustomerActionButton
                 variant="secondary"
                 onClick={() => onRate(item.orderItemId)}
                 className="mt-2 min-h-11 !border-accent-100 !bg-accent-50 !text-accent-700 hover:!bg-accent-100"
               >
                 <Star size={15} aria-hidden="true" />
                 Rate this item
-              </Button>
+              </CustomerActionButton>
             ) : item.rating ? (
-              <Button
+              <CustomerActionButton
                 variant="ghost"
                 disabled={!item.feedbackId}
                 onClick={() => {
@@ -77,7 +78,7 @@ export function OrderItems({
                 Reviewed
                 <Star size={13} className="fill-accent-300 text-accent-700" aria-hidden="true" />
                 {item.rating}/5{item.feedbackId ? " · Edit" : ""}
-              </Button>
+              </CustomerActionButton>
             ) : null}
           </div>
           <p className="hidden text-body font-semibold tabular-nums text-text-primary sm:block sm:text-right">

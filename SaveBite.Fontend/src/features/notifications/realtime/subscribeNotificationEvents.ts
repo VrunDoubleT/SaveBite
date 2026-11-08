@@ -8,32 +8,32 @@ import type {
   NotificationStateSyncPayload,
 } from "../types/notification.types";
 
-export function subscribeNotificationEvents(
-  client: ReturnType<typeof createRealtimeClient>,
-) {
+export function subscribeNotificationEvents(client: ReturnType<typeof createRealtimeClient>) {
   const offReceived = client.on(REALTIME_EVENTS.NOTIFICATION_RECEIVED, (event) => {
     const payload = event.data as NotificationRealtimePayload;
-    useNotificationStore
-      .getState()
-      .onNotificationReceived(payload);
+    useNotificationStore.getState().onNotificationReceived(payload);
     // Realtime invalidate feedback when feedback notification arrives (e.g. FeedbackRemovedByAdmin = 31)
     const notiType = payload?.notification?.type;
-    if (notiType === 31 || notiType === 25 || notiType === 26 || notiType === "FeedbackRemovedByAdmin") {
+    if (
+      notiType === 31 ||
+      notiType === 25 ||
+      notiType === 26 ||
+      notiType === "FeedbackRemovedByAdmin"
+    ) {
       window.dispatchEvent(new CustomEvent("feedback:invalidated"));
     }
-    // Realtime role and shop application changes: 12, 13, 14, 15, 16, 24, 29, 30, 37, 38, 42
-    const roleAppTypes = [12, 13, 14, 15, 16, 24, 29, 30, 37, 38, 42, "ShopApplicationApproved", "ShopApplicationRejected", "ShopApplicationNeedsRevision", "RoleChanged", "CustomerStatusChanged"];
-    if (roleAppTypes.includes(notiType as any)) {
-      void useAuthStore.getState().refreshUser();
-      window.dispatchEvent(new CustomEvent("shop-application:updated"));
-      window.dispatchEvent(new CustomEvent("user:role-changed"));
+    // Shop/account status changes may also affect /me. Role/membership changes have their own event.
+    if (
+      [29, 30, "ShopStatusChanged", "AccountStatusChanged", "CustomerStatusChanged"].includes(
+        notiType,
+      )
+    ) {
+      window.dispatchEvent(new CustomEvent("account:refresh-requested"));
     }
   });
 
   const offRead = client.on(REALTIME_EVENTS.NOTIFICATION_READ, (event) => {
-    useNotificationStore
-      .getState()
-      .onNotificationRead(event.data as NotificationStateSyncPayload);
+    useNotificationStore.getState().onNotificationRead(event.data as NotificationStateSyncPayload);
   });
 
   const offDeleted = client.on(REALTIME_EVENTS.NOTIFICATION_DELETED, (event) => {

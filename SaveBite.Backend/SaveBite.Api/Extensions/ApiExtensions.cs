@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.OpenApi.Models;
 using SaveBite.Backend.Configurations;
+using SaveBite.Backend.Uploads;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -14,6 +15,7 @@ public static class ApiExtensions
     {
         services
             .AddControllers()
+            .AddMvcOptions(options => options.Filters.AddService<UploadReferenceFilter>())
             .AddJsonOptions(o =>
             {
                 o.JsonSerializerOptions.DefaultIgnoreCondition =
@@ -33,6 +35,8 @@ public static class ApiExtensions
         });
 
         services.AddEndpointsApiExplorer();
+        services.AddHttpContextAccessor();
+        services.AddScoped<UploadReferenceFilter>();
 
         services.Configure<SwaggerOptions>(
             configuration.GetSection("Swagger"));

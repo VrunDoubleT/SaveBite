@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Images, Info, Layers3, Trash2, Zap } from "lucide-react";
 import { productApi } from "../api/productApi";
 import { useProductResource } from "../hooks/useProductResource";
@@ -45,6 +45,7 @@ function Detail({
   const { shop, categories, productPath } = workspace;
   const shopSuspended = useShopSuspended();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const load = useCallback((signal: AbortSignal) => productApi.get(productId, signal), [productId]);
   const {
@@ -54,7 +55,19 @@ function Detail({
     reload,
     setData,
   } = useProductResource(`${shop.id}:${productId}`, load);
-  const [tab, setTab] = useState<string>("info");
+  const requestedTab = searchParams.get("tab");
+  const tab =
+    requestedTab && tabs.some((item) => item.id === requestedTab) ? requestedTab : "info";
+  const selectTab = (nextTab: string) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    if (nextTab === "info") nextSearchParams.delete("tab");
+    else nextSearchParams.set("tab", nextTab);
+    const search = nextSearchParams.toString();
+    navigate(
+      { pathname: location.pathname, search: search ? `?${search}` : "" },
+      { replace: true, state: location.state },
+    );
+  };
   const [notice, setNotice] = useState<string>(
     typeof location.state?.message === "string" ? location.state.message : "",
   );
@@ -188,7 +201,7 @@ function Detail({
             aria-controls={`panel-${item.id}`}
             aria-selected={tab === item.id}
             tabIndex={tab === item.id ? 0 : -1}
-            onClick={() => setTab(item.id)}
+            onClick={() => selectTab(item.id)}
             onKeyDown={(e) => {
               if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
               e.preventDefault();
@@ -198,7 +211,7 @@ function Detail({
                   : e.key === "End"
                     ? tabs.length - 1
                     : (index + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-              setTab(tabs[next].id);
+              selectTab(tabs[next].id);
               document.getElementById(`tab-${tabs[next].id}`)?.focus();
             }}
             className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium outline-none transition focus-visible:bg-primary-50 ${tab === item.id ? "border-primary-600 text-primary-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}

@@ -61,6 +61,7 @@ function FollowControls({ shopId, shopName, initialFollow, onChange, compact = f
 
   if (user?.role === "admin") return null;
   async function mutate(action: "follow" | "notifications") {
+    if (useAuthStore.getState().user?.customerStatus === "suspended") return;
     if (!authenticated) {
       navigate("/login", { state: { from: location } });
       return;

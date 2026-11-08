@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
 using SaveBite.Backend.Services.Implementations;
 using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.Uploads;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -11,6 +12,7 @@ public static class ServiceExtensions
     {
         services.AddDataProtection().SetApplicationName("SaveBite");
         services.AddScoped<OrderConfirmationScheduling>();
+        services.AddScoped<UploadService>();
         services.AddScoped<OrderResaleService>();
         services.AddScoped<RefundEventEffects>();
         services.AddScoped<NotificationOutboxDelivery>();

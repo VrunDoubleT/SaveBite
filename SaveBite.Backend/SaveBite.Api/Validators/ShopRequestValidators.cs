@@ -81,10 +81,8 @@ public sealed class UpdateBusinessInfoRequestValidator : AbstractValidator<Updat
         RuleFor(x => x.Latitude).InclusiveBetween(-90d, 90d).WithMessage("Latitude must be between -90 and 90.");
         RuleFor(x => x.Longitude).InclusiveBetween(-180d, 180d).WithMessage("Longitude must be between -180 and 180.");
 
-        RuleFor(x => x.ClosingTime)
-            .NotEqual(x => x.OpeningTime)
-            .When(x => x.OpeningTime.HasValue && x.ClosingTime.HasValue && !(x.OpeningTime.Value == TimeOnly.MinValue && x.ClosingTime.Value == TimeOnly.MinValue))
-            .WithMessage("Opening time and closing time cannot be the same (except 00:00 - 00:00 for open all day / 24/7).");
+        // Equal opening and closing times represent a full 24-hour period.
+        // Earlier closing times fall on the following day (always at most 24 hours).
     }
 }
 

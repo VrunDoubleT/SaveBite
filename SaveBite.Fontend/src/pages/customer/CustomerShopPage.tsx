@@ -316,7 +316,7 @@ function ShopContent({ shopId }: { shopId: string }) {
   const operatingHours =
     profile.openingTime && profile.closingTime
       ? (profile.openingTime.slice(0, 5) === profile.closingTime.slice(0, 5)
-          ? "00:00 – 00:00 (Open 24/7)"
+          ? "Open 24/7"
           : `${profile.openingTime.slice(0, 5)} – ${profile.closingTime.slice(0, 5)}`)
       : "Opening hours not provided";
   const averageRating = reviewsSummary?.averageRating ?? profile.averageRating;

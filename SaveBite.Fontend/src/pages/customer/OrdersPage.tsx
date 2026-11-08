@@ -1,3 +1,4 @@
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
 import { readCustomerOrderPages } from "@/features/orders/utils/readCustomerOrderPages";
@@ -84,9 +85,9 @@ function CustomerOrders({
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [ratingOrder, setRatingOrder] = useState<CheckoutOrder | null>(null);
-  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<OrderReviewTarget | null>(
-    null,
-  );
+  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<
+    (OrderReviewTarget & { orderId: string }) | null
+  >(null);
   const [now, setNow] = useState(Date.now);
   const alive = useRef(true);
   const operation = useRef(false);
@@ -255,6 +256,7 @@ function CustomerOrders({
         initialProductName={editingFeedbackTarget?.productName}
         initialVariantName={editingFeedbackTarget?.variantName}
         initialImageUrl={editingFeedbackTarget?.imageUrl}
+        orderId={editingFeedbackTarget?.orderId}
         onUpdated={onRefresh}
       />
       <RateOrderModal
@@ -342,7 +344,10 @@ function CustomerOrders({
                     "Your payment needs review. Open order details and contact the shop."}
                 </p>
               )}
-              <OrderItems items={order.items.slice(0, 2)} onEditReview={setEditingFeedbackTarget} />
+              <OrderItems
+                items={order.items.slice(0, 2)}
+                onEditReview={(target) => setEditingFeedbackTarget({ ...target, orderId: order.id })}
+              />
               {order.items.length > 2 && (
                 <p className="text-caption text-text-secondary">
                   +{order.items.length - 2} more products ·{" "}
@@ -366,14 +371,14 @@ function CustomerOrders({
               </section>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-default pt-4">
                 {order.status === "Completed" && order.items.some((item) => item.canReview) ? (
-                  <Button
+                  <CustomerActionButton
                     variant="secondary"
                     onClick={() => setRatingOrder(order)}
                     className="min-h-11 !border-accent-100 !bg-accent-50 !text-accent-700 hover:!bg-accent-100"
                   >
                     <Star size={16} aria-hidden="true" />
                     Rate order
-                  </Button>
+                  </CustomerActionButton>
                 ) : null}
                 <ButtonLink to={detailUrl} className="min-h-11 w-full sm:ml-auto sm:w-auto">
                   View details

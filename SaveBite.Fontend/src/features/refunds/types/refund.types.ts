@@ -81,6 +81,7 @@ export interface RefundImage {
   bankBin?: string;
   accountNumber?: string;
   accountHolder?: string;
+  uploadDraftId?: string;
 }
 export interface RefundQr {
   refundId: string;

@@ -13,7 +13,6 @@ export const LIMITS = {
   variants: 100,
   images: 10,
   fileBytes: 10 * 1024 * 1024,
-  requestBytes: 127 * 1024 * 1024,
 };
 export const money = (value?: number) =>
   value == null
@@ -51,22 +50,52 @@ export function combinations(attributes: { values: { id: string; value: string }
     })),
   };
 }
+export function attributeErrors(drafts: DraftAttribute[], existing: ProductAttribute[] = []) {
+  const names: Record<string, string> = {};
+  const values: Record<string, string> = {};
+  const blocks: Record<string, string> = {};
+  const normalize = (value: string) => value.trim().toLocaleLowerCase("vi");
+  for (const attribute of drafts) {
+    const name = normalize(attribute.name);
+    if (!name) names[attribute.id] = "Please enter an attribute name.";
+    else if (name.length > 100)
+      names[attribute.id] = "Attribute name must not exceed 100 characters.";
+    else if (drafts.some((other) => other.id !== attribute.id && normalize(other.name) === name))
+      names[attribute.id] = "Attribute names must be unique.";
+    const saved = existing.find((a) => a.id === attribute.id)?.values ?? [];
+    const allValues = [...saved, ...attribute.values];
+    if (!allValues.length) blocks[attribute.id] = "Add at least one attribute value.";
+    else if (allValues.length > LIMITS.values)
+      blocks[attribute.id] = "You can add up to 20 values per attribute.";
+    for (const value of attribute.values) {
+      const text = normalize(value.value);
+      if (!text) values[value.id] = "Please enter an attribute value.";
+      else if (text.length > 100)
+        values[value.id] = "Attribute value must not exceed 100 characters.";
+      else if (allValues.some((other) => other.id !== value.id && normalize(other.value) === text))
+        values[value.id] = "Values within this attribute must be unique.";
+    }
+  }
+  return { names, values, blocks };
+}
 export function validateAttributes(drafts: DraftAttribute[], existing: ProductAttribute[] = []) {
   if (drafts.length > LIMITS.attributes) return "You can add up to 3 attributes.";
-  const names = drafts.map((a) => a.name.trim().toLocaleLowerCase("vi"));
-  if (names.some((n) => !n || n.length > 100))
-    return "Attribute names must contain 1–100 characters.";
-  if (new Set(names).size !== names.length) return "Attribute names must be unique.";
-  for (const a of drafts) {
-    const attrName = a.name.trim() || "attribute";
-    const old = existing.find((x) => x.id === a.id)?.values ?? [];
-    const values = [...old, ...a.values].map((v) => v.value.trim().toLocaleLowerCase("vi"));
-    if (!values.length || values.length > LIMITS.values)
-      return `Attribute "${attrName}" needs 1–20 values.`;
-    if (values.some((v) => !v || v.length > 100))
-      return `Values for "${attrName}" must contain 1–100 characters.`;
-    if (new Set(values).size !== values.length) return `Values for "${attrName}" must be unique.`;
-  }
+  const errors = attributeErrors(drafts, existing);
+  return (
+    Object.values(errors.names)[0] ||
+    Object.values(errors.blocks)[0] ||
+    Object.values(errors.values)[0] ||
+    ""
+  );
+}
+export const PRODUCT_PRICE_STEP = 1000;
+export function validateProductPrice(value: string) {
+  if (!value.trim()) return "Please enter a price.";
+  if (!/^\d+$/.test(value.trim())) return "Enter a whole VND amount.";
+  const amount = Number(value);
+  if (amount < MIN_AMOUNT_VND) return `Price must be at least ${MIN_AMOUNT_TEXT} VND.`;
+  if (amount >= 10_000_000_000) return "Price must be less than 10,000,000,000 VND.";
+  if (amount % PRODUCT_PRICE_STEP !== 0) return "Price must be a multiple of 1,000 VND.";
   return "";
 }
 export function validatePrices(rows: Combination[], prices: PriceMap) {
@@ -77,16 +106,11 @@ export function validatePrices(rows: Combination[], prices: PriceMap) {
     const dealStr = String(p?.dealPrice ?? "").trim();
     if (!origStr || !dealStr)
       return `Please enter both original price and deal price for ${row.label}.`;
-    if (!/^\d+$/.test(origStr) || !/^\d+$/.test(dealStr))
-      return `Enter both prices as whole VND amounts for ${row.label}.`;
+    const priceError = validateProductPrice(origStr) || validateProductPrice(dealStr);
+    if (priceError) return `${row.label}: ${priceError}`;
     const original = Number(origStr),
       deal = Number(dealStr);
-    if (original < MIN_AMOUNT_VND || deal < MIN_AMOUNT_VND)
-      return `Prices must be at least ${MIN_AMOUNT_TEXT} VND for ${row.label}.`;
-    if (original >= 10_000_000_000 || deal >= 10_000_000_000)
-      return `Prices must be less than 10,000,000,000 VND for ${row.label}.`;
-    if (deal >= original)
-      return `Deal price must be lower than original price for ${row.label}.`;
+    if (deal >= original) return `Deal price must be lower than original price for ${row.label}.`;
   }
   return "";
 }
@@ -95,11 +119,14 @@ export function fileError(files: File[]) {
     return "Only JPG, PNG, and WebP images are supported.";
   if (files.some((f) => f.size === 0 || f.size > LIMITS.fileBytes))
     return "Each image must be nonempty and no larger than 10 MB.";
-  if (files.reduce((total, f) => total + f.size, 0) > LIMITS.requestBytes)
-    return "Total image size must be below 127 MB.";
   return "";
 }
-export function appendAttributes(form: FormData, attributes: DraftAttribute[], adding = false) {
+export function appendAttributes(
+  form: FormData,
+  attributes: DraftAttribute[],
+  adding = false,
+  includeImages = true,
+) {
   const included = adding ? attributes.filter((a) => a.values.length > 0) : attributes;
   included.forEach((a, i) => {
     form.append(
@@ -110,7 +137,7 @@ export function appendAttributes(form: FormData, attributes: DraftAttribute[], a
       const prefix = `Attributes[${i}].Values[${j}]`;
       form.append(`${prefix}.Id`, v.id);
       form.append(`${prefix}.Value`, v.value.trim());
-      if (v.image) form.append(`${prefix}.Image`, v.image);
+      if (includeImages && v.image) form.append(`${prefix}.Image`, v.image);
     });
   });
 }

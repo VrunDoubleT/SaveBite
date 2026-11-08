@@ -17,7 +17,8 @@ public class ShopStaffService(
     IShopStaffRepository staffRepository,
     IUserRepository  userRepository,
     INotificationQueue notifications,
-    SaveBite.Backend.Data.AppDbContext db
+    SaveBite.Backend.Data.AppDbContext db,
+    IRealtimePublisher realtime
 ) : IShopStaffService
 {
     // Retrieve staff members for the owned shop.
@@ -73,7 +74,7 @@ public class ShopStaffService(
        UpdateStaffInfoRequest request,
        CancellationToken cancellationToken = default)
    {
-        await NotificationTransaction.RunAsync(db, async () =>
+        var change = await NotificationTransaction.RunAsync(db, async () =>
         {
            var shop = await GetOwnerShopEntityAsync(
                currentUserId,
@@ -137,7 +138,14 @@ public class ShopStaffService(
                    $"Your staff access at {shop.Name} is now {staff.Status}.", "/account/workspace",
                    $"staff-status:{staff.Id}:{staff.Status}:{Guid.NewGuid()}"), cancellationToken);
 
+           return (staff.UserId, StatusChanged: previousStatus != staff.Status, ShopId: shop.Id);
         }, cancellationToken);
+        await realtime.SendToUserAsync(currentUserId, RealtimeEvents.ShopStaffChanged, new { shopId = change.ShopId });
+        if (change.StatusChanged)
+            await realtime.SendToUserAsync(change.UserId, RealtimeEvents.UserRoleChanged, new
+            {
+                userId = change.UserId, shopId = change.ShopId, reason = "staff-status-changed"
+            });
     }
 
     // Remove staff members from the owned shop.
@@ -147,7 +155,7 @@ public class ShopStaffService(
         Guid staffId,
         CancellationToken cancellationToken = default)
     {
-        await NotificationTransaction.RunAsync(db, async () =>
+        var removedUserId = await NotificationTransaction.RunAsync(db, async () =>
         {
             var shop = await GetOwnerShopEntityAsync(
                 currentUserId,
@@ -185,9 +193,21 @@ public class ShopStaffService(
                 cancellationToken
             );
 
-            if (user != null && user.Role == UserRole.Staff)
+            var hasOtherMembership = await staffRepository.HasOtherStaffMembershipAsync(
+                staff.UserId, staff.Id, cancellationToken);
+            if (user != null && user.Role == UserRole.Staff && !hasOtherMembership)
             {
                 user.Role = UserRole.User;
+                user.UpdatedAt = DateTime.UtcNow;
+                db.UserRoleChangeLogs.Add(new UserRoleChangeLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    PreviousRole = UserRole.Staff,
+                    NewRole = UserRole.User,
+                    Reason = $"Removed from last staff membership {staff.Id} at shop {shop.Id} by owner {currentUserId}.",
+                    CreatedAt = user.UpdatedAt
+                });
             }
 
             await staffRepository.SaveChangesAsync(
@@ -198,7 +218,13 @@ public class ShopStaffService(
                 $"Your staff membership at {shop.Name} has been removed.", "/account/workspace",
                 $"staff-removed:{staff.Id}:{Guid.NewGuid()}"), cancellationToken);
 
+            return staff.UserId;
         }, cancellationToken);
+        await realtime.SendToUserAsync(currentUserId, RealtimeEvents.ShopStaffChanged, new { staffId });
+        await realtime.SendToUserAsync(removedUserId, RealtimeEvents.UserRoleChanged, new
+        {
+            userId = removedUserId, reason = "staff-removed"
+        });
     }
 
     // Retrieve staff activity logs for the owned shop.
@@ -417,7 +443,7 @@ public class ShopStaffService(
         Guid shopId,
         CancellationToken cancellationToken = default)
     {
-        await NotificationTransaction.RunAsync(db, async () =>
+        var ownerUserId = await NotificationTransaction.RunAsync(db, async () =>
         {
             var staff =
                 await staffRepository.GetStaffByShopAndUserAsync(
@@ -474,6 +500,15 @@ public class ShopStaffService(
             {
                 staff.User.Role = UserRole.User;
                 staff.User.UpdatedAt = DateTime.UtcNow;
+                db.UserRoleChangeLogs.Add(new UserRoleChangeLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = currentUserId,
+                    PreviousRole = UserRole.Staff,
+                    NewRole = UserRole.User,
+                    Reason = $"Left last staff membership {staff.Id} at shop {shopId}.",
+                    CreatedAt = staff.User.UpdatedAt
+                });
             }
 
             await staffRepository.UpdateStaffAsync(
@@ -489,7 +524,13 @@ public class ShopStaffService(
                 $"{staff.DisplayName} has left {staff.Shop.Name}.", "/store-owner/staff",
                 $"staff-left:{staff.Id}:{Guid.NewGuid()}"), cancellationToken);
 
+            return staff.Shop.OwnerUserId;
         }, cancellationToken);
+        await realtime.SendToUserAsync(ownerUserId, RealtimeEvents.ShopStaffChanged, new { shopId });
+        await realtime.SendToUserAsync(currentUserId, RealtimeEvents.UserRoleChanged, new
+        {
+            userId = currentUserId, shopId, reason = "staff-left"
+        });
     }
 
 

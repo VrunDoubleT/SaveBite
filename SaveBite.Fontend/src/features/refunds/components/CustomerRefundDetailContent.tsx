@@ -1,3 +1,4 @@
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
 import { RefundItems } from "./RefundItems";
 import { RefundEvidenceGallery as EvidenceGallery } from "./RefundEvidenceGallery";
 import { useState } from "react";
@@ -332,7 +333,7 @@ export function CustomerRefundDetailContent({
                     Withdraw this refund request? You cannot submit another request for this order.
                   </p>
                   <div className="flex flex-wrap gap-3">
-                    <Button
+                    <CustomerActionButton
                       variant="danger"
                       type="button"
                       disabled={busy}
@@ -340,7 +341,7 @@ export function CustomerRefundDetailContent({
                       className="min-h-11"
                     >
                       Yes, withdraw
-                    </Button>
+                    </CustomerActionButton>
                     <Button
                       variant="secondary"
                       type="button"
@@ -353,7 +354,7 @@ export function CustomerRefundDetailContent({
                   </div>
                 </div>
               ) : (
-                <Button
+                <CustomerActionButton
                   variant="secondary"
                   type="button"
                   disabled={busy}
@@ -361,7 +362,7 @@ export function CustomerRefundDetailContent({
                   className="mt-3 min-h-11 !border-danger-soft !text-danger-strong hover:!bg-danger-soft"
                 >
                   Withdraw request
-                </Button>
+                </CustomerActionButton>
               )}
             </section>
           )}

@@ -451,6 +451,30 @@ namespace SaveBite.Backend.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "upload_sessions",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    purpose = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    target_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    result_id = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_upload_sessions", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_upload_sessions_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "user_addresses",
                 columns: table => new
                 {
@@ -668,6 +692,34 @@ namespace SaveBite.Backend.Data.Migrations
                         column: x => x.owner_user_id,
                         principalTable: "users",
                         principalColumn: "id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "upload_assets",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    session_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    url = table.Column<string>(type: "text", nullable: false),
+                    public_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    resource_type = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
+                    file_name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    content_type = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    bytes = table.Column<long>(type: "bigint", nullable: false),
+                    metadata_json = table.Column<string>(type: "jsonb", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_upload_assets", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_upload_assets_upload_sessions_session_id",
+                        column: x => x.session_id,
+                        principalTable: "upload_sessions",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -1336,7 +1388,7 @@ namespace SaveBite.Backend.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "trust_score_history",
+                name: "trust_progress_history",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
@@ -1348,29 +1400,32 @@ namespace SaveBite.Backend.Data.Migrations
                     score_before = table.Column<int>(type: "integer", nullable: false),
                     score_delta = table.Column<int>(type: "integer", nullable: false),
                     score_after = table.Column<int>(type: "integer", nullable: false),
+                    value_before = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false, defaultValue: 0m),
+                    value_delta = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false, defaultValue: 0m),
+                    value_after = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false, defaultValue: 0m),
                     reason = table.Column<string>(type: "text", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_trust_score_history", x => x.id);
+                    table.PrimaryKey("PK_trust_progress_history", x => x.id);
                     table.ForeignKey(
-                        name: "FK_trust_score_history_no_show_penalties_no_show_penalty_id",
+                        name: "FK_trust_progress_history_no_show_penalties_no_show_penalty_id",
                         column: x => x.no_show_penalty_id,
                         principalTable: "no_show_penalties",
                         principalColumn: "id");
                     table.ForeignKey(
-                        name: "FK_trust_score_history_orders_order_id",
+                        name: "FK_trust_progress_history_orders_order_id",
                         column: x => x.order_id,
                         principalTable: "orders",
                         principalColumn: "id");
                     table.ForeignKey(
-                        name: "FK_trust_score_history_trust_score_rules_rule_id",
+                        name: "FK_trust_progress_history_trust_score_rules_rule_id",
                         column: x => x.rule_id,
                         principalTable: "trust_score_rules",
                         principalColumn: "id");
                     table.ForeignKey(
-                        name: "FK_trust_score_history_users_user_id",
+                        name: "FK_trust_progress_history_users_user_id",
                         column: x => x.user_id,
                         principalTable: "users",
                         principalColumn: "id");
@@ -1507,6 +1562,29 @@ namespace SaveBite.Backend.Data.Migrations
                         name: "FK_platform_fee_adjustments_shops_shop_id",
                         column: x => x.shop_id,
                         principalTable: "shops",
+                        principalColumn: "id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "flash_deal_status_history",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    flash_deal_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    from_status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    to_status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    changed_by_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    changed_by_user_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    note = table.Column<string>(type: "text", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_flash_deal_status_history", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_flash_deal_status_history_flash_deals_flash_deal_id",
+                        column: x => x.flash_deal_id,
+                        principalTable: "flash_deals",
                         principalColumn: "id");
                 });
 
@@ -2001,6 +2079,11 @@ namespace SaveBite.Backend.Data.Migrations
                 filter: "\"published_at\" IS NULL");
 
             migrationBuilder.CreateIndex(
+                name: "IX_flash_deal_status_history_flash_deal_id_created_at",
+                table: "flash_deal_status_history",
+                columns: new[] { "flash_deal_id", "created_at" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_flash_deal_variants_variant_id",
                 table: "flash_deal_variants",
                 column: "variant_id");
@@ -2473,7 +2556,7 @@ namespace SaveBite.Backend.Data.Migrations
                 table: "shop_application_documents",
                 columns: new[] { "application_id", "document_type" },
                 unique: true,
-                filter: "\"is_current\" = TRUE");
+                filter: "\"is_current\" = TRUE AND \"document_type\" <> 'Other'");
 
             migrationBuilder.CreateIndex(
                 name: "IX_shop_application_review_logs_admin_id",
@@ -2606,29 +2689,54 @@ namespace SaveBite.Backend.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_trust_score_history_no_show_penalty_id",
-                table: "trust_score_history",
+                name: "IX_trust_progress_history_no_show_penalty_id",
+                table: "trust_progress_history",
                 column: "no_show_penalty_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_trust_score_history_order_id",
-                table: "trust_score_history",
+                name: "IX_trust_progress_history_order_id",
+                table: "trust_progress_history",
                 column: "order_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_trust_score_history_rule_id",
-                table: "trust_score_history",
+                name: "IX_trust_progress_history_rule_id",
+                table: "trust_progress_history",
                 column: "rule_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_trust_score_history_user_id",
-                table: "trust_score_history",
+                name: "IX_trust_progress_history_user_id",
+                table: "trust_progress_history",
                 column: "user_id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_trust_score_rules_created_by",
                 table: "trust_score_rules",
                 column: "created_by");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_upload_assets_session_id",
+                table: "upload_assets",
+                column: "session_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_upload_assets_status_expires_at",
+                table: "upload_assets",
+                columns: new[] { "status", "expires_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_upload_assets_url",
+                table: "upload_assets",
+                column: "url");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_upload_sessions_expires_at",
+                table: "upload_sessions",
+                column: "expires_at");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_upload_sessions_user_status",
+                table: "upload_sessions",
+                columns: new[] { "user_id", "status" });
 
             migrationBuilder.CreateIndex(
                 name: "ux_default_user_address",
@@ -2764,6 +2872,9 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "event_outbox");
 
             migrationBuilder.DropTable(
+                name: "flash_deal_status_history");
+
+            migrationBuilder.DropTable(
                 name: "no_show_penalty_order_history");
 
             migrationBuilder.DropTable(
@@ -2851,7 +2962,10 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "trust_order_processing");
 
             migrationBuilder.DropTable(
-                name: "trust_score_history");
+                name: "trust_progress_history");
+
+            migrationBuilder.DropTable(
+                name: "upload_assets");
 
             migrationBuilder.DropTable(
                 name: "user_addresses");
@@ -2885,6 +2999,9 @@ namespace SaveBite.Backend.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "trust_score_rules");
+
+            migrationBuilder.DropTable(
+                name: "upload_sessions");
 
             migrationBuilder.DropTable(
                 name: "no_show_penalties");

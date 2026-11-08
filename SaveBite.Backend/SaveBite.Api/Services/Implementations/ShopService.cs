@@ -628,7 +628,8 @@ public sealed class ShopService : IShopService
     {
         if (newOpening.HasValue && newClosing.HasValue && newOpening.Value == newClosing.Value)
         {
-            throw AppException.BadRequest("Giờ mở cửa và giờ đóng cửa không được trùng nhau.");
+            // Equal times mean open 24 hours, so existing deals and pickups remain within hours.
+            return;
         }
 
         if (!newClosing.HasValue && !newOpening.HasValue)
@@ -727,6 +728,8 @@ public sealed class ShopService : IShopService
     {
         if (opening.HasValue && closing.HasValue)
         {
+            if (opening.Value == closing.Value) return true;
+
             return opening.Value <= closing.Value
                 ? time >= opening.Value && time <= closing.Value
                 : time >= opening.Value || time <= closing.Value;

@@ -89,17 +89,10 @@ export function validateShopApplication(
     }
   }
 
-  // Existing PayOS configuration can be kept by leaving the fields empty.
-  if (
-    values.openingTime &&
-    values.closingTime &&
-    values.openingTime === values.closingTime &&
-    values.openingTime !== "00:00"
-  ) {
-    errors.closingTime =
-      "Opening time and closing time cannot be the same (except 00:00 - 00:00 for open all day / 24/7).";
-  }
+  // Equal opening/closing times represent a full 24-hour operating period.
+  // Earlier closing times fall on the following day.
 
+  // Existing PayOS configuration can be kept by leaving the fields empty.
   if (!hasExistingPayos) {
     if (!values.payosClientId.trim()) {
       errors.payosClientId = "PayOS Client ID is required.";

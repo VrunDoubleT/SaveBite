@@ -24,12 +24,12 @@ let invitationListRequest: Promise<StaffInvitation[]> | null = null;
 const activityLogRequests = new Map<string, Promise<StaffActivityLogPage>>();
 
 export const shopStaffApi = {
-  async getStaffList(): Promise<ShopStaff[]> {
-    if (staffListRequest) {
+  async getStaffList(forceRefresh = false): Promise<ShopStaff[]> {
+    if (staffListRequest && !forceRefresh) {
       return staffListRequest;
     }
 
-    staffListRequest = (async () => {
+    const request = (async () => {
       const response = await httpClient.get<ApiResponse<PaginatedResponse<ShopStaff>>>(
         API_ENDPOINTS.SHOP_STAFFS.LIST,
         {
@@ -43,10 +43,11 @@ export const shopStaffApi = {
       return response.data.data.items;
     })();
 
+    staffListRequest = request;
     try {
-      return await staffListRequest;
+      return await request;
     } finally {
-      staffListRequest = null;
+      if (staffListRequest === request) staffListRequest = null;
     }
   },
 
@@ -119,12 +120,12 @@ export const shopStaffApi = {
     return response.data.data.items;
   },
 
-  async getInvitations(): Promise<StaffInvitation[]> {
-    if (invitationListRequest) {
+  async getInvitations(forceRefresh = false): Promise<StaffInvitation[]> {
+    if (invitationListRequest && !forceRefresh) {
       return invitationListRequest;
     }
 
-    invitationListRequest = (async () => {
+    const request = (async () => {
       const response = await httpClient.get<ApiResponse<PaginatedResponse<StaffInvitation>>>(
         API_ENDPOINTS.STAFF_INVITATIONS.BY_SHOP,
         {
@@ -138,10 +139,11 @@ export const shopStaffApi = {
       return response.data.data.items;
     })();
 
+    invitationListRequest = request;
     try {
-      return await invitationListRequest;
+      return await request;
     } finally {
-      invitationListRequest = null;
+      if (invitationListRequest === request) invitationListRequest = null;
     }
   },
 

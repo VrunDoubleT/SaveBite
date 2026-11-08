@@ -1,3 +1,4 @@
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
 import { useRef, useState } from "react";
 import {
   CheckCircle2,
@@ -9,100 +10,33 @@ import {
   Trash2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Badge, Button, MediaImage, Modal } from "@/shared/components/ui";
+import { Badge, MediaImage, Modal } from "@/shared/components/ui";
 import { APP_PATHS } from "@/app/router/paths";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import type { FeedbackItem } from "../types/feedback.types";
-import { feedbackApi } from "../api/feedbackApi";
-import { ReviewEditor } from "./ReviewEditor";
-import { toast } from "@/shared/stores/toastStore";
-import { getApiErrorMessage } from "@/shared/api";
+import { EditReviewModal } from "./EditReviewModal";
 
 interface ReviewCardProps {
   review: FeedbackItem;
-  onUpdate: (id: string, rating: number, comment?: string, images?: string[]) => Promise<void>;
+  onUpdated: (review: FeedbackItem) => void;
   onRequestDelete: (review: FeedbackItem) => void;
   isHighlighted?: boolean;
 }
 
 export function ReviewCard({
   review,
-  onUpdate,
+  onUpdated,
   onRequestDelete,
   isHighlighted = false,
 }: ReviewCardProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [rating, setRating] = useState(review.rating);
-  const [comment, setComment] = useState(review.comment ?? "");
-  const [images, setImages] = useState<string[]>(review.images ?? []);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [saveError, setSaveError] = useState("");
   const editButton = useRef<HTMLButtonElement>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  const startEdit = () => {
-    setRating(review.rating);
-    setComment(review.comment ?? "");
-    setImages(review.images ?? []);
-    setSaveError("");
-    setIsEditing(true);
-  };
-
+  const startEdit = () => setIsEditing(true);
   const cancelEdit = () => {
     setIsEditing(false);
     requestAnimationFrame(() => editButton.current?.focus());
-    setRating(review.rating);
-    setComment(review.comment ?? "");
-    setImages(review.images ?? []);
-  };
-
-  const handleImageUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const remainingSlots = 5 - images.length;
-    if (remainingSlots <= 0) {
-      toast.info("You can only attach up to 5 images.");
-      return;
-    }
-
-    const filesToUpload = Array.from(files).slice(0, remainingSlots);
-    try {
-      setIsUploading(true);
-      const uploadedUrls: string[] = [];
-      for (const file of filesToUpload) {
-        if (!file.type.startsWith("image/")) continue;
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error(`${file.name} exceeds 5MB size limit.`);
-          continue;
-        }
-        const url = await feedbackApi.uploadImage(file);
-        uploadedUrls.push(url);
-      }
-      if (uploadedUrls.length > 0) {
-        setImages((prev) => [...prev, ...uploadedUrls].slice(0, 5));
-      }
-    } catch (error) {
-      toast.error(getApiErrorMessage(error) || "Failed to upload image.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleRemoveImage = (indexToRemove: number) => {
-    setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
-  };
-
-  const saveEdit = async () => {
-    try {
-      setIsSaving(true);
-      await onUpdate(review.id, rating, comment.trim() || undefined, images);
-      setIsEditing(false);
-      requestAnimationFrame(() => editButton.current?.focus());
-    } catch (error) {
-      setSaveError(getApiErrorMessage(error));
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   return (
@@ -171,118 +105,104 @@ export function ReviewCard({
             </Badge>
           </div>
         </div>
-        {isEditing ? (
-          <div className="space-y-4 border-t border-border-default pt-4">
-            <h3 className="text-section font-semibold text-text-primary">Edit your review</h3>
-            <ReviewEditor
-              rating={rating}
-              comment={comment}
-              images={images}
-              saving={isSaving}
-              uploading={isUploading}
-              maxLength={2000}
-              error={saveError}
-              onRating={setRating}
-              onComment={setComment}
-              onRemove={handleRemoveImage}
-              onUpload={handleImageUpload}
-              onSave={saveEdit}
-              onCancel={cancelEdit}
-              reply={review.reply}
-              editCount={review.editCount}
-              canEdit={review.canEdit}
-            />
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-0.5" aria-label={`${review.rating} out of 5 stars`}>
+              {Array.from({ length: 5 }, (_, index) => (
+                <Star
+                  key={index}
+                  size={18}
+                  aria-hidden="true"
+                  className={
+                    index < review.rating ? "fill-accent-300 text-accent-700" : "text-neutral-300"
+                  }
+                />
+              ))}
+            </div>
+            <span className="text-body font-semibold text-text-primary">{review.rating}/5</span>
+            {typeof review.editCount === "number" && review.editCount > 0 && (
+              <span className="rounded bg-neutral-100 px-2 py-0.5 text-caption font-medium text-text-secondary">
+                Edited {review.editCount}/3 times
+              </span>
+            )}
           </div>
-        ) : (
-          <>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex gap-0.5" aria-label={`${review.rating} out of 5 stars`}>
-                {Array.from({ length: 5 }, (_, index) => (
-                  <Star
-                    key={index}
-                    size={18}
-                    aria-hidden="true"
-                    className={
-                      index < review.rating ? "fill-accent-300 text-accent-700" : "text-neutral-300"
-                    }
+          <p className="whitespace-pre-wrap text-body leading-relaxed text-text-secondary [overflow-wrap:anywhere]">
+            {review.comment || "No written comment provided."}
+          </p>
+          {!!review.images?.length && (
+            <div className="flex flex-wrap gap-2">
+              {review.images.map((url, index) => (
+                <button
+                  key={`${url}:${index}`}
+                  type="button"
+                  aria-label={`View review photo ${index + 1}`}
+                  onClick={() => setPreviewImage(url)}
+                  className="overflow-hidden rounded-md border border-border-default"
+                >
+                  <MediaImage
+                    src={url}
+                    alt={`Review photo ${index + 1}`}
+                    showFallbackLabel={false}
+                    className="size-16"
                   />
-                ))}
-              </div>
-              <span className="text-body font-semibold text-text-primary">{review.rating}/5</span>
-              {typeof review.editCount === "number" && review.editCount > 0 && (
-                <span className="rounded bg-neutral-100 px-2 py-0.5 text-caption font-medium text-text-secondary">
-                  Edited {review.editCount}/3 times
-                </span>
-              )}
+                </button>
+              ))}
             </div>
-            <p className="whitespace-pre-wrap text-body leading-relaxed text-text-secondary [overflow-wrap:anywhere]">
-              {review.comment || "No written comment provided."}
-            </p>
-            {!!review.images?.length && (
-              <div className="flex flex-wrap gap-2">
-                {review.images.map((url, index) => (
-                  <button
-                    key={`${url}:${index}`}
-                    type="button"
-                    aria-label={`View review photo ${index + 1}`}
-                    onClick={() => setPreviewImage(url)}
-                    className="overflow-hidden rounded-md border border-border-default"
-                  >
-                    <MediaImage
-                      src={url}
-                      alt={`Review photo ${index + 1}`}
-                      showFallbackLabel={false}
-                      className="size-16"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-            {review.reply && (
-              <section className="rounded-md border border-primary-100 bg-primary-50/50 p-3">
-                <p className="flex flex-wrap items-center gap-2 text-caption font-semibold text-primary-800">
-                  <MessageSquareQuote size={16} aria-hidden="true" />
-                  Response from shop{" "}
-                  {review.reply.repliedByName && (
-                    <span className="font-normal">· {review.reply.repliedByName}</span>
-                  )}
-                </p>
-                <p className="mt-2 whitespace-pre-wrap text-body text-text-primary [overflow-wrap:anywhere]">
-                  {review.reply.content}
-                </p>
-                <p className="mt-2 text-caption text-text-secondary">
-                  {checkoutTime(review.reply.createdAt)} · GMT+7
-                </p>
-              </section>
-            )}
-            <div className="flex flex-wrap justify-end gap-2 border-t border-border-default pt-4">
-              <Button
-                variant="primary"
-                ref={editButton}
-                onClick={startEdit}
-                disabled={review.canEdit === false || (review.editCount ?? 0) >= 3}
-                title={
-                  review.canEdit === false || (review.editCount ?? 0) >= 3
-                    ? "This review cannot be edited (limit of 3 edits or 30 days reached)"
-                    : undefined
-                }
-                className="min-h-11 disabled:opacity-50"
-              >
-                <Pencil size={16} aria-hidden="true" />
-                Edit review
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => onRequestDelete(review)}
-                className="min-h-11 !text-danger-strong hover:!bg-danger-soft"
-              >
-                <Trash2 size={16} aria-hidden="true" />
-                Delete
-              </Button>
-            </div>
-          </>
-        )}
+          )}
+          {review.reply && (
+            <section className="rounded-md border border-primary-100 bg-primary-50/50 p-3">
+              <p className="flex flex-wrap items-center gap-2 text-caption font-semibold text-primary-800">
+                <MessageSquareQuote size={16} aria-hidden="true" />
+                Response from shop{" "}
+                {review.reply.repliedByName && (
+                  <span className="font-normal">· {review.reply.repliedByName}</span>
+                )}
+              </p>
+              <p className="mt-2 whitespace-pre-wrap text-body text-text-primary [overflow-wrap:anywhere]">
+                {review.reply.content}
+              </p>
+              <p className="mt-2 text-caption text-text-secondary">
+                {checkoutTime(review.reply.createdAt)} · GMT+7
+              </p>
+            </section>
+          )}
+          <div className="flex flex-wrap justify-end gap-2 border-t border-border-default pt-4">
+            <CustomerActionButton
+              variant="primary"
+              ref={editButton}
+              onClick={startEdit}
+              disabled={review.canEdit === false || (review.editCount ?? 0) >= 3}
+              title={
+                review.canEdit === false || (review.editCount ?? 0) >= 3
+                  ? "This review cannot be edited (limit of 3 edits or 30 days reached)"
+                  : undefined
+              }
+              className="min-h-11 disabled:opacity-50"
+            >
+              <Pencil size={16} aria-hidden="true" />
+              Edit review
+            </CustomerActionButton>
+            <CustomerActionButton
+              variant="ghost"
+              onClick={() => onRequestDelete(review)}
+              className="min-h-11 !text-danger-strong hover:!bg-danger-soft"
+            >
+              <Trash2 size={16} aria-hidden="true" />
+              Delete
+            </CustomerActionButton>
+          </div>
+        </>
       </div>
+      <EditReviewModal
+        isOpen={isEditing}
+        feedbackId={review.id}
+        orderId={review.orderId}
+        initialProductName={review.productName}
+        initialVariantName={review.variantName ?? undefined}
+        initialImageUrl={review.imageUrl}
+        onClose={cancelEdit}
+        onUpdated={onUpdated}
+      />
       <Modal
         isOpen={!!previewImage}
         onClose={() => setPreviewImage(null)}

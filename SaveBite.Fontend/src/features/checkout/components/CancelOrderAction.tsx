@@ -1,3 +1,4 @@
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
 import { Button, Modal } from "@/shared/components/ui";
 import { useState } from "react";
 import { XCircle } from "lucide-react";
@@ -29,7 +30,7 @@ export function CancelOrderAction({
 
   return (
     <>
-      <Button
+      <CustomerActionButton
         variant="secondary"
         disabled={busy}
         onClick={() => setConfirming(true)}
@@ -38,7 +39,7 @@ export function CancelOrderAction({
       >
         <XCircle aria-hidden="true" size={16} />
         Cancel order
-      </Button>
+      </CustomerActionButton>
       <Modal
         isOpen={confirming}
         onClose={close}
@@ -55,7 +56,7 @@ export function CancelOrderAction({
             {canCancel ? "Keep order" : "Close"}
           </Button>
           {canCancel && (
-            <Button
+            <CustomerActionButton
               variant="danger"
               loading={busy}
               onClick={async () => {
@@ -65,7 +66,7 @@ export function CancelOrderAction({
               className="min-h-11"
             >
               {busy ? "Cancelling…" : "Confirm cancellation"}
-            </Button>
+            </CustomerActionButton>
           )}
         </div>
       </Modal>

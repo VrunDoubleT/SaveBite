@@ -5,6 +5,7 @@ import type {
   ShopApplicationForm,
   ShopDocumentUpload,
 } from "../types/shopApplication.types";
+import type { UploadReference } from "@/shared/uploads/uploadDrafts";
 
 function appendForm(
   formData: FormData,
@@ -12,6 +13,7 @@ function appendForm(
   logo?: File,
   coverImage?: File,
   documents: ShopDocumentUpload[] = [],
+  includeFiles = true,
 ) {
   Object.entries(input).forEach(([key, value]) => {
     if (value !== "" && value !== null && value !== undefined) {
@@ -19,16 +21,16 @@ function appendForm(
     }
   });
 
-  if (logo) {
+  if (includeFiles && logo) {
     formData.append("logo", logo);
   }
 
-  if (coverImage) {
+  if (includeFiles && coverImage) {
     formData.append("coverImage", coverImage);
   }
 
   documents.forEach(({ type, file }) => {
-    formData.append("documents", file);
+    if (includeFiles) formData.append("documents", file);
     formData.append("documentTypes", type);
   });
 }
@@ -69,10 +71,12 @@ export const shopApplicationApi = {
     logo?: File,
     coverImage?: File,
     documents: ShopDocumentUpload[] = [],
+    uploadReferences: UploadReference[] = [],
   ): Promise<ShopApplication> {
     const formData = new FormData();
 
-    appendForm(formData, input, logo, coverImage, documents);
+    appendForm(formData, input, logo, coverImage, documents, uploadReferences.length === 0);
+    if (uploadReferences.length) formData.append("__uploadAssets", JSON.stringify(uploadReferences));
 
     const response = await httpClient.post<ApiResponse<ShopApplication>>(
       API_ENDPOINTS.SHOP_APPLICATIONS.BASE,
@@ -89,10 +93,12 @@ export const shopApplicationApi = {
     logo?: File,
     coverImage?: File,
     documents: ShopDocumentUpload[] = [],
+    uploadReferences: UploadReference[] = [],
   ): Promise<ShopApplication> {
     const formData = new FormData();
 
-    appendForm(formData, input, logo, coverImage, documents);
+    appendForm(formData, input, logo, coverImage, documents, uploadReferences.length === 0);
+    if (uploadReferences.length) formData.append("__uploadAssets", JSON.stringify(uploadReferences));
 
     const response = await httpClient.post<ApiResponse<ShopApplication>>(
       API_ENDPOINTS.SHOP_APPLICATIONS.RESUBMIT(applicationId),

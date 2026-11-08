@@ -1,3 +1,7 @@
+import {
+  CustomerMutationForm,
+  CustomerActionButton,
+} from "@/shared/components/CustomerMutationControls";
 import { Button, Input } from "@/shared/components/ui";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -184,7 +188,7 @@ export function AddressForm({
     : "Use this address by default when placing orders.";
 
   return (
-    <form
+    <CustomerMutationForm
       onSubmit={submit}
       noValidate
       className="rounded-md border border-border-default bg-neutral-50/60 p-4 sm:p-5"
@@ -386,7 +390,7 @@ export function AddressForm({
           Cancel
         </Button>
 
-        <Button type="submit" disabled={isBusy} className="min-h-11">
+        <CustomerActionButton type="submit" disabled={isBusy} className="min-h-11">
           {isSaving ? (
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
           ) : (
@@ -394,9 +398,9 @@ export function AddressForm({
           )}
 
           {isSaving ? "Saving..." : isEditing ? "Save changes" : "Save address"}
-        </Button>
+        </CustomerActionButton>
       </div>
-    </form>
+    </CustomerMutationForm>
   );
 }
 

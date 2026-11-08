@@ -1,3 +1,4 @@
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
 import { AssociatedShopImage } from "@/features/staff-shops/components/AssociatedShopImage";
 import { useEffect, useState } from "react";
 import { ArrowRight, LogOut, Store } from "lucide-react";
@@ -36,7 +37,7 @@ export function WorkspacePage() {
   useEffect(() => {
     let active = true;
     void staffApi
-      .getAssociatedShops()
+      .getAssociatedShops(attempt > 0)
       .then((result) => {
         if (active) {
           setShops(result);
@@ -53,6 +54,11 @@ export function WorkspacePage() {
       active = false;
     };
   }, [attempt]);
+  useEffect(() => {
+    const onAccountChanged = () => setAttempt((value) => value + 1);
+    window.addEventListener("user:role-changed", onAccountChanged);
+    return () => window.removeEventListener("user:role-changed", onAccountChanged);
+  }, []);
   async function handleConfirmLeaveShop() {
     if (!shopToLeave || leavingShopId) return;
     try {
@@ -130,7 +136,7 @@ export function WorkspacePage() {
                 Open workspace
                 <ArrowRight size={16} aria-hidden="true" />
               </Button>
-              <Button
+              <CustomerActionButton
                 variant="ghost"
                 onClick={() => {
                   setLeaveError("");
@@ -141,7 +147,7 @@ export function WorkspacePage() {
               >
                 <LogOut size={16} aria-hidden="true" />
                 Leave shop
-              </Button>
+              </CustomerActionButton>
             </div>
           </Card>
         ))
@@ -185,14 +191,14 @@ export function WorkspacePage() {
           >
             Cancel
           </Button>
-          <Button
+          <CustomerActionButton
             variant="danger"
             loading={!!leavingShopId}
             onClick={() => void handleConfirmLeaveShop()}
             className="min-h-11"
           >
             Leave shop
-          </Button>
+          </CustomerActionButton>
         </div>
       </Modal>
     </div>

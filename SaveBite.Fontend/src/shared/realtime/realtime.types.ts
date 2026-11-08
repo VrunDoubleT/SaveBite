@@ -8,6 +8,11 @@ export interface RealtimeEvent<T = unknown> {
 }
 
 export const REALTIME_EVENTS = {
+  CUSTOMER_STATUS_CHANGED: "customer.status.changed",
+  STAFF_INVITATIONS_CHANGED: "staff.invitations.changed",
+  SHOP_STAFF_CHANGED: "shop.staff.changed",
+  USER_ROLE_CHANGED: "user.role.changed",
+  SHOP_APPLICATION_REVIEWED: "shop.application.reviewed",
   SHOP_PENDING_ORDERS_CHANGED: "shop.orders.pending.changed",
   CUSTOMER_ORDERS_CHANGED: "customer.orders.changed",
   SHOP_ORDERS_CHANGED: "shop.orders.changed",

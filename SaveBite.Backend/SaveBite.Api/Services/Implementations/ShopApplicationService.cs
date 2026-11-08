@@ -319,6 +319,7 @@ public sealed class ShopApplicationService : IShopApplicationService
             .Select(type => Enum.TryParse<ShopDocumentType>(type, true, out var parsed) ? parsed : (ShopDocumentType?)null)
             .Where(type => type.HasValue)
             .Select(type => type!.Value)
+            .Where(type => type != ShopDocumentType.Other)
             .ToHashSet();
 
         foreach (var document in application.Documents.Where(document => types.Contains(document.DocumentType)))
@@ -408,7 +409,7 @@ public sealed class ShopApplicationService : IShopApplicationService
         ReviewShopApplicationRequest request,
         CancellationToken cancellationToken = default)
     {
-        return await NotificationTransaction.RunAsync(_db, async () =>
+        var reviewed = await NotificationTransaction.RunAsync(_db, async () =>
         {
             var application = await _repository.GetByIdAsync(applicationId, cancellationToken)
                 ?? throw AppException.NotFound("Shop application was not found.");
@@ -497,40 +498,43 @@ public sealed class ShopApplicationService : IShopApplicationService
                 $"Your application for {application.Name} is now {nextStatus}. {request.Note?.Trim()}",
                 "/account/shop-application", $"shop-application:{application.Id}:revision:{application.RevisionNumber}:{nextStatus}"), cancellationToken);
 
-            if (_realtime != null)
-            {
-                var eventPayload = new
-                {
-                    applicationId = application.Id,
-                    applicantUserId = application.ApplicantUserId,
-                    status = nextStatus.ToString(),
-                    revisionNumber = application.RevisionNumber
-                };
-                await _realtime.SendToUserAsync(application.ApplicantUserId, "shop.application.reviewed", eventPayload);
-                await _realtime.SendToAllAsync("shop.application.reviewed", eventPayload);
-                if (nextStatus == ShopApplicationStatus.Approved)
-                {
-                    await _realtime.SendToUserAsync(application.ApplicantUserId, "user.role.changed", new
-                    {
-                        userId = application.ApplicantUserId,
-                        role = "storeOwner"
-                    });
-                }
-            }
-
-            if (_dealHub != null)
-            {
-                var envelope = new RealtimeEvent(Guid.NewGuid(), "shop.application.reviewed", 1, DateTime.UtcNow, new
-                {
-                    applicationId = application.Id,
-                    applicantUserId = application.ApplicantUserId,
-                    status = nextStatus.ToString()
-                });
-                await _dealHub.Clients.All.ReceiveEvent(envelope);
-            }
-
-            return Map(application);
-
+            return (Response: Map(application), application.ApplicantUserId, application.Id,
+                Status: nextStatus.ToString(), application.RevisionNumber);
         }, cancellationToken);
+
+        // Clients reload /me when receiving this event, so publish only after commit.
+        if (_realtime != null)
+        {
+            var eventPayload = new
+            {
+                applicationId = reviewed.Id,
+                applicantUserId = reviewed.ApplicantUserId,
+                status = reviewed.Status,
+                revisionNumber = reviewed.RevisionNumber
+            };
+            await _realtime.SendToUserAsync(reviewed.ApplicantUserId, RealtimeEvents.ShopApplicationReviewed, eventPayload);
+            await _realtime.SendToAllAsync(RealtimeEvents.ShopApplicationReviewed, eventPayload);
+            if (reviewed.Status == nameof(ShopApplicationStatus.Approved))
+            {
+                await _realtime.SendToUserAsync(reviewed.ApplicantUserId, RealtimeEvents.UserRoleChanged, new
+                {
+                    userId = reviewed.ApplicantUserId,
+                    reason = "shop-application-approved"
+                });
+            }
+        }
+
+        if (_dealHub != null)
+        {
+            var envelope = new RealtimeEvent(Guid.NewGuid(), RealtimeEvents.ShopApplicationReviewed, 1, DateTime.UtcNow, new
+            {
+                applicationId = reviewed.Id,
+                applicantUserId = reviewed.ApplicantUserId,
+                status = reviewed.Status
+            });
+            await _dealHub.Clients.All.ReceiveEvent(envelope);
+        }
+
+        return reviewed.Response;
     }
 }

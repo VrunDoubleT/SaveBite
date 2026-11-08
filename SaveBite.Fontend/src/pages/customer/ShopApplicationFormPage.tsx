@@ -1,5 +1,8 @@
+import { UploadDraftChoice } from "@/shared/uploads/UploadDraftChoice";
+
+import { UploadTaskGuard } from "@/shared/uploads/UploadTaskGuard";
 import { useEffect, useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, FileText } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { APP_PATHS } from "@/app/router/paths";
@@ -8,18 +11,35 @@ import { ShopApplicationForm } from "@/features/shop-applications/components/Sho
 import type { ShopApplication } from "@/features/shop-applications/types/shopApplication.types";
 
 export function ShopApplicationFormPage() {
-  const navigate = useNavigate();
   const { applicationId } = useParams<{ applicationId: string }>();
+  return (
+    <UploadTaskGuard key={applicationId ?? "new"} scope={{ purpose: "shop-application" }}>
+      <ShopApplicationFormContent applicationId={applicationId} />
+    </UploadTaskGuard>
+  );
+}
+
+function ShopApplicationFormContent({ applicationId }: { applicationId?: string }) {
+  const navigate = useNavigate();
   const [application, setApplication] = useState<ShopApplication | null>(null);
-  const [loading, setLoading] = useState(Boolean(applicationId));
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!applicationId) return;
-
+    let active = true;
     shopApplicationApi
-      .getMine()
-      .then((current) => {
+      .getHistory()
+      .then((applications) => {
+        const current = applicationId
+          ? (applications.find((item) => item.id === applicationId) ?? null)
+          : (applications.find((item) =>
+              ["Pending", "NeedsRevision", "Approved"].includes(item.status),
+            ) ?? null);
+        if (!active) return;
+        if (!applicationId) {
+          setApplication(current);
+          return;
+        }
         if (!current || current.id !== applicationId) {
           setError("Cannot find shop application.");
           return;
@@ -32,8 +52,15 @@ export function ShopApplicationFormPage() {
 
         setApplication(current);
       })
-      .catch((requestError) => setError(getApiErrorMessage(requestError)))
-      .finally(() => setLoading(false));
+      .catch((requestError) => {
+        if (active) setError(getApiErrorMessage(requestError));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [applicationId]);
 
   function goToApplication() {
@@ -59,11 +86,59 @@ export function ShopApplicationFormPage() {
     );
   }
 
-  return (
+  if (
+    !applicationId &&
+    application &&
+    ["Pending", "NeedsRevision", "Approved"].includes(application.status)
+  ) {
+    const message =
+      application.status === "Pending"
+        ? "Your shop application is being processed"
+        : application.status === "NeedsRevision"
+          ? "Your existing shop application needs an update"
+          : "Your shop application has already been approved";
+    return (
+      <section
+        role="status"
+        className="rounded-lg border border-primary-200 bg-primary-50 p-5 text-primary-800"
+      >
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <FileText aria-hidden="true" className="size-5 shrink-0" />
+          {message}
+        </h2>
+        <p className="mt-2 text-sm">
+          {application.status === "Pending"
+            ? "You already have 1 application under review. Please wait for the result before submitting another application."
+            : application.status === "NeedsRevision"
+              ? "Please edit and resubmit your existing application instead of creating a new one."
+              : "You can now manage your shop. A new application is not needed."}
+        </p>
+        <button
+          type="button"
+          onClick={goToApplication}
+          className="mt-4 min-h-11 rounded-md bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+        >
+          View existing application
+        </button>
+      </section>
+    );
+  }
+
+  const form = (
     <ShopApplicationForm
-      application={application}
+      application={applicationId ? application : null}
       onSaved={goToApplication}
       onCancel={goToApplication}
     />
+  );
+  return (
+    <UploadDraftChoice
+      scope={{
+        purpose: "shop-application",
+        ...(applicationId ? { targetIds: [applicationId] } : { withoutTarget: true }),
+      }}
+    >
+      {(draftId) => <div key={draftId ?? "new"}>{form}</div>}
+    </UploadDraftChoice>
   );
 }

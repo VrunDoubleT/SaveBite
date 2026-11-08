@@ -1,28 +1,18 @@
 import { FilePenLine, Store } from "lucide-react";
 import { RefundsBadge } from "@/features/refunds/components/RefundsBadge";
 import { APP_PATHS } from "@/app/router/paths";
-import { Fragment, useEffect } from "react";
+import { Fragment } from "react";
 import { NavLink } from "react-router-dom";
 import { ACCOUNT_NAV_GROUPS } from "@/shared/config/accountNavigation";
 import { useAuthStore } from "@/shared/stores/authStore";
 
 export function AccountSidebar() {
-  useEffect(() => {
-    const handleRoleOrAppChange = () => {
-      void useAuthStore.getState().refreshUser();
-    };
-    window.addEventListener("user:role-changed", handleRoleOrAppChange);
-    window.addEventListener("shop-application:updated", handleRoleOrAppChange);
-    return () => {
-      window.removeEventListener("user:role-changed", handleRoleOrAppChange);
-      window.removeEventListener("shop-application:updated", handleRoleOrAppChange);
-    };
-  }, []);
   const role = useAuthStore((state) => state.user?.role);
   const groups = ACCOUNT_NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items
       .filter((item) => {
+        if (item.roles && (!role || !item.roles.includes(role))) return false;
         if (role === "staff" && item.to === APP_PATHS.ACCOUNT_SHOP_APPLICATION) {
           return false;
         }
