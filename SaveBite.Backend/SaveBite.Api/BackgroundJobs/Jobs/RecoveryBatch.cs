@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 namespace SaveBite.Backend.BackgroundJobs.Jobs;
@@ -16,7 +17,7 @@ public static class RecoveryBatch
             {
                 var query = candidates(queryScope.ServiceProvider.GetRequiredService<AppDbContext>());
                 if (cursor.HasValue) query = query.Where(id => id.CompareTo(cursor.Value) > 0);
-                ids = await query.OrderBy(id => id).Take(100).ToListAsync(ct);
+                ids = await query.OrderBy(id => id).Take(TimingConfiguration.Jobs.RecoveryBatchSize).ToListAsync(ct);
             }
             if (ids.Count == 0) return;
             foreach (var id in ids)

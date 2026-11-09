@@ -29,6 +29,8 @@ export interface CurrentUserShop {
   shopId: string;
   status: string;
   suspendedForPlatformFees: boolean;
+  suspendedByAdmin?: boolean;
+  suspendedForOverdueRefunds?: boolean;
   suspensionReason: string | null;
 }
 

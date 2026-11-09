@@ -15,8 +15,11 @@ public sealed class UploadCleanupJob(AppDbContext db, ICloudinaryService cloud, 
             .OrderBy(x => x.ExpiresAt).Take(200).ToListAsync(ct);
         foreach (var asset in assets)
         {
+            await using var assetLock = await UploadAssetLock.TryAcquireAsync(db, asset.Id, ct);
+            if (assetLock == null) continue;
             // CAS against attachment; cleanup can never delete an asset whose save won.
-            var claimed = await db.Set<UploadAsset>().Where(x => x.Id == asset.Id && x.Status != "Attached" && x.Status != "Deleted")
+            var claimed = await db.Set<UploadAsset>().Where(x => x.Id == asset.Id && x.Status != "Attached" && x.Status != "Deleted" &&
+                    (x.ExpiresAt <= now || x.Session.Status == "Cancelled" || x.Status == "Deleting"))
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, "Deleting"), ct);
             if (claimed == 0) continue;
             try

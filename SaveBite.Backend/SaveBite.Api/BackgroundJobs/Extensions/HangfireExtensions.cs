@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.Extensions.Options;
@@ -88,15 +89,15 @@ public static class HangfireExtensions
     public static WebApplication UseBackgroundJobs(this WebApplication app)
     {
         var recurring = app.Services.GetRequiredService<IRecurringJobManager>();
-        recurring.AddOrUpdate<OrderDeadlineRecoveryJob>("order-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
-        recurring.AddOrUpdate<OrderOutboxRecoveryJob>("order-outbox-dispatch", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
-        recurring.AddOrUpdate<RabbitFailureRecoveryJob>("rabbit-failure-recovery", job => job.ExecuteAsync(CancellationToken.None), "*/5 * * * *");
-        recurring.AddOrUpdate<CartAvailabilityRecoveryJob>("cart-availability-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
-        recurring.AddOrUpdate<RefundDeadlineRecoveryJob>("refund-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
-        recurring.AddOrUpdate<FlashDealRecoveryJob>("flash-deal-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
-        recurring.AddOrUpdate<StaffInvitationRecoveryJob>("staff-invitation-recovery", job => job.ExecuteAsync(false, CancellationToken.None), Cron.Minutely());
-        recurring.AddOrUpdate<PlatformFeeRecoveryJob>("platform-fee-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Hourly());
-        recurring.AddOrUpdate<UploadCleanupJob>("temporary-upload-cleanup", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<OrderDeadlineRecoveryJob>("order-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.OrderDeadlineRecoveryCron);
+        recurring.AddOrUpdate<OrderOutboxRecoveryJob>("order-outbox-dispatch", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.OutboxRecoveryCron);
+        recurring.AddOrUpdate<RabbitFailureRecoveryJob>("rabbit-failure-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.RabbitFailureRecoveryCron);
+        recurring.AddOrUpdate<CartAvailabilityRecoveryJob>("cart-availability-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.CartRecoveryCron);
+        recurring.AddOrUpdate<RefundDeadlineRecoveryJob>("refund-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.RefundRecoveryCron);
+        recurring.AddOrUpdate<FlashDealRecoveryJob>("flash-deal-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.FlashDealRecoveryCron);
+        recurring.AddOrUpdate<StaffInvitationRecoveryJob>("staff-invitation-recovery", job => job.ExecuteAsync(false, CancellationToken.None), TimingConfiguration.Jobs.InvitationRecoveryCron);
+        recurring.AddOrUpdate<PlatformFeeRecoveryJob>("platform-fee-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.PlatformFeeRecoveryCron);
+        recurring.AddOrUpdate<UploadCleanupJob>("temporary-upload-cleanup", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.UploadCleanupCron);
         recurring.RemoveIfExists("pickup-deadline-reminder-recovery");
         var jobs = app.Services.GetRequiredService<IBackgroundJobClient>();
         var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("BackgroundJobStartup");
@@ -112,13 +113,13 @@ public static class HangfireExtensions
             // Hangfire's default dashboard authorization only permits local requests.
             app.UseHangfireDashboard("/hangfire");
         }
-        var monthlyBillingCron = Cron.Monthly(1, 0); // 00:00 UTC = 07:00 Vietnam, day 1.
+        var monthlyBillingCron = TimingConfiguration.Jobs.MonthlyBillingCron; // 00:00 UTC = 07:00 Vietnam, day 1.
         recurring.AddOrUpdate<PlatformFeeMonthlyStatementJob>("platform-fee-monthly-statement-generation",
             job => job.ExecuteAsync(CancellationToken.None), monthlyBillingCron); // UTC: 07:00 Vietnam
         recurring.AddOrUpdate<SaveBite.Backend.Audit.Archives.AuditArchiveService>("audit-log-monthly-archive",
-            job => job.ExecuteAsync(CancellationToken.None), monthlyBillingCron); // Same UTC schedule as platform fees.
+            job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.AuditArchiveCron); // Same UTC schedule as platform fees.
         recurring.AddOrUpdate<PlatformFeeOverdueJob>("platform-fee-overdue-check",
-            job => job.ExecuteAsync(CancellationToken.None), Cron.Hourly());
+            job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.PlatformFeeOverdueCron);
 
         // Shared event_outbox recovery now dispatches notifications as well.
         app.Services.GetRequiredService<IRecurringJobManager>().RemoveIfExists("notification-outbox-recovery");

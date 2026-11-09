@@ -3,6 +3,7 @@ import { uploadApi } from "./uploadApi";
 import {
   expiresIn24Hours,
   getUploadDraft,
+  isUploadDraftActive,
   markUploadDraftActive,
   releaseUploadDraft,
   registerUploadCancellation,
@@ -44,6 +45,8 @@ export async function startOrResumeUploadDraft(
   existingDraftId?: string,
 ): Promise<UploadDraft> {
   const id = existingDraftId ?? input.draftId ?? crypto.randomUUID();
+  if (isUploadDraftActive(id))
+    throw new Error("This task is still running. Follow its progress in the upload panel.");
   const controller = new AbortController();
   registerUploadCancellation(id, controller);
   const signal = input.signal
@@ -133,34 +136,31 @@ async function runUploadDraft(
     await saveUploadDraft(draft, false);
   }
 
-  if (!draft.sessionId) {
-    try {
-      const session = await uploadApi.createSession(draft.purpose, draft.targetId);
-      draft.sessionId = session.id;
-      draft.expiresAt = Math.min(draft.expiresAt, new Date(session.expiresAt).getTime());
-      await saveUploadDraft(draft);
-    } catch (error) {
-      await saveUploadDraft(draft);
-      throw error;
-    }
-  }
-
   input.signal?.throwIfAborted();
   input.onQueued?.();
   await runPendingFiles(draft, input.signal);
   return draft;
 }
 
-export async function uploadPendingFiles(draft: UploadDraft, signal?: AbortSignal): Promise<void> {
+export async function uploadPendingFiles(
+  draft: UploadDraft,
+  signal?: AbortSignal,
+  keepActiveUntilSubmitted = false,
+): Promise<void> {
+  if (isUploadDraftActive(draft.id))
+    throw new Error("This task is still running. Follow its progress in the upload panel.");
   const controller = new AbortController();
   markUploadDraftActive(draft.id);
   registerUploadCancellation(draft.id, controller);
   const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
   try {
     await runPendingFiles(draft, combined);
+  } catch (error) {
+    releaseUploadDraft(draft.id);
+    throw error;
   } finally {
     clearUploadCancellation(draft.id);
-    releaseUploadDraft(draft.id);
+    if (!keepActiveUntilSubmitted) releaseUploadDraft(draft.id);
   }
 }
 

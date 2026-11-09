@@ -24,6 +24,7 @@ const historyLabels: Record<string, string> = {
   Transferred: "Transfer recorded",
   Withdrawn: "Request withdrawn",
   DeadlineExpired: "Processing deadline passed",
+  MandatoryRefundOverdue: "Mandatory refund overdue",
   LegacySnapshot: "Imported refund record",
   VietQrGenerated: "Transfer QR generated",
 };
@@ -66,14 +67,16 @@ export function ShopRefundCard({
   const timedOut =
     refund.status === "Rejected" &&
     refund.history.some((item) => item.decision === "DeadlineExpired");
-  const active = ["PendingVerification", "AwaitingTransfer"].includes(refund.status);
+  const active = ["PendingVerification", "AwaitingTransfer", "Overdue"].includes(refund.status);
   const overdue =
     active &&
     (refund.isOverdue || (!!refund.reviewDeadlineAt && Date.parse(refund.reviewDeadlineAt) <= now));
   const review =
     refund.type === "CustomerRequest" && refund.status === "PendingVerification" && !overdue;
   const transferable =
-    refund.status === "AwaitingTransfer" && !!refund.destinationConfirmedAt && !overdue;
+    (refund.status === "AwaitingTransfer" || refund.status === "Overdue") &&
+    !!refund.destinationConfirmedAt &&
+    (refund.type === "ShopCancellation" || !overdue);
   const transferred = ["Transferred", "Completed"].includes(refund.status);
   const required = refund.type === "ShopCancellation";
   const currentQr =
@@ -84,7 +87,9 @@ export function ShopRefundCard({
       ? qr
       : null;
   const summary = overdue
-    ? "The processing deadline has passed. This refund will be closed automatically."
+    ? refund.type === "ShopCancellation"
+      ? "This mandatory refund is overdue and remains payable. Pay all overdue mandatory refunds to remove the shop suspension."
+      : "The 72-hour processing deadline has passed. This customer refund will be declined automatically."
     : review
       ? "Review the customer's reason and evidence, then approve the full amount or decline with a reason."
       : transferable

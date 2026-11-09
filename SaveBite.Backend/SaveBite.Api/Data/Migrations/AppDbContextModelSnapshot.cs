@@ -2491,7 +2491,7 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasIndex(new[] { "OrderId" }, "ux_refunds_active_order_scope")
                         .IsUnique()
                         .HasDatabaseName("ux_refunds_active_order_scope")
-                        .HasFilter("\"status\" IN ('AwaitingCustomerDetails', 'PendingVerification', 'AwaitingTransfer')");
+                        .HasFilter("\"status\" IN ('AwaitingCustomerDetails', 'PendingVerification', 'AwaitingTransfer', 'Overdue')");
 
                     b.ToTable("refunds", null, t =>
                         {
@@ -2752,12 +2752,28 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnName("owner_user_id");
 
                     b.Property<string>("Status")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
+                    b.Property<bool>("SuspendedByAdmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("suspended_by_admin");
+
+                    b.Property<bool>("SuspendedForOverdueRefunds")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("suspended_for_overdue_refunds");
+
                     b.Property<bool>("SuspendedForPlatformFees")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
@@ -3145,6 +3161,80 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasDatabaseName("shop_staff_unique_0");
 
                     b.ToTable("shop_staff", (string)null);
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.ShopStatusHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChangedByType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("changed_by_type");
+
+                    b.Property<Guid?>("ChangedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("changed_by_user_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("from_status");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<bool>("SuspendedByAdmin")
+                        .HasColumnType("boolean")
+                        .HasColumnName("suspended_by_admin");
+
+                    b.Property<bool>("SuspendedForOverdueRefunds")
+                        .HasColumnType("boolean")
+                        .HasColumnName("suspended_for_overdue_refunds");
+
+                    b.Property<bool>("SuspendedForPlatformFees")
+                        .HasColumnType("boolean")
+                        .HasColumnName("suspended_for_platform_fees");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("to_status");
+
+                    b.Property<bool>("WasSuspendedByAdmin")
+                        .HasColumnType("boolean")
+                        .HasColumnName("was_suspended_by_admin");
+
+                    b.Property<bool>("WasSuspendedForOverdueRefunds")
+                        .HasColumnType("boolean")
+                        .HasColumnName("was_suspended_for_overdue_refunds");
+
+                    b.Property<bool>("WasSuspendedForPlatformFees")
+                        .HasColumnType("boolean")
+                        .HasColumnName("was_suspended_for_platform_fees");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("ShopId", "CreatedAt");
+
+                    b.ToTable("shop_status_histories", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.StaffActivityLog", b =>
@@ -4942,6 +5032,22 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("Shop");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.ShopStatusHistory", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.Shop", "Shop")
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Shop");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.StaffActivityLog", b =>

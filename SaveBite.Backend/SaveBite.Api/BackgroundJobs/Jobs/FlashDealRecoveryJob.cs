@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
@@ -7,7 +8,7 @@ namespace SaveBite.Backend.BackgroundJobs.Jobs;
 
 public sealed class FlashDealRecoveryJob(IServiceScopeFactory scopes, TimeProvider clock, ILogger<FlashDealRecoveryJob> logger)
 {
-    [DisableConcurrentExecution(600)]
+    [DisableConcurrentExecution(TimingConfiguration.Jobs.ConcurrencyLockTimeoutSeconds)]
     public async Task ExecuteAsync(CancellationToken ct)
     {
         var now = clock.GetUtcNow().UtcDateTime;

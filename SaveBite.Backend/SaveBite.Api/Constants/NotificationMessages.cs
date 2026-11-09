@@ -46,6 +46,12 @@ public static class NotificationMessages
 
     public static class Refunds
     {
+        public const string DestinationRequiredTitle = "Action required: provide your refund details";
+        public static string DestinationRequiredBody(string orderCode, DateTime deadlineUtc) =>
+            $"A refund is waiting for your receiving details for order {orderCode}. " +
+            $"Enter your bank account or upload a bank QR and confirm using the email code before {deadlineUtc.AddHours(7).ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)} (GMT+7). " +
+            "If you miss this deadline, you lose eligibility for this refund.";
+
         public const string NewRefundRequestTitle = "New refund request";
         public static string NewRefundRequestBody(string customerName, string orderCode) =>
             $"{customerName} requested a refund for order {orderCode}.";

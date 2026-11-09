@@ -1,3 +1,5 @@
+using SaveBite.Backend.Configurations;
+using SaveBite.Backend.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
@@ -433,6 +435,13 @@ public sealed class FlashDealService : IFlashDealService
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var now = DateTime.UtcNow;
         var effectiveStartTime = request.IsImmediate ? now : request.SaleStartTime!.Value;
+        if (request.IsImmediate && request.DurationMinutes.HasValue)
+        {
+            var window = FlashDealTiming.ImmediateWindow(now, request.DurationMinutes.Value,
+                request.ShopClosingTime - request.OrderEndTime);
+            request.OrderEndTime = window.End;
+            request.ShopClosingTime = window.Closing;
+        }
 
         // Validate time intervals.
         if (effectiveStartTime >= request.OrderEndTime)
@@ -578,6 +587,19 @@ public sealed class FlashDealService : IFlashDealService
             ?? throw AppException.NotFound("Product not found or does not belong to your shop.");
 
 
+        var now = DateTime.UtcNow;
+        var previousStatus = deal.Status;
+        var isReopening = deal.Status is FlashDealStatus.Closed or FlashDealStatus.Cancelled || deal.OrderEndTime <= now;
+        if ((isReopening || deal.Status == FlashDealStatus.Pending) &&
+            request.DurationMinutes.HasValue)
+        {
+            var window = FlashDealTiming.ImmediateWindow(now, request.DurationMinutes.Value,
+                request.ShopClosingTime - request.OrderEndTime);
+            request.SaleStartTime = now;
+            request.OrderEndTime = window.End;
+            request.ShopClosingTime = window.Closing;
+        }
+
         // Check overlapping deals.
         var hasOverlap = await _dealRepository.HasOverlappingDealAsync(
             shop.Id,
@@ -602,32 +624,25 @@ public sealed class FlashDealService : IFlashDealService
         }
 
 
-        var now = DateTime.UtcNow;
-        var previousStatus = deal.Status;
-        var isReopening = deal.Status is FlashDealStatus.Closed or FlashDealStatus.Cancelled || deal.OrderEndTime <= now;
         if (isReopening || deal.Status == FlashDealStatus.Pending)
         {
-            if (request.SaleStartTime.Date != request.OrderEndTime.Date)
-            {
-                throw AppException.BadRequest("Flash deals only take place within a single day.");
-            }
-
+            // As with creation, a valid 30-120 minute window may cross midnight.
             var duration = request.OrderEndTime - request.SaleStartTime;
-            if (duration < TimeSpan.FromMinutes(30) || duration > TimeSpan.FromMinutes(120))
+            if (duration < TimeSpan.FromMinutes(TimingConfiguration.FlashDeals.MinimumDurationMinutes) || duration > TimeSpan.FromMinutes(TimingConfiguration.FlashDeals.MaximumDurationMinutes))
             {
-                throw AppException.BadRequest("The duration of a flash deal must be between 30 minutes and a maximum of 120 minutes.");
+                throw AppException.BadRequest($"The duration of a flash deal must be between {TimingConfiguration.FlashDeals.MinimumDurationMinutes} minutes and a maximum of {TimingConfiguration.FlashDeals.MaximumDurationMinutes} minutes.");
             }
 
-            var isSellImmediately = request.SaleStartTime <= now.AddMinutes(5);
+            var isSellImmediately = request.SaleStartTime <= now.AddMinutes(TimingConfiguration.FlashDeals.ImmediateStartToleranceMinutes);
             if (!isSellImmediately)
             {
-                if (request.SaleStartTime < now.AddMinutes(15))
+                if (request.SaleStartTime < now.AddMinutes(TimingConfiguration.FlashDeals.MinimumScheduleAheadMinutes))
                 {
-                    throw AppException.BadRequest("The scheduled start time must be at least 15 minutes from the present, or you may choose to start immediately.");
+                    throw AppException.BadRequest($"The scheduled start time must be at least {TimingConfiguration.FlashDeals.MinimumScheduleAheadMinutes} minutes from the present, or you may choose to start immediately.");
                 }
-                if (request.SaleStartTime > now.AddMinutes(90))
+                if (request.SaleStartTime > now.AddMinutes(TimingConfiguration.FlashDeals.MaximumScheduleAheadMinutes))
                 {
-                    throw AppException.BadRequest("Sales can be scheduled to open no more than 90 minutes in advance.");
+                    throw AppException.BadRequest($"Sales can be scheduled to open no more than {TimingConfiguration.FlashDeals.MaximumScheduleAheadMinutes} minutes in advance.");
                 }
                 deal.SaleStartTime = request.SaleStartTime;
                 deal.Status = FlashDealStatus.Pending;
@@ -658,9 +673,9 @@ public sealed class FlashDealService : IFlashDealService
         }
         else if (deal.Status is FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
         {
-            if (request.OrderEndTime - deal.SaleStartTime > TimeSpan.FromMinutes(120))
+            if (request.OrderEndTime - deal.SaleStartTime > TimeSpan.FromMinutes(TimingConfiguration.FlashDeals.MaximumDurationMinutes))
             {
-                throw AppException.BadRequest("Order end time cannot exceed 120 minutes from the sale start time.");
+                throw AppException.BadRequest($"Order end time cannot exceed {TimingConfiguration.FlashDeals.MaximumDurationMinutes} minutes from the sale start time.");
             }
             if (request.OrderEndTime <= now)
             {

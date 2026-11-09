@@ -33,8 +33,7 @@ export function WorkspaceLayout({
   const user = useAuthStore((state) => state.user);
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const realtime = useRealtimeSubscriptions();
-  const currentShop =
-    user?.shop && (!shopId || user.shop.shopId === shopId) ? user.shop : null;
+  const currentShop = user?.shop && (!shopId || user.shop.shopId === shopId) ? user.shop : null;
 
   useEffect(() => {
     async function refreshShopStatus() {
@@ -83,17 +82,19 @@ export function WorkspaceLayout({
                 </span>
                 <div className="min-w-0 text-sm">
                   <h2 className="font-bold">
-                    {currentShop.suspendedForPlatformFees
-                      ? "Your store is suspended due to overdue platform fees"
-                      : "Your store has been suspended by an administrator"}
+                    {currentShop.suspendedForOverdueRefunds
+                      ? "Your store is suspended due to overdue mandatory refunds"
+                      : currentShop.suspendedForPlatformFees
+                        ? "Your store is suspended due to overdue platform fees"
+                        : "Your store has been suspended by an administrator"}
                   </h2>
-                  {currentShop.suspendedForPlatformFees ? (
+                  {currentShop.suspensionReason ? (
+                    <p className="mt-1 leading-normal text-rose-800">
+                      {currentShop.suspensionReason}
+                    </p>
+                  ) : currentShop.suspendedForPlatformFees ? (
                     <p className="mt-1 leading-normal text-rose-800">
                       Settle all overdue platform fee statements to restore your store operations.
-                    </p>
-                  ) : currentShop.suspensionReason ? (
-                    <p className="mt-1 break-words whitespace-pre-wrap leading-normal text-rose-800">
-                      <span className="font-semibold">Reason:</span> {currentShop.suspensionReason}
                     </p>
                   ) : null}
                 </div>

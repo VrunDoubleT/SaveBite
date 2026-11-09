@@ -9,6 +9,6 @@ public enum RefundStatus
     Transferred,
     Completed,
     Withdrawn,
-    // Retain only for reading historical audit rows; new deadline expirations become Rejected.
+    // Mandatory refunds remain payable after their processing deadline.
     Overdue
 }

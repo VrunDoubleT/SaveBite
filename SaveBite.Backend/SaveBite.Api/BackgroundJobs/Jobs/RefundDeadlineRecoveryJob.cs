@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
@@ -8,16 +9,16 @@ namespace SaveBite.Backend.BackgroundJobs.Jobs;
 
 public sealed class RefundDeadlineRecoveryJob(IServiceScopeFactory scopes, TimeProvider clock, ILogger<RefundDeadlineRecoveryJob> logger)
 {
-    [DisableConcurrentExecution(600)]
+    [DisableConcurrentExecution(TimingConfiguration.Jobs.ConcurrencyLockTimeoutSeconds)]
     public Task ExecuteAsync(CancellationToken ct)
     {
         var now = clock.GetUtcNow().UtcDateTime;
         return RecoveryBatch.RunAsync(scopes, logger, "refund-deadline", db => db.Refunds.AsNoTracking()
-            .Where(f => (f.Status == RefundStatus.AwaitingCustomerDetails
-                    && (f.DeadlineJobId == null || (f.CustomerDetailsDeadlineAt ?? f.CreatedAt.AddHours(24)) <= now))
+            .Where(f => f.Status == RefundStatus.Overdue || (f.Status == RefundStatus.AwaitingCustomerDetails
+                    && (f.DeadlineJobId == null || (f.CustomerDetailsDeadlineAt ?? f.CreatedAt.AddHours(TimingConfiguration.Refund.CustomerDetailsHours)) <= now))
                 || ((f.Status == RefundStatus.PendingVerification || f.Status == RefundStatus.AwaitingTransfer)
                     && f.DestinationConfirmedAt != null
-                    && (f.DeadlineJobId == null || (f.ReviewDeadlineAt ?? f.DestinationConfirmedAt.Value.AddHours(24)) <= now)))
+                    && (f.DeadlineJobId == null || (f.ReviewDeadlineAt ?? f.DestinationConfirmedAt.Value.AddHours(TimingConfiguration.Refund.ShopProcessingHours)) <= now)))
             .Select(f => f.Id), async (sp, id) =>
             {
                 try { await sp.GetRequiredService<IRefundService>().EnsureDeadlineScheduledAsync(id, ct); }

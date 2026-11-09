@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.BackgroundJobs.Jobs;
@@ -30,7 +31,7 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
         if (order.ResaleDecisionDeadlineAt.HasValue || order.Items.Count == 0) return;
         if (order.InventoryReservationActive) await orders.CompleteInventoryAsync(order, true, ct);
         var now = clock.GetUtcNow().UtcDateTime;
-        var deadline = now.AddMinutes(5);
+        var deadline = now.AddMinutes(TimingConfiguration.Orders.ResaleDecisionMinutes);
         order.ResaleDecisionDeadlineAt = deadline;
         foreach (var item in order.Items) item.ResaleDecisionStatus = ResaleDecisionStatus.Pending;
         order.ResaleDecisionJobId = SafeSchedule.Try(() => jobs.Schedule<ResaleDecisionExpirationJob>(

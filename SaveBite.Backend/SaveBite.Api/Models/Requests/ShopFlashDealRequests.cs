@@ -6,6 +6,7 @@ public class CreateFlashDealRequest
 {
     public Guid ProductId { get; set; }
     public bool IsImmediate { get; set; } = false;
+    public int? DurationMinutes { get; set; }
     public DateTime? SaleStartTime { get; set; }
     public DateTime OrderEndTime { get; set; }
     public DateTime ShopClosingTime { get; set; }
@@ -21,6 +22,8 @@ public class CreateFlashDealVariantRequest
 
 public class UpdateFlashDealRequest
 {
+    // Relative duration requests an immediate opening/reopening. Running deals keep their original start.
+    public int? DurationMinutes { get; set; }
     public DateTime SaleStartTime { get; set; }
     public DateTime OrderEndTime { get; set; }
     public DateTime ShopClosingTime { get; set; }

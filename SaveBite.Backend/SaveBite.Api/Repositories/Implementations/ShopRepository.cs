@@ -212,10 +212,10 @@ public sealed class ShopRepository : IShopRepository
     }
     
     // Manage Shops.
-    public async Task<IReadOnlyList<AuditLog>> GetShopStatusHistoryAsync(Guid shopId, CancellationToken ct)
+    public async Task<IReadOnlyList<ShopStatusHistory>> GetShopStatusHistoryAsync(Guid shopId, CancellationToken ct)
     {
-        return await _context.AuditLogs.AsNoTracking()
-            .Where(log => log.TargetType == "Shop" && log.TargetId == shopId && log.Action == AuditActionTypes.ShopStatusUpdated)
+        return await _context.ShopStatusHistories.AsNoTracking()
+            .Where(log => log.ShopId == shopId)
             .OrderByDescending(log => log.CreatedAt)
             .ThenByDescending(log => log.Id)
             .ToListAsync(ct);

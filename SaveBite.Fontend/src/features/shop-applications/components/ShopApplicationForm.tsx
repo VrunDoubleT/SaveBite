@@ -1,3 +1,4 @@
+import { toast } from "@/shared/stores/toastStore";
 import { UploadTaskGuard } from "@/shared/uploads/UploadTaskGuard";
 import {
   CustomerActionFileInput,
@@ -54,6 +55,7 @@ interface Props {
   application?: ShopApplication | null;
   onSaved: (application: ShopApplication) => void;
   onCancel: () => void;
+  onQueued: () => void;
 }
 
 type FormFieldErrors = Partial<Record<keyof FormValues | "documents" | "logo", string>>;
@@ -144,7 +146,7 @@ function usePreviewUrl(file?: File) {
 }
 
 /*  Main form */
-function ShopApplicationFormContent({ application, onSaved, onCancel }: Props) {
+function ShopApplicationFormContent({ application, onSaved, onCancel, onQueued }: Props) {
   const routeLocation = useLocation();
   const userId = useAuthStore((state) => state.user?.id);
   const [form, setForm] = useState<FormValues>(() => toForm(application));
@@ -374,6 +376,7 @@ function ShopApplicationFormContent({ application, onSaved, onCancel }: Props) {
     const controller = new AbortController();
     uploadController.current = controller;
     let draftId = activeDraftId;
+    let queued = false;
 
     try {
       const uploads = [
@@ -394,6 +397,10 @@ function ShopApplicationFormContent({ application, onSaved, onCancel }: Props) {
             draftId,
             signal: controller.signal,
             keepActiveUntilSubmitted: true,
+            onQueued: () => {
+              queued = true;
+              onQueued();
+            },
             userId,
             purpose: "shop-application",
             targetId: application?.id,
@@ -424,17 +431,21 @@ function ShopApplicationFormContent({ application, onSaved, onCancel }: Props) {
 
       if (draftId) await removeUploadDraft(draftId);
       setActiveDraftId(undefined);
-      if (mounted.current) onSaved(result);
+      window.dispatchEvent(new Event("shop-application:updated"));
+      if (queued) toast.success("Shop application submitted successfully.");
+      else if (mounted.current) onSaved(result);
     } catch (requestError) {
       if (
         controller.signal.aborted ||
         (requestError instanceof DOMException && requestError.name === "AbortError")
       ) {
+        if (queued) toast.info("Upload stopped. Your application draft is saved.");
         setUploadNotice(
           "Upload stopped. Your information and selected files are kept. Edit them and submit again when ready.",
         );
       } else {
-        setError(getApiErrorMessage(requestError));
+        if (queued) toast.error(getApiErrorMessage(requestError));
+        else setError(getApiErrorMessage(requestError));
       }
     } finally {
       if (draftId) releaseUploadDraft(draftId);

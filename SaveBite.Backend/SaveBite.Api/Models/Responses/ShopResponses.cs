@@ -50,6 +50,8 @@ public class ShopProfileResponse
     public int FollowerCount { get; set; }
     public ShopFollowResponse? CurrentUserFollow { get; set; }
     public bool SuspendedForPlatformFees { get; set; }
+    public bool SuspendedByAdmin { get; set; }
+    public bool SuspendedForOverdueRefunds { get; set; }
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
@@ -153,6 +155,11 @@ public class ShopStatusHistoryResponse
     public string ToStatus { get; set; } = string.Empty;
     public string? Reason { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string ChangedByType { get; set; } = "System";
+    public Guid? ChangedByUserId { get; set; }
+    public bool SuspendedByAdmin { get; set; }
+    public bool SuspendedForPlatformFees { get; set; }
+    public bool SuspendedForOverdueRefunds { get; set; }
 }
 
 // Manage Shops.

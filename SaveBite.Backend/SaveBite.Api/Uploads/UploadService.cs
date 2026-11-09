@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using System.Data;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -48,11 +49,13 @@ public sealed class UploadService(AppDbContext db, ICloudinaryService cloud, ICh
         if (await db.Set<UploadSession>().CountAsync(x => x.UserId == userId && x.Status == "Active" && x.ExpiresAt > DateTime.UtcNow, ct) >= 100)
             throw AppException.BadRequest("Too many active upload sessions. Finish or cancel existing uploads.");
         var now = DateTime.UtcNow;
-        var session = new UploadSession { Id = Guid.NewGuid(), UserId = userId, Purpose = purpose, TargetId = target, CreatedAt = now, ExpiresAt = now.AddHours(24) };
+        var session = new UploadSession { Id = Guid.NewGuid(), UserId = userId, Purpose = purpose, TargetId = target, CreatedAt = now, ExpiresAt = now.AddHours(TimingConfiguration.Uploads.SessionLifetimeHours) };
         db.Add(session); await db.SaveChangesAsync(ct); return session;
     }
     public async Task<UploadAsset> UploadAsync(Guid userId, Guid sessionId, Guid assetId, IFormFile file, CancellationToken ct)
     {
+        await using var assetLock = await UploadAssetLock.TryAcquireAsync(db, assetId, ct)
+            ?? throw AppException.Conflict("This file is still uploading. Please retry shortly.");
         var session = await db.Set<UploadSession>().SingleOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct)
             ?? throw AppException.NotFound();
         await AuthorizeAsync(userId, session.Purpose, session.TargetId, ct);
@@ -90,11 +93,14 @@ public sealed class UploadService(AppDbContext db, ICloudinaryService cloud, ICh
                 accountHolder = bank.AccountHolder
             });
         }
-        var result = await cloud.UploadTemporaryAsync(file, assetId, raw, ct);
+        // Once sent to Cloudinary, finish and persist the outcome even if the
+        // browser disconnects. Keep the asset lock until both steps complete.
+        ct.ThrowIfCancellationRequested();
+        var result = await cloud.UploadTemporaryAsync(file, assetId, raw, CancellationToken.None);
         existing.Url = result.Url;
-        var stillActive = await db.Set<UploadSession>().AsNoTracking().AnyAsync(x => x.Id == sessionId && x.Status == "Active" && x.ExpiresAt > DateTime.UtcNow, ct);
+        var stillActive = await db.Set<UploadSession>().AsNoTracking().AnyAsync(x => x.Id == sessionId && x.Status == "Active" && x.ExpiresAt > DateTime.UtcNow, CancellationToken.None);
         existing.Status = stillActive ? "Uploaded" : "Deleting";
-        await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(CancellationToken.None);
         if (!stillActive) throw AppException.Conflict("Upload session was cancelled.");
         return existing;
     }

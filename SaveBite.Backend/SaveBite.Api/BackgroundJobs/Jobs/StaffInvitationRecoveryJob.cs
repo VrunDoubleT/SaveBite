@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
@@ -8,7 +9,7 @@ namespace SaveBite.Backend.BackgroundJobs.Jobs;
 
 public sealed class StaffInvitationRecoveryJob(IServiceScopeFactory scopes, ILogger<StaffInvitationRecoveryJob> logger)
 {
-    [DisableConcurrentExecution(600)]
+    [DisableConcurrentExecution(TimingConfiguration.Jobs.ConcurrencyLockTimeoutSeconds)]
     public Task ExecuteAsync(bool restoreSchedules, CancellationToken ct)
         => RecoveryBatch.RunAsync(scopes, logger, "staff-invitation", db => db.StaffInvitations.AsNoTracking()
             .Where(i => i.Status != nameof(StaffInvitationStatus.Cancelled)).Select(i => i.Id), async (sp, id) =>

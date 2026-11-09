@@ -23,6 +23,8 @@ export interface ShopProfile {
   followerCount?: number;
   currentUserFollow: ShopFollow | null;
   suspendedForPlatformFees?: boolean;
+  suspendedByAdmin?: boolean;
+  suspendedForOverdueRefunds?: boolean;
   name: string;
   description?: string | null;
   addressLine: string;

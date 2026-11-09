@@ -26,4 +26,6 @@ public sealed record CurrentUserShopResponse(
     Guid ShopId,
     string Status,
     bool SuspendedForPlatformFees,
-    string? SuspensionReason);
+    string? SuspensionReason,
+    bool SuspendedByAdmin = false,
+    bool SuspendedForOverdueRefunds = false);

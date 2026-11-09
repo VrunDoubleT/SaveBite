@@ -18,6 +18,7 @@ import type { Refund } from "@/features/refunds/types/refund.types";
 import { refundEligibility } from "@/features/refunds/utils/refundEligibility";
 import { getApiErrorMessage } from "@/shared/api";
 import { useAuthStore } from "@/shared/stores/authStore";
+import { isUploadCancelled } from "@/shared/uploads/uploadErrors";
 import { toast } from "@/shared/stores/toastStore";
 
 export function OrderRefundRequestPage() {
@@ -82,13 +83,15 @@ function RefundRequestPage({ orderId }: { orderId: string }) {
         return;
       }
       const refund = await action();
-      if (!alive.current) return;
       toast.success("Refund request submitted.");
+      if (!alive.current) return;
       navigate(APP_PATHS.REFUND_DETAIL.replace(":refundId", encodeURIComponent(refund.id)), {
         replace: true,
       });
     } catch (e) {
-      if (alive.current) setSubmitError(getApiErrorMessage(e));
+      if (isUploadCancelled(e)) toast.info("Upload stopped. Your refund draft is saved.");
+      else if (alive.current) setSubmitError(getApiErrorMessage(e));
+      else toast.error(getApiErrorMessage(e));
     } finally {
       operation.current = false;
       if (alive.current) setBusy(false);
@@ -180,6 +183,12 @@ function RefundRequestPage({ orderId }: { orderId: string }) {
               order={result.order}
               busy={busy}
               mutate={mutate}
+              onQueued={() => {
+                toast.info(
+                  "Your refund request is uploading in the background. Follow its progress in the upload panel.",
+                );
+                navigate(APP_PATHS.ACCOUNT_REFUNDS, { replace: true });
+              }}
               onClose={() => navigate(detailUrl)}
             />
           </Card>

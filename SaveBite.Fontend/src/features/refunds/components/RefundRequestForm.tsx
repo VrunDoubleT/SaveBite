@@ -16,7 +16,11 @@ import { validateDistinctRefundPhotos } from "../utils/validateDistinctRefundPho
 import { RefundFileUpload } from "./RefundFileUpload";
 import { useLocation } from "react-router-dom";
 import { useAuthStore } from "@/shared/stores/authStore";
-import { getUploadDraft, removeUploadDraft } from "@/shared/uploads/uploadDraftStore";
+import {
+  getUploadDraft,
+  releaseUploadDraft,
+  removeUploadDraft,
+} from "@/shared/uploads/uploadDraftStore";
 import { startOrResumeUploadDraft } from "@/shared/uploads/uploadDrafts";
 
 // Keep request drafts local to the form; upload only after all selected items pass validation.
@@ -25,11 +29,13 @@ function RefundRequestFormContent({
   busy,
   mutate,
   onClose,
+  onQueued,
 }: {
   order: CheckoutOrder;
   busy: boolean;
   mutate: (action: () => Promise<Refund>) => Promise<void>;
   onClose: () => void;
+  onQueued: () => void;
 }) {
   const [selected, setSelected] = useState<Record<string, number>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
@@ -116,38 +122,44 @@ function RefundRequestFormContent({
           );
           const draftId = activeDraftId ?? crypto.randomUUID();
           setActiveDraftId(draftId);
-          const draft = await startOrResumeUploadDraft(
-            {
+          try {
+            const draft = await startOrResumeUploadDraft(
+              {
+                draftId,
+                userId,
+                keepActiveUntilSubmitted: true,
+                onQueued,
+                purpose: "refund:request-evidence",
+                targetId: order.id,
+                title: `Refund request for order ${order.orderCode}`,
+                path: location.pathname,
+                formData: { orderId: order.id, selected, reasons, evidence },
+                files,
+              },
               draftId,
-              userId,
-              purpose: "refund:request-evidence",
-              targetId: order.id,
-              title: `Refund request for order ${order.orderCode}`,
-              path: location.pathname,
-              formData: { orderId: order.id, selected, reasons, evidence },
-              files,
-            },
-            draftId,
-          );
-          setActiveDraftId(draft.id);
-          const items = choices.map(([orderItemId, quantity]) => {
-            const evidenceUrls = draft.files
-              .filter((file) => file.field === `evidence:${orderItemId}`)
-              .map((file) => file.url)
-              .filter((url): url is string => Boolean(url));
-            if (evidenceUrls.length !== (evidence[orderItemId]?.length ?? 0))
-              throw new Error("Some evidence photos are not uploaded yet. Retry the upload.");
-            return {
-              orderItemId,
-              quantity,
-              reason: reasons[orderItemId].trim(),
-              evidenceUrls,
-            };
-          });
-          const result = await refundApi.request(order.id, items);
-          await removeUploadDraft(draft.id);
-          setActiveDraftId(undefined);
-          return result;
+            );
+            setActiveDraftId(draft.id);
+            const items = choices.map(([orderItemId, quantity]) => {
+              const evidenceUrls = draft.files
+                .filter((file) => file.field === `evidence:${orderItemId}`)
+                .map((file) => file.url)
+                .filter((url): url is string => Boolean(url));
+              if (evidenceUrls.length !== (evidence[orderItemId]?.length ?? 0))
+                throw new Error("Some evidence photos are not uploaded yet. Retry the upload.");
+              return {
+                orderItemId,
+                quantity,
+                reason: reasons[orderItemId].trim(),
+                evidenceUrls,
+              };
+            });
+            const result = await refundApi.request(order.id, items);
+            await removeUploadDraft(draft.id);
+            setActiveDraftId(undefined);
+            return result;
+          } finally {
+            releaseUploadDraft(draftId);
+          }
         });
       }}
     >

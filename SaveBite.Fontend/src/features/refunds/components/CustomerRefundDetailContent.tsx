@@ -99,7 +99,9 @@ export function CustomerRefundDetailContent({
   const outcomeText = rejected
     ? refund.rejectReason || decision?.note || "No reason was recorded."
     : overdue
-      ? "The processing deadline has passed. The system will close this refund automatically."
+      ? required
+        ? "The shop missed its 72-hour payment deadline and is suspended. This mandatory refund remains payable."
+        : "The 72-hour processing deadline has passed. The system will decline this customer refund automatically."
       : paid
         ? `${money(refund.transferredAmount)} recorded as transferred. See the reference and proof below.`
         : approved

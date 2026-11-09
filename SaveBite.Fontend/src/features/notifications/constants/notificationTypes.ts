@@ -61,6 +61,8 @@ export const NOTIFICATION_TYPES = {
 
   // Refund
   REFUND_REQUEST_CREATED: "RefundRequestCreated",
+  REFUND_DESTINATION_REQUIRED: "RefundDestinationRequired",
+  REFUND_OVERDUE: "RefundOverdue",
   REFUND_APPROVED: "RefundApproved",
   REFUND_REJECTED: "RefundRejected",
   REFUND_TRANSFERRED: "RefundTransferred",
@@ -105,8 +107,7 @@ export const NOTIFICATION_TYPES = {
   PLATFORM_FEE_PAID: "PlatformFeePaid",
 } as const;
 
-export type NotificationType =
-  (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICATION_TYPES];
+export type NotificationType = (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICATION_TYPES];
 
 /**
  * Numeric ID to string key mapping for backward-compatible integer enum payloads.
@@ -154,6 +155,8 @@ export const NOTIFICATION_TYPE_BY_ID: Record<number, NotificationType> = {
   40: NOTIFICATION_TYPES.TRUST_LEVEL_CHANGED,
   41: NOTIFICATION_TYPES.PICKUP_DEADLINE_APPROACHING,
   42: NOTIFICATION_TYPES.SHOP_APPLICATION_SUBMITTED,
+  43: NOTIFICATION_TYPES.REFUND_DESTINATION_REQUIRED,
+  44: NOTIFICATION_TYPES.REFUND_OVERDUE,
 };
 
 export interface NotificationVisualConfig {
@@ -226,6 +229,16 @@ export const NOTIFICATION_VISUALS: Record<NotificationType, NotificationVisualCo
   },
 
   // Refunds
+  [NOTIFICATION_TYPES.REFUND_OVERDUE]: {
+    Icon: AlertTriangle,
+    bg: "bg-rose-100 text-rose-700",
+    label: "Mandatory refund overdue",
+  },
+  [NOTIFICATION_TYPES.REFUND_DESTINATION_REQUIRED]: {
+    Icon: CreditCard,
+    bg: "bg-amber-100 text-amber-700",
+    label: "Refund details required",
+  },
   [NOTIFICATION_TYPES.REFUND_REQUEST_CREATED]: {
     Icon: RefreshCw,
     bg: "bg-purple-100 text-purple-700",
@@ -412,7 +425,10 @@ export function getNotificationVisual(
   }
 
   // Handle numeric id lookup
-  if (typeof type === "number" || (!Number.isNaN(Number(type)) && !Number.isNaN(parseFloat(String(type))))) {
+  if (
+    typeof type === "number" ||
+    (!Number.isNaN(Number(type)) && !Number.isNaN(parseFloat(String(type))))
+  ) {
     const numId = Number(type);
     const mappedType = NOTIFICATION_TYPE_BY_ID[numId];
     if (mappedType && NOTIFICATION_VISUALS[mappedType]) {

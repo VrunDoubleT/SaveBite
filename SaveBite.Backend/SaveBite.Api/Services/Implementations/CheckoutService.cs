@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using SaveBite.Backend.Constants;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -106,7 +107,7 @@ public sealed class CheckoutService : ICheckoutService
         // Calculate the minimum soft deadline and buffered hard deadline, capped by the earliest pickup cutoff.
         var pickup = CheckoutRules.Pickup(now, estimate.DistanceKm, estimate.EtaMinutes, EndTime(state));
         // Expire the quote within 60 seconds, GPS freshness and the latest feasible checkout time.
-        var expiresAt = new[] { now.AddSeconds(60), request.Location.CapturedAt.AddMinutes(2), pickup.DealEndsAt.AddMinutes(-Math.Max(CheckoutRules.MinimumPickupWindowMinutes, estimate.EtaMinutes)) }.Min();
+        var expiresAt = new[] { now.AddSeconds(TimingConfiguration.Orders.QuoteLifetimeSeconds), request.Location.CapturedAt.AddMinutes(TimingConfiguration.Orders.LocationMaxAgeMinutes), pickup.DealEndsAt.AddMinutes(-Math.Max(CheckoutRules.MinimumPickupWindowMinutes, estimate.EtaMinutes)) }.Min();
         if (expiresAt <= now) throw AppException.OrderClosed("There is not enough time left to confirm this quote before the pickup cutoff.");
         var configured = _paymentGateway.IsConfigured(state.PaymentConfig);
         // Return full checkout information to the UI, including the optional route for map display.
@@ -209,7 +210,7 @@ public sealed class CheckoutService : ICheckoutService
                 RequiredOnlineAmount = online, DistanceKm = pickup.DistanceKm, EtaMinutes = pickup.EtaMinutes,
                 SoftDeadlineAt = pickup.SoftDeadlineAt, HardDeadlineAt = pickup.HardDeadlineAt,
                 CheckoutQuoteId = quote.Id, CheckoutRequestId = request.RequestId, CheckoutPolicySnapshotJson = JsonSerializer.Serialize(policy),
-                PaymentExpiresAt = online > 0 ? new[] { now.AddSeconds(120), pickup.HardDeadlineAt }.Min() : null,
+                PaymentExpiresAt = online > 0 ? new[] { now.AddSeconds(TimingConfiguration.Orders.PaymentExpirationSeconds), pickup.HardDeadlineAt }.Min() : null,
                 InventoryReservationActive = true, CreatedAt = now, UpdatedAt = now
             };
             // Record immutable product names, prices and quantities from the validated DB items for order history.

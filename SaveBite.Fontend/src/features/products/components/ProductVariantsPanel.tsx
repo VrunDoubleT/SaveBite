@@ -35,7 +35,11 @@ import {
   StatusBadge,
 } from "./ProductUi";
 import { useAuthStore } from "@/shared/stores/authStore";
-import { getUploadDraft, removeUploadDraft } from "@/shared/uploads/uploadDraftStore";
+import {
+  getUploadDraft,
+  releaseUploadDraft,
+  removeUploadDraft,
+} from "@/shared/uploads/uploadDraftStore";
 import { startOrResumeUploadDraft, uploadReferences } from "@/shared/uploads/uploadDrafts";
 import { getApiErrorMessage } from "@/shared/api";
 
@@ -156,7 +160,6 @@ export function ProductVariantsPanel({
           product={product}
           onCancel={() => setAdding(false)}
           onSaved={(saved) => {
-            setAdding(false);
             onSaved(saved);
           }}
         />
@@ -238,6 +241,8 @@ function AddValuesFormContent({
           if (busy) return;
           setBusy(true);
           setError("");
+          let submittedDraftId: string | undefined;
+          let queued = false;
           const body = new FormData();
           const included = drafts.filter((attribute) => attribute.values.length > 0);
           appendPrices(body, rows, prices);
@@ -257,11 +262,25 @@ function AddValuesFormContent({
             if (imageUploads.length) {
               if (!userId) throw new Error("Sign in before uploading product images.");
               const draftId = activeDraftId ?? crypto.randomUUID();
+              submittedDraftId = draftId;
               setActiveDraftId(draftId);
               const draft = await startOrResumeUploadDraft(
                 {
                   draftId,
                   userId,
+                  keepActiveUntilSubmitted: true,
+                  onQueued: () => {
+                    queued = true;
+                    reset({
+                      drafts: product.attributes.map((attribute) => ({
+                        id: attribute.id,
+                        name: attribute.name,
+                        values: [],
+                      })),
+                      prices: {},
+                    });
+                    setActiveDraftId(undefined);
+                  },
                   purpose: "product",
                   targetId: product.id,
                   title: `Add values to ${product.name}`,
@@ -271,7 +290,6 @@ function AddValuesFormContent({
                 },
                 draftId,
               );
-              setActiveDraftId(draft.id);
               appendAttributes(body, drafts, true, false);
               body.append("__uploadAssets", JSON.stringify(uploadReferences(draft.files)));
               onSaved(await productApi.addValues(product.id, body));
@@ -281,13 +299,23 @@ function AddValuesFormContent({
             }
             appendAttributes(body, drafts, true);
             onSaved(await productApi.addValues(product.id, body));
+            reset({
+              drafts: product.attributes.map((attribute) => ({
+                id: attribute.id,
+                name: attribute.name,
+                values: [],
+              })),
+              prices: {},
+            });
           } catch (err) {
             if (isUploadCancelled(err))
               toast.info(
                 "Upload stopped. Your draft is saved; edit it or submit again when ready.",
               );
+            else if (queued) toast.error(describeError(err));
             else setError(describeError(err));
           } finally {
+            if (submittedDraftId) releaseUploadDraft(submittedDraftId);
             setBusy(false);
           }
         })}

@@ -1,3 +1,5 @@
+using SaveBite.Backend.Configurations;
+using SaveBite.Backend.Helpers;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
@@ -318,7 +320,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         // Ensure expiration is always in the future (especially if statement is Overdue)
         var expiresAtTime = statement.DueAt.HasValue && statement.DueAt.Value > now
             ? statement.DueAt.Value
-            : now.AddDays(1); // Give 24h grace window for overdue payment links
+            : now.AddDays(TimingConfiguration.PlatformFees.PaymentLinkGraceDays); // Give 24h grace window for overdue payment links
         var expiredAt = new DateTimeOffset(expiresAtTime).ToUnixTimeSeconds();
 
 
@@ -475,11 +477,15 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         var reactivatedShopId = (Guid?)null;
         if (!hasOtherOverdue && payment.Shop != null && payment.Shop.Status == ShopStatus.Suspended && payment.Shop.SuspendedForPlatformFees)
         {
-            payment.Shop.Status = ShopStatus.Active;
             payment.Shop.SuspendedForPlatformFees = false;
+            payment.Shop.SuspendedForOverdueRefunds = await _db.Refunds.AnyAsync(refund => refund.Order.ShopId == payment.ShopId
+                && refund.RefundType == RefundType.ShopCancellation && refund.DestinationConfirmedAt != null
+                && refund.RequestedAmount > refund.TransferredAmount && (refund.Status == RefundStatus.Overdue
+                    || (refund.Status == RefundStatus.AwaitingTransfer && refund.ReviewDeadlineAt <= now)), ct);
             payment.Shop.UpdatedAt = now;
-            reactivatedShopId = payment.Shop.Id;
-            _logger.LogInformation("Shop {ShopId} reactivated to Active after full platform fee settlement.", payment.Shop.Id);
+            if (ShopSuspensionRules.ReactivateIfResolved(payment.Shop)) reactivatedShopId = payment.Shop.Id;
+            if (reactivatedShopId.HasValue)
+                _logger.LogInformation("Shop {ShopId} reactivated to Active after full platform fee settlement.", payment.Shop.Id);
         }
         else if (hasOtherOverdue)
         {
@@ -563,13 +569,17 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             statement.Status = PlatformFeeStatementStatus.Overdue;
             statement.UpdatedAt = now;
 
-            if (statement.Shop != null && statement.Shop.Status == ShopStatus.Active)
+            if (statement.Shop != null)
             {
+                var newlySuspended = statement.Shop.Status != ShopStatus.Suspended;
                 statement.Shop.Status = ShopStatus.Suspended;
                 statement.Shop.SuspendedForPlatformFees = true;
                 statement.Shop.UpdatedAt = now;
-                suspendedCount++;
-                suspendedShopIds.Add(statement.Shop.Id);
+                if (newlySuspended)
+                {
+                    suspendedCount++;
+                    suspendedShopIds.Add(statement.Shop.Id);
+                }
                 _logger.LogWarning("Shop {ShopId} suspended due to overdue platform fee statement {StatementId}.", statement.ShopId, statement.Id);
             }
         }
@@ -666,11 +676,15 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         var reactivatedShopId = (Guid?)null;
         if (!hasOtherOverdue && statement.Shop != null && statement.Shop.Status == ShopStatus.Suspended && statement.Shop.SuspendedForPlatformFees)
         {
-            statement.Shop.Status = ShopStatus.Active;
             statement.Shop.SuspendedForPlatformFees = false;
+            statement.Shop.SuspendedForOverdueRefunds = await _db.Refunds.AnyAsync(refund => refund.Order.ShopId == statement.ShopId
+                && refund.RefundType == RefundType.ShopCancellation && refund.DestinationConfirmedAt != null
+                && refund.RequestedAmount > refund.TransferredAmount && (refund.Status == RefundStatus.Overdue
+                    || (refund.Status == RefundStatus.AwaitingTransfer && refund.ReviewDeadlineAt <= now)), ct);
             statement.Shop.UpdatedAt = now;
-            reactivatedShopId = statement.Shop.Id;
-            _logger.LogInformation("Shop {ShopId} reactivated to Active after external payment reconciliation by Admin {AdminId}.", statement.ShopId, adminId);
+            if (ShopSuspensionRules.ReactivateIfResolved(statement.Shop)) reactivatedShopId = statement.Shop.Id;
+            if (reactivatedShopId.HasValue)
+                _logger.LogInformation("Shop {ShopId} reactivated to Active after external payment reconciliation by Admin {AdminId}.", statement.ShopId, adminId);
         }
         else if (hasOtherOverdue)
         {
@@ -801,7 +815,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                         Status = isZeroFee ? PlatformFeeStatementStatus.Paid : PlatformFeeStatementStatus.Issued,
                         TotalFeeAmount = netFee,
                         IssuedAt = now,
-                        DueAt = isZeroFee ? null : now.AddDays(7), // BR-192: statement due 7 days after issuance
+                        DueAt = isZeroFee ? null : now.AddDays(TimingConfiguration.PlatformFees.StatementPaymentDays), // BR-192: statement due 7 days after issuance
                         PaidAt = isZeroFee ? now : null,
                         CreatedAt = now,
                         UpdatedAt = now
@@ -867,7 +881,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         foreach (var statement in await _repository.GetUnpaidStatementsAsync(ct))
         {
-            if (statement.DueAt > now.AddHours(24)) continue;
+            if (statement.DueAt > now.AddHours(TimingConfiguration.PlatformFees.DueReminderLeadHours)) continue;
             var overdue = statement.DueAt <= now;
             await TryNotifyAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
                 overdue ? NotificationType.PlatformFeeOverdue : NotificationType.PlatformFeeDueSoon,

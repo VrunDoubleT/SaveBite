@@ -1,3 +1,5 @@
+using SaveBite.Backend.Configurations;
+using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.DTOs;
@@ -31,13 +33,14 @@ public class RefundService : IRefundService
     private readonly IConfiguration _config;
     private readonly IRefundDeadlineScheduler _deadlines;
     private readonly ILogger<RefundService> _logger;
+    private readonly IServiceScopeFactory _scopes;
 
     public RefundService(IRefundRepository refunds, ICheckoutRepository orders, IShopOrderRepository shops,
-        ITrustOrderRepository trust, IEmailService email, TimeProvider clock, IConfiguration config, IRefundDeadlineScheduler deadlines, ILogger<RefundService> logger, INotificationQueue notifications, ITrustNotificationService trustNotifications, AppDbContext db)
+        ITrustOrderRepository trust, IEmailService email, TimeProvider clock, IConfiguration config, IRefundDeadlineScheduler deadlines, ILogger<RefundService> logger, INotificationQueue notifications, ITrustNotificationService trustNotifications, AppDbContext db, IServiceScopeFactory scopes)
     {
         _notifications = notifications; _trustNotifications = trustNotifications;
         _refunds = refunds; _orders = orders; _shops = shops; _trust = trust;
-        _db = db;
+        _db = db; _scopes = scopes;
         _email = email; _clock = clock; _config = config; _deadlines = deadlines; _logger = logger;
     }
     private DateTime Now => _clock.GetUtcNow().UtcDateTime;
@@ -118,7 +121,7 @@ public class RefundService : IRefundService
                 CreatedAt = Now,
                 UpdatedAt = Now
             };
-            f.CustomerDetailsDeadlineAt = f.CreatedAt.AddHours(24);
+            f.CustomerDetailsDeadlineAt = f.CreatedAt.AddHours(TimingConfiguration.Refund.CustomerDetailsHours);
             f.DeadlineJobId = _deadlines.Schedule(f.Id, f.CustomerDetailsDeadlineAt.Value);
             foreach (var item in selected)
             {
@@ -135,6 +138,8 @@ public class RefundService : IRefundService
             }
             Audit(f, null, userId, "Customer", order.Customer.FullName, "Requested", f.Reason);
             await _orders.SaveAsync(ct);
+            await _notifications.EnqueueAsync(NotificationTarget.User(order.CustomerId),
+                RefundNotificationCommands.DestinationRequired(f.Id, order.OrderCode, f.CustomerDetailsDeadlineAt.Value), ct);
             return Map(f);
         }, ct);
         return result;
@@ -152,7 +157,7 @@ public class RefundService : IRefundService
             if (f.Status != RefundStatus.AwaitingCustomerDetails || f.DestinationConfirmedAt != null)
                 throw AppException.Conflict("The destination can no longer be changed.");
             RefundRules.ValidateCustomerDetailsDeadline(f, Now);
-            if (f.VerificationIssuedAt > Now.AddMinutes(-1)) throw AppException.Conflict("Wait one minute before requesting another code.");
+            if (f.VerificationIssuedAt > Now.AddMinutes(-TimingConfiguration.Refund.EmailCodeResendMinutes)) throw AppException.Conflict("Wait one minute before requesting another code.");
             var code = RandomNumberGenerator.GetInt32(0, 1000000).ToString("D6");
             if (request.ReceiverMethod is not ("BankAccount" or "QrImage")) throw AppException.BadRequest("Choose bank details or a bank QR image.");
             if (request.ReceiverMethod == "QrImage") ValidateUrl(request.QrImageUrl);
@@ -161,7 +166,7 @@ public class RefundService : IRefundService
             f.ReceiverBankBin = request.BankBin; f.ReceiverBankName = request.BankName.Trim();
             f.ReceiverAccountNumber = request.AccountNumber; f.ReceiverAccountHolder = request.AccountHolder.Trim();
             f.VerificationCodeHash = CodeHash(f.Id, code); f.VerificationIssuedAt = Now;
-            f.VerificationExpiresAt = Now.AddMinutes(15); f.VerificationAttempts = 0;
+            f.VerificationExpiresAt = Now.AddMinutes(TimingConfiguration.Refund.EmailCodeLifetimeMinutes); f.VerificationAttempts = 0;
             Audit(f, f.Status, userId, "Customer", f.Order.Customer.FullName, "DestinationProvided", "Bank destination awaiting email confirmation.");
             await _email.SendAsync(f.Order.Customer.Email, "Confirm your SaveBite refund destination",
                 $"Your refund confirmation code is {code}. It expires in 15 minutes. Bank: {f.ReceiverBankName}. Account ending: {f.ReceiverAccountNumber[^Math.Min(4, f.ReceiverAccountNumber.Length)..]}", false, ct);
@@ -185,11 +190,11 @@ public class RefundService : IRefundService
             if (!matches) return;
             RefundRules.RequireDestinationFields(f);
             var before = f.Status;
-            f.DestinationConfirmedAt = Now; f.ReviewDeadlineAt = Now.AddHours(24);
+            f.DestinationConfirmedAt = Now; f.ReviewDeadlineAt = Now.AddHours(RefundRules.ShopProcessingHours);
             if (f.RefundType == RefundType.CustomerRequest)
             {
                 if (f.Order.Status != OrderStatus.Completed) throw AppException.Conflict("Only completed orders can be reviewed.");
-                f.Status = RefundStatus.PendingVerification; f.PendingVerificationAt = Now; f.ReviewDeadlineAt = Now.AddHours(24);
+                f.Status = RefundStatus.PendingVerification; f.PendingVerificationAt = Now; f.ReviewDeadlineAt = Now.AddHours(RefundRules.ShopProcessingHours);
             }
             else f.Status = RefundStatus.AwaitingTransfer;
             Audit(f, before, userId, "Customer", f.Order.Customer.FullName, "DestinationConfirmed", "Bank destination confirmed through email.");
@@ -311,9 +316,19 @@ public class RefundService : IRefundService
             if (!RefundRules.SameDeadline(RefundRules.Deadline(f), deadline)) return Task.CompletedTask;
             var customerExpired = f.Status == RefundStatus.AwaitingCustomerDetails;
             if (!customerExpired && f.Status is not (RefundStatus.PendingVerification or RefundStatus.AwaitingTransfer or RefundStatus.Overdue)) return Task.CompletedTask;
-            var before = f.Status; f.Status = RefundStatus.Rejected;
-            f.RejectReason = customerExpired ? RefundRules.CustomerConfirmationExpired : RefundRules.ShopProcessingExpired;
-            Audit(f, before, null, "System", "System", "DeadlineExpired", f.RejectReason);
+            var before = f.Status;
+            if (RefundRules.ExpiredStatus(f) == RefundStatus.Overdue)
+            {
+                f.Status = RefundStatus.Overdue;
+                if (before != RefundStatus.Overdue)
+                    Audit(f, before, null, "System", "System", "MandatoryRefundOverdue", RefundRules.MandatoryRefundOverdue);
+            }
+            else
+            {
+                f.Status = RefundStatus.Rejected;
+                f.RejectReason = customerExpired ? RefundRules.CustomerConfirmationExpired : RefundRules.ShopProcessingExpired;
+                Audit(f, before, null, "System", "System", "DeadlineExpired", f.RejectReason);
+            }
             notify = true;
             return Task.CompletedTask;
         }, ct, deleteSchedule: false);
@@ -324,26 +339,72 @@ public class RefundService : IRefundService
     {
         var orderId = (await LoadAsync(id, false, ct)).OrderId;
         string? deleteJob = null;
+        Guid? changedShopId = null;
+        ShopStatus? changedShopStatus = null;
+        Guid? cleanupShopId = null;
         var result = await _orders.WithOrderLockAsync(orderId, async () =>
         {
+            var shopId = await _db.Orders.Where(o => o.Id == orderId).Select(o => o.ShopId).SingleAsync(ct);
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM shops WHERE id = {shopId} FOR UPDATE", ct);
             var f = await LoadAsync(id, true, ct);
+            var oldShopStatus = f.Order.Shop.Status;
+            var oldShopReasons = ShopSuspensionRules.Reason(f.Order.Shop);
             var oldJob = f.DeadlineJobId;
             var oldDeadline = RefundRules.Deadline(f);
             await action(f);
             // Persist schedules for both customer confirmation and shop processing in the order transaction.
             if (f.Status == RefundStatus.AwaitingCustomerDetails)
-                f.CustomerDetailsDeadlineAt ??= f.CreatedAt.AddHours(24);
+                f.CustomerDetailsDeadlineAt ??= f.CreatedAt.AddHours(TimingConfiguration.Refund.CustomerDetailsHours);
             if (f.DestinationConfirmedAt.HasValue && f.Status is (RefundStatus.PendingVerification or RefundStatus.AwaitingTransfer))
-                f.ReviewDeadlineAt ??= f.DestinationConfirmedAt.Value.AddHours(24);
+                f.ReviewDeadlineAt ??= f.DestinationConfirmedAt.Value.AddHours(RefundRules.ShopProcessingHours);
             var deadline = RefundRules.Deadline(f);
-            if (RefundRules.Active(f.Status) && deadline.HasValue && (oldJob == null || oldDeadline != deadline))
+            if (f.Status != RefundStatus.Overdue && RefundRules.Active(f.Status) && deadline.HasValue && (oldJob == null || oldDeadline != deadline))
                 f.DeadlineJobId = _deadlines.Schedule(f.Id, deadline.Value);
-            else if (!RefundRules.Active(f.Status)) f.DeadlineJobId = null;
+            else if (f.Status == RefundStatus.Overdue || !RefundRules.Active(f.Status)) f.DeadlineJobId = null;
             if (oldJob != f.DeadlineJobId) deleteJob = oldJob;
+            await _orders.SaveAsync(ct);
+            var shop = f.Order.Shop;
+            var hasOverdue = await _db.Refunds.AnyAsync(r => r.Order.ShopId == shop.Id && r.RefundType == RefundType.ShopCancellation
+                && r.DestinationConfirmedAt != null && r.RequestedAmount > r.TransferredAmount
+                && (r.Status == RefundStatus.Overdue || (r.Status == RefundStatus.AwaitingTransfer && r.ReviewDeadlineAt <= Now)), ct);
+            shop.SuspendedForOverdueRefunds = hasOverdue;
+            // A fee sweep may not have run yet; settling refunds must not bypass another overdue debt.
+            if (await _db.PlatformFeeStatements.AnyAsync(statement => statement.ShopId == shop.Id
+                && (statement.Status == PlatformFeeStatementStatus.Overdue ||
+                    (statement.Status == PlatformFeeStatementStatus.Issued && statement.TotalFeeAmount > 0 && statement.DueAt <= Now)), ct))
+                shop.SuspendedForPlatformFees = true;
+            if (ShopSuspensionRules.HasReasons(shop))
+            {
+                shop.Status = ShopStatus.Suspended;
+                if (hasOverdue || oldShopStatus != ShopStatus.Suspended) cleanupShopId = shop.Id;
+            }
+            else ShopSuspensionRules.ReactivateIfResolved(shop);
+            if (shop.Status != oldShopStatus || oldShopReasons != ShopSuspensionRules.Reason(shop))
+            {
+                shop.UpdatedAt = Now;
+                changedShopId = shop.Id;
+                changedShopStatus = shop.Status;
+                await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
+                    NotificationType.ShopStatusChanged, NotificationMessages.Shop.ShopStatusUpdatedTitle,
+                    shop.Status == ShopStatus.Suspended ? ShopSuspensionRules.Reason(shop)! : "All overdue mandatory refunds have been paid. Your shop has been reactivated.",
+                    "/store-owner/refunds?status=Overdue", $"shop-refunds:{shop.Id}:{shop.Status}:{id}"), ct);
+            }
             await _orders.SaveAsync(ct);
             await NotifyRefundAsync(id, ct);
             return Map(f);
         }, ct);
+        if (changedShopId.HasValue && changedShopStatus.HasValue)
+        {
+            await using var scope = _scopes.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<IShopStatusEventService>()
+                .NotifyChangedAsync(changedShopId.Value, changedShopStatus.Value.ToString(), ct);
+
+        }
+        if (cleanupShopId.HasValue)
+        {
+            await using var scope = _scopes.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<IShopSuspensionCleanupService>().CleanupAsync(cleanupShopId.Value, ct);
+        }
         // Delete only after commit; a leftover job checks deadline and status before doing anything.
         if (deleteSchedule && deleteJob != null)
         {
@@ -363,6 +424,15 @@ public class RefundService : IRefundService
                 NotificationType.RefundRequestCreated, NotificationMessages.Refunds.NewRefundRequestTitle,
                 NotificationMessages.Refunds.NewRefundRequestBody(refund.Order.Customer.FullName, refund.Order.OrderCode),
                 $"/store-owner/orders/{refund.OrderId}", $"refund:{id}:requested:owner"), ct);
+            return;
+        }
+        if (refund.Status == RefundStatus.Overdue)
+        {
+            var command = new CreateNotificationCommand(NotificationType.RefundOverdue, "Mandatory refund overdue",
+                RefundRules.MandatoryRefundOverdue, $"/account/refunds/{id}", $"refund:{id}:overdue:customer");
+            await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.CustomerId), command, ct);
+            await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.Shop.OwnerUserId), command with
+                { ActionUrl = $"/store-owner/refunds/{id}", DeduplicationKey = $"refund:{id}:overdue:owner" }, ct);
             return;
         }
         var type = refund.Status switch {
@@ -530,6 +600,7 @@ public class RefundService : IRefundService
     {
         if (f.Status == RefundStatus.AwaitingCustomerDetails) return "WaitingCustomer";
         if (f.Status is RefundStatus.Rejected or RefundStatus.Withdrawn or RefundStatus.Transferred or RefundStatus.Completed) return "Closed";
+        if (f.RefundType == RefundType.ShopCancellation && f.Status == RefundStatus.Overdue && f.DestinationConfirmedAt != null) return "TransferRequired";
         if (!f.ReviewDeadlineAt.HasValue || f.ReviewDeadlineAt <= Now) return "DeadlinePassed";
         if (f.DestinationConfirmedAt == null) return "WaitingCustomer";
         if (f.Status == RefundStatus.PendingVerification && f.RefundType == RefundType.CustomerRequest) return "ReviewRequired";
@@ -572,7 +643,7 @@ public class RefundService : IRefundService
         CustomerDetailsDeadlineAt = f.CustomerDetailsDeadlineAt,
         PendingVerificationAt = f.PendingVerificationAt,
         ReviewDeadlineAt = f.ReviewDeadlineAt,
-        IsOverdue = (f.Status is (RefundStatus.PendingVerification or RefundStatus.AwaitingTransfer) && f.ReviewDeadlineAt <= Now),
+        IsOverdue = f.Status == RefundStatus.Overdue || (f.Status is (RefundStatus.PendingVerification or RefundStatus.AwaitingTransfer) && f.ReviewDeadlineAt <= Now),
         IsPlatformFeeExempt = f.Order.IsPlatformFeeExempt,
         ReviewedBy = f.ReviewedBy,
         ReviewedAt = f.ReviewedAt,

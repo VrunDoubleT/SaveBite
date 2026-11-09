@@ -1,5 +1,5 @@
 export const refundStatusLabels: Record<string, string> = {
-  Overdue: "Closed (historical deadline)",
+  Overdue: "Overdue — payment required",
   AwaitingCustomerDetails: "Waiting for customer",
   PendingVerification: "Needs shop review",
   AwaitingTransfer: "Ready to transfer",
@@ -11,7 +11,7 @@ export const refundStatusLabels: Record<string, string> = {
 
 // Closed requests cannot accept customer details or shop processing.
 export function isRefundActive(refund: { status: string }): boolean {
-  return ["AwaitingCustomerDetails", "PendingVerification", "AwaitingTransfer"].includes(
+  return ["AwaitingCustomerDetails", "PendingVerification", "AwaitingTransfer", "Overdue"].includes(
     refund.status,
   );
 }

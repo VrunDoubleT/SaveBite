@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Implementations;
@@ -6,7 +7,7 @@ namespace SaveBite.Backend.BackgroundJobs.Jobs;
 
 public sealed class StaffInvitationJob(IStaffInvitationRepository repository, StaffInvitationNotificationService notifications, SaveBite.Backend.Data.AppDbContext db, SaveBite.Backend.Services.Interfaces.IRealtimePublisher realtime)
 {
-    public const int LifetimeDays = 3;
+    public const int LifetimeDays = TimingConfiguration.StaffInvitations.LifetimeDays;
 
     public async Task ExpireAsync(Guid invitationId, CancellationToken ct)
     {

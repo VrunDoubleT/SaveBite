@@ -1,3 +1,4 @@
+using SaveBite.Backend.Helpers;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.DTOs;
@@ -190,6 +191,8 @@ public sealed class ShopService : IShopService
                     .Select(f => new ShopFollowResponse(shop.Id, shop.Name, shop.LogoUrl, shop.AddressLine,
                         shop.Status, f.NotificationStatus, f.FollowedAt)).SingleOrDefaultAsync(cancellationToken) : null,
             SuspendedForPlatformFees = shop.SuspendedForPlatformFees,
+            SuspendedByAdmin = shop.SuspendedByAdmin,
+            SuspendedForOverdueRefunds = shop.SuspendedForOverdueRefunds,
             Id = shop.Id,
             Name = shop.Name,
             Description = shop.Description,
@@ -412,6 +415,8 @@ public sealed class ShopService : IShopService
             OwnerUserId = shop.OwnerUserId,
             FollowerCount = await _db.Set<ShopFollow>().CountAsync(f => f.ShopId == shop.Id && f.CustomerId != shop.OwnerUserId, cancellationToken),
             SuspendedForPlatformFees = shop.SuspendedForPlatformFees,
+            SuspendedByAdmin = shop.SuspendedByAdmin,
+            SuspendedForOverdueRefunds = shop.SuspendedForOverdueRefunds,
             Id = shop.Id,
             Name = shop.Name,
             Description = shop.Description,
@@ -476,19 +481,26 @@ public sealed class ShopService : IShopService
         var shop = await _shopRepository.GetShopContentAsync(shopId, ct)
                    ?? throw AppException.NotFound("Shop not found.");
 
-        var auditLogs = await _shopRepository.GetShopStatusHistoryAsync(shopId, ct);
-        var statusHistory = auditLogs.Select(log => new ShopStatusHistoryResponse
+        var histories = await _shopRepository.GetShopStatusHistoryAsync(shopId, ct);
+        var statusHistory = histories.Select(log => new ShopStatusHistoryResponse
         {
             Id = log.Id,
-            FromStatus = ReadStatus(log.OldValuesJson),
-            ToStatus = ReadStatus(log.NewValuesJson) ?? string.Empty,
+            FromStatus = log.FromStatus?.ToString(),
+            ToStatus = log.ToStatus.ToString(),
             Reason = log.Reason,
+            ChangedByType = log.ChangedByType,
+            ChangedByUserId = log.ChangedByUserId,
+            SuspendedByAdmin = log.SuspendedByAdmin,
+            SuspendedForPlatformFees = log.SuspendedForPlatformFees,
+            SuspendedForOverdueRefunds = log.SuspendedForOverdueRefunds,
             CreatedAt = log.CreatedAt
         }).ToArray();
 
         var currentStatusReason = shop.Status.ToString() is "Paused" or "Suspended"
             ? statusHistory.FirstOrDefault(item => item.ToStatus == shop.Status.ToString())?.Reason
             : null;
+        if (shop.Status == ShopStatus.Suspended)
+            currentStatusReason = string.Join(" ", new[] { currentStatusReason, ShopSuspensionRules.Reason(shop) }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
         return new ShopContentResponse
         {
@@ -573,9 +585,12 @@ public sealed class ShopService : IShopService
             Status = currentStatus.ToString()
         };
 
-        if (statusChanged)
+        if (targetStatus == ShopStatus.Active && (shop.SuspendedForPlatformFees || shop.SuspendedForOverdueRefunds))
+            throw AppException.Conflict("Settle all overdue platform fees and mandatory refunds before reactivating the shop.");
+        if (statusChanged || targetStatus == ShopStatus.Suspended)
         {
-            shop.SuspendedForPlatformFees = false; // An administrator decision must never be undone by fee payment.
+            _db.RecordAdminShopStatusChange(shopId, adminId, reason);
+            shop.SuspendedByAdmin = targetStatus == ShopStatus.Suspended;
             shop.Status = targetStatus;
             shop.UpdatedAt = DateTime.UtcNow;
             var auditEntry = _audit.Record(new AuditLog
@@ -621,21 +636,6 @@ public sealed class ShopService : IShopService
                 ? $"Shop status changed from {currentStatus} to {targetStatus}."
                 : "Shop suspension cleanup was retried."
         };
-    }
-
-    // Manage Shops.
-    private static string? ReadStatus(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return null;
-
-        using var document = JsonDocument.Parse(json);
-        if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
-        foreach (var property in document.RootElement.EnumerateObject())
-        {
-            if (property.Name.Equals("Status", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
-                return property.Value.GetString();
-        }
-        return null;
     }
 
     private async Task ValidateOperatingHoursChangeAsync(

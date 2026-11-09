@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { resolveDealEnd } from "@/features/flash-deals/utils/flashDealTiming";
+import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -37,6 +38,79 @@ interface FormVariantState {
   unsellableQuantity?: number;
   status?: number; // 0: Active, 1: Hide
   isSelected: boolean;
+}
+
+function parseTimeToMinutes(timeStr: string): number {
+  const [h, m] = timeStr.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+function isWithinShopHours(
+  timeStr: string,
+  openingTime: string | null | undefined,
+  closingTime: string | null | undefined,
+): boolean {
+  if (!openingTime || !closingTime) return true;
+  if (openingTime.slice(0, 5) === closingTime.slice(0, 5)) return true; // 00:00 - 00:00 is full day
+  const timeMins = parseTimeToMinutes(timeStr);
+  const openMins = parseTimeToMinutes(openingTime);
+  const closeMins = parseTimeToMinutes(closingTime);
+
+  if (openMins <= closeMins) {
+    return timeMins >= openMins && timeMins <= closeMins;
+  } else {
+    return timeMins >= openMins || timeMins <= closeMins;
+  }
+}
+
+// Time format helper
+function formatTime(d: Date): string {
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+// Get Start timestamp based on mode and time string
+function getStartTimestamp(
+  mode: "immediate" | "scheduled",
+  timeStr: string,
+  now = new Date(),
+): Date {
+  if (mode === "immediate") {
+    return now;
+  }
+  if (!timeStr) {
+    return new Date(now.getTime() + 30 * 60 * 1000);
+  }
+  const [h, m] = timeStr.split(":").map(Number);
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+  // If chosen time is earlier than current time by > 15 minutes, wrap to tomorrow
+  if (d.getTime() < now.getTime() - 15 * 60 * 1000) {
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+}
+
+// Get End timestamp handling midnight rollover
+function getEndTimestamp(startDate: Date, timeStr: string, fallbackMins = 60): Date {
+  if (!timeStr) {
+    return new Date(startDate.getTime() + fallbackMins * 60 * 1000);
+  }
+  const [h, m] = timeStr.split(":").map(Number);
+  const d = new Date(
+    startDate.getFullYear(),
+    startDate.getMonth(),
+    startDate.getDate(),
+    h,
+    m,
+    0,
+    0,
+  );
+  if (d.getTime() <= startDate.getTime()) {
+    // End time is after midnight (rolls into next day)
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
 }
 
 export function StoreOwnerFlashDealFormPage() {
@@ -83,89 +157,27 @@ export function StoreOwnerFlashDealFormPage() {
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
   const [durationMins, setDurationMins] = useState<number>(60);
+  const [selectedDuration, setSelectedDuration] = useState<number | null>(60);
 
   // Configured variants with checkbox selection
   const [variants, setVariants] = useState<FormVariantState[]>([]);
+
+  const [nowMs, setNowMs] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Whether current deal is ended
   const isDealEnded = existingDeal
     ? existingDeal.status === FlashDealStatusEnum.Closed ||
       existingDeal.status === FlashDealStatusEnum.Cancelled ||
-      new Date(existingDeal.orderEndTime).getTime() <= Date.now()
+      new Date(existingDeal.orderEndTime).getTime() <= nowMs
     : false;
 
   // Whether current deal is already active OnSale
-  const isDealOnSale = isEditMode && existingDeal?.status === FlashDealStatusEnum.OnSale && !isDealEnded;
-
-  function parseTimeToMinutes(timeStr: string): number {
-    const [h, m] = timeStr.split(":").map(Number);
-    return h * 60 + (m || 0);
-  }
-
-  function isWithinShopHours(
-    timeStr: string,
-    openingTime: string | null | undefined,
-    closingTime: string | null | undefined
-  ): boolean {
-    if (!openingTime || !closingTime) return true;
-    if (openingTime.slice(0, 5) === closingTime.slice(0, 5)) return true; // 00:00 - 00:00 is full day
-    const timeMins = parseTimeToMinutes(timeStr);
-    const openMins = parseTimeToMinutes(openingTime);
-    const closeMins = parseTimeToMinutes(closingTime);
-
-    if (openMins <= closeMins) {
-      return timeMins >= openMins && timeMins <= closeMins;
-    } else {
-      return timeMins >= openMins || timeMins <= closeMins;
-    }
-  }
-
-  // Time format helper
-  function formatTime(d: Date): string {
-    const hours = String(d.getHours()).padStart(2, "0");
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-    return `${hours}:${minutes}`;
-  }
-
-  // Get Start timestamp based on mode and time string
-  function getStartTimestamp(mode: "immediate" | "scheduled", timeStr: string): Date {
-    const now = new Date();
-    if (mode === "immediate") {
-      return now;
-    }
-    if (!timeStr) {
-      return new Date(now.getTime() + 30 * 60 * 1000);
-    }
-    const [h, m] = timeStr.split(":").map(Number);
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
-    // If chosen time is earlier than current time by > 15 minutes, wrap to tomorrow
-    if (d.getTime() < now.getTime() - 15 * 60 * 1000) {
-      d.setDate(d.getDate() + 1);
-    }
-    return d;
-  }
-
-  // Get End timestamp handling midnight rollover
-  function getEndTimestamp(startDate: Date, timeStr: string, fallbackMins = 60): Date {
-    if (!timeStr) {
-      return new Date(startDate.getTime() + fallbackMins * 60 * 1000);
-    }
-    const [h, m] = timeStr.split(":").map(Number);
-    const d = new Date(
-      startDate.getFullYear(),
-      startDate.getMonth(),
-      startDate.getDate(),
-      h,
-      m,
-      0,
-      0,
-    );
-    if (d.getTime() <= startDate.getTime()) {
-      // End time is after midnight (rolls into next day)
-      d.setDate(d.getDate() + 1);
-    }
-    return d;
-  }
+  const isDealOnSale =
+    isEditMode && existingDeal?.status === FlashDealStatusEnum.OnSale && !isDealEnded;
 
   // Initial load
   useEffect(() => {
@@ -208,6 +220,7 @@ export function StoreOwnerFlashDealFormPage() {
             setDurationMins(60);
           } else {
             setSaleMode(deal.status === FlashDealStatusEnum.OnSale ? "immediate" : "scheduled");
+            setSelectedDuration(null);
 
             const start = new Date(deal.saleStartTime);
             const end = new Date(deal.orderEndTime);
@@ -313,120 +326,158 @@ export function StoreOwnerFlashDealFormPage() {
   }, [isEditMode, existingDeal, eligibleProducts, selectedProductId]);
 
   // Schedule Summary & Validity
-  const scheduleSummary = useMemo(() => {
-    const now = new Date();
-    const isImmediate = (!isEditMode || isDealEnded)
-      ? saleMode === "immediate"
-      : existingDeal?.status === FlashDealStatusEnum.OnSale;
+  const buildScheduleSummary = useCallback(
+    (now = new Date(nowMs)) => {
+      const isImmediate =
+        !isEditMode || isDealEnded
+          ? saleMode === "immediate"
+          : existingDeal?.status === FlashDealStatusEnum.OnSale;
 
-    const start = isDealOnSale && existingDeal
-      ? new Date(existingDeal.saleStartTime)
-      : (isImmediate ? now : getStartTimestamp("scheduled", startTime));
-    const end = getEndTimestamp(start, endTime, durationMins || 60);
+      const start =
+        isDealOnSale && existingDeal
+          ? new Date(existingDeal.saleStartTime)
+          : isImmediate
+            ? now
+            : getStartTimestamp("scheduled", startTime, now);
+      const end = resolveDealEnd(start, endTime, selectedDuration, durationMins || 60);
 
-    const diffMs = end.getTime() - start.getTime();
-    const computedDurationMins = Math.round(diffMs / (1000 * 60));
-    // For active OnSale deals: end time must be in future (> now), and total duration <= 120 mins
-    const isDurationValid = isDealOnSale
-      ? end.getTime() > now.getTime() && computedDurationMins <= 120
-      : computedDurationMins >= 30 && computedDurationMins <= 120;
+      const diffMs = end.getTime() - start.getTime();
+      const computedDurationMins = Math.round(diffMs / (1000 * 60));
+      // For active OnSale deals: end time must be in future (> now), and total duration <= 120 mins
+      const isDurationValid = isDealOnSale
+        ? end.getTime() > now.getTime() && diffMs <= 120 * 60_000
+        : diffMs >= 30 * 60_000 && diffMs <= 120 * 60_000;
 
-    let isAdvanceValid = true;
-    let advanceErrorMessage = "";
+      let isAdvanceValid = true;
+      let advanceErrorMessage = "";
 
-    if (!isImmediate && !isDealOnSale) {
-      const diffStartMins = Math.round((start.getTime() - now.getTime()) / (1000 * 60));
-      if (diffStartMins < 14) {
-        isAdvanceValid = false;
-        advanceErrorMessage =
-          "Start time must be at least 15 minutes from now, or choose immediate selling.";
-      } else if (diffStartMins > 91) {
-        isAdvanceValid = false;
-        advanceErrorMessage = `Flash deals can only be scheduled up to 90 minutes in advance (currently: ${diffStartMins} mins).`;
-      }
-    }
-
-    let durationErrorMessage = "";
-    if (!isDurationValid) {
-      if (isDealOnSale) {
-        if (end.getTime() <= now.getTime()) {
-          durationErrorMessage = "Order end time must be in the future.";
-        } else if (computedDurationMins > 120) {
-          durationErrorMessage = `Deal duration from start time cannot exceed 120 minutes (currently ${computedDurationMins} mins).`;
+      if (!isImmediate && !isDealOnSale) {
+        const diffStartMins = Math.round((start.getTime() - now.getTime()) / (1000 * 60));
+        if (diffStartMins < 14) {
+          isAdvanceValid = false;
+          advanceErrorMessage =
+            "Start time must be at least 15 minutes from now, or choose immediate selling.";
+        } else if (diffStartMins > 91) {
+          isAdvanceValid = false;
+          advanceErrorMessage = `Flash deals can only be scheduled up to 90 minutes in advance (currently: ${diffStartMins} mins).`;
         }
-      } else {
-        durationErrorMessage = `Deal duration must be between 30 and 120 minutes (currently ${computedDurationMins} mins).`;
       }
-    }
 
-    let operatingHoursErrorMessage = "";
-    if (shopOperatingHours?.openingTime && shopOperatingHours?.closingTime) {
-      const startHM = formatTime(start);
-      const endHM = formatTime(end);
-      if (
-        !isWithinShopHours(startHM, shopOperatingHours.openingTime, shopOperatingHours.closingTime) ||
-        !isWithinShopHours(endHM, shopOperatingHours.openingTime, shopOperatingHours.closingTime)
-      ) {
-        operatingHoursErrorMessage = `Flash deal time must be within shop operating hours (${shopOperatingHours.openingTime} - ${shopOperatingHours.closingTime}).`;
+      let durationErrorMessage = "";
+      if (!isDurationValid) {
+        if (isDealOnSale) {
+          if (end.getTime() <= now.getTime()) {
+            durationErrorMessage = "Order end time must be in the future.";
+          } else if (computedDurationMins > 120) {
+            durationErrorMessage = `Deal duration from start time cannot exceed 120 minutes (currently ${computedDurationMins} mins).`;
+          }
+        } else {
+          durationErrorMessage = `Deal duration must be between 30 and 120 minutes (currently ${computedDurationMins} mins).`;
+        }
       }
-    }
 
-    const isValid = diffMs > 0 && isDurationValid && isAdvanceValid && !operatingHoursErrorMessage;
-    const errorMessage = advanceErrorMessage || durationErrorMessage || operatingHoursErrorMessage || (diffMs <= 0 ? "End time must be after start time." : "");
+      let operatingHoursErrorMessage = "";
+      if (shopOperatingHours?.openingTime && shopOperatingHours?.closingTime) {
+        const startHM = formatTime(start);
+        const endHM = formatTime(end);
+        if (
+          !isWithinShopHours(
+            startHM,
+            shopOperatingHours.openingTime,
+            shopOperatingHours.closingTime,
+          ) ||
+          !isWithinShopHours(endHM, shopOperatingHours.openingTime, shopOperatingHours.closingTime)
+        ) {
+          operatingHoursErrorMessage = `Flash deal time must be within shop operating hours (${shopOperatingHours.openingTime} - ${shopOperatingHours.closingTime}).`;
+        }
+      }
 
-    const hours = Math.floor(computedDurationMins / 60);
-    const minutes = computedDurationMins % 60;
+      const isValid =
+        diffMs > 0 && isDurationValid && isAdvanceValid && !operatingHoursErrorMessage;
+      const errorMessage =
+        advanceErrorMessage ||
+        durationErrorMessage ||
+        operatingHoursErrorMessage ||
+        (diffMs <= 0 ? "End time must be after start time." : "");
 
-    const isCurrentlyActive = isImmediate || (start <= now && end >= now);
-    const isUpcoming = !isImmediate && start > now;
+      const hours = Math.floor(computedDurationMins / 60);
+      const minutes = computedDurationMins % 60;
 
-    // Closing time is order cutoff + 30 mins
-    const closingTime = new Date(end.getTime() + 30 * 60 * 1000);
-    const isNextDay = end.getDate() !== start.getDate();
+      const isCurrentlyActive = isImmediate || (start <= now && end >= now);
+      const isUpcoming = !isImmediate && start > now;
 
-    return {
-      start,
-      end,
-      isValid,
-      durationMins: computedDurationMins,
-      isDurationValid,
-      isAdvanceValid,
-      errorMessage,
-      hours,
-      minutes,
-      isCurrentlyActive,
-      isUpcoming,
-      closingTime,
-      isImmediate,
-      isNextDay,
-    };
-  }, [startTime, endTime, durationMins, saleMode, isEditMode, isDealOnSale, isDealEnded, existingDeal, shopOperatingHours]);
+      // Closing time is order cutoff + 30 mins
+      const closingTime = new Date(end.getTime() + 30 * 60 * 1000);
+      const isNextDay = end.getDate() !== start.getDate();
+
+      return {
+        start,
+        end,
+        isValid,
+        durationMins: computedDurationMins,
+        isDurationValid,
+        isAdvanceValid,
+        errorMessage,
+        hours,
+        minutes,
+        isCurrentlyActive,
+        isUpcoming,
+        closingTime,
+        isImmediate,
+        isNextDay,
+      };
+    },
+    [
+      nowMs,
+      startTime,
+      endTime,
+      durationMins,
+      selectedDuration,
+      saleMode,
+      isEditMode,
+      isDealOnSale,
+      isDealEnded,
+      existingDeal,
+      shopOperatingHours,
+    ],
+  );
+  const scheduleSummary = useMemo(() => buildScheduleSummary(), [buildScheduleSummary]);
 
   // Quick duration selection
   function handleSelectDuration(mins: number) {
+    setSelectedDuration(mins);
     setDurationMins(mins);
     const now = new Date();
-    const isImmediate = (!isEditMode || isDealEnded)
-      ? saleMode === "immediate"
-      : existingDeal?.status === FlashDealStatusEnum.OnSale;
-    const start = isDealOnSale && existingDeal
-      ? new Date(existingDeal.saleStartTime)
-      : (isImmediate ? now : getStartTimestamp("scheduled", startTime));
+    const isImmediate =
+      !isEditMode || isDealEnded
+        ? saleMode === "immediate"
+        : existingDeal?.status === FlashDealStatusEnum.OnSale;
+    const start =
+      isDealOnSale && existingDeal
+        ? new Date(existingDeal.saleStartTime)
+        : isImmediate
+          ? now
+          : getStartTimestamp("scheduled", startTime);
     const end = new Date(start.getTime() + mins * 60 * 1000);
     setEndTime(formatTime(end));
   }
 
   // End time input change
   function handleEndTimeChange(newEndTime: string) {
+    setSelectedDuration(null);
     setEndTime(newEndTime);
     if (!newEndTime) return;
     const now = new Date();
-    const isImmediate = (!isEditMode || isDealEnded)
-      ? saleMode === "immediate"
-      : existingDeal?.status === FlashDealStatusEnum.OnSale;
-    const start = isDealOnSale && existingDeal
-      ? new Date(existingDeal.saleStartTime)
-      : (isImmediate ? now : getStartTimestamp("scheduled", startTime));
+    const isImmediate =
+      !isEditMode || isDealEnded
+        ? saleMode === "immediate"
+        : existingDeal?.status === FlashDealStatusEnum.OnSale;
+    const start =
+      isDealOnSale && existingDeal
+        ? new Date(existingDeal.saleStartTime)
+        : isImmediate
+          ? now
+          : getStartTimestamp("scheduled", startTime);
     const end = getEndTimestamp(start, newEndTime);
     const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
     setDurationMins(diff);
@@ -434,6 +485,7 @@ export function StoreOwnerFlashDealFormPage() {
 
   // Start time input change
   function handleStartTimeChange(newStartTime: string) {
+    setSelectedDuration(durationMins || 60);
     setStartTime(newStartTime);
     if (!newStartTime) return;
     const start = getStartTimestamp("scheduled", newStartTime);
@@ -443,6 +495,7 @@ export function StoreOwnerFlashDealFormPage() {
 
   // Start time quick offset (+15m, +30m, etc.)
   function handleSetStartOffset(offsetMins: number) {
+    setSelectedDuration(durationMins || 60);
     const now = new Date();
     const target = new Date(now.getTime() + offsetMins * 60 * 1000);
     const newStartStr = formatTime(target);
@@ -453,6 +506,7 @@ export function StoreOwnerFlashDealFormPage() {
 
   // Mode switch handler
   function handleSwitchMode(mode: "immediate" | "scheduled") {
+    setSelectedDuration(60);
     setSaleMode(mode);
     const now = new Date();
     if (mode === "immediate") {
@@ -553,16 +607,18 @@ export function StoreOwnerFlashDealFormPage() {
       return;
     }
 
-    const isImmediate = (!isEditMode || isDealEnded)
-      ? saleMode === "immediate"
-      : existingDeal?.status === FlashDealStatusEnum.OnSale;
+    const isImmediate =
+      !isEditMode || isDealEnded
+        ? saleMode === "immediate"
+        : existingDeal?.status === FlashDealStatusEnum.OnSale;
 
-    if (!scheduleSummary || !scheduleSummary.isValid) {
-      toast.error(scheduleSummary?.errorMessage || "Please enter valid deal schedule timing.");
+    const submitSchedule = buildScheduleSummary(new Date());
+    if (!submitSchedule.isValid) {
+      toast.error(submitSchedule.errorMessage || "Please enter valid deal schedule timing.");
       return;
     }
 
-    const { start: startDateObj, end: endDateObj, closingTime: closingDateObj } = scheduleSummary;
+    const { start: startDateObj, end: endDateObj, closingTime: closingDateObj } = submitSchedule;
 
     const selectedVariants = variants.filter((v) => v.isSelected);
     if (selectedVariants.length === 0) {
@@ -599,7 +655,10 @@ export function StoreOwnerFlashDealFormPage() {
         toast.error(`Deal quantity for ${v.variantName} must be a positive integer.`);
         return;
       }
-      if (v.soldQuantity !== undefined && qtyNum < v.soldQuantity + (v.reservedQuantity || 0) + (v.unsellableQuantity || 0)) {
+      if (
+        v.soldQuantity !== undefined &&
+        qtyNum < v.soldQuantity + (v.reservedQuantity || 0) + (v.unsellableQuantity || 0)
+      ) {
         toast.error(
           `Deal quantity for ${v.variantName} cannot be less than sold, reserved and stopped stock (${v.soldQuantity + (v.reservedQuantity || 0) + (v.unsellableQuantity || 0)}).`,
         );
@@ -610,12 +669,12 @@ export function StoreOwnerFlashDealFormPage() {
     try {
       setSubmitting(true);
       if (isEditMode && id) {
-        const payloadStartTime = (isImmediate && isDealEnded)
-          ? new Date().toISOString()
-          : startDateObj.toISOString();
+        const payloadStartTime = startDateObj.toISOString();
 
         await flashDealApi.updateFlashDeal(id, {
           saleStartTime: payloadStartTime,
+          durationMinutes:
+            isImmediate && !isDealOnSale ? (selectedDuration ?? undefined) : undefined,
           orderEndTime: endDateObj.toISOString(),
           shopClosingTime: closingDateObj.toISOString(),
           variants: selectedVariants.map((v) => ({
@@ -625,11 +684,14 @@ export function StoreOwnerFlashDealFormPage() {
             status: v.status ?? FlashDealVariantStatusEnum.Active,
           })),
         });
-        toast.success(isDealEnded ? "Flash deal re-opened successfully!" : "Flash deal updated successfully!");
+        toast.success(
+          isDealEnded ? "Flash deal re-opened successfully!" : "Flash deal updated successfully!",
+        );
       } else {
         await flashDealApi.createFlashDeal({
           productId: selectedProductId,
           isImmediate: isImmediate,
+          durationMinutes: isImmediate ? (selectedDuration ?? undefined) : undefined,
           saleStartTime: isImmediate ? undefined : startDateObj.toISOString(),
           orderEndTime: endDateObj.toISOString(),
           shopClosingTime: closingDateObj.toISOString(),
@@ -1039,7 +1101,7 @@ export function StoreOwnerFlashDealFormPage() {
                   <input
                     type="time"
                     required
-                    value={endTime}
+                    value={selectedDuration !== null ? formatTime(scheduleSummary.end) : endTime}
                     onChange={(e) => handleEndTimeChange(e.target.value)}
                     className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
                   />

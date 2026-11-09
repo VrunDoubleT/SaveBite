@@ -199,6 +199,7 @@ export interface CreateFlashDealVariantPayload {
 export interface CreateFlashDealPayload {
   productId: string;
   isImmediate?: boolean;
+  durationMinutes?: number;
   saleStartTime?: string;
   orderEndTime: string;
   shopClosingTime: string;
@@ -213,6 +214,7 @@ export interface UpdateFlashDealVariantPayload {
 }
 
 export interface UpdateFlashDealPayload {
+  durationMinutes?: number;
   saleStartTime: string;
   orderEndTime: string;
   shopClosingTime: string;
