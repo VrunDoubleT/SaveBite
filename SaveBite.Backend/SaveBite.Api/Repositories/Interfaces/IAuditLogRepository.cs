@@ -15,5 +15,5 @@ public interface IAuditLogRepository
     Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
     Task<(IReadOnlyList<string> Actions, IReadOnlyList<string> TargetTypes)> GetDistinctFiltersAsync(
-        CancellationToken ct = default);
+        string? targetType = null, CancellationToken ct = default);
 }

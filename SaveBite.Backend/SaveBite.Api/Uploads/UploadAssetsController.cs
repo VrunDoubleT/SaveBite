@@ -33,7 +33,7 @@ public sealed class UploadAssetsController(UploadService uploads, AppDbContext d
             }) }));
     }
     [HttpPost("sessions/{id:guid}/assets/{assetId:guid}"), RequestSizeLimit(11 * 1024 * 1024)]
-    public async Task<IActionResult> Upload(Guid id, Guid assetId, [FromForm] IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> Upload(Guid id, Guid assetId, IFormFile file, CancellationToken ct)
     {
         var asset = await uploads.UploadAsync(UserId, id, assetId, file, ct);
         return Ok(ApiResponse<object>.Ok(new { assetId = asset.Id, asset.Url,

@@ -1,3 +1,4 @@
+using SaveBite.Backend.Audit;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Services.Implementations;
@@ -28,10 +29,25 @@ public sealed class ProductWarningDeadlineConsumer : BackgroundService
                 await using var scope = _scopeFactory.CreateAsyncScope();
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var now = DateTime.UtcNow;
-                await db.ProductWarnings
-                    .Where(WarningDealPolicy.BlockedAt(now))
-                    .Where(w => !w.DealBlocked)
-                    .ExecuteUpdateAsync(s => s.SetProperty(w => w.DealBlocked, true), stoppingToken);
+                var audit = scope.ServiceProvider.GetRequiredService<IAuditWriter>();
+                var warnings = await db.ProductWarnings.AsNoTracking()
+                    .Where(WarningDealPolicy.BlockedAt(now)).Where(w => !w.DealBlocked)
+                    .Select(w => new { w.Id, w.ProductId, w.ShopId }).ToListAsync(stoppingToken);
+                foreach (var warning in warnings)
+                {
+                    await using var transaction = await db.Database.BeginTransactionAsync(stoppingToken);
+                    var changed = await db.ProductWarnings.Where(w => w.Id == warning.Id)
+                        .Where(WarningDealPolicy.BlockedAt(now)).Where(w => !w.DealBlocked)
+                        .ExecuteUpdateAsync(s => s.SetProperty(w => w.DealBlocked, true), stoppingToken);
+                    if (changed == 1)
+                    {
+                        audit.Record("ProductWarning", warning.Id, "DEADLINE_BLOCKED",
+                            new { DealBlocked = false }, new { DealBlocked = true, warning.ProductId, warning.ShopId },
+                            "Correction deadline passed without an approved correction.");
+                        await db.SaveChangesAsync(stoppingToken);
+                    }
+                    await transaction.CommitAsync(stoppingToken);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

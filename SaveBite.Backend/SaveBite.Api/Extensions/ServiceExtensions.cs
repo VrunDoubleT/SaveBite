@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.DataProtection;
 using SaveBite.Backend.Services.Implementations;
 using SaveBite.Backend.Services.Interfaces;
@@ -45,7 +46,7 @@ public static class ServiceExtensions
         services.AddScoped<ITrustNotificationService, TrustNotificationService>();
         services.AddScoped<ITrustConfigService, TrustConfigService>();
         services.AddSingleton<IJwtService, JwtService>();
-        services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
+        services.AddPasswordHasher();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();
         services.AddScoped<IFeedbackService, FeedbackService>();
         services.AddScoped<ICartService, CartService>();
@@ -61,39 +62,14 @@ public static class ServiceExtensions
         services.AddScoped<IStoreAnalyticsService, StoreAnalyticsService>();
         services.AddScoped<IPlatformAnalyticsService, PlatformAnalyticsService>();
 
-        services.AddSingleton(TimeProvider.System);
-        services.AddScoped<ICheckoutService, CheckoutService>();
-        services.AddScoped<IShopOrderService, ShopOrderService>();
-        services.AddScoped<ICheckoutPaymentService, CheckoutPaymentService>();
-        services.AddScoped<ICheckoutPaymentGateway>(provider =>
-        {
-            var configuration = provider.GetRequiredService<IConfiguration>();
-            var environment = provider.GetRequiredService<IHostEnvironment>();
-            if (configuration["Checkout:PaymentProvider"] == "Simulated")
-            {
-                if (!environment.IsDevelopment()) throw new InvalidOperationException("Simulated payments require Development.");
-                return new DevelopmentCheckoutGateway();
-            }
-            return ActivatorUtilities.CreateInstance<PayOsCheckoutGateway>(provider);
-        });
+        services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<ITravelTimeService, VietMapTravelTimeService>();
-        services.AddHttpClient("VietMapRouting", client =>
-        {
-            client.BaseAddress = new Uri("https://maps.vietmap.vn/");
-            client.Timeout = TimeSpan.FromSeconds(15);
-        }).RemoveAllLoggers();
-        services.AddHttpClient("PayOsCheckout", client =>
-        {
-            client.BaseAddress = new Uri("https://api-merchant.payos.vn/");
-            client.Timeout = TimeSpan.FromSeconds(15);
-        }).RemoveAllLoggers();
         services.AddScoped<ICartDealEventService, CartDealEventService>();
         services.AddScoped<IPlatformFeeConfigService, PlatformFeeConfigService>();
         services.AddScoped<IPlatformFeeStatementService, PlatformFeeStatementService>();
         services.AddScoped<IPlatformPayOsConfigService, PlatformPayOsConfigService>();
-        
+
         services.AddScoped<IWarningService, WarningService>();
-        services.AddScoped<IFeedbackService, FeedbackService>();
 
         return services;
     }

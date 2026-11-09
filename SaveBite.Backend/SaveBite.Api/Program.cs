@@ -1,92 +1,36 @@
-using SaveBite.Backend.Messaging.Consumer.ProductWarnings;
-using Microsoft.EntityFrameworkCore;
-using SaveBite.Backend.BackgroundJobs.Extensions;
 using SaveBite.Backend.Audit;
-using SaveBite.Backend.Data;
-using SaveBite.Backend.Data.Seed;
+using SaveBite.Backend.BackgroundJobs.Extensions;
 using SaveBite.Backend.Extensions;
 using SaveBite.Backend.Messaging.Extensions;
-using SaveBite.Backend.Middlewares;
-using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
-
 builder.AddEnvironmentConfiguration();
+builder.Host.AddSerilogLogging();
 
-var paymentProvider = builder.Configuration["Checkout:PaymentProvider"] ?? "PayOS";
-if (paymentProvider is not ("PayOS" or "Simulated"))
-    throw new InvalidOperationException("Checkout:PaymentProvider must be PayOS or Simulated.");
-if (paymentProvider == "Simulated" && !builder.Environment.IsDevelopment())
-    throw new InvalidOperationException("Simulated payments are allowed only in Development.");
-
-builder.Services.AddFluentValidation();
-
+builder.Services.AddCheckoutServices(builder.Configuration, builder.Environment);
 builder.Services.AddApi(builder.Configuration);
-builder.Services.AddApiBehavior();
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAccessAuthorization();
+builder.Services.AddAuthServices(builder.Configuration);
 builder.Services.AddRealtime();
-
-builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-builder.Services.AddProblemDetails();
+builder.Services.AddCorsPolicy(builder.Configuration);
 
 builder.Services.AddAuditServices();
 builder.Services.AddDatabase(builder.Configuration);
+builder.Services.AddRedis(builder.Configuration);
 builder.Services.AddBackgroundJobs(builder.Configuration);
-
 builder.Services.AddRabbitMq(builder.Configuration);
 builder.Services.AddAllRabbitMqConsumers();
-builder.Services.AddHostedService<ProductWarningDeadlineConsumer>();
-
-builder.Services.AddRedis(builder.Configuration);
-builder.Services.AddAuthServices(builder.Configuration);
 
 builder.Services.AddRepositories();
 builder.Services.AddServices();
+builder.Services.AddHttpClients();
 builder.Services.AddCloudinary(builder.Configuration);
-
 builder.Services.AddEmail(builder.Configuration);
 
-builder.Host.AddSerilogLogging();
-
-builder.Services.AddCorsPolicy(builder.Configuration);
-
-builder.Services.AddHttpClient();
-
 var app = builder.Build();
-
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider
-        .GetRequiredService<AppDbContext>();
-
-    var auditContext = scope.ServiceProvider.GetRequiredService<IAuditContext>();
-    auditContext.Enabled = false;
-
-    await context.Database.MigrateAsync();
-    await DbSeeder.SeedAsync(context);
-}
-
-app.UseExceptionHandler();
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseSerilogRequestLogging();
-
-app.UseHttpsRedirection();
-
-app.UseCors();
-
-app.UseAuthentication();
-app.UseAuthorization();
-app.UseBackgroundJobs();
-
-app.MapControllers();
-app.MapRealtime();
-
+await app.InitializeDatabaseAsync();
+app.UseApplicationPipeline();
 app.Run();
+
 public partial class Program { }

@@ -40,7 +40,7 @@ public sealed class FeedbacksController : ControllerBase
     [CustomerAccess]
     [RequestSizeLimit(6 * 1024 * 1024)]
     public async Task<ActionResult<ApiResponse<string>>> UploadImage(
-        [FromForm] IFormFile file,
+        IFormFile file,
         CancellationToken ct)
     {
         if (file is null || file.Length == 0)

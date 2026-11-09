@@ -1,3 +1,4 @@
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Models.Entities;
@@ -6,7 +7,7 @@ using SaveBite.Backend.Services.Interfaces;
 namespace SaveBite.Backend.Services.Implementations;
 
 // Scoped writer shares the caller's DbContext. It never starts a transaction or saves independently.
-public sealed class AdminAuditWriter(AppDbContext db, TimeProvider clock) : IAdminAuditWriter
+public sealed class AdminAuditWriter(AppDbContext db, TimeProvider clock, IAuditContext context) : IAdminAuditWriter
 {
     public AuditLog Record(AuditLog entry)
     {
@@ -19,6 +20,7 @@ public sealed class AdminAuditWriter(AppDbContext db, TimeProvider clock) : IAdm
             throw new ArgumentException("Audit action, target type or reason is invalid.");
         // Authorization belongs to the admin command; never accept actor IDs directly from client payloads.
         entry.ActorType = AuditActorType.User;
+        entry.CorrelationId ??= context.CorrelationId;
         if (entry.Id == Guid.Empty) entry.Id = Guid.NewGuid();
         if (entry.CreatedAt == default) entry.CreatedAt = clock.GetUtcNow().UtcDateTime;
         entry.OldValuesJson = AuditPayloadSanitizer.SanitizeJson(entry.OldValuesJson);

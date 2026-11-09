@@ -112,8 +112,11 @@ public static class HangfireExtensions
             // Hangfire's default dashboard authorization only permits local requests.
             app.UseHangfireDashboard("/hangfire");
         }
+        var monthlyBillingCron = Cron.Monthly(1, 0); // 00:00 UTC = 07:00 Vietnam, day 1.
         recurring.AddOrUpdate<PlatformFeeMonthlyStatementJob>("platform-fee-monthly-statement-generation",
-            job => job.ExecuteAsync(CancellationToken.None), Cron.Monthly(1, 0)); // UTC: 07:00 Vietnam
+            job => job.ExecuteAsync(CancellationToken.None), monthlyBillingCron); // UTC: 07:00 Vietnam
+        recurring.AddOrUpdate<SaveBite.Backend.Audit.Archives.AuditArchiveService>("audit-log-monthly-archive",
+            job => job.ExecuteAsync(CancellationToken.None), monthlyBillingCron); // Same UTC schedule as platform fees.
         recurring.AddOrUpdate<PlatformFeeOverdueJob>("platform-fee-overdue-check",
             job => job.ExecuteAsync(CancellationToken.None), Cron.Hourly());
 

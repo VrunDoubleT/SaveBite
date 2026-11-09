@@ -12,7 +12,8 @@ interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
-const API_URL = import.meta.env.VITE_API_URL ?? "/api";
+// Local requests share Vite's origin; Vite forwards HTTP and realtime to the API.
+const API_URL = import.meta.env.DEV ? "/api" : (import.meta.env.VITE_API_URL ?? "/api");
 const TOKEN_KEY = "savebite-access-token";
 const REFRESH_TOKEN_KEY = "savebite-refresh-token";
 

@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { AuditArchivePanel } from "@/features/audit-logs/components/AuditArchivePanel";
 import {
   AuditLogDetailModal,
   AuditLogFilterBar,
@@ -31,11 +31,12 @@ export function AdminAuditLogsPage() {
     updateFromDate,
     toDate,
     updateToDate,
+    identifiers,
+    updateIdentifiers,
     hasActiveFilters,
     resetFilters,
     selectedLog,
     setSelectedLog,
-    refresh,
   } = useAuditLogs();
 
   return (
@@ -46,29 +47,13 @@ export function AdminAuditLogsPage() {
           <p className="mt-1 text-sm text-neutral-500">
             Who did what, to which record, and when. Secrets are never shown.
           </p>
-          <p className="mt-2 text-sm text-neutral-600">
-            <span className="font-medium tabular-nums text-neutral-900">
-              {totalItems.toLocaleString("vi-VN")}
-            </span>{" "}
-            {totalItems === 1 ? "entry" : "entries"}
-            {hasActiveFilters ? " match your filters" : " in total"}
-          </p>
         </div>
-
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 self-start rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto"
-        >
-          <RefreshCw
-            className={`size-4 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`}
-          />
-          Refresh
-        </button>
       </header>
 
+      <AuditArchivePanel />
       <AuditLogFilterBar
+        identifiers={identifiers}
+        onIdentifiersChange={updateIdentifiers}
         search={search}
         onSearchChange={updateSearch}
         actorType={actorType}

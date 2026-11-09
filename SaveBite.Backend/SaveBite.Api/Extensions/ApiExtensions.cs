@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.OpenApi.Models;
 using SaveBite.Backend.Configurations;
 using SaveBite.Backend.Uploads;
+using SaveBite.Backend.Middlewares;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -34,6 +35,10 @@ public static class ApiExtensions
                 JsonNamingPolicy.CamelCase;
         });
 
+        services.AddFluentValidation();
+        services.AddApiBehavior();
+        services.AddExceptionHandler<GlobalExceptionHandler>();
+        services.AddProblemDetails();
         services.AddEndpointsApiExplorer();
         services.AddHttpContextAccessor();
         services.AddScoped<UploadReferenceFilter>();

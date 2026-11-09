@@ -39,9 +39,9 @@ public sealed class ShopApplicationController : ControllerBase
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<ApiResponse<ShopApplicationResponse>>> Create(
         [FromForm] CreateShopApplicationRequest request,
-        [FromForm] IFormFile? logo,
-        [FromForm] IFormFile? coverImage,
-        [FromForm] List<IFormFile>? documents,
+        IFormFile? logo,
+        IFormFile? coverImage,
+        List<IFormFile>? documents,
         [FromForm] List<string>? documentTypes,
         CancellationToken cancellationToken)
     {
@@ -55,9 +55,9 @@ public sealed class ShopApplicationController : ControllerBase
     public async Task<ActionResult<ApiResponse<ShopApplicationResponse>>> Resubmit(
         Guid applicationId,
         [FromForm] ResubmitShopApplicationRequest request,
-        [FromForm] IFormFile? logo,
-        [FromForm] IFormFile? coverImage,
-        [FromForm] List<IFormFile>? documents,
+        IFormFile? logo,
+        IFormFile? coverImage,
+        List<IFormFile>? documents,
         [FromForm] List<string>? documentTypes,
         CancellationToken cancellationToken)
     {

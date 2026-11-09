@@ -11,5 +11,8 @@ public sealed record GetAuditLogsRequest(
     string? TargetType = null,
     string? Action = null,
     DateOnly? FromDate = null,
-    DateOnly? ToDate = null
+    DateOnly? ToDate = null,
+    Guid? ActorUserId = null,
+    Guid? TargetId = null,
+    Guid? CorrelationId = null
 );

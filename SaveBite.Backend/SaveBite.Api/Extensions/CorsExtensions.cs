@@ -1,3 +1,5 @@
+namespace SaveBite.Backend.Extensions;
+
 public static class CorsExtensions
 {
     public static IServiceCollection AddCorsPolicy(

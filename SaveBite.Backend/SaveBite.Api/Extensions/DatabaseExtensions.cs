@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Audit;
 using SaveBite.Backend.Data;
+using SaveBite.Backend.Data.Seed;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -25,5 +26,16 @@ public static class DatabaseExtensions
         });
 
         return services;
+    }
+
+    public static async Task InitializeDatabaseAsync(this WebApplication app, CancellationToken ct = default)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var auditContext = scope.ServiceProvider.GetRequiredService<IAuditContext>();
+        auditContext.Enabled = false;
+
+        await context.Database.MigrateAsync(ct);
+        await DbSeeder.SeedAsync(context);
     }
 }

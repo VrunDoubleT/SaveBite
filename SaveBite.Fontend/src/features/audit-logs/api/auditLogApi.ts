@@ -18,14 +18,31 @@ interface BackendAuditLogPageResponse {
   filterOptions: AuditLogFilterOptions;
 }
 
+function toBackendQueryParams(params?: AuditLogQueryParams) {
+  const query = {
+    page: params?.page,
+    pageSize: params?.pageSize,
+    search: params?.search?.trim(),
+    actorType: params?.actorType || undefined,
+    targetType: params?.targetType?.trim() || undefined,
+    action: params?.action?.trim() || undefined,
+    fromDate: params?.fromDate || undefined,
+    toDate: params?.toDate || undefined,
+    actorUserId: params?.actorUserId?.trim() || undefined,
+    targetId: params?.targetId?.trim() || undefined,
+    correlationId: params?.correlationId?.trim() || undefined,
+  } satisfies AuditLogQueryParams;
+
+  return Object.fromEntries(
+    Object.entries(query).filter(([, value]) => value !== undefined && value !== ""),
+  );
+}
+
 export const auditLogApi = {
   async getLogs(params?: AuditLogQueryParams): Promise<AuditLogPageResult> {
-    const cleanParams = Object.fromEntries(
-      Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== ""),
-    );
     const res = await httpClient.get<ApiResponse<BackendAuditLogPageResponse>>(
       API_ENDPOINTS.ADMIN_AUDIT_LOGS.BASE,
-      { params: cleanParams },
+      { params: toBackendQueryParams(params) },
     );
     const { page, filterOptions } = res.data.data;
     return {

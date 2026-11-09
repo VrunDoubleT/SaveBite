@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -80,7 +81,7 @@ public static class JwtExtensions
                 };
             });
 
-        services.AddSingleton(TimeProvider.System);
+        services.TryAddSingleton(TimeProvider.System);
 
         return services;
     }

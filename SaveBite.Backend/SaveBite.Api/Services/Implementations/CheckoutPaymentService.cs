@@ -1,3 +1,4 @@
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
@@ -16,6 +17,7 @@ namespace SaveBite.Backend.Services.Implementations;
 // Reconcile provider payments, order submission, cancellation and reservation expiry.
 public sealed class CheckoutPaymentService : ICheckoutPaymentService
 {
+    private readonly IAuditWriter _audit;
     private readonly OrderResaleService _resale;
     private readonly ICheckoutRepository _checkoutRepository;
     private readonly INotificationQueue _notifications;
@@ -36,8 +38,9 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         ILogger<CheckoutPaymentService> logger,
         OrderConfirmationScheduling confirmation,
         IShopOrderEventService shopOrderEvents,
-        INotificationQueue notifications, OrderResaleService resale)
+        INotificationQueue notifications, OrderResaleService resale, IAuditWriter audit)
     {
+        _audit = audit;
         _resale = resale;
         _checkoutRepository = repository;
         _notifications = notifications;
@@ -249,6 +252,8 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     {
         // Duplicate notifications must not settle the same reserved inventory twice.
         if (payment.Status == PaymentStatus.Succeeded) return false;
+        var previousPaymentStatus = payment.Status;
+        var previousCollectedAmount = payment.CollectedAmount;
         var previous = order.Status;
         var late = order.HardDeadlineAt <= Now || order.Status is OrderStatus.Cancelled or OrderStatus.Expired or OrderStatus.Rejected or OrderStatus.NoShow || !order.InventoryReservationActive;
         payment.CollectedAmount = Math.Max(payment.CollectedAmount, status.AmountPaid);
@@ -269,9 +274,28 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             // Only a verified full payment or deposit submits the order to the shop.
             if (order.Status == OrderStatus.AwaitingPayment) order.Status = OrderStatus.Pending;
         }
+        _audit.Record("Payment", payment.Id, order.PaymentReviewRequired ? "VERIFIED_REVIEW_REQUIRED" : "VERIFIED",
+            new { Status = previousPaymentStatus.ToString(), CollectedAmount = previousCollectedAmount },
+            new
+            {
+                Status = payment.Status.ToString(),
+                payment.OrderId,
+                payment.Amount,
+                payment.CollectedAmount,
+                payment.GatewayOrderCode,
+                payment.GatewayTransactionId,
+                payment.PaidAt,
+                LatePayment = late,
+                ExcessPayment = status.AmountPaid > payment.Amount,
+                order.PaymentReviewRequired
+            },
+            order.PaymentReviewRequired ? "Verified payment requires manual review due to late or excess funds." : "Payment verified with the payment provider.");
         _checkoutRepository.AddHistory(new OrderStatusHistory
         {
-            Id = Guid.NewGuid(), OrderId = order.Id, FromStatus = previous, ToStatus = order.Status,
+            Id = Guid.NewGuid(),
+            OrderId = order.Id,
+            FromStatus = previous,
+            ToStatus = order.Status,
             Note = late ? "Payment arrived after pickup/order expiry; manual payment review required. Inventory was not sold." : "Required online payment verified with the payment provider.",
             CreatedAt = Now
         });
@@ -283,7 +307,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         }
         return becamePending;
     }
-    
+
     // Expire an unpaid order after provider closure is confirmed or when link creation was never attempted.
     private async Task CloseAsync(Order order, Payment payment, OrderStatus status, CancellationToken ct)
     {
@@ -326,8 +350,12 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         }
         _checkoutRepository.AddHistory(new OrderStatusHistory
         {
-            Id = Guid.NewGuid(), OrderId = order.Id, FromStatus = previous, ToStatus = OrderStatus.Cancelled,
-            Note = CheckoutRules.CustomerCancellationPolicy + " Inventory released for an unpaid reservation or held pending a five-minute shop resale decision.", CreatedAt = Now
+            Id = Guid.NewGuid(),
+            OrderId = order.Id,
+            FromStatus = previous,
+            ToStatus = OrderStatus.Cancelled,
+            Note = CheckoutRules.CustomerCancellationPolicy + " Inventory released for an unpaid reservation or held pending a five-minute shop resale decision.",
+            CreatedAt = Now
         });
     }
 

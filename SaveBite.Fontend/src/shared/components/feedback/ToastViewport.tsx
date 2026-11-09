@@ -1,3 +1,4 @@
+import "./ToastViewport.css";
 import { CheckCircle2, CircleAlert, Info, X } from "lucide-react";
 import { useToastStore } from "@/shared/stores/toastStore";
 
@@ -7,6 +8,7 @@ const toastStyles = {
     container: "border-border-default bg-bg-surface",
     icon: "bg-primary-50 text-primary-700",
     heading: "text-text-primary",
+    progress: "bg-primary-700",
     Icon: CheckCircle2,
   },
   error: {
@@ -14,6 +16,7 @@ const toastStyles = {
     container: "border-border-default bg-bg-surface",
     icon: "bg-danger-soft text-danger-strong",
     heading: "text-text-primary",
+    progress: "bg-danger-strong",
     Icon: CircleAlert,
   },
   info: {
@@ -21,6 +24,7 @@ const toastStyles = {
     container: "border-border-default bg-bg-surface",
     icon: "bg-info-soft text-info-strong",
     heading: "text-text-primary",
+    progress: "bg-info-strong",
     Icon: Info,
   },
 };
@@ -41,7 +45,7 @@ export function ToastViewport() {
             key={toast.id}
             role={toast.type === "error" ? "alert" : "status"}
             aria-atomic="true"
-            className={`pointer-events-auto grid shrink-0 grid-cols-[28px_minmax(0,1fr)_28px] items-start gap-2.5 rounded-lg border p-3 shadow-md ${style.container}`}
+            className={`toast-notification relative overflow-hidden pointer-events-auto grid shrink-0 grid-cols-[28px_minmax(0,1fr)_28px] items-start gap-2.5 rounded-lg border p-3 shadow-md ${style.container}`}
           >
             <span className={`flex size-7 items-center justify-center rounded-md ${style.icon}`}>
               <Icon className="size-4" aria-hidden="true" />
@@ -60,6 +64,15 @@ export function ToastViewport() {
             >
               <X className="size-4" aria-hidden="true" />
             </button>
+            <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-neutral-100">
+              <div
+                onAnimationEnd={() => removeToast(toast.id)}
+                className={`toast-countdown h-full origin-left ${style.progress}`}
+                style={{
+                  animationDuration: `${Math.max(0, toast.duration)}ms`,
+                }}
+              />
+            </div>
           </div>
         );
       })}

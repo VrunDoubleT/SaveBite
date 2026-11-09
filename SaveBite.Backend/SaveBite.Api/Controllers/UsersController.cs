@@ -35,7 +35,7 @@ public sealed class UsersController : ControllerBase
     // Upload the current user avatar.
     [CustomerAccess]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> UploadAvatar([FromForm] IFormFile? file, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> UploadAvatar(IFormFile? file, CancellationToken cancellationToken)
     {
         if (file is null)
             throw AppException.BadRequest("Avatar file is required.");

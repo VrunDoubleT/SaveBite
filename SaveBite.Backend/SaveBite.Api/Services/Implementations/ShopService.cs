@@ -221,10 +221,10 @@ public sealed class ShopService : IShopService
 
         var (avgRating, totalReviews, breakdown) = await _shopRepository.GetShopReviewStatsAsync(shopId, cancellationToken);
         var (items, totalItems) = await _shopRepository.GetPagedStoreReviewsAsync(
-            shopId, 
-            request.Rating, 
-            request.Page, 
-            request.PageSize, 
+            shopId,
+            request.Rating,
+            request.Page,
+            request.PageSize,
             cancellationToken);
 
         var reviewResponses = items.Select(f => new StoreReviewResponse
@@ -280,7 +280,7 @@ public sealed class ShopService : IShopService
             ? now >= opening.Value && now <= closing.Value
             : now >= opening.Value || now <= closing.Value;
     }
-    
+
     //  payment config =====
     public async Task<ShopPaymentConfigResponse> GetOwnerPaymentConfigAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
@@ -298,6 +298,11 @@ public sealed class ShopService : IShopService
         if (paymentConfig == null)
             throw AppException.NotFound("Shop payment configuration not found.");
 
+        var clientChanged = !string.IsNullOrWhiteSpace(request.PayosClientId) && paymentConfig.PayosClientId != request.PayosClientId.Trim();
+        var apiKeyChanged = !string.IsNullOrWhiteSpace(request.PayosApiKey) && paymentConfig.PayosApiKey != request.PayosApiKey.Trim();
+        var checksumChanged = !string.IsNullOrWhiteSpace(request.PayosChecksumKey) && paymentConfig.PayosChecksumKey != request.PayosChecksumKey.Trim();
+        if (!clientChanged && !apiKeyChanged && !checksumChanged) return MapPaymentConfigResponse(paymentConfig);
+
         if (!string.IsNullOrWhiteSpace(request.PayosClientId))
             paymentConfig.PayosClientId = request.PayosClientId.Trim();
 
@@ -307,6 +312,19 @@ public sealed class ShopService : IShopService
         if (!string.IsNullOrWhiteSpace(request.PayosChecksumKey))
             paymentConfig.PayosChecksumKey = request.PayosChecksumKey.Trim();
 
+        _audit.Record(new AuditLog
+        {
+            ActorUserId = ownerUserId,
+            TargetType = "ShopPaymentConfig",
+            TargetId = paymentConfig.ShopId,
+            Action = "SHOP_PAYMENT_CONFIG_UPDATED",
+            NewValuesJson = JsonSerializer.Serialize(new
+            {
+                MerchantSettingChanged = clientChanged,
+                AccessKeyChanged = apiKeyChanged,
+                SigningKeyChanged = checksumChanged
+            })
+        });
         paymentConfig.UpdatedAt = DateTime.UtcNow;
         await _shopRepository.SaveChangesAsync(cancellationToken);
         return MapPaymentConfigResponse(paymentConfig);
@@ -427,7 +445,7 @@ public sealed class ShopService : IShopService
             RatingBreakdown = breakdown
         };
     }
-    
+
     // Manage Shops.
     public async Task<PagedResult<ShopListResponse>> GetShopListAsync(string? keyword, int page, int pageSize, CancellationToken ct)
     {
@@ -515,25 +533,25 @@ public sealed class ShopService : IShopService
             UpdatedAt = shop.UpdatedAt
         };
     }
-    
+
     // Manage Shops.
     public async Task<ModerationActionResponse> UpdateShopStatusAsync(Guid adminId, Guid shopId, UpdateShopModerationStatusRequest request, CancellationToken ct)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
         var targetStatus = Enum.Parse<ShopStatus>(request.Status.Trim(), ignoreCase: true);
-        
+
         var shop = await _shopRepository.GetShopForStatusUpdateAsync(shopId, ct);
 
         if (shop is null)
             throw AppException.NotFound("Shop not found.");
 
         var currentStatus = shop.Status;
-                  
+
         var statusChanged = currentStatus != targetStatus;
         if (!statusChanged && targetStatus != ShopStatus.Suspended)
             throw AppException.Conflict("Shop already has this status.");
-        
+
         var isAllowed = !statusChanged || currentStatus switch
         {
             ShopStatus.Active => targetStatus is ShopStatus.Paused or ShopStatus.Suspended,
@@ -549,7 +567,7 @@ public sealed class ShopService : IShopService
         var reason = request.Reason?.Trim();
 
         if (!requiresReason) reason = null;
-        
+
         var oldValues = new
         {
             Status = currentStatus.ToString()
@@ -604,12 +622,12 @@ public sealed class ShopService : IShopService
                 : "Shop suspension cleanup was retried."
         };
     }
-    
+
     // Manage Shops.
     private static string? ReadStatus(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return null;
-        
+
         using var document = JsonDocument.Parse(json);
         if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
         foreach (var property in document.RootElement.EnumerateObject())

@@ -1,8 +1,7 @@
 using SaveBite.Backend.Messaging.Consumer.Notifications;
 using SaveBite.Backend.Messaging.Consumer.Orders;
 using SaveBite.Backend.Messaging.Consumer.Users;
-// RabbitMqConsumerRegistration.cs.
-using SaveBite.Backend.Messaging.Consumer;
+using SaveBite.Backend.Messaging.Consumer.ProductWarnings;
 using SaveBite.Backend.Messaging.Consumer.Email;
 using SaveBite.Backend.Messaging.Consumer.Cart;
 using SaveBite.Backend.Messaging.Consumer.FlashDeal;
@@ -14,7 +13,6 @@ public static class RabbitMqConsumerRegistration
     public static IServiceCollection AddAllRabbitMqConsumers(
         this IServiceCollection services)
     {
-        // Example registration: services.AddRabbitMqConsumer<TestProductConsumer>();
         services.AddRabbitMqConsumer<EmailConsumer>();
         services.AddRabbitMqConsumer<NotificationConsumer>();
         services.AddRabbitMqConsumer<ShopDealOpenedConsumer>();
@@ -27,6 +25,7 @@ public static class RabbitMqConsumerRegistration
 
         services.AddRabbitMqConsumer<FlashDealConsumer>();
         services.AddRabbitMqConsumer<OrderPlatformFeeConsumer>();
+        services.AddHostedService<ProductWarningDeadlineConsumer>();
         return services;
     }
 }

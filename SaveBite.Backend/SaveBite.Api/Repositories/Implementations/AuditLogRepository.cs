@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Requests;
@@ -7,14 +8,8 @@ using SaveBite.Backend.Repositories.Interfaces;
 
 namespace SaveBite.Backend.Repositories.Implementations;
 
-public sealed class AuditLogRepository : IAuditLogRepository
+public sealed class AuditLogRepository(AppDbContext db) : IAuditLogRepository
 {
-    private readonly AppDbContext _db;
-
-    public AuditLogRepository(AppDbContext db)
-    {
-        _db = db;
-    }
 
     public async Task<PagedResult<AuditLog>> GetPagedLogsAsync(
         GetAuditLogsRequest request,
@@ -22,7 +17,7 @@ public sealed class AuditLogRepository : IAuditLogRepository
         DateTime? toUtcExclusive,
         CancellationToken ct = default)
     {
-        var query = _db.AuditLogs
+        var query = db.AuditLogs
             .AsNoTracking()
             .Include(x => x.ActorUser)
             .AsQueryable();
@@ -43,6 +38,13 @@ public sealed class AuditLogRepository : IAuditLogRepository
             var action = request.Action.Trim();
             query = query.Where(x => x.Action == action);
         }
+
+        if (request.ActorUserId.HasValue)
+            query = query.Where(x => x.ActorUserId == request.ActorUserId.Value);
+        if (request.TargetId.HasValue)
+            query = query.Where(x => x.TargetId == request.TargetId.Value);
+        if (request.CorrelationId.HasValue)
+            query = query.Where(x => x.CorrelationId == request.CorrelationId.Value);
 
         if (fromUtc.HasValue)
         {
@@ -66,7 +68,7 @@ public sealed class AuditLogRepository : IAuditLogRepository
                 (x.ActorUser != null && (
                     x.ActorUser.FullName.ToLower().Contains(term) ||
                     x.ActorUser.Email.ToLower().Contains(term))) ||
-                (isGuid && (x.TargetId == parsedGuid || x.ActorUserId == parsedGuid || x.CorrelationId == parsedGuid)));
+                (isGuid && (x.Id == parsedGuid || x.TargetId == parsedGuid || x.ActorUserId == parsedGuid || x.CorrelationId == parsedGuid)));
         }
 
         var page = Math.Max(1, request.Page);
@@ -84,28 +86,18 @@ public sealed class AuditLogRepository : IAuditLogRepository
     }
 
     public Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken ct = default)
-        => _db.AuditLogs
+        => db.AuditLogs
             .AsNoTracking()
             .Include(x => x.ActorUser)
             .SingleOrDefaultAsync(x => x.Id == id, ct);
 
     public async Task<(IReadOnlyList<string> Actions, IReadOnlyList<string> TargetTypes)> GetDistinctFiltersAsync(
-        CancellationToken ct = default)
+        string? targetType = null, CancellationToken ct = default)
     {
-        var actions = await _db.AuditLogs
-            .AsNoTracking()
-            .Select(x => x.Action)
+        var stored = await db.AuditLogs.AsNoTracking()
+            .Select(x => new { x.TargetType, x.Action })
             .Distinct()
-            .OrderBy(x => x)
             .ToListAsync(ct);
-
-        var targetTypes = await _db.AuditLogs
-            .AsNoTracking()
-            .Select(x => x.TargetType)
-            .Distinct()
-            .OrderBy(x => x)
-            .ToListAsync(ct);
-
-        return (actions, targetTypes);
+        return AuditFilterCatalog.Build(stored.Select(x => (x.TargetType, x.Action)), targetType);
     }
 }
