@@ -56,6 +56,8 @@ export interface FlashDealCursorParams {
   latitude?: number;
   longitude?: number;
   radiusInKm?: number;
+  cursor?: string;
+  locationMode?: "gps" | "saved_address" | "default";
   cursor1?: string;
   cursor2?: string;
   mode?: CursorMode;
@@ -69,6 +71,8 @@ export interface FlashDealCursorParams {
 
 export interface FlashDealCursorResult {
   deals: FlashDeal[];
+  nextCursor?: string | null;
+  hasMore?: boolean;
   cursor1?: string;
   cursor2?: string;
   hasOlder: boolean;

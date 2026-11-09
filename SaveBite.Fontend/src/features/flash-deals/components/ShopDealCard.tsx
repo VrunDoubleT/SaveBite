@@ -1,7 +1,7 @@
 import { useAuthStore } from "@/shared/stores/authStore";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Star, ShoppingBag } from "lucide-react";
+import { Star, ShoppingBag, Sparkles } from "lucide-react";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
 interface ShopDealCardProps {
@@ -64,12 +64,20 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
           />
         </Link>
 
-        {/* Top-left Discount Badge */}
-        {deal.maxDiscountPercent > 0 && (
-          <span className="absolute left-3 top-3 rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-bold text-white shadow-xs">
-            -{deal.maxDiscountPercent}%
-          </span>
-        )}
+        {/* Top-left Badges: Discount + NEW */}
+        <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
+          {deal.maxDiscountPercent > 0 && (
+            <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-bold text-white shadow-xs">
+              -{deal.maxDiscountPercent}%
+            </span>
+          )}
+          {(deal.isNew || (deal.createdAt && Date.now() - new Date(deal.createdAt).getTime() < 30 * 60 * 1000)) && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-md ring-1 ring-white/90 animate-pulse">
+              <Sparkles className="size-3 shrink-0" aria-hidden="true" />
+              NEW
+            </span>
+          )}
+        </div>
 
         {/* Top-right Status / Timer Badge */}
         <span className="absolute right-3 top-3 rounded-full bg-neutral-900/75 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-xs">

@@ -9,11 +9,19 @@ import { API_URL } from "@/shared/api/httpClient";
 import type { RealtimeEvent } from "@/shared/realtime/realtime.types";
 import { emitFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 
+export interface FlashDealRealtimePayload {
+  dealId?: string;
+  shopId?: string;
+  action?: string;
+  status?: string;
+  visibilityVersion?: number;
+}
+
 // Public pages keep their subscription even when the deal becomes unavailable.
 export function useFlashDealRealtime(
   kind: "shop" | "deal" | "all",
   id: string | undefined,
-  refresh: () => void,
+  refresh: (eventData?: FlashDealRealtimePayload) => void,
 ) {
   const [connectionStatus, setConnectionStatus] = useState<
     "connecting" | "connected" | "disconnected"
@@ -34,10 +42,10 @@ export function useFlashDealRealtime(
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Error)
       .build();
-    const refreshSoon = () => {
+    const refreshSoon = (payload?: FlashDealRealtimePayload) => {
       clearTimeout(pending);
       pending = setTimeout(() => {
-        if (!stopped) callback.current();
+        if (!stopped) callback.current(payload);
       }, 100);
     };
     let hasJoinedOnce = false;
@@ -46,6 +54,8 @@ export function useFlashDealRealtime(
         await connection.invoke("WatchShop", id);
       } else if (kind === "deal" && id) {
         await connection.invoke("WatchDeal", id);
+      } else if (kind === "all") {
+        await connection.invoke("WatchFeed");
       }
       if (!stopped) setConnectionStatus("connected");
       // Only refresh on reconnect (not on initial mount when component already fetches data)
@@ -58,16 +68,24 @@ export function useFlashDealRealtime(
     connection.on("ReceiveEvent", (event: RealtimeEvent<any>) => {
       if (event.version !== 1) return;
       if (event.type === "flashdeal.changed") {
+        const payload = event.data as FlashDealRealtimePayload | undefined;
         if (kind === "all") {
-          refreshSoon();
+          const act = payload?.action?.toLowerCase();
+          const st = payload?.status?.toLowerCase();
+          // Hidden / Closed / Cancelled deals must be dropped from active feed immediately without delay!
+          if (act === "hidden" || st === "hidden" || act === "closed" || st === "closed" || act === "cancelled" || st === "cancelled") {
+            if (!stopped) callback.current(payload);
+          } else {
+            refreshSoon(payload);
+          }
           return;
         }
-        const receivedId = kind === "shop" ? event.data?.shopId : event.data?.dealId;
+        const receivedId = kind === "shop" ? payload?.shopId : payload?.dealId;
         if (
           (id && receivedId?.toLowerCase() === id.toLowerCase()) ||
-          (kind === "deal" && id && event.data?.dealId?.toLowerCase() === id.toLowerCase())
+          (kind === "deal" && id && payload?.dealId?.toLowerCase() === id.toLowerCase())
         ) {
-          refreshSoon();
+          refreshSoon(payload);
         }
       } else if (event.type === "shop.status.changed") {
         const changedShopId = event.data?.shopId;

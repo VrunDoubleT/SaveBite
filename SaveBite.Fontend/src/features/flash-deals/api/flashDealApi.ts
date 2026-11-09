@@ -20,9 +20,11 @@ export const flashDealApi = {
     const data = response.data.data;
     return {
       deals: data?.deals ?? [],
+      nextCursor: data?.nextCursor,
+      hasMore: data?.hasMore ?? data?.hasOlder ?? false,
       cursor1: data?.cursor1,
       cursor2: data?.cursor2,
-      hasOlder: data?.hasOlder ?? false,
+      hasOlder: data?.hasOlder ?? data?.hasMore ?? false,
       hasNewer: data?.hasNewer ?? false,
       prependedCount: data?.prependedCount ?? 0,
       newDealsCount: data?.newDealsCount ?? 0,
@@ -53,6 +55,14 @@ export const flashDealApi = {
     } catch {
       return [];
     }
+  },
+
+  async updateGps(params: { latitude: number; longitude: number; accuracy?: number }): Promise<number> {
+    const response = await httpClient.post<ApiResponse<number>>(
+      API_ENDPOINTS.LOCATION.GPS,
+      params,
+    );
+    return response.data.data;
   },
 
   // --- Store Owner Flash Deals APIs ---

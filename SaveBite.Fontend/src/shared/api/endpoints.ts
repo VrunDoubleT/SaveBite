@@ -92,6 +92,9 @@ export const API_ENDPOINTS = {
     ACCEPT: (invitationId: string) => `/staff-invitations/${invitationId}/acceptances`,
     DECLINE: (invitationId: string) => `/staff-invitations/${invitationId}/rejections`,
   },
+  LOCATION: {
+    GPS: "/location/gps",
+  },
   FLASH_DEALS: {
     NEARBY: "/flash-deals",
     BY_SHOP: (shopId: string) => `/shops/${shopId}/flash-deals`,
