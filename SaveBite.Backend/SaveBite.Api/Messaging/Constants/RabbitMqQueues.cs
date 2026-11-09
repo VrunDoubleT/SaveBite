@@ -21,4 +21,6 @@ public static class RabbitMqQueues
     public const string FlashDealQueueName = "flashdeal_queue";
     public const string OrderPlatformFeeQueueName = "order_platform_fee_queue";
     public const string OrderPlatformFeeDeadLetterQueueName = "order_platform_fee_dead_letter_queue";
+    public const string TrustLevelReconcileQueueName = "trust_level_reconcile_queue";
+    public const string TrustLevelReconcileDeadLetterQueueName = "trust_level_reconcile_dead_letter_queue";
 }

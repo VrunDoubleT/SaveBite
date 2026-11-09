@@ -1,7 +1,10 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Repositories.Interfaces;
+using SaveBite.Backend.Messaging.Constants;
+using SaveBite.Backend.Messaging.Events;
 
 namespace SaveBite.Backend.Repositories.Implementations;
 
@@ -100,6 +103,38 @@ public sealed class TrustConfigRepository : ITrustConfigRepository
             .Where(progress => userIds.Contains(progress.UserId))
             .ToDictionaryAsync(progress => progress.UserId, cancellationToken);
     }
+
+    public async Task<long> IncrementPolicyVersionAndQueueOutboxAsync(string triggerReason, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        // Version 1 row-level locking to serialize concurrent configuration updates
+        var version = await _dbContext.TrustPolicyVersions
+            .FromSqlInterpolated($"SELECT * FROM trust_policy_version WHERE id = 1 FOR UPDATE")
+            .SingleOrDefaultAsync(cancellationToken);
+        if (version == null)
+        {
+            version = new TrustPolicyVersion { Id = 1, CurrentVersion = 1, UpdatedAt = now };
+            _dbContext.TrustPolicyVersions.Add(version);
+        }
+        else
+        {
+            version.CurrentVersion++;
+            version.UpdatedAt = now;
+        }
+        // Push the Outbox message into the `event_outbox` table (the Interceptor will automatically trigger the Dispatcher after the commit).
+        var outbox = new OrderEventOutbox
+        {
+            Id = Guid.NewGuid(),
+            OrderId = null,
+            EventKey = $"trust:reconcile:{version.CurrentVersion}",
+            RoutingKey = RabbitMqRoutingKeys.TrustLevelReconcile,
+            PayloadJson = JsonSerializer.Serialize(new TrustLevelReconcileEvent(version.CurrentVersion, triggerReason, now)),
+            CreatedAt = now
+        };
+        _dbContext.Set<OrderEventOutbox>().Add(outbox);
+
+        return version.CurrentVersion;
+}
 
     public void AddLevel(TrustLevel level) => _dbContext.TrustLevels.Add(level);
 

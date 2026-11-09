@@ -3608,6 +3608,33 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("trust_order_processing", (string)null);
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustPolicyVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CurrentVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("current_version");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("trust_policy_version", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CurrentVersion = 1L,
+                            UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.TrustProgressHistory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4030,6 +4057,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("gen_random_uuid()");
 
+                    b.Property<long?>("AppliedPolicyVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("applied_policy_version");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -4055,6 +4086,9 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnName("user_id");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AppliedPolicyVersion")
+                        .HasDatabaseName("ix_user_trust_scores_applied_policy_version");
 
                     b.HasIndex("TrustLevelId");
 

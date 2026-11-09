@@ -55,5 +55,12 @@ public class UserTrustScoreConfiguration
 
         builder.HasIndex(x => x.UserId)
             .IsUnique();
+
+             builder.Property(x => x.AppliedPolicyVersion)
+            .HasColumnName("applied_policy_version")
+            .IsRequired(false);
+            
+        builder.HasIndex(x => x.AppliedPolicyVersion)
+            .HasDatabaseName("ix_user_trust_scores_applied_policy_version");
     }
 }

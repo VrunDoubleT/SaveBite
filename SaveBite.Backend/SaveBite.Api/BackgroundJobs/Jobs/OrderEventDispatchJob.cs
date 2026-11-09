@@ -87,6 +87,11 @@ public sealed class OrderEventDispatchJob
                         JsonSerializer.Deserialize<OrderNoShowEvent>(message.PayloadJson)
                             ?? throw new InvalidOperationException("Invalid NoShow order event."), ct);
                     break;
+                case RabbitMqRoutingKeys.TrustLevelReconcile:
+                    await _publisher.PublishAsync(message.RoutingKey,
+                        JsonSerializer.Deserialize<TrustLevelReconcileEvent>(message.PayloadJson)
+                            ?? throw new InvalidOperationException("Invalid trust level reconcile event."), ct);
+                    break;
                 default: throw new InvalidOperationException("Unsupported order event.");
             }
             message.PublishedAt = _clock.GetUtcNow().UtcDateTime;

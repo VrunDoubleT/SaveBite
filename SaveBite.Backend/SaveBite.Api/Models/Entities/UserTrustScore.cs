@@ -12,6 +12,12 @@ public class UserTrustScore
 
     public bool IsOfflineLockedPermanently { get; set; }
 
+    /// <summary>
+    /// The latest Trust Level configuration version has been applied to this user.
+    /// Ensure that an old consumer never overwrites the results produced by a new consumer.
+    /// </summary>
+    public long? AppliedPolicyVersion { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
