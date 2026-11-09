@@ -26,6 +26,17 @@ export interface ApiResource<T> {
 // refreshes it in the background (stale-while-revalidate), so switching tabs does not flash.
 const cache = new Map<string, unknown>();
 
+// Delete cache Trust SignalR trust:invalidated
+if (typeof window !== "undefined") {
+  window.addEventListener("trust:invalidated", () => {
+    for (const k of cache.keys()) {
+      if (k.includes(":trust:") || k.includes(":admin:trust-levels")) {
+        cache.delete(k);
+      }
+    }
+  });
+}
+
 /**
  * Loads data with `fetcher` and reloads it whenever `key`/`fetcher` change (memoise the
  * fetcher with useCallback) or `reload()` is called. `key` must identify the request,
@@ -37,6 +48,19 @@ export function useApiResource<T>(key: string, fetcher: () => Promise<T>): ApiRe
 
   const [state, setState] = useState<ResourceState<T> | null>(null);
   const [version, setVersion] = useState(0);
+
+  // reload component Trust SignalR
+  useEffect(() => {
+    if (!key.includes("trust")) return;
+    const onInvalidate = () => {
+      cache.delete(cacheKey);
+      setVersion((v) => v + 1);
+    };
+    window.addEventListener("trust:invalidated", onInvalidate);
+    return () => {
+      window.removeEventListener("trust:invalidated", onInvalidate);
+    };
+  }, [key, cacheKey]);
 
   useEffect(() => {
     let cancelled = false;
