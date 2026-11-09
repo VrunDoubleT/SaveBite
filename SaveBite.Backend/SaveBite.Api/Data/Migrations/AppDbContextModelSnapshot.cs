@@ -270,6 +270,66 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("categories", (string)null);
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.DealNotificationRecipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("error_message");
+
+                    b.Property<string>("LocationSource")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("location_source");
+
+                    b.Property<string>("LocationVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("location_version");
+
+                    b.Property<Guid>("PublicationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publication_id");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("PublicationId", "Status")
+                        .HasDatabaseName("ix_deal_notification_recipients_pub_status");
+
+                    b.HasIndex("PublicationId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_deal_notification_recipients_pub_user");
+
+                    b.ToTable("deal_notification_recipients", (string)null);
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.EmailDelivery", b =>
                 {
                     b.Property<Guid>("Id")
@@ -325,6 +385,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("end_job_id");
 
+                    b.Property<DateTime>("FeedPublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("feed_published_at");
+
                     b.Property<DateTime?>("LifecycleSyncedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("lifecycle_synced_at");
@@ -341,6 +405,10 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid")
                         .HasColumnName("product_id");
+
+                    b.Property<Guid>("PublicationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publication_id");
 
                     b.Property<DateTime>("SaleStartTime")
                         .HasColumnType("timestamp with time zone")
@@ -364,9 +432,18 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.Property<long>("VisibilityVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("visibility_version");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ProductId");
+
+                    b.HasIndex("PublicationId")
+                        .HasDatabaseName("ix_flash_deals_publication_id");
 
                     b.HasIndex("ShopId");
 
@@ -376,6 +453,9 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasIndex("Status", "OrderEndTime");
 
                     b.HasIndex("Status", "SaleStartTime");
+
+                    b.HasIndex("Status", "FeedPublishedAt", "Id")
+                        .HasDatabaseName("ix_flash_deals_status_feed_published_at_id");
 
                     b.ToTable("flash_deals", (string)null);
                 });
@@ -3835,6 +3915,12 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("address_line");
 
+                    b.Property<long>("AddressVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("address_version");
+
                     b.Property<string>("City")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -4237,6 +4323,17 @@ namespace SaveBite.Backend.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("FlashDealVariant");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.DealNotificationRecipient", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });

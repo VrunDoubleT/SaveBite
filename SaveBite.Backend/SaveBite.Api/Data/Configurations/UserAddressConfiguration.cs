@@ -55,6 +55,11 @@ public class UserAddressConfiguration : IEntityTypeConfiguration<UserAddress>
             .HasColumnName("is_default")
             .IsRequired();
 
+        builder.Property(x => x.AddressVersion)
+            .HasColumnName("address_version")
+            .HasDefaultValue(1L)
+            .IsRequired();
+
         builder.Property(x => x.CreatedAt)
             .HasColumnName("created_at")
             .HasColumnType("timestamp with time zone")

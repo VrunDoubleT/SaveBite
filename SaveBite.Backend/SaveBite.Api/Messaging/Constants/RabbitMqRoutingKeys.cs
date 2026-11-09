@@ -19,4 +19,8 @@ public static class RabbitMqRoutingKeys
     public const string FlashDealHidden = "flashdeal.hidden";
     public const string FlashDealExpired = "flashdeal.expired";
     
+    // Deal Publication & Location Geo routing keys (Section 9)
+    public const string DealPublished = "deal.published";
+    public const string DealReopened = "deal.reopened";
+    public const string UserDefaultAddressChanged = "internal.user.default-address.changed";
 }

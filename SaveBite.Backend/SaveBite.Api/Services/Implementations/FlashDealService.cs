@@ -107,6 +107,8 @@ public sealed class FlashDealService : IFlashDealService
                 return new FlashDealCursorListResponse
                 {
                     Deals = new List<FlashDealResponse>(),
+                    NextCursor = null,
+                    HasMore = false,
                     Cursor1 = null,
                     Cursor2 = null,
                     HasOlder = false,
@@ -119,6 +121,8 @@ public sealed class FlashDealService : IFlashDealService
             return new FlashDealCursorListResponse
             {
                 Deals = new List<FlashDealResponse>(),
+                NextCursor = null,
+                HasMore = false,
                 Cursor1 = null,
                 Cursor2 = null,
                 HasOlder = false,
@@ -132,8 +136,46 @@ public sealed class FlashDealService : IFlashDealService
             throw AppException.BadRequest("Radius must be greater than zero.");
         request.Limit = Math.Clamp(request.Limit, 1, 100);
         var radius = Math.Min(request.RadiusInKm, 50);
+
+        // Section 8.2 & 8.4: Keyset Cursor & Snapshot Handling
+        DateTime snapshotAt = DateTime.UtcNow;
+        DateTime? lastPublishedAt = null;
+        Guid? lastDealId = null;
+
+        if (!string.IsNullOrWhiteSpace(request.Cursor))
+        {
+            var cursorData = FeedCursorTokenHandler.Decode(request.Cursor)
+                ?? throw AppException.BadRequest("Invalid feed cursor token.");
+
+            // Section 8.4: Verify location context within threshold (500m / 0.5km)
+            var distanceMoved = FlashDealReadQuery.Distance(cursorData.Latitude, cursorData.Longitude, latitude, longitude);
+            if (distanceMoved > 0.5)
+            {
+                throw AppException.Conflict("CURSOR_LOCATION_CHANGED: Location context changed beyond threshold. Please refresh your feed.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(cursorData.LocationMode) && !string.IsNullOrWhiteSpace(request.LocationMode) &&
+                !string.Equals(cursorData.LocationMode, request.LocationMode, StringComparison.OrdinalIgnoreCase))
+            {
+                throw AppException.Conflict("CURSOR_LOCATION_CHANGED: Location source changed. Please refresh your feed.");
+            }
+
+            snapshotAt = cursorData.SnapshotAt;
+            lastPublishedAt = cursorData.LastFeedPublishedAt;
+            lastDealId = cursorData.LastDealId;
+        }
+
         var query = FlashDealReadQuery.Visible(_db, DateTime.UtcNow);
-        // Distance, filters and cursor boundaries are evaluated by PostgreSQL before hydration.
+        // Ensure deal was published before or at snapshot time
+        query = query.Where(d => d.FeedPublishedAt <= snapshotAt);
+
+        // Keyset Cursor boundary
+        if (lastPublishedAt.HasValue && lastDealId.HasValue)
+        {
+            query = query.Where(d => d.FeedPublishedAt < lastPublishedAt.Value
+                || (d.FeedPublishedAt == lastPublishedAt.Value && d.Id < lastDealId.Value));
+        }
+
         var nearbyShops = _db.Shops.Select(shop => new
         {
             shop.Id,
@@ -142,6 +184,7 @@ public sealed class FlashDealService : IFlashDealService
                 + Math.Cos(latitude * Math.PI / 180) * Math.Cos(shop.Latitude * Math.PI / 180)
                 * Math.Pow(Math.Sin((shop.Longitude - longitude) * Math.PI / 360), 2))))
         }).Where(shop => shop.Distance <= radius);
+
         var distanceRules = (request.Distance ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (distanceRules.Length > 0)
         {
@@ -184,87 +227,51 @@ public sealed class FlashDealService : IFlashDealService
                 || (mid && d.Variants.Min(v => (decimal?)v.DealPrice) >= 30000 && d.Variants.Min(v => (decimal?)v.DealPrice) <= 50000)
                 || (high && d.Variants.Min(v => (decimal?)v.DealPrice) > 50000));
         }
-        var sortedDeals = query.OrderByDescending(d => d.CreatedAt).ThenBy(d => d.Id);
-        async Task<List<FlashDealResponse>> ReadAsync(IQueryable<FlashDeal> selected)
+
+        // Section 8.2: Keyset Order
+        var sortedDeals = query.OrderByDescending(d => d.FeedPublishedAt).ThenByDescending(d => d.Id);
+
+        var entities = await FlashDealReadQuery.WithDetails(sortedDeals.Take(request.Limit + 1)).ToListAsync(cancellationToken);
+        var hasMore = entities.Count > request.Limit;
+        var pagedEntities = entities.Take(request.Limit).ToList();
+
+        var resultDeals = pagedEntities.Select(deal =>
         {
-            var entities = await FlashDealReadQuery.WithDetails(selected).ToListAsync(cancellationToken);
-            return entities.Select(deal =>
+            var response = MapToResponse(deal);
+            response.DistanceInKm = Math.Round(FlashDealReadQuery.Distance(latitude, longitude, deal.Shop.Latitude, deal.Shop.Longitude), 2);
+            return response;
+        }).ToList();
+
+        string? nextCursor = null;
+        if (hasMore && pagedEntities.Count > 0)
+        {
+            var last = pagedEntities[^1];
+            nextCursor = FeedCursorTokenHandler.Encode(new FeedCursorData
             {
-                var response = MapToResponse(deal);
-                response.DistanceInKm = Math.Round(FlashDealReadQuery.Distance(latitude, longitude, deal.Shop.Latitude, deal.Shop.Longitude), 2);
-                return response;
-            }).ToList();
+                LastFeedPublishedAt = last.FeedPublishedAt,
+                LastDealId = last.Id,
+                SnapshotAt = snapshotAt,
+                Latitude = latitude,
+                Longitude = longitude,
+                LocationMode = request.LocationMode,
+                FilterHash = $"{request.RadiusInKm}:{request.Category}:{request.Price}:{request.Distance}:{request.ShopName}"
+            });
         }
 
-        List<FlashDealResponse> resultDeals;
-        bool hasOlder = false;
-        bool hasNewer = false;
-        int newDealsCount = 0;
-        int prependedCount = 0;
-        DateTime? cursor1 = request.Cursor1;
-        DateTime? cursor2 = request.Cursor2;
-
-        if (request.Mode == CursorMode.Older && request.Cursor1.HasValue)
-        {
-
-            // Step 1: Retrieve deals newer than Cursor2 when Cursor2 is provided.
-            var newerPrepend = new List<FlashDealResponse>();
-            if (request.Cursor2.HasValue)
-            {
-                newerPrepend = await ReadAsync(sortedDeals.Where(d => d.CreatedAt > request.Cursor2.Value));
-
-                if (newerPrepend.Count > 0)
-                {
-                    // Advance Cursor2 to the newest timestamp loaded.
-                    cursor2 = newerPrepend.Max(d => d.CreatedAt);
-                    prependedCount = newerPrepend.Count;
-                }
-            }
-
-            // Step 2: Retrieve deals older than Cursor1.
-            var olderPage = await ReadAsync(sortedDeals.Where(d => d.CreatedAt < request.Cursor1.Value).Take(request.Limit + 1));
-            hasOlder = olderPage.Count > request.Limit;
-            olderPage = olderPage.Take(request.Limit).ToList();
-
-            if (olderPage.Count > 0)
-            {
-                cursor1 = olderPage.Min(d => d.CreatedAt);
-            }
-
-            // Prepend the newest deals, then append older deals.
-            resultDeals = newerPrepend.Concat(olderPage).ToList();
-        }
-        else if (request.Mode == CursorMode.Newer && request.Cursor2.HasValue)
-        {
-            var newerCount = await sortedDeals.CountAsync(d => d.CreatedAt > request.Cursor2.Value, cancellationToken);
-
-            resultDeals = new List<FlashDealResponse>();
-            hasNewer = newerCount > 0;
-            newDealsCount = newerCount;
-        }
-        else
-        {
-
-            resultDeals = await ReadAsync(sortedDeals.Take(request.Limit + 1));
-            hasOlder = resultDeals.Count > request.Limit;
-            resultDeals = resultDeals.Take(request.Limit).ToList();
-
-            if (resultDeals.Count > 0)
-            {
-                cursor1 = resultDeals.Min(d => d.CreatedAt);
-                cursor2 = resultDeals.Max(d => d.CreatedAt);
-            }
-        }
+        DateTime? cursor1 = resultDeals.Count > 0 ? resultDeals.Min(d => d.CreatedAt) : null;
+        DateTime? cursor2 = resultDeals.Count > 0 ? resultDeals.Max(d => d.CreatedAt) : null;
 
         return new FlashDealCursorListResponse
         {
             Deals = resultDeals,
+            NextCursor = nextCursor,
+            HasMore = hasMore,
             Cursor1 = cursor1,
             Cursor2 = cursor2,
-            HasOlder = hasOlder,
-            HasNewer = hasNewer,
-            PrependedCount = prependedCount,
-            NewDealsCount = newDealsCount
+            HasOlder = hasMore,
+            HasNewer = false,
+            PrependedCount = 0,
+            NewDealsCount = 0
         };
     }
 
@@ -496,6 +503,9 @@ public sealed class FlashDealService : IFlashDealService
             OrderEndTime = request.OrderEndTime,
             ShopClosingTime = request.ShopClosingTime,
             Status = initialStatus,
+            FeedPublishedAt = isOpenNow ? effectiveStartTime : now,
+            VisibilityVersion = 1,
+            PublicationId = Guid.NewGuid(),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -543,7 +553,12 @@ public sealed class FlashDealService : IFlashDealService
         {
             await _dealRepository.AddAsync(deal, cancellationToken);
             if (isOpenNow && deal.Variants.Any(v => v.TotalQuantity > 0 && existingVariants[v.VariantId].IsActive))
+            {
                 openingMessageId = await ShopDealOpenedOutbox.StageAsync(_db, deal.Id, shop.Id, now, cancellationToken);
+                _db.TrackNotificationOutbox(openingMessageId.Value);
+                FlashDealLifecycleOutbox.StageOpened(_db, deal.Id, now: now);
+            }
+            await _db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
         // Deliver before touching Hangfire: an immediate opening must not wait for scheduling or the lifecycle queue.
@@ -659,6 +674,9 @@ public sealed class FlashDealService : IFlashDealService
 
             if (isReopening)
             {
+                deal.FeedPublishedAt = now;
+                deal.VisibilityVersion++;
+                deal.PublicationId = Guid.NewGuid();
                 _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
                 {
                     Id = Guid.NewGuid(),
@@ -737,10 +755,9 @@ public sealed class FlashDealService : IFlashDealService
 
         if (isReopening && deal.Status == FlashDealStatus.OnSale)
         {
-            await TryPublishLifecycleAsync(
-                RabbitMqRoutingKeys.FlashDealOpened,
-                new FlashDealEvent { FlashDealId = deal.Id },
-                cancellationToken);
+            var openingMessageId = await ShopDealOpenedOutbox.StageAsync(_db, deal.Id, shop.Id, now, cancellationToken);
+            _db.TrackNotificationOutbox(openingMessageId);
+            FlashDealLifecycleOutbox.StageOpened(_db, deal.Id, now: now);
         }
 
         await RefreshScheduleAsync(deal, cancellationToken);
@@ -777,12 +794,9 @@ public sealed class FlashDealService : IFlashDealService
             CreatedAt = deal.UpdatedAt
         });
         await _dealRepository.UpdateAsync(deal, cancellationToken);
+        FlashDealLifecycleOutbox.StageClosed(_db, deal.Id, deal.UpdatedAt);
+        await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        // Publish lifecycle completion; customer DB queries already exclude this deal.
-        await TryPublishLifecycleAsync(
-            RabbitMqRoutingKeys.FlashDealClosed,
-            new FlashDealEvent { FlashDealId = deal.Id },
-            cancellationToken);
 
     }
     // Cancel live and scheduled deals when the shop is suspended; retries safely skip already closed deals.
@@ -823,6 +837,7 @@ public sealed class FlashDealService : IFlashDealService
                     CreatedAt = deal.UpdatedAt
                 });
                 await _dealRepository.UpdateAsync(deal, cancellationToken);
+                FlashDealLifecycleOutbox.StageClosed(_db, deal.Id, deal.UpdatedAt);
                 closedDealIds.Add(deal.Id);
             }
 
@@ -852,8 +867,28 @@ public sealed class FlashDealService : IFlashDealService
         }
         var previousStatus = deal.Status;
         deal.Status = FlashDealStatus.Hidden;
+        deal.VisibilityVersion++;
         deal.LifecycleSyncedAt = null;
-        deal.UpdatedAt = DateTime.UtcNow;
+        var now = DateTime.UtcNow;
+        deal.UpdatedAt = now;
+
+        // Calculate remaining duration at pause moment (Pause & Resume Duration)
+        TimeSpan remainingTime;
+        if (now < deal.SaleStartTime)
+        {
+            remainingTime = deal.OrderEndTime - deal.SaleStartTime;
+        }
+        else if (now < deal.OrderEndTime)
+        {
+            remainingTime = deal.OrderEndTime - now;
+        }
+        else
+        {
+            remainingTime = TimeSpan.Zero;
+        }
+
+        var remainingSeconds = (int)Math.Max(0, remainingTime.TotalSeconds);
+
         _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
         {
             FlashDealId = deal.Id,
@@ -861,17 +896,15 @@ public sealed class FlashDealService : IFlashDealService
             ToStatus = deal.Status,
             ChangedByType = "Shop",
             ChangedByUserId = userId,
+            Note = $"RemainingSeconds:{remainingSeconds}",
             CreatedAt = deal.UpdatedAt
         });
         await _dealRepository.UpdateAsync(deal, cancellationToken);
+        FlashDealLifecycleOutbox.StageHidden(_db, deal.Id, deal.UpdatedAt);
+        await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        // Publish the visibility change for lifecycle processing.
-        await TryPublishLifecycleAsync(
-            RabbitMqRoutingKeys.FlashDealHidden,
-            new FlashDealEvent { FlashDealId = deal.Id },
-            cancellationToken);
     }
-    // 7. Unhide Flash Deal
+    // 7. Unhide / Re-open Flash Deal (Pause & Resume Duration)
     public async Task UnhideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
@@ -885,14 +918,73 @@ public sealed class FlashDealService : IFlashDealService
             throw AppException.BadRequest("Only hidden deals can be restored to visible status.");
         }
         var now = DateTime.UtcNow;
-        if (deal.OrderEndTime <= now)
-        {
-            throw AppException.BadRequest("This deal has already expired and cannot be restored.");
-        }
+
         if (await WarningDealPolicy.IsBlockedAsync(_db, deal.ProductId, cancellationToken))
             throw AppException.Conflict("Product has an overdue warning and cannot reopen deals.");
+
+        // 1. Retrieve preserved remaining duration when the deal was hidden
+        TimeSpan remainingDuration = TimeSpan.Zero;
+        var lastHiddenHistory = await _db.FlashDealStatusHistories
+            .Where(h => h.FlashDealId == deal.Id && h.ToStatus == FlashDealStatus.Hidden)
+            .OrderByDescending(h => h.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (lastHiddenHistory?.Note != null && lastHiddenHistory.Note.StartsWith("RemainingSeconds:"))
+        {
+            if (int.TryParse(lastHiddenHistory.Note["RemainingSeconds:".Length..], out var sec) && sec > 0)
+            {
+                remainingDuration = TimeSpan.FromSeconds(sec);
+            }
+        }
+
+        // Fallback for deals hidden before this feature
+        if (remainingDuration <= TimeSpan.Zero)
+        {
+            if (deal.OrderEndTime > deal.UpdatedAt)
+            {
+                remainingDuration = deal.OrderEndTime - deal.UpdatedAt;
+            }
+            else if (deal.OrderEndTime > deal.SaleStartTime)
+            {
+                remainingDuration = deal.OrderEndTime - deal.SaleStartTime;
+            }
+            else
+            {
+                remainingDuration = TimeSpan.FromMinutes(60);
+            }
+        }
+
+        // Minimum duration threshold (at least 5 minutes)
+        if (remainingDuration < TimeSpan.FromMinutes(5))
+        {
+            remainingDuration = TimeSpan.FromMinutes(5);
+        }
+
+        // 2. Resume timing: start NOW, end at NOW + remainingDuration (Bảo lưu thời lượng còn lại)
+        var pickupBuffer = deal.ShopClosingTime > deal.OrderEndTime
+            ? deal.ShopClosingTime - deal.OrderEndTime
+            : TimeSpan.FromMinutes(30);
+
+        deal.SaleStartTime = now;
+        deal.OrderEndTime = now.Add(remainingDuration);
+        deal.ShopClosingTime = deal.OrderEndTime.Add(pickupBuffer);
+
+        // Check operating hours if configured
+        if (shop.OpeningTime.HasValue && shop.ClosingTime.HasValue)
+        {
+            var startLocalTime = TimeOnly.FromDateTime(deal.SaleStartTime.AddHours(7));
+            if (!IsWithinOperatingHours(shop.OpeningTime.Value, shop.ClosingTime.Value, startLocalTime))
+            {
+                throw AppException.BadRequest($"Cannot reopen deal outside shop operating hours ({shop.OpeningTime.Value:HH:mm} - {shop.ClosingTime.Value:HH:mm}).");
+            }
+        }
+
         var previousStatus = deal.Status;
-        deal.Status = now >= deal.SaleStartTime ? FlashDealStatus.OnSale : FlashDealStatus.Pending;
+        deal.Status = FlashDealStatus.OnSale;
+
+        deal.FeedPublishedAt = now;
+        deal.VisibilityVersion++;
+        deal.PublicationId = Guid.NewGuid();
         deal.LifecycleSyncedAt = null;
         deal.UpdatedAt = now;
         _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
@@ -902,18 +994,20 @@ public sealed class FlashDealService : IFlashDealService
             ToStatus = deal.Status,
             ChangedByType = "Shop",
             ChangedByUserId = userId,
+            Note = $"ResumedWithDurationMinutes:{(int)remainingDuration.TotalMinutes}",
             CreatedAt = now
         });
         await _dealRepository.UpdateAsync(deal, cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        // If already due, let the lifecycle consumer validate and process the opening.
+        await RefreshScheduleAsync(deal, cancellationToken);
+
         if (deal.Status == FlashDealStatus.OnSale)
         {
-            await TryPublishLifecycleAsync(
-                RabbitMqRoutingKeys.FlashDealOpened,
-                new FlashDealEvent { FlashDealId = deal.Id },
-                cancellationToken);
+            var openingMessageId = await ShopDealOpenedOutbox.StageAsync(_db, deal.Id, shop.Id, now, cancellationToken);
+            _db.TrackNotificationOutbox(openingMessageId);
+            FlashDealLifecycleOutbox.StageOpened(_db, deal.Id, expectedDeadline: deal.OrderEndTime, now: now);
         }
+        await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private static ShopFlashDealListItemResponse MapToShopListItemResponse(FlashDeal deal)

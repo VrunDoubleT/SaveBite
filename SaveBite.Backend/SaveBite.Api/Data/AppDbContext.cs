@@ -21,9 +21,33 @@ public class AppDbContext : DbContext
         return Guid.TryParse(value, out var id) ? id : null;
     }
 
+    private void StageFlashDealRealtimeChanges()
+    {
+        foreach (var entry in ChangeTracker.Entries<FlashDeal>().Where(e => e.State is EntityState.Added or EntityState.Modified).ToArray())
+        {
+            var action = entry.Entity.Status switch
+            {
+                SaveBite.Backend.Models.Enums.FlashDealStatus.Hidden => "hidden",
+                SaveBite.Backend.Models.Enums.FlashDealStatus.Closed => "closed",
+                SaveBite.Backend.Models.Enums.FlashDealStatus.Cancelled => "cancelled",
+                SaveBite.Backend.Models.Enums.FlashDealStatus.OnSale => "opened",
+                SaveBite.Backend.Models.Enums.FlashDealStatus.Pending => "opened",
+                _ => "updated"
+            };
+            SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(
+                this,
+                entry.Entity.Id,
+                entry.Entity.ShopId,
+                action,
+                entry.Entity.Status.ToString(),
+                entry.Entity.VisibilityVersion);
+        }
+    }
+
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         _shopHistory.Stage(this, HistoryActorId());
+        StageFlashDealRealtimeChanges();
         var result = base.SaveChanges(acceptAllChangesOnSuccess);
         _shopHistory.Saved();
         return result;
@@ -56,8 +80,7 @@ public class AppDbContext : DbContext
         if (Guid.TryParse(actorValue, out var actorId))
             await UploadAttachmentTracker.StageAsync(this, actorId, cancellationToken);
 
-        foreach (var entry in ChangeTracker.Entries<FlashDeal>().Where(e => e.State is EntityState.Added or EntityState.Modified).ToArray())
-            SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(this, entry.Entity.Id, entry.Entity.ShopId);
+        StageFlashDealRealtimeChanges();
         foreach (var entry in ChangeTracker.Entries<OrderEventOutbox>().Where(e => e.State == EntityState.Added))
             TrackNotificationOutbox(entry.Entity.Id);
         var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
@@ -86,6 +109,7 @@ public class AppDbContext : DbContext
     public DbSet<FlashDeal> FlashDeals => Set<FlashDeal>();
     public DbSet<FlashDealVariant> FlashDealVariants => Set<FlashDealVariant>();
     public DbSet<FlashDealStatusHistory> FlashDealStatusHistories => Set<FlashDealStatusHistory>();
+    public DbSet<DealNotificationRecipient> DealNotificationRecipients => Set<DealNotificationRecipient>();
     // Cart & Orders.
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Payment> Payments => Set<Payment>();

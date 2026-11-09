@@ -86,7 +86,16 @@ public class FlashDealConsumer : RabbitMqConsumer<FlashDealEvent>
         }
         await db.FlashDeals.Where(d => d.Id == dealEvent.FlashDealId)
             .ExecuteUpdateAsync(set => set.SetProperty(d => d.LifecycleSyncedAt, (DateTime?)DateTime.UtcNow), cancellationToken);
-        FlashDealRealtimeOutbox.Stage(db, current.Id, current.ShopId);
+        var action = current.Status switch
+        {
+            FlashDealStatus.Hidden => "hidden",
+            FlashDealStatus.Closed => "closed",
+            FlashDealStatus.Cancelled => "cancelled",
+            FlashDealStatus.OnSale => "opened",
+            FlashDealStatus.Pending => "opened",
+            _ => "updated"
+        };
+        FlashDealRealtimeOutbox.Stage(db, current.Id, current.ShopId, action, current.Status.ToString(), current.VisibilityVersion);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         if (openingMessageId.HasValue)

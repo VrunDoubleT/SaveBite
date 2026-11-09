@@ -12,8 +12,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaveBite.Api.Tests", "SaveB
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaveBite.RedisSync", "tool\SaveBite.RedisSync.csproj", "{7BBB33FA-A41C-4EEA-AC02-D41D33A761B4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaveBite.Scheduling.Tests", "SaveBite.Scheduling.Tests\SaveBite.Scheduling.Tests.csproj", "{CF22B202-04B2-4976-9014-64CF7DF02263}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,9 +30,5 @@ Global
 		{7BBB33FA-A41C-4EEA-AC02-D41D33A761B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7BBB33FA-A41C-4EEA-AC02-D41D33A761B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7BBB33FA-A41C-4EEA-AC02-D41D33A761B4}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CF22B202-04B2-4976-9014-64CF7DF02263}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CF22B202-04B2-4976-9014-64CF7DF02263}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CF22B202-04B2-4976-9014-64CF7DF02263}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CF22B202-04B2-4976-9014-64CF7DF02263}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

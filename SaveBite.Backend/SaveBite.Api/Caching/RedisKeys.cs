@@ -28,4 +28,13 @@ public static class RedisKeys
     public static string AuthLoginFailuresByEmail(string subjectHash)
         => $"auth:login:fail:email:{subjectHash}";
 
+    // Location & Geo Keys (Section 3.2 of Geo Solution)
+    public const string UsersGpsGeo = "savebite:geo:users:gps";
+    public const string UsersDefaultGeo = "savebite:geo:users:default";
+
+    public static string UserGpsMetadata(Guid userId) => $"savebite:user:{userId:N}:gps";
+    public static string UserDefaultAddressVersion(Guid userId) => $"savebite:user:{userId:N}:default-version";
+
+    public static string PublicationGpsTemp(Guid publicationId) => $"savebite:tmp:publication:{publicationId:N}:gps";
+    public static string PublicationDefaultTemp(Guid publicationId) => $"savebite:tmp:publication:{publicationId:N}:default";
 }

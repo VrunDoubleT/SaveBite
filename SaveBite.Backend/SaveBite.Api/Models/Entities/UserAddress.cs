@@ -14,6 +14,7 @@ public class UserAddress
     public double Latitude { get; set; }
     public double Longitude { get; set; }
     public bool IsDefault { get; set; }
+    public long AddressVersion { get; set; } = 1;
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
