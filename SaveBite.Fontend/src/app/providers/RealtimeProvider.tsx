@@ -34,12 +34,16 @@ export function RealtimeProvider({ children }: PropsWithChildren) {
         emitFeedbackSync(data.action ?? "hide", data.feedbackId, data);
       }
     });
-    const unsubscribeShopStatus = client.on(REALTIME_EVENTS.SHOP_STATUS_CHANGED, (event) => {
+        const unsubscribeShopStatus = client.on(REALTIME_EVENTS.SHOP_STATUS_CHANGED, (event) => {
       window.dispatchEvent(new CustomEvent("shop:status-changed", { detail: event.data }));
+    });
+    const unsubscribeTrust = client.on(REALTIME_EVENTS.TRUST_LEVEL_CHANGED, () => {
+      window.dispatchEvent(new CustomEvent("trust:invalidated"));
     });
     const unsubscribeAccount = subscribeAccountEvents(client, userId);
     void client.start();
     return () => {
+      unsubscribeTrust();
       unsubscribeAccount();
       unsubscribeShopStatus();
       unsubscribeFeedback();

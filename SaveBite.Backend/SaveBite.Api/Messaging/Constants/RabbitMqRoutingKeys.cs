@@ -10,6 +10,7 @@ public static class RabbitMqRoutingKeys
     public const string OrderCompleted = "order.completed";
     public const string OrderPending = "order.pending";
     public const string OrderNoShow = "order.noshow";
+    public const string TrustLevelReconcile = "trust.level.reconcile";
   
     public const string EmailRoutingKey = "email";
 

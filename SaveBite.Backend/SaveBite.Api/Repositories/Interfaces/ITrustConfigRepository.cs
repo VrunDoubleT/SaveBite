@@ -36,6 +36,11 @@ public interface ITrustConfigRepository
     Task<IReadOnlyDictionary<Guid, UserLevelProgress>> GetUserProgressMapAsync(
         IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Increment the global Policy Version and record the event in the Outbox within the same transaction.
+    /// </summary>
+    Task<long> IncrementPolicyVersionAndQueueOutboxAsync(string triggerReason, CancellationToken cancellationToken = default);
+
     void AddLevel(TrustLevel level);
 
     void AddRequirement(TrustLevelRequirement requirement);

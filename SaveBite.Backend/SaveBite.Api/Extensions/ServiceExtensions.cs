@@ -47,6 +47,7 @@ public static class ServiceExtensions
         services.AddScoped<ITrustOrderService, TrustOrderService>();
         services.AddScoped<ITrustNotificationService, TrustNotificationService>();
         services.AddScoped<ITrustConfigService, TrustConfigService>();
+        services.AddScoped<ITrustReconciliationService, TrustReconciliationService>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddPasswordHasher();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();
