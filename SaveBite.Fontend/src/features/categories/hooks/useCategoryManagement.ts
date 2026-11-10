@@ -4,15 +4,12 @@ import { categoryApi } from "@/features/categories/api/adminCategoryApi";
 import type { Category } from "@/features/categories/types/adminCategory.types";
 import type { CategoryFormData } from "@/features/categories/schemas/category.schema";
 import { getApiErrorMessage } from "@/shared/api";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 export const CATEGORY_PAGE_SIZE = 5;
 
 export type SaveCategoryResult = "success" | "duplicate" | "error";
 
-/**
- * Handles data fetching, search (debounced), pagination (via URL params)
- * and all category actions for the admin category page.
- */
 export function useCategoryManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Number(searchParams.get("page")) || 1;
@@ -24,23 +21,23 @@ export function useCategoryManagement() {
   const [searchInput, setSearchInput] = useState(currentSearch);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Debounce the search input into the URL
+  // Debounce the search input into the URL using useDebounce
+  const debouncedSearch = useDebounce(searchInput, 400);
+
   useEffect(() => {
-    const handler = setTimeout(() => {
-      if (searchInput !== currentSearch) {
-        setSearchParams(
-          (prev) => {
-            if (searchInput) prev.set("search", searchInput);
-            else prev.delete("search");
-            prev.set("page", "1");
-            return prev;
-          },
-          { replace: true },
-        );
-      }
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchInput, currentSearch, setSearchParams]);
+    const trimmed = debouncedSearch.trim();
+    if (trimmed !== currentSearch) {
+      setSearchParams(
+        (prev) => {
+          if (trimmed) prev.set("search", trimmed);
+          else prev.delete("search");
+          prev.set("page", "1");
+          return prev;
+        },
+        { replace: true },
+      );
+    }
+  }, [debouncedSearch, currentSearch, setSearchParams]);
 
   const fetchCategories = useCallback(async () => {
     try {

@@ -12,6 +12,7 @@ import { ToggleVisibilityModal } from "@/features/flash-deals/components/ToggleV
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 type FilterTab = "all" | "pending" | "running" | "ended" | "hidden";
 
@@ -22,6 +23,7 @@ export function StoreOwnerFlashDealsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [searchKeyword, setSearchKeyword] = useState("");
+  const debouncedSearchKeyword = useDebounce(searchKeyword, 350);
 
   // Modal state for cancelling deal
   const [cancellingDeal, setCancellingDeal] = useState<ShopFlashDealListItem | null>(null);
@@ -129,8 +131,8 @@ export function StoreOwnerFlashDealsPage() {
       const state = getDealState(deal);
       if (activeTab !== "all" && state !== activeTab) return false;
 
-      if (searchKeyword.trim()) {
-        const kw = searchKeyword.toLowerCase();
+      if (debouncedSearchKeyword.trim()) {
+        const kw = debouncedSearchKeyword.toLowerCase().trim();
         const matchName = deal.productName.toLowerCase().includes(kw);
         const matchCat = deal.categoryName?.toLowerCase().includes(kw);
         if (!matchName && !matchCat) return false;
@@ -138,7 +140,7 @@ export function StoreOwnerFlashDealsPage() {
 
       return true;
     });
-  }, [deals, activeTab, searchKeyword]);
+  }, [deals, activeTab, debouncedSearchKeyword]);
 
   // Confirm toggle visibility via modal
   async function handleConfirmToggleVisibility() {
@@ -370,7 +372,7 @@ export function StoreOwnerFlashDealsPage() {
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
             placeholder="Search deals or products..."
-            className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none"
+            className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
           />
         </div>
       </div>

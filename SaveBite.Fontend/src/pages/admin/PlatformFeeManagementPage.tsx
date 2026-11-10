@@ -242,8 +242,8 @@ export function PlatformFeeManagementPage() {
                             )}
                             <div>
                               <div>{stmt.shopName || "Shop"}</div>
-                              <div className="mt-0.5 font-mono text-[10px] font-normal text-slate-400">
-                                {stmt.id.substring(0, 18)}...
+                              <div className="mt-1">
+                                <RecordId id={stmt.id} />
                               </div>
                             </div>
                           </div>
