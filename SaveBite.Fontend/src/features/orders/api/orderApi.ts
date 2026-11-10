@@ -3,6 +3,11 @@ import type { ApiResponse } from "@/shared/types";
 import type { CheckoutOrder, OrderHistoryPage } from "@/features/checkout/types/checkout.types";
 
 export const orderApi = {
+  async numberedPage(status: string, page: number, signal?: AbortSignal): Promise<OrderHistoryPage> {
+    return (await httpClient.get<ApiResponse<OrderHistoryPage>>(API_ENDPOINTS.ORDERS.PAGE, {
+      params: { status, page, pageSize: 10 }, signal,
+    })).data.data;
+  },
   async orderPage(
     status: string,
     cursor?: string | null,

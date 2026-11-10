@@ -36,7 +36,7 @@ public sealed class FeedbackRepository : IFeedbackRepository
         {
             var term = search.Trim();
             query = query.Where(f => (f.Comment != null && f.Comment.Contains(term))
-                || f.User.FullName.Contains(term) || f.Product.Name.Contains(term));
+                || f.User.FullName.Contains(term) || f.OrderItem.ProductNameSnapshot.Contains(term));
         }
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(f => f.CreatedAt).ThenByDescending(f => f.Id)

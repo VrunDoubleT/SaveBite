@@ -49,7 +49,7 @@ public sealed class PaymentHistoryService : IPaymentHistoryService
     private static CustomerPaymentResponse Map(Payment payment) => new()
     {
         Id = payment.Id, OrderId = payment.OrderId, OrderCode = payment.Order.OrderCode,
-        ShopName = payment.Order.Shop.Name, ShopLogoUrl = payment.Order.Shop.LogoUrl,
+        ShopName = PurchaseSnapshots.ShopName(payment.Order), ShopLogoUrl = PurchaseSnapshots.ShopLogo(payment.Order),
         Type = payment.PaymentType.ToString(), Method = payment.Method.ToString(), Status = payment.Status.ToString(),
         Amount = payment.Amount, CollectedAmount = CheckoutOrderMapper.Collected(payment),
         CreatedAt = payment.CreatedAt, PaidAt = payment.PaidAt

@@ -95,8 +95,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             s.DueAt,
             s.PaidAt,
             s.CreatedAt,
-            s.Shop?.Name,
-            s.Shop?.LogoUrl, s.PaymentPauseReason, s.PaymentPausedAt
+            s.ShopNameSnapshot ?? s.Shop?.Name,
+            s.SnapshotCapturedAt.HasValue ? s.ShopLogoUrlSnapshot : s.Shop?.LogoUrl, s.PaymentPauseReason, s.PaymentPausedAt
         )).ToList();
 
         return PagedResult<PlatformFeeStatementSummaryResponse>.Create(
@@ -177,8 +177,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 s.DueAt,
                 s.PaidAt,
                 s.CreatedAt,
-            s.Shop?.Name,
-            s.Shop?.LogoUrl, s.PaymentPauseReason, s.PaymentPausedAt
+            s.ShopNameSnapshot ?? s.Shop?.Name,
+            s.SnapshotCapturedAt.HasValue ? s.ShopLogoUrlSnapshot : s.Shop?.LogoUrl, s.PaymentPauseReason, s.PaymentPausedAt
             )).ToList();
             return PagedResult<PlatformFeeStatementSummaryResponse>.Create(
                 items,
@@ -250,7 +250,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         return new PlatformFeeStatementDetailResponse(
             statement.Id,
             statement.ShopId,
-            statement.Shop.Name,
+            statement.ShopNameSnapshot ?? statement.Shop.Name,
             statement.BillingYear,
             statement.BillingMonth,
             statement.Status,
@@ -263,8 +263,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             adjustmentItems,
             paymentItems,
             historyItems,
-            statement.Shop?.LogoUrl, statement.PaymentPauseReason, statement.PaymentPausedAt
-        );
+            statement.SnapshotCapturedAt.HasValue ? statement.ShopLogoUrlSnapshot : statement.Shop?.LogoUrl, statement.PaymentPauseReason, statement.PaymentPausedAt
+        ) { ShopAddress = statement.ShopAddressSnapshot };
     }
 
      public async Task<PlatformFeeStatementDetailResponse> GetAdminStatementDetailAsync(
@@ -317,7 +317,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             return new PlatformFeeStatementDetailResponse(
                 statement.Id,
                 statement.ShopId,
-                statement.Shop?.Name ?? "Shop",
+                statement.ShopNameSnapshot ?? statement.Shop?.Name ?? "Shop",
                 statement.BillingYear,
                 statement.BillingMonth,
                 statement.Status,
@@ -329,8 +329,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 orderItems,
                 adjustmentItems,
                 paymentItems,
-                historyItems, statement.Shop?.LogoUrl, statement.PaymentPauseReason, statement.PaymentPausedAt
-            );
+                historyItems, statement.SnapshotCapturedAt.HasValue ? statement.ShopLogoUrlSnapshot : statement.Shop?.LogoUrl, statement.PaymentPauseReason, statement.PaymentPausedAt
+            ) { ShopAddress = statement.ShopAddressSnapshot };
         }
     // UC-81: Pay Platform Fee (BR-092, BR-094, BR-097)
     public async Task<PlatformFeePaymentLinkResponse> CreatePaymentLinkAsync(
@@ -871,7 +871,15 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                     IssuedAt = now, CreatedAt = now, UpdatedAt = now,
                     DueAt = paymentReady ? now.AddDays(TimingConfiguration.PlatformFees.StatementPaymentDays) : null
                 };
-                if (isNew) await _repository.AddStatementAsync(statement, ct);
+                if (isNew)
+                {
+                    var shop = await _db.Shops.SingleAsync(s => s.Id == shopId, ct);
+                    statement.ShopNameSnapshot = shop.Name;
+                    statement.ShopAddressSnapshot = string.Join(", ", new[] { shop.AddressLine, shop.Ward, shop.District, shop.City }.Where(v => !string.IsNullOrWhiteSpace(v)));
+                    statement.ShopLogoUrlSnapshot = shop.LogoUrl;
+                    statement.SnapshotCapturedAt = now;
+                    await _repository.AddStatementAsync(statement, ct);
+                }
 
                 var previous = statement.TotalFeeAmount;
                 foreach (var fee in shopFees)
@@ -952,7 +960,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         var statement = await _repository.GetStatementDetailAsync(statementId, ct) ?? throw AppException.NotFound();
         await TryNotifyAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
             NotificationType.PlatformFeePaid, NotificationMessages.PlatformFees.PaymentReceivedTitle,
-            NotificationMessages.PlatformFees.PaymentReceivedBody(statement.Shop.Name, statement.BillingMonth, statement.BillingYear),
+            NotificationMessages.PlatformFees.PaymentReceivedBody(statement.ShopNameSnapshot ?? statement.Shop.Name, statement.BillingMonth, statement.BillingYear),
             $"/store-owner/platform-fees/{statement.Id}", $"platform-fee:{statement.Id}:paid"), ct);
     }
 
@@ -966,8 +974,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             await TryNotifyAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
                 overdue ? NotificationType.PlatformFeeOverdue : NotificationType.PlatformFeeDueSoon,
                 overdue ? NotificationMessages.PlatformFees.OverdueTitle : NotificationMessages.PlatformFees.DueSoonTitle,
-                overdue ? NotificationMessages.PlatformFees.OverdueBody(statement.Shop.Name, statement.TotalFeeAmount, statement.DueAt)
-                        : NotificationMessages.PlatformFees.DueSoonBody(statement.Shop.Name, statement.TotalFeeAmount, statement.DueAt),
+                overdue ? NotificationMessages.PlatformFees.OverdueBody(statement.ShopNameSnapshot ?? statement.Shop.Name, statement.TotalFeeAmount, statement.DueAt)
+                        : NotificationMessages.PlatformFees.DueSoonBody(statement.ShopNameSnapshot ?? statement.Shop.Name, statement.TotalFeeAmount, statement.DueAt),
 
                 $"/store-owner/platform-fees/{statement.Id}", $"platform-fee:{statement.Id}:{(overdue ? "overdue" : "due-soon")}:revision:{statement.PaymentResumeRevision ?? 0}"), ct);
         }
@@ -985,7 +993,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 : NotificationMessages.PlatformFees.PaymentRequiredInfo(statement.TotalFeeAmount, statement.DueAt);
             await TryNotifyAsync(NotificationTarget.User(statement.Shop.OwnerUserId), new CreateNotificationCommand(
                 NotificationType.PlatformFeeStatementIssued, NotificationMessages.PlatformFees.MonthlyStatementIssuedTitle,
-                NotificationMessages.PlatformFees.MonthlyStatementIssuedBody(statement.Shop.Name, month, year, paymentInfo),
+                NotificationMessages.PlatformFees.MonthlyStatementIssuedBody(statement.ShopNameSnapshot ?? statement.Shop.Name, month, year, paymentInfo),
                 $"/store-owner/platform-fees/{statement.Id}", $"platform-fee-statement:{statement.Id}:issued"), ct);
         }
     }

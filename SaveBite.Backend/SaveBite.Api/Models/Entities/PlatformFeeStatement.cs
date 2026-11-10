@@ -4,6 +4,11 @@ namespace SaveBite.Backend.Models.Entities;
 
 public class PlatformFeeStatement
 {
+    public string? ShopNameSnapshot { get; set; }
+    public string? ShopAddressSnapshot { get; set; }
+    public string? ShopLogoUrlSnapshot { get; set; }
+    public DateTime? SnapshotCapturedAt { get; set; }
+
     public Guid Id { get; set; }
     public Guid ShopId { get; set; }
 

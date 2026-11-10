@@ -926,9 +926,25 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("resale_decision_job_id");
 
+                    b.Property<string>("ShopAddressSnapshot")
+                        .HasColumnType("text")
+                        .HasColumnName("shop_address_snapshot");
+
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
+
+                    b.Property<string>("ShopLogoUrlSnapshot")
+                        .HasColumnType("text")
+                        .HasColumnName("shop_logo_url_snapshot");
+
+                    b.Property<string>("ShopNameSnapshot")
+                        .HasColumnType("text")
+                        .HasColumnName("shop_name_snapshot");
+
+                    b.Property<DateTime?>("SnapshotCapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("snapshot_captured_at");
 
                     b.Property<DateTime?>("SoftDeadlineAt")
                         .HasColumnType("timestamp with time zone")
@@ -1048,6 +1064,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("original_price_snapshot");
 
+                    b.Property<string>("ProductImageUrlSnapshot")
+                        .HasColumnType("text")
+                        .HasColumnName("product_image_url_snapshot");
+
                     b.Property<string>("ProductNameSnapshot")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1075,6 +1095,10 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Property<int>("ResaleQuantity")
                         .HasColumnType("integer")
                         .HasColumnName("resale_quantity");
+
+                    b.Property<DateTime?>("SnapshotCapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("snapshot_captured_at");
 
                     b.Property<decimal?>("Subtotal")
                         .HasPrecision(12, 2)
@@ -1618,9 +1642,25 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("payment_resume_revision");
 
+                    b.Property<string>("ShopAddressSnapshot")
+                        .HasColumnType("text")
+                        .HasColumnName("shop_address_snapshot");
+
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
+
+                    b.Property<string>("ShopLogoUrlSnapshot")
+                        .HasColumnType("text")
+                        .HasColumnName("shop_logo_url_snapshot");
+
+                    b.Property<string>("ShopNameSnapshot")
+                        .HasColumnType("text")
+                        .HasColumnName("shop_name_snapshot");
+
+                    b.Property<DateTime?>("SnapshotCapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("snapshot_captured_at");
 
                     b.Property<string>("Status")
                         .IsRequired()

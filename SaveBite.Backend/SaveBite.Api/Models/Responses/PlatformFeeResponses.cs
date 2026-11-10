@@ -220,6 +220,7 @@ public sealed class PlatformFeePaymentItemResponse
 
 public sealed class PlatformFeeStatementDetailResponse
 {
+    public string? ShopAddress { get; set; }
     public Guid Id { get; set; }
     public Guid ShopId { get; set; }
     public string ShopName { get; set; } = string.Empty;

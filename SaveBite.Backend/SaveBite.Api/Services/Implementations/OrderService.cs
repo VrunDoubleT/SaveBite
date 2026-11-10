@@ -28,7 +28,7 @@ public sealed class OrderService : IOrderService
 
     private sealed record HistoryCursor(Guid UserId, string? Status, DateTime CreatedAt, Guid Id);
     // Validate a customer-specific cursor and return filtered order history with status counts.
-    public async Task<OrderHistoryPageResponse> PageAsync(Guid userId, string? status, string? cursor, int pageSize, CancellationToken ct = default)
+    public async Task<OrderHistoryPageResponse> PageAsync(Guid userId, string? status, string? cursor, int pageSize, CancellationToken ct = default, int? page = null)
     {
         if (pageSize is < 1 or > 30) throw AppException.BadRequest("Page size must be between 1 and 30 orders.");
         OrderStatus? filter = null;
@@ -38,6 +38,7 @@ public sealed class OrderService : IOrderService
                 throw AppException.BadRequest("Invalid order status.");
             filter = parsed;
         }
+        if (page is < 1 || (page.HasValue && cursor != null)) throw AppException.BadRequest("Invalid order page.");
         HistoryCursor? position = null;
         if (cursor != null)
         {
@@ -51,7 +52,7 @@ public sealed class OrderService : IOrderService
             catch (Exception ex) when (ex is FormatException or ArgumentException or JsonException)
             { throw AppException.BadRequest("Invalid cursor for this order filter."); }
         }
-        var result = await _repository.GetOrderPageAsync(userId, filter, position?.CreatedAt, position?.Id, pageSize, ct);
+        var result = await _repository.GetOrderPageAsync(userId, filter, position?.CreatedAt, position?.Id, pageSize, ct, page);
         var items = result.Orders.Select(order => CheckoutOrderMapper.Map(order, now: Now)).ToList();
         var last = result.Orders.LastOrDefault();
         var next = result.HasMore && last != null ? WebEncoders.Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(new HistoryCursor(userId, filter?.ToString(), last.CreatedAt, last.Id))) : null;

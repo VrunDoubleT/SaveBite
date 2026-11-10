@@ -10,6 +10,11 @@ public class PlatformFeeStatementConfiguration
 {
     public void Configure(EntityTypeBuilder<PlatformFeeStatement> builder)
     {
+        builder.Property(x => x.ShopNameSnapshot).HasColumnName("shop_name_snapshot");
+        builder.Property(x => x.ShopAddressSnapshot).HasColumnName("shop_address_snapshot");
+        builder.Property(x => x.ShopLogoUrlSnapshot).HasColumnName("shop_logo_url_snapshot");
+        builder.Property(x => x.SnapshotCapturedAt).HasColumnName("snapshot_captured_at");
+
         builder.ToTable("platform_fee_statements", table =>
         {
             table.HasCheckConstraint("ck_platform_fee_statement_paused_deadline", "payment_pause_reason IS NULL OR due_at IS NULL");

@@ -111,6 +111,7 @@ function StatementDetail({ statementId }: { statementId: string }) {
                 </h2>
                 {statement && <StatusBadge status={statement.status} size="sm" />}
               </div>
+              {statement?.shopAddress && <p className="mt-1 text-sm text-text-secondary">{statement.shopAddress}</p>}
               {statementId && (
                 <RecordId
                   id={statementId}

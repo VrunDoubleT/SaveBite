@@ -78,7 +78,7 @@ public sealed class PlatformAnalyticsRepository : IPlatformAnalyticsRepository
             {
                 s.Id,
                 s.ShopId,
-                ShopName = s.Shop.Name,
+                ShopName = s.ShopNameSnapshot ?? s.Shop.Name,
                 s.BillingYear,
                 s.BillingMonth,
                 s.Status,

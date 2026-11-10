@@ -154,7 +154,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim().ToLower();
-            query = query.Where(s => (s.Shop != null && s.Shop.Name.ToLower().Contains(search)) || s.Id.ToString().Contains(search));
+            query = query.Where(s => (s.Shop != null && (s.ShopNameSnapshot ?? s.Shop.Name).ToLower().Contains(search)) || s.Id.ToString().Contains(search));
         }
         var total = await query.CountAsync(ct);
         var page = request.Page < 1 ? 1 : request.Page;

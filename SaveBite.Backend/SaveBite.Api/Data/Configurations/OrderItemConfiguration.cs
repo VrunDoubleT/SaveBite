@@ -8,6 +8,9 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
 {
     public void Configure(EntityTypeBuilder<OrderItem> builder)
     {
+        builder.Property(x => x.ProductImageUrlSnapshot).HasColumnName("product_image_url_snapshot");
+        builder.Property(x => x.SnapshotCapturedAt).HasColumnName("snapshot_captured_at");
+
         builder.ToTable("order_items", table =>
         {
             table.HasCheckConstraint(

@@ -125,6 +125,7 @@ export interface PlatformFeeStatementHistoryItem {
 }
 
 export interface PlatformFeeStatementDetail {
+  shopAddress?: string | null;
   id: string;
   shopId: string;
   shopName: string;

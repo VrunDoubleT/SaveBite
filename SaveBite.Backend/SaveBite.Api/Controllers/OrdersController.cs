@@ -41,8 +41,8 @@ public sealed class OrdersController : ControllerBase
     // Load cursor-paginated customer orders filtered by order status, with counts for the status tabs.
     [HttpGet("page")]
     [CustomerAnyStatusAccess]
-    public async Task<ActionResult<ApiResponse<OrderHistoryPageResponse>>> CustomerPage([FromQuery] string? status, [FromQuery] string? cursor, [FromQuery] int pageSize = 10, CancellationToken ct = default)
-        => Ok(ApiResponse<OrderHistoryPageResponse>.Ok(await _orders.PageAsync(UserId(), status, cursor, pageSize, ct)));
+    public async Task<ActionResult<ApiResponse<OrderHistoryPageResponse>>> CustomerPage([FromQuery] string? status, [FromQuery] string? cursor, [FromQuery] int pageSize = 10, CancellationToken ct = default, [FromQuery] int? page = null)
+        => Ok(ApiResponse<OrderHistoryPageResponse>.Ok(await _orders.PageAsync(UserId(), status, cursor, pageSize, ct, page)));
 
     // Read only the customer's own recorded order without reconciling payments or updating state.
     [HttpGet("{orderId:guid}")]

@@ -1,9 +1,9 @@
 import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
-import { readCustomerOrderPages } from "@/features/orders/utils/readCustomerOrderPages";
+import { Pagination } from "@/shared/components/pagination";
 import { OrderPickupCode } from "@/features/checkout/components/OrderPickupCode";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, ChevronDown, Clock3, MapPin, ShoppingBag, Star, Store } from "lucide-react";
 import {
@@ -48,14 +48,24 @@ export function OrdersPage() {
   const [params, setParams] = useSearchParams();
   const requested = params.get("status") ?? "All";
   const status = tabs.some((tab) => tab[0] === requested) ? requested : "All";
+  const requestedPage = Number(params.get("page") ?? 1);
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const [refresh, setRefresh] = useState(0);
+  const changePage = useCallback((value: number) => setParams((current) => {
+    const next = new URLSearchParams(current);
+    if (value === 1) next.delete("page"); else next.set("page", String(value));
+    return next;
+  }), [setParams]);
   return (
     <CustomerOrders
-      key={`${userId}:${status}:${refresh}`}
+      key={`${userId}:${status}:${page}:${refresh}`}
+      page={page}
+      onPageChange={changePage}
       status={status}
       onFilter={(value) =>
         setParams((current) => {
           const next = new URLSearchParams(current);
+          next.delete("page");
           if (value === "All") next.delete("status");
           else next.set("status", value);
           return next;
@@ -66,35 +76,29 @@ export function OrdersPage() {
   );
 }
 function CustomerOrders({
+  page,
+  onPageChange,
   status,
   onFilter,
   onRefresh,
 }: {
+  page: number;
+  onPageChange: (page: number) => void;
   status: string;
   onFilter: (value: string) => void;
   onRefresh: () => void;
 }) {
   const realtime = useRealtimeSubscriptions();
-  const generation = useRef(0);
-  const loadedItems = useRef(10);
   const [orders, setOrders] = useState<CheckoutOrder[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [ratingOrder, setRatingOrder] = useState<CheckoutOrder | null>(null);
   const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<
     (OrderReviewTarget & { orderId: string }) | null
   >(null);
   const [now, setNow] = useState(Date.now);
-  const alive = useRef(true);
-  const operation = useRef(false);
-  const abort = useRef<AbortController | null>(null);
-  const sentinel = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    alive.current = true;
     const controller = new AbortController();
     let reading = false;
     let dirty = false;
@@ -102,22 +106,16 @@ function CustomerOrders({
       dirty = true;
       if (reading) return;
       reading = true;
-      operation.current = true;
-      abort.current?.abort();
       try {
         while (dirty && !controller.signal.aborted) {
           dirty = false;
-          const current = ++generation.current;
-          const result = await readCustomerOrderPages(
-            (cursor) => orderApi.orderPage(status, cursor, controller.signal),
-            loadedItems.current,
-          );
-          if (controller.signal.aborted || current !== generation.current) return;
-          loadedItems.current = result.page.items.length;
+          const result = await orderApi.numberedPage(status, page, controller.signal);
+          if (controller.signal.aborted) return;
           setOrders(result.page.items);
           setCounts(result.statusCounts);
-          setNextCursor(result.page.nextCursor);
-          setHasMore(result.page.hasMore);
+          const total = status === "All" ? Object.values(result.statusCounts).reduce((sum, count) => sum + count, 0) : result.statusCounts[status] ?? 0;
+          const lastPage = Math.max(1, Math.ceil(total / 10));
+          if (page > lastPage) onPageChange(lastPage);
           setPageError(null);
         }
       } catch (error) {
@@ -125,9 +123,7 @@ function CustomerOrders({
       } finally {
         reading = false;
         if (!controller.signal.aborted) {
-          operation.current = false;
           setLoading(false);
-          setLoadingMore(false);
         }
       }
     }
@@ -138,52 +134,10 @@ function CustomerOrders({
     const clock = window.setInterval(() => setNow(Date.now()), 1000);
     return () => {
       off();
-      alive.current = false;
       controller.abort();
-      abort.current?.abort();
       window.clearInterval(clock);
     };
-  }, [status, realtime]);
-  const loadMore = useCallback(async () => {
-    if (operation.current || !hasMore || !nextCursor) return;
-    operation.current = true;
-    const currentGeneration = generation.current;
-    setLoadingMore(true);
-    setPageError(null);
-    const controller = new AbortController();
-    abort.current = controller;
-    try {
-      const result = await orderApi.orderPage(status, nextCursor, controller.signal);
-      if (!alive.current || controller.signal.aborted || currentGeneration !== generation.current)
-        return;
-      const merged = [
-        ...new Map([...orders, ...result.page.items].map((order) => [order.id, order])).values(),
-      ];
-      loadedItems.current = merged.length;
-      setOrders(merged);
-      setCounts(result.statusCounts);
-      setNextCursor(result.page.nextCursor);
-      setHasMore(result.page.hasMore);
-    } catch (error) {
-      if (alive.current && !controller.signal.aborted) setPageError(getApiErrorMessage(error));
-    } finally {
-      if (currentGeneration === generation.current) {
-        operation.current = false;
-        if (alive.current) setLoadingMore(false);
-      }
-    }
-  }, [hasMore, nextCursor, status, orders]);
-  useEffect(() => {
-    if (loading || loadingMore || pageError || !hasMore || !sentinel.current) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
-      },
-      { rootMargin: "300px" },
-    );
-    observer.observe(sentinel.current);
-    return () => observer.disconnect();
-  }, [loading, loadingMore, pageError, hasMore, loadMore, orders.length]);
+  }, [status, page, realtime, onPageChange]);
   const countFor = (value: string) =>
     value === "All"
       ? Object.values(counts).reduce((sum, count) => sum + count, 0)
@@ -229,7 +183,7 @@ function CustomerOrders({
           ))}
         </div>
       )}
-      {!loading && !pageError && !hasMore && orders.length === 0 && (
+      {!loading && !pageError && orders.length === 0 && (
         <EmptyState
           icon={ShoppingBag}
           title={status === "All" ? "You have no orders yet" : "No orders in this status"}
@@ -389,24 +343,11 @@ function CustomerOrders({
           </Card>
         );
       })}
-      <div
-        id="orders-sentinel"
-        ref={sentinel}
-        aria-live="polite"
-        className="min-h-11 text-center text-caption text-text-secondary"
-      >
-        {loadingMore ? (
-          "Loading more orders…"
-        ) : !loading && !pageError && orders.length > 0 ? (
-          hasMore ? (
-            <Button variant="secondary" onClick={() => void loadMore()} className="min-h-11">
-              Load more orders
-            </Button>
-          ) : (
-            "All orders loaded"
-          )
-        ) : null}
-      </div>
+      {!loading && !pageError && countFor(status) > 10 && (
+        <Pagination currentPage={page} totalPages={Math.max(1, Math.ceil(countFor(status) / 10))}
+          totalItems={countFor(status)} pageSize={10} onPageChange={onPageChange}
+          itemLabel="orders" showFirstLast />
+      )}
     </div>
   );
 }

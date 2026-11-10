@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Data;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Microsoft.Extensions.Options;
@@ -9,6 +11,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public class CloudinaryService : ICloudinaryService
 {
+    private readonly IServiceScopeFactory _scopes;
     private readonly Cloudinary _cloudinary;
     private readonly ILogger<CloudinaryService> _logger;
     private readonly CloudinarySettings _settings;
@@ -16,8 +19,9 @@ public class CloudinaryService : ICloudinaryService
 
     public CloudinaryService(
         IOptions<CloudinarySettings> options,
-        ILogger<CloudinaryService> logger)
+        ILogger<CloudinaryService> logger, IServiceScopeFactory scopes)
     {
+        _scopes = scopes;
         _logger = logger;
 
         _settings = options.Value;
@@ -129,6 +133,19 @@ public class CloudinaryService : ICloudinaryService
             throw new ArgumentException(
                 "The public ID is outside the configured upload folder.",
                 nameof(publicId));
+        }
+
+        // Historical assets are retained even after disappearing from the live catalogue.
+        await using var scope = _scopes.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var assetPath = "/" + normalizedPublicId + ".";
+        if (await db.OrderItems.AnyAsync(i => i.ProductImageUrlSnapshot != null && i.ProductImageUrlSnapshot.Contains(assetPath))
+            || await db.Orders.AnyAsync(o => o.ShopLogoUrlSnapshot != null && o.ShopLogoUrlSnapshot.Contains(assetPath))
+            || await db.PlatformFeeStatements.AnyAsync(s => s.ShopLogoUrlSnapshot != null && s.ShopLogoUrlSnapshot.Contains(assetPath))
+            || await db.Set<SaveBite.Backend.Models.Entities.RefundItem>().AnyAsync(i => i.ImageUrl != null && i.ImageUrl.Contains(assetPath)))
+        {
+            _logger.LogInformation("Retaining image {PublicId} referenced by purchase history.", normalizedPublicId);
+            return true;
         }
 
         try

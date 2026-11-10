@@ -1,3 +1,4 @@
+using SaveBite.Backend.Helpers;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
@@ -50,9 +51,9 @@ public sealed class FeedbackService : IFeedbackService
         {
             Id = f.Id, ProductId = f.ProductId, ShopId = f.Product != null ? f.Product.ShopId : (f.OrderItem != null && f.OrderItem.Order != null ? f.OrderItem.Order.ShopId : Guid.Empty), UserId = f.UserId,
             CustomerName = f.User?.FullName ?? string.Empty, CustomerPhone = f.User?.Phone,
-            CustomerEmail = f.User?.Email ?? string.Empty, AvatarUrl = f.User?.AvatarUrl, 
-            ProductName = f.Product?.Name ?? string.Empty, ShopName = f.OrderItem?.Order?.Shop?.Name ?? f.Product?.Shop?.Name ?? string.Empty, 
-            OrderItemId = f.OrderItemId, Rating = f.Rating, 
+            CustomerEmail = f.User?.Email ?? string.Empty, AvatarUrl = f.User?.AvatarUrl,
+            ProductName = f.OrderItem?.ProductNameSnapshot ?? f.Product?.Name ?? string.Empty, ShopName = f.OrderItem?.Order is { } purchase ? PurchaseSnapshots.ShopName(purchase) : f.Product?.Shop?.Name ?? string.Empty,
+            OrderItemId = f.OrderItemId, Rating = f.Rating,
             Comment = f.Comment, Status = f.Status,
             CurrentReason = f.ModerationLogs.OrderByDescending(l => l.CreatedAt).FirstOrDefault()?.Reason,
             CreatedAt = f.CreatedAt, HiddenAt = f.HiddenAt
@@ -112,8 +113,8 @@ public sealed class FeedbackService : IFeedbackService
                 CreatedAt = now
             });
             await _feedbackRepo.UpdateAsync(feedback, ct);
-            var productName = feedback.Product?.Name
-                ?? feedback.OrderItem?.ProductNameSnapshot
+            var productName = feedback.OrderItem?.ProductNameSnapshot
+                ?? feedback.Product?.Name
                 ?? "this item";
             if (!restore)
             {
@@ -235,7 +236,7 @@ public sealed class FeedbackService : IFeedbackService
 
             var created = await _feedbackRepo.CreateAsync(feedback, ct);
             var shopId = orderItem.Order.ShopId;
-            var body = NotificationMessages.Feedback.NewCustomerReviewBody(created.User.FullName, created.Rating, created.Product.Name);
+            var body = NotificationMessages.Feedback.NewCustomerReviewBody(created.User.FullName, created.Rating, created.OrderItem.ProductNameSnapshot);
             await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(shopId), new CreateNotificationCommand(
                 NotificationType.FeedbackReceived, NotificationMessages.Feedback.NewCustomerReviewTitle, body,
                 "/store-owner/reviews", $"feedback:{created.Id}:created:owner"), ct);
@@ -323,7 +324,7 @@ public sealed class FeedbackService : IFeedbackService
             if (shopId.HasValue && request.Rating <= 3)
             {
                 var customerName = feedback.User?.FullName ?? "A customer";
-                var productName = feedback.Product?.Name ?? "product";
+                var productName = feedback.OrderItem?.ProductNameSnapshot ?? feedback.Product?.Name ?? "product";
                 var body = NotificationMessages.Feedback.ReviewUpdatedLowRatingBody(customerName, request.Rating, productName);
                 await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(shopId.Value), new CreateNotificationCommand(
                     NotificationType.FeedbackReceived, NotificationMessages.Feedback.ReviewUpdatedLowRatingTitle, body,
@@ -390,7 +391,7 @@ public sealed class FeedbackService : IFeedbackService
             await AddReplyActivityLogAsync(userId, feedback, now, ct);
             await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
                 NotificationType.FeedbackReplied, NotificationMessages.Feedback.ReviewRepliedTitle,
-                NotificationMessages.Feedback.ReviewRepliedBody(feedback.OrderItem.Order.Shop.Name, feedback.Product.Name),
+                NotificationMessages.Feedback.ReviewRepliedBody(PurchaseSnapshots.ShopName(feedback.OrderItem.Order), feedback.OrderItem.ProductNameSnapshot),
                 $"/account/reviews?feedbackId={feedbackId}", $"feedback:{feedbackId}:reply:{created.Id}"), ct);
 
             return new FeedbackResponses.FeedbackReplyResponse(
@@ -442,7 +443,7 @@ public sealed class FeedbackService : IFeedbackService
             ActionBy = userId,
             OrderId = feedback.OrderItem.OrderId,
             Action = StaffActivityAction.FeedbackReplied,
-            Note = $"Replied to a customer review of {feedback.Product.Name}.",
+            Note = $"Replied to a customer review of {feedback.OrderItem.ProductNameSnapshot}.",
             ActorNameSnapshot = name.Trim(),
             ActorRoleSnapshot = role,
             CreatedAt = now
@@ -568,9 +569,9 @@ public sealed class FeedbackService : IFeedbackService
                 f.Reply.RepliedByUser?.FullName ?? "Shop", f.Reply.RepliedByUserId),
             f.OrderItem?.OrderId ?? Guid.Empty,
             f.OrderItem?.Order?.OrderCode ?? string.Empty,
-            f.OrderItem?.Order?.Shop?.Name ?? f.Product?.Shop?.Name ?? string.Empty,
-            f.OrderItem?.Order?.Shop?.LogoUrl ?? f.Product?.Shop?.LogoUrl,
-            f.Product?.Images.OrderBy(image => image.Id).Select(image => image.ImageUrl).FirstOrDefault(),
+            f.OrderItem?.Order is { } purchase ? PurchaseSnapshots.ShopName(purchase) : f.Product?.Shop?.Name ?? string.Empty,
+            f.OrderItem?.Order is { } purchaseLogo ? PurchaseSnapshots.ShopLogo(purchaseLogo) : f.Product?.Shop?.LogoUrl,
+            f.OrderItem is { } purchasedItem ? PurchaseSnapshots.ProductImage(purchasedItem, f.Product) : null,
             f.Images?.OrderBy(image => image.SortOrder).Select(image => image.ImageUrl).ToList() ?? new List<string>(),
             f.Product?.ShopId ?? f.OrderItem?.Order?.ShopId,
             f.User?.FullName,

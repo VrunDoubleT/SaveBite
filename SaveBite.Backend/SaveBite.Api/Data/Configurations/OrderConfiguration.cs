@@ -8,6 +8,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 {
     public void Configure(EntityTypeBuilder<Order> builder)
     {
+        builder.Property(x => x.ShopNameSnapshot).HasColumnName("shop_name_snapshot");
+        builder.Property(x => x.ShopAddressSnapshot).HasColumnName("shop_address_snapshot");
+        builder.Property(x => x.ShopLogoUrlSnapshot).HasColumnName("shop_logo_url_snapshot");
+        builder.Property(x => x.SnapshotCapturedAt).HasColumnName("snapshot_captured_at");
+
         builder.ToTable("orders");
 
         builder.Property(x => x.RefundedAmount).HasColumnName("refunded_amount").HasPrecision(12, 2).HasDefaultValue(0m);

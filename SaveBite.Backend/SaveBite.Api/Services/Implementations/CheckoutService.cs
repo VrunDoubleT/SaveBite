@@ -205,6 +205,8 @@ public sealed class CheckoutService : ICheckoutService
             {
                 Id = Guid.NewGuid(), OrderCode = await _orderCodes.NextAsync(shopId, OrderBusinessDate.FromUtc(now),
                     await _checkoutRepository.OrderCodeMaximumAsync(shopId, OrderBusinessDate.FromUtc(now), ct), ct),
+                ShopNameSnapshot = summary.ShopName, ShopAddressSnapshot = summary.ShopAddress,
+                ShopLogoUrlSnapshot = summary.ShopLogoUrl, SnapshotCapturedAt = now,
                 CustomerId = userId, ShopId = quote.ShopId, PaymentMethod = method, Status = online > 0 ? OrderStatus.AwaitingPayment : OrderStatus.Pending,
                 TotalAmount = total, DepositAmount = deposit, RemainingAmount = method == PaymentMethod.PayAtShop ? total - deposit : 0,
                 RequiredOnlineAmount = online, DistanceKm = pickup.DistanceKm, EtaMinutes = pickup.EtaMinutes,
@@ -218,6 +220,7 @@ public sealed class CheckoutService : ICheckoutService
                 order.Items.Add(new OrderItem
                 {
                     Id = Guid.NewGuid(), OrderId = order.Id, FlashDealVariantId = item.FlashDealVariantId,
+                    ProductImageUrlSnapshot = item.ImageUrl, SnapshotCapturedAt = now,
                     ProductNameSnapshot = item.ProductName, VariantNameSnapshot = item.VariantName,
                     OriginalPriceSnapshot = item.OriginalPrice, DealPriceSnapshot = item.UnitPrice,
                     UnitPrice = item.UnitPrice, Quantity = item.Quantity, Subtotal = item.Subtotal

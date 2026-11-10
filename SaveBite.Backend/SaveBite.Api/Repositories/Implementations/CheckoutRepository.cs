@@ -102,14 +102,15 @@ public sealed class CheckoutRepository : ICheckoutRepository
         return await Orders.AsNoTracking().Where(x => x.CustomerId == userId).OrderByDescending(x => x.CreatedAt).Take(50).ToListAsync(ct);
     }
     // Read a customer-scoped cursor page with status counts for the order filters.
-    public async Task<(IReadOnlyList<Order> Orders, bool HasMore, IReadOnlyDictionary<string, int> Counts)> GetOrderPageAsync(Guid userId, OrderStatus? status, DateTime? beforeCreatedAt, Guid? beforeId, int pageSize, CancellationToken ct)
+    public async Task<(IReadOnlyList<Order> Orders, bool HasMore, IReadOnlyDictionary<string, int> Counts)> GetOrderPageAsync(Guid userId, OrderStatus? status, DateTime? beforeCreatedAt, Guid? beforeId, int pageSize, CancellationToken ct, int? page = null)
     {
         await RequireCustomerHistoryAccessAsync(userId, ct);
         var query = Orders.AsNoTracking().Where(x => x.CustomerId == userId);
         if (status.HasValue) query = query.Where(x => x.Status == status.Value);
         if (beforeCreatedAt.HasValue && beforeId.HasValue)
             query = query.Where(x => x.CreatedAt < beforeCreatedAt.Value || (x.CreatedAt == beforeCreatedAt.Value && x.Id.CompareTo(beforeId.Value) < 0));
-        var rows = await query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).Take(pageSize + 1).ToListAsync(ct);
+        var rows = await query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
+            .Skip(page.HasValue ? checked((page.Value - 1) * pageSize) : 0).Take(pageSize + 1).ToListAsync(ct);
         var counts = await _dbContext.Orders.AsNoTracking().Where(x => x.CustomerId == userId).GroupBy(x => x.Status)
             .Select(group => new { Status = group.Key, Count = group.Count() }).ToListAsync(ct);
         return (rows.Take(pageSize).ToList(), rows.Count > pageSize, counts.ToDictionary(x => x.Status.ToString(), x => x.Count));

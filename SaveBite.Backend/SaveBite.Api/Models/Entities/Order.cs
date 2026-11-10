@@ -4,6 +4,11 @@ namespace SaveBite.Backend.Models.Entities;
 
 public class Order
 {
+    public string? ShopNameSnapshot { get; set; }
+    public string? ShopAddressSnapshot { get; set; }
+    public string? ShopLogoUrlSnapshot { get; set; }
+    public DateTime? SnapshotCapturedAt { get; set; }
+
     public Guid Id { get; set; }
     public DateOnly OrderDate { get; private set; }
     public string OrderCode { get; set; } = string.Empty;
