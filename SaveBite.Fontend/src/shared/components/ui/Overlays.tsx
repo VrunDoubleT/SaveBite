@@ -10,6 +10,7 @@ export function Modal({
   isOpen,
   onClose,
   title,
+  headerContent,
   children,
   drawer = false,
   hideHeader = false,
@@ -19,6 +20,7 @@ export function Modal({
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  headerContent?: ReactNode;
   children: ReactNode;
   drawer?: boolean;
   hideHeader?: boolean;
@@ -91,10 +93,13 @@ export function Modal({
           {title}
         </h2>
       ) : (
-        <div className="flex items-center justify-between gap-4 border-b border-border-default p-4 sm:px-6">
-          <h2 id={titleId} className="text-section font-semibold">
-            {title}
-          </h2>
+        <div className="flex items-start justify-between gap-4 border-b border-border-default p-4 sm:px-6">
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            <h2 id={titleId} className="text-section font-semibold">
+              {title}
+            </h2>
+            {headerContent}
+          </div>
           <IconButton aria-label="Close dialog" onClick={onClose}>
             <X className="size-5" aria-hidden="true" />
           </IconButton>

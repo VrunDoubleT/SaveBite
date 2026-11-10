@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { Pagination } from "@/shared/components/pagination/Pagination";
 import { usePagination } from "@/shared/components/pagination/usePagination";
 import { adminShopApplicationApi } from "@/features/shop-applications/api/adminShopApplicationApi";
 import { AdminShopApplicationDetail } from "@/features/shop-applications/components/AdminShopApplicationDetail";
-import {
-  AdminShopApplicationsList,
-  type SortOrder,
-} from "@/features/shop-applications/components/AdminShopApplicationsList";
+import { AdminShopApplicationsList } from "@/features/shop-applications/components/AdminShopApplicationsList";
 import { ADMIN_SHOP_APPLICATION_FILTERS } from "@/features/shop-applications/schemas/adminShopApplication.schema";
 import type {
   ShopApplication,
@@ -20,8 +18,14 @@ const PAGE_SIZE = 5;
 export function AdminShopApplicationsPage() {
   const [items, setItems] = useState<ShopApplication[]>([]);
   const [selected, setSelected] = useState<ShopApplication | null>(null);
-  const [filter, setFilter] = useState<ShopApplicationAdminFilter>("All");
-  const [sort, setSort] = useState<SortOrder>("newest");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusParam = searchParams.get("status");
+  const pageParam = Number(searchParams.get("page") ?? 1);
+  const filter: ShopApplicationAdminFilter = ADMIN_SHOP_APPLICATION_FILTERS.includes(
+    statusParam as ShopApplicationAdminFilter,
+  )
+    ? (statusParam as ShopApplicationAdminFilter)
+    : "All";
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,11 +61,10 @@ export function AdminShopApplicationsPage() {
   const sortedItems = useMemo(() => {
     const filtered = items.filter((item) => filter === "All" || item.status === filter);
 
-    return filtered.sort((a, b) => {
-      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      return sort === "newest" ? -diff : diff;
-    });
-  }, [items, filter, sort]);
+    return filtered.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [items, filter]);
 
   const {
     currentPage,
@@ -70,8 +73,11 @@ export function AdminShopApplicationsPage() {
     totalItems,
     pageSize,
     paginatedItems,
-    resetPage,
-  } = usePagination({ items: sortedItems, initialPageSize: PAGE_SIZE });
+  } = usePagination({
+    items: sortedItems,
+    initialPageSize: PAGE_SIZE,
+    initialPage: Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1,
+  });
 
   const counts = useMemo(() => {
     const result: Record<string, number> = { All: items.length };
@@ -84,13 +90,38 @@ export function AdminShopApplicationsPage() {
   }, [items]);
 
   const handleFilterChange = (value: string) => {
-    setFilter(value as ShopApplicationAdminFilter);
-    resetPage();
+    if (!ADMIN_SHOP_APPLICATION_FILTERS.includes(value as ShopApplicationAdminFilter)) return;
+
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value === "All") next.delete("status");
+        else next.set("status", value);
+        next.delete("page");
+        return next;
+      },
+      { preventScrollReset: true },
+    );
+    setCurrentPage(1);
   };
 
-  const handleSortChange = (value: SortOrder) => {
-    setSort(value);
-    resetPage();
+  useEffect(() => {
+    const requestedPage = Number.isInteger(pageParam) && pageParam > 0
+      ? Math.min(pageParam, totalPages)
+      : 1;
+    if (requestedPage !== currentPage) setCurrentPage(requestedPage);
+  }, [pageParam, totalPages, currentPage, setCurrentPage]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("page", String(page));
+        return next;
+      },
+      { preventScrollReset: true },
+    );
   };
 
   const openDetail = async (item: ShopApplication) => {
@@ -166,8 +197,6 @@ export function AdminShopApplicationsPage() {
       loading={loading}
       filter={filter}
       setFilter={handleFilterChange}
-      sort={sort}
-      onSortChange={handleSortChange}
       counts={counts}
       error={error}
       load={() => void load()}
@@ -180,7 +209,7 @@ export function AdminShopApplicationsPage() {
             totalPages={totalPages}
             totalItems={totalItems}
             pageSize={pageSize}
-            onPageChange={setCurrentPage}
+            onPageChange={handlePageChange}
             itemLabel="applications"
             showTotalItems={true}
             showFirstLast={true}

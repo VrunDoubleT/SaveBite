@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AlertCircle, ChevronDown, Inbox, RotateCw, SearchX, X } from "lucide-react";
 import { feedbackApi } from "@/features/feedback/api/feedbackApi";
+import { FeedbackDetailsDialog } from "@/features/feedback/components/FeedbackDetailsDialog";
 import { FeedbackModerationDialog } from "@/features/feedback/components/FeedbackModerationDialog";
 import { FeedbackTable } from "@/features/feedback/components/FeedbackTable";
 import type { Feedback, FeedbackPage, FeedbackStatus } from "@/features/feedback/types/feedback.types";
@@ -105,10 +107,13 @@ function StateMessage({
 }
 
 export function FeedbackManagementPage() {
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedPage = Number(searchParams.get("page") ?? 1);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const search = searchParams.get("search") ?? "";
+  const requestedStatus = searchParams.get("status") ?? "";
+  const status = ["1", "2", "3"].includes(requestedStatus) ? requestedStatus : "";
+  const [searchInput, setSearchInput] = useState(search);
 
   const [data, setData] = useState<FeedbackPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,18 +121,34 @@ export function FeedbackManagementPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const [selected, setSelected] = useState<Feedback | null>(null);
+  const [detailsFeedback, setDetailsFeedback] = useState<Feedback | null>(null);
 
   const retry = useCallback(() => setReloadKey((key) => key + 1), []);
 
+  useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
+
   // Debounce search input
   useEffect(() => {
+    if (searchInput.trim() === search) return;
+
     const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          const value = searchInput.trim();
+          if (value) next.set("search", value);
+          else next.delete("search");
+          next.delete("page");
+          return next;
+        },
+        { preventScrollReset: true },
+      );
     }, SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, search, setSearchParams]);
 
   // Load data (ignores stale responses)
   useEffect(() => {
@@ -164,11 +185,56 @@ export function FeedbackManagementPage() {
   const isInitialLoading = loading && !data;
   const hasFilters = search !== "" || status !== "";
 
+  useEffect(() => {
+    if (!loading && data && page > totalPages) {
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          if (totalPages <= 1) next.delete("page");
+          else next.set("page", String(totalPages));
+          return next;
+        },
+        { replace: true, preventScrollReset: true },
+      );
+    }
+  }, [data, loading, page, totalPages, setSearchParams]);
+
+  const handleStatusChange = (nextStatus: string) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (nextStatus) next.set("status", nextStatus);
+        else next.delete("status");
+        next.delete("page");
+        return next;
+      },
+      { preventScrollReset: true },
+    );
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("page", String(nextPage));
+        return next;
+      },
+      { preventScrollReset: true },
+    );
+  };
+
   const clearFilters = () => {
     setSearchInput("");
-    setSearch("");
-    setStatus("");
-    setPage(1);
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("search");
+        next.delete("status");
+        next.delete("page");
+        return next;
+      },
+      { preventScrollReset: true },
+    );
   };
 
   const moderationMode = selected && getStatusCode(selected.status) === 3 ? "restore" : "hide";
@@ -247,10 +313,7 @@ export function FeedbackManagementPage() {
               aria-label="Feedback status"
               className={`h-11 w-full appearance-none rounded-full border border-border-default bg-white pl-4 pr-10 text-sm text-text-primary transition-colors hover:border-neutral-300 sm:w-48 ${focusRing}`}
               value={status}
-              onChange={(event) => {
-                setPage(1);
-                setStatus(event.target.value);
-              }}
+              onChange={(event) => handleStatusChange(event.target.value)}
             >
               <option value="">All statuses</option>
               <option value="1">Visible</option>
@@ -321,14 +384,14 @@ export function FeedbackManagementPage() {
           className="overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-sm"
           aria-busy={loading}
         >
-          <FeedbackTable items={items} onModerate={openModeration} />
+          <FeedbackTable items={items} onViewDetails={setDetailsFeedback} />
 
           {totalItems > 0 && (
             <div className="flex w-full items-center justify-around border-t border-border-default bg-neutral-50/30 px-6 py-5">
               <Pagination
                 currentPage={page}
                 totalPages={totalPages}
-                onPageChange={setPage}
+                onPageChange={handlePageChange}
                 totalItems={totalItems}
                 pageSize={PAGE_SIZE}
                 itemLabel="feedback"
@@ -340,6 +403,15 @@ export function FeedbackManagementPage() {
           )}
         </div>
       )}
+
+      <FeedbackDetailsDialog
+        feedback={detailsFeedback}
+        onClose={() => setDetailsFeedback(null)}
+        onModerate={(feedback) => {
+          setDetailsFeedback(null);
+          openModeration(feedback);
+        }}
+      />
 
       {selected && (
         <FeedbackModerationDialog

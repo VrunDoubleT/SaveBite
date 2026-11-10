@@ -14,6 +14,7 @@ import {
   ScrollText,
   Store,
 } from "lucide-react";
+import { RecordId } from "@/shared/components/RecordId";
 import { OpenStateBadge, ShopStatusBadge } from "./ShopProfileHeader";
 import type { ShopContentManagement as ShopContentManagementModel } from "../types/shopManagement.types";
 
@@ -131,10 +132,13 @@ export function ShopContentManagement({ shop: s }: { shop: ShopContentManagement
 
           <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="min-w-0 space-y-2">
-              <h2 className="truncate text-xl font-bold tracking-tight text-text-primary sm:text-2xl">
-                {s.name}
-              </h2>
-              <ShopStatusBadge status={s.status} />
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                <h2 className="min-w-0 truncate text-xl font-bold tracking-tight text-text-primary sm:text-2xl">
+                  {s.name}
+                </h2>
+                <ShopStatusBadge status={s.status} />
+              </div>
+              <RecordId id={s.id} variant="full" />
             </div>
 
             <div className="shrink-0">

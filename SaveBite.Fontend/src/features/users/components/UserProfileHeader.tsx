@@ -1,5 +1,6 @@
 import { CalendarDays } from "lucide-react";
 import type { UserDetailsResponse } from "@/features/users/types/user.types";
+import { RecordId } from "@/shared/components/RecordId";
 import { UserStatusBadge } from "./UserStatusBadge";
 import { UserAvatar } from "./UserAvatar";
 
@@ -19,6 +20,7 @@ export function UserProfileHeader({ data }: UserProfileHeaderProps) {
             <h4 className="text-xl font-bold text-text-primary truncate">{data.fullName}</h4>
 
             <p className="text-sm text-text-secondary truncate">{data.email}</p>
+            <RecordId id={data.id} variant="full" className="mt-2" />
           </div>
 
           <span className="inline-flex rounded-md bg-neutral-100 border border-neutral-200 px-2.5 py-1 text-[11px] font-bold text-neutral-700 uppercase tracking-widest shrink-0">

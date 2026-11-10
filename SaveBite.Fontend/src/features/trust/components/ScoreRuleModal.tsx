@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
+import { RecordId } from "@/shared/components/RecordId";
 import type { TrustScoreRule, UpdateScoreRulePayload } from "../types/adminTrust.types";
 import {
   buildScoreRuleSchema,
@@ -65,6 +66,7 @@ export function ScoreRuleModal({ rule, onClose, onSave }: ScoreRuleModalProps) {
           Saving creates a new version of this rule. Score changes already recorded are not
           recalculated.
         </p>
+        {rule && <RecordId id={rule.id} variant="full" />}
 
         <FormField
           label="Points"

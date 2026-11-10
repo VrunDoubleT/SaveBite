@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
+import { RecordId } from "@/shared/components/RecordId";
 import type { AdminTrustLevel, UpdateLevelRequirementPayload } from "../types/adminTrust.types";
 import { levelRequirementSchema, type LevelRequirementFormData } from "../schemas/trust.schema";
 import { inputClass } from "../utils/formStyles";
@@ -55,6 +56,7 @@ export function LevelRequirementModal({ level, onClose, onSave }: LevelRequireme
       title={level ? `${level.name} requirements` : undefined}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {level && <RecordId id={level.id} variant="full" />}
         <p className="text-sm text-text-secondary">
           Customers reach this level when they meet all three requirements. Requirements must grow
           with the level rank, and the lowest level must stay at zero.

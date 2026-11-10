@@ -14,6 +14,7 @@ import type {
 } from "../types/adminTrust.types";
 import type { TrustLevelDepositPolicy } from "../types/trust.types";
 import { formatCurrency, formatDateTime } from "../utils/format";
+import { RecordId } from "@/shared/components/RecordId";
 import { CreateLevelModal } from "./CreateLevelModal";
 import { LevelBenefitsModal } from "./LevelBenefitsModal";
 import { LevelHistoryDrawer } from "./LevelHistoryDrawer";
@@ -216,6 +217,7 @@ export function AdminLevelsPanel() {
           <table className="min-w-full divide-y divide-border-default text-left text-sm">
             <thead className="bg-neutral-50 text-text-secondary">
               <tr>
+                <th className="px-5 py-3 font-semibold">ID</th>
                 <th className="px-5 py-3 font-semibold">Level</th>
                 <th className="px-5 py-3 font-semibold">Status</th>
                 <th className="px-5 py-3 text-right font-semibold">Customers</th>
@@ -230,6 +232,9 @@ export function AdminLevelsPanel() {
                 const active = level.isActive;
                 return (
                   <tr key={level.id} className={!active ? inactiveRowClass : ""}>
+                    <td className="max-w-40 px-5 py-3.5">
+                      <RecordId id={level.id} />
+                    </td>
                     <td className="px-5 py-3.5">
                       <p className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}>
                         {level.name}
@@ -332,6 +337,7 @@ export function AdminLevelsPanel() {
           <table className="min-w-full divide-y divide-border-default text-left text-sm">
             <thead className="bg-neutral-50 text-text-secondary">
               <tr>
+                <th className="px-5 py-3 font-semibold">ID</th>
                 <th className="px-5 py-3 font-semibold">Level</th>
                 <th className="px-5 py-3 font-semibold">Benefits description</th>
                 <th className="px-5 py-3 font-semibold">Pay at shop deposit policy</th>
@@ -348,6 +354,9 @@ export function AdminLevelsPanel() {
                     key={level.id}
                     className={`align-top ${!active ? inactiveRowClass : ""}`}
                   >
+                    <td className="max-w-40 px-5 py-3.5">
+                      <RecordId id={level.id} />
+                    </td>
                     <td className="px-5 py-3.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}>
@@ -405,6 +414,7 @@ export function AdminLevelsPanel() {
           <table className="min-w-full divide-y divide-border-default text-left text-sm">
             <thead className="bg-neutral-50 text-text-secondary">
               <tr>
+                <th className="px-5 py-3 font-semibold">ID</th>
                 <th className="px-5 py-3 font-semibold">Level</th>
                 <th className="px-5 py-3 text-right font-semibold">Min score</th>
                 <th className="px-5 py-3 text-right font-semibold">Min completed orders</th>
@@ -419,6 +429,9 @@ export function AdminLevelsPanel() {
                 const active = level.isActive;
                 return (
                   <tr key={level.id} className={!active ? inactiveRowClass : ""}>
+                    <td className="max-w-40 px-5 py-3">
+                      <RecordId id={level.id} />
+                    </td>
                     <td className="px-5 py-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}>

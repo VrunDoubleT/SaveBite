@@ -1,5 +1,6 @@
 import { Eye, Shield, ShoppingBag } from "lucide-react";
 import type { AdminUser } from "@/features/users/types/user.types";
+import { RecordId } from "@/shared/components/RecordId";
 import { UserStatusBadge } from "./UserStatusBadge";
 
 interface UserTableProps {
@@ -15,6 +16,7 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
     <table className="min-w-full divide-y divide-border-default text-left text-sm">
       <thead className="bg-neutral-50 text-text-secondary">
         <tr>
+          <th className="px-6 py-4 font-semibold">ID</th>
           <th className="px-6 py-4 font-semibold">User Profile</th>
           <th className="px-6 py-4 font-semibold">Role</th>
           <th className="px-6 py-4 font-semibold">Account Status</th>
@@ -29,6 +31,9 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
 
           return (
             <tr key={u.id} className="hover:bg-neutral-50/50 transition-colors">
+              <td className="max-w-40 px-6 py-4">
+                <RecordId id={u.id} />
+              </td>
               {/* User Profile */}
               <td className="px-6 py-4">
                 <div className="flex items-center gap-3">
@@ -116,7 +121,7 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
 
         {users.length === 0 && (
           <tr>
-            <td colSpan={5} className="p-10 text-center text-text-muted">
+            <td colSpan={6} className="p-10 text-center text-text-muted">
               No users found matching your search.
             </td>
           </tr>

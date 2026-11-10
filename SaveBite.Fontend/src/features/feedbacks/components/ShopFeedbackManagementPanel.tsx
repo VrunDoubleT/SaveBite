@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RecordId } from "@/shared/components/RecordId";
 import {
   MessageSquare,
   MessageSquareQuote,
@@ -352,15 +353,18 @@ export function ShopFeedbackManagementPanel({
                   </div>
                 </div>
 
-                <span className="text-xs text-neutral-400">
-                  {new Date(item.createdAt).toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <RecordId id={item.id} />
+                  <span className="text-xs text-neutral-400">
+                    {new Date(item.createdAt).toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
               </div>
 
               {/* Product Info tag */}

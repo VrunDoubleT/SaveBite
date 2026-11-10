@@ -14,6 +14,7 @@ import type {
 import { StatusBadge } from "@/features/platform-fees/components/StatusBadge";
 import { AdminStatementDetailModal } from "@/features/platform-fees/components/AdminStatementDetailModal";
 import { Pagination } from "@/shared/components/pagination";
+import { RecordId } from "@/shared/components/RecordId";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 
