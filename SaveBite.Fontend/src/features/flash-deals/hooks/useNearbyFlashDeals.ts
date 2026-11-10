@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
+import { flashDealApi, type SaveSearchFilterPayload } from "@/features/flash-deals/api/flashDealApi";
 import { categoryApi } from "@/features/categories/api/categoryApi";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { useDebounce } from "@/shared/hooks/useDebounce";
+import { useNotificationStore } from "@/features/notifications/stores/notificationStore";
 import { useFlashDealRealtime, type FlashDealRealtimePayload } from "./useFlashDealRealtime";
 import type { DealFilterState, FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
@@ -106,6 +107,7 @@ export function useNearbyFlashDeals() {
   // Reference guards
   const dealsRef = useRef(deals);
   const newDealIdsRef = useRef<Set<string>>(new Set());
+  const notifiedDealsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     dealsRef.current = deals;
   }, [deals]);
@@ -154,19 +156,33 @@ export function useNearbyFlashDeals() {
     debouncedKeywordRef.current = debouncedKeyword;
   }, [debouncedKeyword]);
 
+  // Sync active search filter to Redis cache for backend recipient matching
+  useEffect(() => {
+    const payload: SaveSearchFilterPayload = {
+      category: filters.category.length > 0 ? filters.category.join(",") : undefined,
+      distance: filters.distance.length > 0 ? filters.distance.join(",") : undefined,
+      price: filters.price.length > 0 ? filters.price.join(",") : undefined,
+      shopName: selectedShop ?? undefined,
+      keyword: debouncedKeyword || undefined,
+      radiusInKm,
+    };
+    flashDealApi.saveSearchFilter(payload).catch(() => {});
+  }, [filters, selectedShop, debouncedKeyword, radiusInKm]);
+
   // Load active categories directly from database
   useEffect(() => {
     let isMounted = true;
-    setIsLoadingCategories(true);
     categoryApi
         .getCategories()
         .then((items) => {
-          if (isMounted && items.length > 0) {
-            setCategories(items.map((c) => c.name));
+          if (isMounted) {
+            if (items.length > 0) {
+              setCategories(items.map((c) => c.name));
+            }
+            setIsLoadingCategories(false);
           }
         })
-        .catch(() => {})
-        .finally(() => {
+        .catch(() => {
           if (isMounted) {
             setIsLoadingCategories(false);
           }
@@ -180,13 +196,43 @@ export function useNearbyFlashDeals() {
   // Sync GPS to backend
   const syncGpsToBackend = useCallback((lat: number, lon: number, accuracy?: number) => {
     if (isAuthenticated) {
-      flashDealApi.updateGps({ latitude: lat, longitude: lon, accuracy }).catch(() => {
-        // Non-blocking sync error
-      });
+      flashDealApi.updateGps({ latitude: lat, longitude: lon, accuracy }).catch(() => {});
     }
   }, [isAuthenticated]);
 
-  // Request browser GPS on user action or auto
+  // Switch to saved default address
+  const selectSavedAddress = useCallback(() => {
+    if (user?.defaultAddress) {
+      const newCoords = {
+        latitude: user.defaultAddress.latitude,
+        longitude: user.defaultAddress.longitude,
+      };
+      cachedCoords = newCoords;
+      cachedLocationMode = "saved_address";
+      const label = user.defaultAddress.label
+          ? `${user.defaultAddress.label} - ${user.defaultAddress.addressLine}`
+          : user.defaultAddress.addressLine;
+      cachedLocationLabel = label;
+      const addrToDisplay =
+          cleanAddressParts([
+            user.defaultAddress.addressLine,
+            user.defaultAddress.ward,
+            user.defaultAddress.district,
+            user.defaultAddress.city,
+          ]) || user.defaultAddress.addressLine;
+      cachedLocationAddress = addrToDisplay;
+
+      setCoords(newCoords);
+      setLocationMode("saved_address");
+      setLocationLabel(label);
+      setLocationAddress(addrToDisplay);
+      setGpsError(null);
+      setIsLocationReady(true);
+      setLocationVersion((v) => v + 1);
+    }
+  }, [user]);
+
+  // Request browser GPS
   const requestGpsLocation = useCallback(() => {
     if (!("geolocation" in navigator)) {
       setGpsError("Geolocation is not supported by your browser.");
@@ -235,7 +281,6 @@ export function useNearbyFlashDeals() {
       }
 
       setIsGpsLoading(false);
-      // Fallback to saved address if GPS permission denied
       if (user?.defaultAddress) {
         selectSavedAddress();
       } else {
@@ -249,48 +294,14 @@ export function useNearbyFlashDeals() {
       enableHighAccuracy: true,
       maximumAge: 60000,
     });
-  }, [user?.defaultAddress, syncGpsToBackend]);
+  }, [user, selectSavedAddress, syncGpsToBackend]);
 
-  // Switch to saved default address
-  const selectSavedAddress = useCallback(() => {
-    if (user?.defaultAddress) {
-      const newCoords = {
-        latitude: user.defaultAddress.latitude,
-        longitude: user.defaultAddress.longitude,
-      };
-      cachedCoords = newCoords;
-      cachedLocationMode = "saved_address";
-      const label = user.defaultAddress.label
-          ? `${user.defaultAddress.label} - ${user.defaultAddress.addressLine}`
-          : user.defaultAddress.addressLine;
-      cachedLocationLabel = label;
-      const addrToDisplay =
-          cleanAddressParts([
-            user.defaultAddress.addressLine,
-            user.defaultAddress.ward,
-            user.defaultAddress.district,
-            user.defaultAddress.city,
-          ]) || user.defaultAddress.addressLine;
-      cachedLocationAddress = addrToDisplay;
-
-      setCoords(newCoords);
-      setLocationMode("saved_address");
-      setLocationLabel(label);
-      setLocationAddress(addrToDisplay);
-      setGpsError(null);
-      setIsLocationReady(true);
-      setLocationVersion((v) => v + 1);
-    }
-  }, [user?.defaultAddress]);
-
-  // Section 2: GPS is Priority #1! Only fallback to Default Address if GPS not available.
+  // Priority 1: GPS, Priority 2: Saved Address
   useEffect(() => {
     if (cachedCoords) {
-      setIsLocationReady(true);
       return;
     }
 
-    // Attempt GPS first
     if ("geolocation" in navigator) {
       navigator.permissions?.query({ name: "geolocation" as PermissionName }).then((perm) => {
         if (perm.state === "granted" || perm.state === "prompt") {
@@ -306,9 +317,12 @@ export function useNearbyFlashDeals() {
         }
       });
     } else if (user?.defaultAddress) {
-      selectSavedAddress();
+      const timer = setTimeout(() => {
+        selectSavedAddress();
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [user?.defaultAddress, requestGpsLocation, selectSavedAddress]);
+  }, [user, requestGpsLocation, selectSavedAddress]);
 
   // Reverse geocoding for GPS display
   useEffect(() => {
@@ -333,7 +347,9 @@ export function useNearbyFlashDeals() {
             }
           }
         }
-      } catch {}
+      } catch (err) {
+        console.debug("Reverse geocode failed", err);
+      }
 
       if (isMounted) {
         setLocationAddress(`${coords.latitude.toFixed(4)}°N, ${coords.longitude.toFixed(4)}°E`);
@@ -349,6 +365,7 @@ export function useNearbyFlashDeals() {
   // 1. Initial Page Load - Keyset Cursor fresh session (Page 1)
   const fetchInitialDeals = useCallback(async () => {
     if (!coords) return;
+    await Promise.resolve();
     if (dealsRef.current.length === 0) {
       setIsLoading(true);
     }
@@ -422,8 +439,7 @@ export function useNearbyFlashDeals() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load older deals.";
       if (msg.includes("CURSOR_LOCATION_CHANGED")) {
-        // Location context changed beyond threshold: reset feed to Page 1
-        setError("Vị trí của bạn đã thay đổi. Đang làm mới danh sách...");
+        setError("Your location context has changed. Refreshing deal list...");
         void fetchInitialDeals();
       } else {
         setError(msg);
@@ -434,23 +450,25 @@ export function useNearbyFlashDeals() {
     }
   }, [coords, radiusInKm, filters, selectedShop, debouncedKeyword, locationMode, fetchInitialDeals]);
 
-  // Section 8.3 & Realtime handling:
-  // - Deal Hidden / Closed / Cancelled: Lập tức loại bỏ khỏi danh sách deal đang hiển thị
-  // - Deal Opened / Re-opened / Published: Tự động hiện ra ngay trên màn hình với chữ "NEW", không cần click nút
+  // 3. Realtime SignalR handler:
+  // - Deal Hidden / Closed / Cancelled: Remove immediately from customer view
+  // - Deal Opened / Published / Reopen: Check active filters (Category, Shop, Keyword, Price)
+  //     + If matches: Prepend to list with NEW badge & trigger NotificationBell alert in English
+  //     + If not matches: Do not show on screen & do not notify
   const handleRealtimeDealEvent = useCallback(
       async (eventData?: FlashDealRealtimePayload) => {
         if (!eventData) return;
 
-        const rawAction = eventData.action ?? (eventData as any)?.Action;
+        const rawAction = eventData.action ?? eventData.Action;
         const action = rawAction ? String(rawAction).toLowerCase() : undefined;
 
-        const rawStatus = eventData.status ?? (eventData as any)?.Status;
+        const rawStatus = eventData.status ?? eventData.Status;
         const status = rawStatus ? String(rawStatus).toLowerCase() : undefined;
 
-        const rawDealId = eventData.dealId ?? (eventData as any)?.DealId;
+        const rawDealId = eventData.dealId ?? eventData.DealId;
         const dealId = rawDealId ? String(rawDealId).toLowerCase() : undefined;
 
-        // 1. Hide / Close / Cancel: IMMEDIATELY remove from active feed!
+        // 1. Hide / Close / Cancel: Shop disables deal -> Drop immediately from customer view
         if (
             action === "hidden" ||
             status === "hidden" ||
@@ -461,12 +479,14 @@ export function useNearbyFlashDeals() {
         ) {
           if (dealId) {
             newDealIdsRef.current.delete(dealId);
+            notifiedDealsRef.current.delete(dealId);
             setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
+            setNewDealsCount((c) => Math.max(0, c - 1));
           }
           return;
         }
 
-        // 2. Open / Published / Reopen: Tự động hiện ra ngay lập tức trên UI với nhãn NEW!
+        // 2. Open / Published / Reopen: Shop enables deal
         if (
             action === "opened" ||
             action === "published" ||
@@ -481,8 +501,7 @@ export function useNearbyFlashDeals() {
               try {
                 freshDeal = await flashDealApi.getDealById(dealId);
               } catch {
-                // Retry 150ms để phòng ngừa độ trễ mili-giây giữa SignalR event và Database transaction commit
-                await new Promise((r) => setTimeout(r, 150));
+                await new Promise((r) => setTimeout(r, 200));
                 try {
                   freshDeal = await flashDealApi.getDealById(dealId);
                 } catch {
@@ -495,7 +514,7 @@ export function useNearbyFlashDeals() {
                 const activeShop = selectedShopRef.current;
                 const activeKw = debouncedKeywordRef.current;
 
-                // Kiểm tra Category Filter: Nếu đang lọc category, deal phải đúng category đó
+                // 2.1. Check Category Filter
                 if (activeFilters.category.length > 0) {
                   const dealCatNorm = normalizeNfcLower(freshDeal.categoryName);
                   const dealCatUnaccent = removeVietnameseDiacritics(freshDeal.categoryName);
@@ -504,19 +523,20 @@ export function useNearbyFlashDeals() {
                     const fCatUnaccent = removeVietnameseDiacritics(cat);
                     return (
                         (fCatNorm.length > 0 && fCatNorm === dealCatNorm) ||
-                        (fCatUnaccent.length > 0 && fCatUnaccent === dealCatUnaccent)
+                        (fCatUnaccent.length > 0 && fCatUnaccent === dealCatUnaccent) ||
+                        (fCatNorm.length > 0 && dealCatNorm.includes(fCatNorm)) ||
+                        (fCatUnaccent.length > 0 && dealCatUnaccent.includes(fCatUnaccent))
                     );
                   });
 
                   if (!isCatMatched) {
-                    // Không đúng category đang lọc -> loại bỏ và không hiển thị
                     newDealIdsRef.current.delete(dealId);
                     setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
                     return;
                   }
                 }
 
-                // Kiểm tra Shop Filter: nếu người dùng đang lọc theo shop cụ thể
+                // 2.2. Check Shop Filter
                 if (activeShop) {
                   const fShopNorm = normalizeNfcLower(activeShop);
                   const fShopUnaccent = removeVietnameseDiacritics(activeShop);
@@ -529,7 +549,7 @@ export function useNearbyFlashDeals() {
                   }
                 }
 
-                // Kiểm tra Keyword Filter
+                // 2.3. Check Search Keyword
                 if (activeKw) {
                   const kwNorm = normalizeNfcLower(activeKw);
                   const kwUnaccent = removeVietnameseDiacritics(activeKw);
@@ -547,7 +567,25 @@ export function useNearbyFlashDeals() {
                   }
                 }
 
-                // Khớp bộ lọc (hoặc không áp dụng bộ lọc nào) -> hiển thị ngay lập tức với nhãn NEW
+                // 2.4. Check Price Range
+                if (activeFilters.price.length > 0) {
+                  const minPrice =
+                      freshDeal.minDealPrice ??
+                      (freshDeal.variants?.length ? Math.min(...freshDeal.variants.map((v) => v.dealPrice)) : 0);
+                  const isPriceMatched = activeFilters.price.some((p) => {
+                    if (p === "Under 30k") return minPrice < 30000;
+                    if (p === "30k - 50k") return minPrice >= 30000 && minPrice <= 50000;
+                    if (p === "Over 50k") return minPrice > 50000;
+                    return true;
+                  });
+                  if (!isPriceMatched) {
+                    newDealIdsRef.current.delete(dealId);
+                    setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
+                    return;
+                  }
+                }
+
+                // 2.5. All filters matched -> Display deal with NEW badge
                 newDealIdsRef.current.add(dealId);
                 const markedDeal: FlashDeal = {
                   ...freshDeal,
@@ -557,11 +595,29 @@ export function useNearbyFlashDeals() {
                   const rest = prev.filter((d) => d.id.toLowerCase() !== dealId);
                   return [markedDeal, ...rest];
                 });
-                setNewDealsCount((c) => c + 1);
+
+                // Only push to NotificationBell ONCE per deal opening session
+                if (!notifiedDealsRef.current.has(dealId)) {
+                  notifiedDealsRef.current.add(dealId);
+                  setNewDealsCount((c) => c + 1);
+
+                  useNotificationStore.getState().onNotificationReceived({
+                    notification: {
+                      id: `deal-${freshDeal.id}`,
+                      type: 17,
+                      title: `New Flash Deal from ${freshDeal.shopName}!`,
+                      body: `'${freshDeal.productName}' is now on sale. Order now before it runs out!`,
+                      actionUrl: `/flash-deals/${freshDeal.id}`,
+                      isRead: false,
+                      createdAt: new Date().toISOString(),
+                    },
+                    unreadCount: useNotificationStore.getState().unreadCount + 1,
+                  });
+                }
                 return;
               }
             } catch {
-              // Fallback: nếu lấy chi tiết lỗi, tự động refresh Page 1
+              // Safety fallback
             }
           }
           void fetchInitialDeals();
@@ -572,7 +628,7 @@ export function useNearbyFlashDeals() {
 
   useFlashDealRealtime("all", undefined, handleRealtimeDealEvent);
 
-  // When user clicks "Show new deals" on banner: refresh from Page 1 with fresh SnapshotAt
+  // Apply new deals from banner click
   const applyNewDeals = useCallback(() => {
     setNewDealsCount(0);
     setNextCursor(null);
@@ -582,7 +638,10 @@ export function useNearbyFlashDeals() {
   // Trigger on init or location/radius change
   useEffect(() => {
     if (!isLocationReady) return;
-    void fetchInitialDeals();
+    const timer = setTimeout(() => {
+      void fetchInitialDeals();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [isLocationReady, fetchInitialDeals]);
 
   return {

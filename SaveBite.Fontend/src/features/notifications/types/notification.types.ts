@@ -7,6 +7,7 @@ export interface NotificationItem {
   isRead: boolean;
   readAt?: string | null;
   createdAt: string;
+  silent?: boolean;
 }
 
 export interface NotificationPagedResult {

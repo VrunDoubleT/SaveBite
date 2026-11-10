@@ -55,84 +55,80 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   async fetchNotifications(filterOverride) {
     const activeFilter = filterOverride ?? get().filter;
+    if (get().isLoading) return;
     set({ isLoading: true });
     try {
       const result = await notificationApi.getNotifications({
         page: 1,
-        pageSize: 20,
-        isUnreadOnly: activeFilter === "unread" ? true : undefined,
+        pageSize: 30,
+        isUnreadOnly: activeFilter === "unread",
       });
       set({
         items: result.page.items,
         unreadCount: result.unreadCount,
-        isLoading: false,
       });
     } catch {
+      // Keep existing list on transient network failure
+    } finally {
       set({ isLoading: false });
     }
   },
 
   async markAsRead(notificationId) {
-    const target = get().items.find((n) => n.id === notificationId);
-    const wasUnread = target && !target.isRead;
-    const nowIso = new Date().toISOString();
-
-    if (wasUnread) {
-      set((state) => ({
-        items:
-          state.filter === "unread"
-            ? state.items.filter((n) => n.id !== notificationId)
-            : state.items.map((n) =>
-                n.id === notificationId ? { ...n, isRead: true, readAt: nowIso } : n,
-              ),
-        unreadCount: Math.max(0, state.unreadCount - 1),
-      }));
-    }
-
+    clearPreviewTimer(notificationId);
+    set((state) => ({
+      items: state.items.map((n) =>
+        n.id === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n,
+      ),
+      unreadCount: Math.max(0, state.unreadCount - 1),
+      livePreviews: state.livePreviews.filter((n) => n.id !== notificationId),
+      livePreview:
+        state.livePreview?.id === notificationId
+          ? state.livePreviews.find((n) => n.id !== notificationId) ?? null
+          : state.livePreview,
+    }));
     try {
       await notificationApi.markAsRead(notificationId);
     } catch {
-      await get().fetchNotifications();
+      // Fire-and-forget; next fetch will reconcile
     }
   },
 
   async markAllAsRead() {
+    clearAllPreviewTimers();
     const nowIso = new Date().toISOString();
     set((state) => ({
-      items:
-        state.filter === "unread"
-          ? []
-          : state.items.map((n) => ({ ...n, isRead: true, readAt: nowIso })),
+      items: state.items.map((n) => ({ ...n, isRead: true, readAt: nowIso })),
       unreadCount: 0,
+      livePreviews: [],
+      livePreview: null,
     }));
-
     try {
       await notificationApi.markAllAsRead();
     } catch {
-      await get().fetchNotifications();
+      // Reconciles on next poll or mount
     }
   },
 
   async deleteNotification(notificationId) {
-    const target = get().items.find((n) => n.id === notificationId);
-    const wasUnread = target && !target.isRead;
-
     clearPreviewTimer(notificationId);
-
     set((state) => {
-      const nextPreviews = state.livePreviews.filter((n) => n.id !== notificationId);
+      const target = state.items.find((n) => n.id === notificationId);
+      const wasUnread = target && !target.isRead;
       return {
         items: state.items.filter((n) => n.id !== notificationId),
         unreadCount: wasUnread ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
-        livePreviews: nextPreviews,
-        livePreview: nextPreviews[0] ?? null,
+        livePreviews: state.livePreviews.filter((n) => n.id !== notificationId),
+        livePreview:
+          state.livePreview?.id === notificationId
+            ? state.livePreviews.find((n) => n.id !== notificationId) ?? null
+            : state.livePreview,
       };
     });
-
     try {
       await notificationApi.deleteNotification(notificationId);
     } catch {
-      await get().fetchNotifications();
+      // Next sync reconciles
     }
   },
 
@@ -158,7 +154,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   onNotificationReceived(payload) {
     if (!payload?.notification) return;
     const notification = payload.notification;
-    const silent = notification.type === 24 || notification.type === "StaffJoinedShop";
+    // Bỏ qua livePreview popup nếu có silent = true (để không nhảy popup sai danh mục filter trên trang flash deal)
+    const silent =
+      notification.type === 24 ||
+      notification.type === "StaffJoinedShop" ||
+      Boolean(notification.silent);
 
     clearPreviewTimer(notification.id);
 
@@ -257,9 +257,3 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
   },
 }));
-
-if (import.meta.env.DEV && typeof window !== "undefined") {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window as any).__notificationStore = useNotificationStore;
-}
-
