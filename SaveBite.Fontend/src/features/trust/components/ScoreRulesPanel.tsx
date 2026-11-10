@@ -9,6 +9,7 @@ import { getRuleStatus, isEditableVersion } from "../utils/ruleStatus";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
 import { RuleStatusBadge } from "./RuleStatusBadge";
 import { ScoreRuleModal } from "./ScoreRuleModal";
+import { RecordId } from "@/shared/components/RecordId";
 
 interface ScoreRulesPanelProps {
   /** "all" = UC-135/136 (every Trust Score rule), "earning" = UC-137/138 (rules that add points). */
@@ -84,6 +85,7 @@ export function ScoreRulesPanel({ variant }: ScoreRulesPanelProps) {
         <table className="min-w-full divide-y divide-border-default text-left text-sm">
           <thead className="bg-neutral-50 text-text-secondary">
             <tr>
+              <th className="px-5 py-3 font-semibold">ID</th>
               <th className="px-5 py-3 font-semibold">Type</th>
               <th className="px-5 py-3 text-right font-semibold">Points</th>
               <th className="px-5 py-3 font-semibold">Status</th>
@@ -99,6 +101,9 @@ export function ScoreRulesPanel({ variant }: ScoreRulesPanelProps) {
               const status = getRuleStatus(rule, now);
               return (
                 <tr key={rule.id} className={status === "replaced" ? "text-text-muted" : ""}>
+                  <td className="max-w-40 px-5 py-3">
+                    <RecordId id={rule.id} />
+                  </td>
                   <td className="px-5 py-3 font-medium">
                     {rule.ruleType === "OnlineOrderCompleted" ? "Online order completed" : rule.ruleType === "PayAtShopOrderCompleted" ? "Pay-at-shop order completed" : "NoShow penalty"}
                   </td>

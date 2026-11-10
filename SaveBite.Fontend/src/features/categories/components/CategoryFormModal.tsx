@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
+import { RecordId } from "@/shared/components/RecordId";
 import type { Category } from "@/features/categories/types/adminCategory.types";
 import {
   categorySchema,
@@ -67,6 +68,7 @@ export function CategoryFormModal({ isOpen, category, onClose, onSave }: Categor
       title={category ? "Edit Category" : "Create Category"}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {category && <RecordId id={category.id} variant="full" />}
         <div>
           <label className="block text-sm font-semibold text-text-primary mb-1.5">Name</label>
           <input

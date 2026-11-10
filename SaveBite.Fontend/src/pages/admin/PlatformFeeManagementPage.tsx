@@ -28,6 +28,7 @@ import { StatusBadge } from "@/features/platform-fees/components/StatusBadge";
 import { ManualReconciliationModal } from "@/features/platform-fees/components/ManualReconciliationModal";
 import { AdminStatementDetailModal } from "@/features/platform-fees/components/AdminStatementDetailModal";
 import { Pagination } from "@/shared/components/pagination";
+import { RecordId } from "@/shared/components/RecordId";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 
@@ -657,6 +658,7 @@ export function PlatformFeeManagementPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200/80">
                 <tr>
+                  <th className="px-5 py-4">ID</th>
                   <th className="px-5 py-4">Shop Name</th>
                   <th className="px-5 py-4">Billing Period</th>
                   <th className="px-5 py-4">Fee Amount</th>
@@ -669,14 +671,14 @@ export function PlatformFeeManagementPage() {
               <tbody className="divide-y divide-slate-100">
                 {loadingStatements ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <td colSpan={8} className="py-12 text-center text-slate-400">
                       <RefreshCw className="mx-auto h-6 w-6 animate-spin text-emerald-600 mb-2" />
                       Loading statements data...
                     </td>
                   </tr>
                 ) : statements.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <td colSpan={8} className="py-12 text-center text-slate-400">
                       <Receipt className="mx-auto h-8 w-8 text-slate-300 mb-2" />
                       No fee statements found for the selected criteria.
                     </td>
@@ -687,7 +689,10 @@ export function PlatformFeeManagementPage() {
                     const isPending = norm === "Issued" || norm === "Overdue";
                     return (
                       <tr key={stmt.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="px-5 py-4 font-bold text-slate-900">
+                      <td className="max-w-40 px-5 py-4">
+                        <RecordId id={stmt.id} />
+                      </td>
+                      <td className="px-5 py-4 font-bold text-slate-900">
                           <div className="flex items-center gap-3">
                             {stmt.shopLogoUrl ? (
                               <img
@@ -702,9 +707,6 @@ export function PlatformFeeManagementPage() {
                             )}
                             <div>
                               <div>{stmt.shopName || "Shop"}</div>
-                              <div className="font-mono text-[10px] text-slate-400 font-normal">
-                                {stmt.id.substring(0, 18)}...
-                              </div>
                             </div>
                           </div>
                         </td>

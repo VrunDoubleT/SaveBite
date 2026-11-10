@@ -1,15 +1,16 @@
 import type { ReactNode } from "react";
 import {
-  ArrowRight,
-  ArrowUpDown,
   ChevronRight,
+  ClipboardList,
+  Eye,
   Inbox,
   Loader2,
   MapPin,
-  RefreshCw,
+  PencilLine,
 } from "lucide-react";
 
 import type { ShopApplication } from "../types/adminShopApplication.types";
+import { RecordId } from "@/shared/components/RecordId";
 import {
   FILTERS,
   focusRing,
@@ -18,15 +19,11 @@ import {
 } from "../schemas/adminShopApplication.schema";
 import { Notice, StatusBadge } from "./AdminShopApplicationShared";
 
-export type SortOrder = "newest" | "oldest";
-
 type Props = {
   visibleItems: ShopApplication[];
   loading: boolean;
   filter: string;
   setFilter: (value: string) => void;
-  sort: SortOrder;
-  onSortChange: (value: SortOrder) => void;
   counts: Record<string, number>;
   error: string;
   load: () => void;
@@ -39,16 +36,15 @@ type Props = {
 const locationOf = (item: ShopApplication) =>
   [item.district, item.city].filter(Boolean).join(", ") || item.addressLine || "";
 
-const DOT_CLASS: Record<string, string> = {
-  pending: "bg-amber-500",
-  approved: "bg-emerald-500",
-  rejected: "bg-rose-500",
-  cancelled: "bg-slate-400",
-};
-
-const dotClass = (status: string) => DOT_CLASS[status.toLowerCase()] ?? "bg-slate-400";
-
 const actionLabel = (status: string) => (status.toLowerCase() === "pending" ? "Review" : "View");
+const SUMMARY_STYLE: Record<string, { icon: string; count: string }> = {
+  All: { icon: "bg-slate-100 text-slate-600", count: "text-slate-900" },
+  Pending: { icon: "bg-amber-50 text-amber-600", count: "text-amber-600" },
+  NeedsRevision: { icon: "bg-orange-50 text-orange-600", count: "text-orange-600" },
+  Approved: { icon: "bg-emerald-50 text-emerald-600", count: "text-emerald-600" },
+  Rejected: { icon: "bg-rose-50 text-rose-600", count: "text-rose-600" },
+  Cancelled: { icon: "bg-slate-100 text-slate-500", count: "text-slate-600" },
+};
 
 function Avatar({ item }: { item: ShopApplication }) {
   if (item.logoUrl) {
@@ -74,8 +70,6 @@ export function AdminShopApplicationsList({
   loading,
   filter,
   setFilter,
-  sort,
-  onSortChange,
   counts,
   error,
   load,
@@ -100,18 +94,18 @@ export function AdminShopApplicationsList({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => load()}
-          disabled={loading}
-          className={`inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`}
+        <select
+          aria-label="Filter applications by status"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value)}
+          className={`min-w-40 rounded-lg border border-border-default bg-white px-3 py-2 text-sm font-semibold text-text-primary shadow-sm transition-colors hover:border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-500 ${focusRing}`}
         >
-          <RefreshCw
-            className={`size-4 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`}
-            aria-hidden="true"
-          />
-          Refresh
-        </button>
+          {FILTERS.map((status) => (
+            <option key={status} value={status}>
+              {status === "All" ? "All statuses" : getStatusMeta(status).label}
+            </option>
+          ))}
+        </select>
       </header>
 
       {error && (
@@ -130,55 +124,42 @@ export function AdminShopApplicationsList({
         </Notice>
       )}
 
-      {/* Status tabs: counts act as the overview */}
+      {/* Status totals are an overview only; filtering is controlled by the dropdown above. */}
       <div
-        className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1"
-        role="group"
-        aria-label="Filter by status"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"
+        aria-label="Application totals by status"
       >
         {FILTERS.map((status) => {
-          const active = filter === status;
+          const SummaryIcon =
+            status === "All"
+              ? ClipboardList
+              : status === "NeedsRevision"
+                ? PencilLine
+                : getStatusMeta(status).icon;
+          const style = SUMMARY_STYLE[status] ?? SUMMARY_STYLE.All;
 
           return (
-            <button
+            <div
               key={status}
-              type="button"
-              onClick={() => setFilter(status)}
-              aria-pressed={active}
-              className={`group rounded-xl border px-3 py-3 text-left transition-colors sm:px-4 motion-reduce:transition-none ${focusRing} ${
-                active
-                  ? "border-emerald-600 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-600"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40"
-              }`}
+              className="flex min-h-20 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm"
             >
-              <span className="flex items-center gap-2 text-sm font-medium">
-                {status !== "All" && (
-                  <span className={`size-2 rounded-full ${dotClass(status)}`} aria-hidden="true" />
-                )}
-                {status === "All" ? status : getStatusMeta(status).label}
-              </span>
               <span
-                className={`mt-1 block text-2xl font-semibold tabular-nums ${
-                  active ? "text-emerald-700" : "text-slate-900"
-                }`}
+                className={`flex size-10 shrink-0 items-center justify-center rounded-full ${style.icon}`}
+                aria-hidden="true"
               >
-                {loading ? "–" : (counts[status] ?? 0)}
+                <SummaryIcon className="size-4" />
               </span>
-            </button>
+              <div className="min-w-0">
+                <span className="block whitespace-normal break-words text-xs font-medium leading-tight text-slate-500">
+                  {status === "All" ? "Total applications" : getStatusMeta(status).label}
+                </span>
+                <span className={`mt-0.5 block text-xl font-bold tabular-nums ${style.count}`}>
+                  {loading ? "–" : (counts[status] ?? 0)}
+                </span>
+              </div>
+            </div>
           );
         })}
-      </div>
-
-      {/* Sort */}
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => onSortChange(sort === "newest" ? "oldest" : "newest")}
-          className={`inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 ${focusRing}`}
-        >
-          <ArrowUpDown className="size-4 text-slate-400" aria-hidden="true" />
-          {sort === "newest" ? "Newest first" : "Oldest first"}
-        </button>
       </div>
 
       {/* List */}
@@ -231,10 +212,13 @@ export function AdminShopApplicationsList({
             <table className="hidden w-full table-fixed text-left text-sm md:table">
               <thead className="border-b border-slate-200 bg-slate-50/80 text-xs text-slate-500">
                 <tr>
-                  <th scope="col" className="w-[34%] px-5 py-3 font-medium">
+                  <th scope="col" className="w-[18%] px-5 py-3 font-medium">
+                    ID
+                  </th>
+                  <th scope="col" className="w-[26%] px-5 py-3 font-medium">
                     Store
                   </th>
-                  <th scope="col" className="w-[20%] px-5 py-3 font-medium">
+                  <th scope="col" className="w-[18%] px-5 py-3 font-medium">
                     Location
                   </th>
                   <th scope="col" className="w-28 px-5 py-3 font-medium">
@@ -265,6 +249,9 @@ export function AdminShopApplicationsList({
                         busy ? "cursor-wait" : "cursor-pointer"
                       } ${opening ? "bg-emerald-50/60" : ""}`}
                     >
+                      <td className="max-w-40 px-5 py-3.5">
+                        <RecordId id={item.id} />
+                      </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <Avatar item={item} />
@@ -316,32 +303,14 @@ export function AdminShopApplicationsList({
                           }}
                           disabled={busy}
                           aria-label={`${actionLabel(item.status)} application from ${item.name}`}
-                          className={`inline-flex items-center gap-2 rounded-full border py-1.5 pl-3.5 pr-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none ${
-                            opening
-                              ? "border-emerald-600 bg-emerald-600 text-white"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-800 group-hover:border-emerald-600 group-hover:bg-emerald-600 group-hover:text-white"
-                          } ${focusRing}`}
+                          className={`inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
                         >
                           {opening ? "Opening…" : actionLabel(item.status)}
-                          <span
-                            className={`flex size-6 items-center justify-center rounded-full transition-colors motion-reduce:transition-none ${
-                              opening
-                                ? "bg-white/20"
-                                : "bg-white text-emerald-700 group-hover:bg-white/20 group-hover:text-white"
-                            }`}
-                          >
-                            {opening ? (
-                              <Loader2
-                                className="size-3.5 animate-spin motion-reduce:animate-none"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <ArrowRight
-                                className="size-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
-                                aria-hidden="true"
-                              />
-                            )}
-                          </span>
+                          {opening ? (
+                            <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                          ) : (
+                            <Eye className="size-3.5" aria-hidden="true" />
+                          )}
                         </button>
                       </td>
                     </tr>
@@ -358,37 +327,40 @@ export function AdminShopApplicationsList({
 
                 return (
                   <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => openDetail(item)}
-                      disabled={busy}
-                      className={`flex w-full items-start gap-3 px-4 py-4 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 disabled:opacity-60 ${
-                        opening ? "bg-emerald-50/60" : ""
-                      }`}
-                    >
+                    <div className={`flex items-start gap-3 px-4 py-4 ${opening ? "bg-emerald-50/60" : ""}`}>
+                      <div className="mt-1 shrink-0">
+                        <RecordId id={item.id} />
+                      </div>
                       <Avatar item={item} />
 
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-start justify-between gap-2">
-                          <span
-                            className="min-w-0 truncate font-semibold text-slate-900"
-                            title={item.name}
-                          >
-                            {item.name}
+                        <button
+                          type="button"
+                          onClick={() => openDetail(item)}
+                          disabled={busy}
+                          className="w-full text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-60"
+                        >
+                          <span className="flex items-start justify-between gap-2">
+                            <span
+                              className="min-w-0 truncate font-semibold text-slate-900"
+                              title={item.name}
+                            >
+                              {item.name}
+                            </span>
+                            <span className="shrink-0">
+                              <StatusBadge status={item.status} />
+                            </span>
                           </span>
-                          <span className="shrink-0">
-                            <StatusBadge status={item.status} />
+
+                          <span className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                            <MapPin className="size-3 shrink-0 text-slate-400" aria-hidden="true" />
+                            <span className="truncate">{place || "—"}</span>
                           </span>
-                        </span>
 
-                        <span className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-                          <MapPin className="size-3 shrink-0 text-slate-400" aria-hidden="true" />
-                          <span className="truncate">{place || "—"}</span>
-                        </span>
-
-                        <span className="mt-1 block text-xs text-slate-500">
-                          Revision {item.revisionNumber}, {shortDate(item.createdAt)}
-                        </span>
+                          <span className="mt-1 block text-xs text-slate-500">
+                            Revision {item.revisionNumber}, {shortDate(item.createdAt)}
+                          </span>
+                        </button>
                       </span>
 
                       {opening ? (
@@ -402,20 +374,15 @@ export function AdminShopApplicationsList({
                           aria-hidden="true"
                         />
                       )}
-                    </button>
+                    </div>
                   </li>
                 );
               })}
             </ul>
           </>
         )}
-        {/* Pagination */}
-        {pagination && (
-          <div className="flex w-full items-center justify-around border-t border-border-default bg-neutral-50/30 px-6 py-5">
-            {pagination}
-          </div>
-        )}
       </div>
+      {pagination}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, EyeOff, Loader2, Package, Star, Store, Undo2, X } from "lucide-react";
+import { RecordId } from "@/shared/components/RecordId";
 import type { Feedback } from "../types/feedback.types";
 import { FeedbackCustomerAvatar } from "./FeedbackCustomerAvatar";
 
@@ -219,6 +220,7 @@ export function FeedbackModerationDialog({
                   <span className="truncate">{feedback.shopName || "Unknown shop"}</span>
                 </span>
               </div>
+              <RecordId id={feedback.id} variant="full" />
             </div>
 
             {feedback.currentReason?.trim() && (

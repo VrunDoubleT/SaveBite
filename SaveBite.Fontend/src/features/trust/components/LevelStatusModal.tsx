@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
+import { RecordId } from "@/shared/components/RecordId";
 import type { AdminTrustLevel, UpdateLevelStatusPayload } from "../types/adminTrust.types";
 
 interface LevelStatusModalProps {
@@ -51,6 +52,7 @@ export function LevelStatusModal({ level, onClose, onConfirm }: LevelStatusModal
       }
     >
       <div className="space-y-4">
+        <RecordId id={level.id} variant="full" />
         {isDeactivating ? (
           <>
             <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">

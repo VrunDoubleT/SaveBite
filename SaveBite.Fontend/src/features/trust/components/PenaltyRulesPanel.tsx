@@ -15,6 +15,7 @@ import { getRuleStatus, isFutureRule } from "../utils/ruleStatus";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
 import { PenaltyRuleModal } from "./PenaltyRuleModal";
 import { RuleStatusBadge } from "./RuleStatusBadge";
+import { RecordId } from "@/shared/components/RecordId";
 
 // UC-133 (view), UC-134 (update), UC-156 (create), and delete future scheduled penalty rules.
 export function PenaltyRulesPanel() {
@@ -120,6 +121,7 @@ export function PenaltyRulesPanel() {
           <table className="min-w-full divide-y divide-border-default text-left text-sm">
             <thead className="bg-neutral-50 text-text-secondary">
               <tr>
+                <th className="px-5 py-3 font-semibold">ID</th>
                 <th className="px-5 py-3 font-semibold">From no-show #</th>
                 <th className="px-5 py-3 text-right font-semibold">Points deducted</th>
                 <th className="px-5 py-3 font-semibold">Recovery requirement</th>
@@ -143,6 +145,9 @@ export function PenaltyRulesPanel() {
                         : ""
                     }
                   >
+                    <td className="max-w-40 px-5 py-3">
+                      <RecordId id={rule.id} />
+                    </td>
                     <td className="px-5 py-3 font-semibold tabular-nums">
                       #{rule.minimumOccurrence}
                     </td>

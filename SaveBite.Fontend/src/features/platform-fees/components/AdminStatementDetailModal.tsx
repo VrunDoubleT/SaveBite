@@ -14,6 +14,7 @@ import type { PlatformFeeStatementDetail } from "../types/platformFee.types";
 import { StatusBadge } from "./StatusBadge";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { RecordId } from "@/shared/components/RecordId";
 
 const formatVnd = (amount: number) => {
   return new Intl.NumberFormat("vi-VN", {
@@ -115,7 +116,13 @@ export function AdminStatementDetailModal({
                 </h3>
                 {statement && <StatusBadge status={statement.status} size="sm" />}
               </div>
-              <p className="text-xs font-mono text-slate-400">ID: {statementId}</p>
+              {statementId && (
+                <RecordId
+                  id={statementId}
+                  variant="full"
+                  className="mt-1 [&_button]:border-slate-200 [&_button]:bg-white [&_button]:text-slate-600 [&_button:hover]:border-emerald-300 [&_button:hover]:bg-emerald-50 [&_button:hover]:text-emerald-800 [&_button:focus-visible]:outline-emerald-600"
+                />
+              )}
             </div>
           </div>
           <button

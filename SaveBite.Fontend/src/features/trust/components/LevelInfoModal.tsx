@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
+import { RecordId } from "@/shared/components/RecordId";
 import type { AdminTrustLevel, UpdateLevelInfoPayload } from "../types/adminTrust.types";
 import { levelInfoSchema, type LevelInfoFormData } from "../schemas/trust.schema";
 import { inputClass } from "../utils/formStyles";
@@ -53,6 +54,7 @@ export function LevelInfoModal({ level, onClose, onSave }: LevelInfoModalProps) 
       title={level ? `Rename ${level.name} (Rank ${level.rank})` : undefined}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {level && <RecordId id={level.id} variant="full" />}
         <p className="text-sm text-text-secondary">
           Update the display name of this level. Rank ({level?.rank}), requirements, and deposit
           policy remain unchanged.
