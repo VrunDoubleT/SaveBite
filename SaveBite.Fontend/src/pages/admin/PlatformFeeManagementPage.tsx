@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Percent,
   Calendar,
@@ -12,7 +12,6 @@ import {
   Layers,
   ArrowRight,
   Info,
-  Search,
   Sparkles,
   Store,
   Eye,
@@ -28,8 +27,10 @@ import { StatusBadge } from "@/features/platform-fees/components/StatusBadge";
 import { ManualReconciliationModal } from "@/features/platform-fees/components/ManualReconciliationModal";
 import { AdminStatementDetailModal } from "@/features/platform-fees/components/AdminStatementDetailModal";
 import { Pagination } from "@/shared/components/pagination";
+import { SearchInput } from "@/shared/components/modal/SearchInput";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 const formatVnd = (amount: number) => {
   return new Intl.NumberFormat("vi-VN", {
@@ -58,7 +59,9 @@ export function PlatformFeeManagementPage() {
   const [config, setConfig] = useState<PlatformFeeConfigResponse | null>(null);
   const [allConfigs, setAllConfigs] = useState<PlatformFeeConfigResponse[]>([]);
   const [loadingConfig, setLoadingConfig] = useState(true);
+  const [configReloadKey, setConfigReloadKey] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [now] = useState(Date.now);
 
   // Form states for updating config
   const [feeRatePercent, setFeeRatePercent] = useState<string>("10");
@@ -68,7 +71,9 @@ export function PlatformFeeManagementPage() {
   // Statements list state for Admin
   const [statements, setStatements] = useState<PlatformFeeStatementSummary[]>([]);
   const [loadingStatements, setLoadingStatements] = useState(true);
+  const [statementsReloadKey, setStatementsReloadKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 400);
   const [filterYear, setFilterYear] = useState<number | string>(new Date().getFullYear());
   const [filterMonth, setFilterMonth] = useState<string>("All");
   const [filterStatus, setFilterStatus] = useState<string>("All");
@@ -90,51 +95,70 @@ export function PlatformFeeManagementPage() {
   const [selectedStatementItem, setSelectedStatementItem] =
     useState<PlatformFeeStatementSummary | null>(null);
 
-  const loadConfigs = useCallback(async () => {
-    setLoadingConfig(true);
-    try {
-      const [active, all] = await Promise.all([
-        platformFeeApi.getActiveConfig(),
-        platformFeeApi.getAllConfigs().catch(() => []),
-      ]);
-      setConfig(active);
-      setAllConfigs(all);
-      setFeeRatePercent((active.feePercentage ?? active.feeRate * 100).toString());
-    } catch (error) {
-      toast.error(getApiErrorMessage(error) || "Unable to load platform fee configuration.");
-    } finally {
-      setLoadingConfig(false);
-    }
-  }, []);
+  useEffect(() => {
+    let cancelled = false;
 
-  const loadStatements = useCallback(async () => {
-    setLoadingStatements(true);
-    try {
-      const result = await platformFeeApi.getAdminStatements({
+    Promise.all([
+      platformFeeApi.getActiveConfig(),
+      platformFeeApi.getAllConfigs().catch(() => []),
+    ])
+      .then(([active, all]) => {
+        if (!cancelled) {
+          setConfig(active);
+          setAllConfigs(all);
+          setFeeRatePercent((active.feePercentage ?? active.feeRate * 100).toString());
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          toast.error(getApiErrorMessage(error) || "Unable to load platform fee configuration.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingConfig(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [configReloadKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    platformFeeApi
+      .getAdminStatements({
         year: filterYear === "All" ? undefined : Number(filterYear),
         month: filterMonth === "All" ? undefined : parseInt(filterMonth),
         status: filterStatus === "All" ? undefined : filterStatus,
-        search: searchTerm.trim() || undefined,
+        search: debouncedSearchTerm.trim() || undefined,
         page,
         pageSize: 10,
+      })
+      .then((result) => {
+        if (!cancelled) {
+          setStatements(result.items || []);
+          setTotalPages(result.totalPages || 1);
+          setTotalCount(result.totalItems ?? result.totalCount ?? (result.items?.length || 0));
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          toast.error(getApiErrorMessage(error) || "Unable to load platform fee statements.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingStatements(false);
+        }
       });
-      setStatements(result.items || []);
-      setTotalPages(result.totalPages || 1);
-      setTotalCount(result.totalItems ?? result.totalCount ?? (result.items?.length || 0));
-    } catch (error) {
-      toast.error(getApiErrorMessage(error) || "Unable to load platform fee statements.");
-    } finally {
-      setLoadingStatements(false);
-    }
-  }, [filterYear, filterMonth, filterStatus, searchTerm, page]);
 
-  useEffect(() => {
-    void loadConfigs();
-  }, [loadConfigs]);
-
-  useEffect(() => {
-    void loadStatements();
-  }, [loadStatements]);
+    return () => {
+      cancelled = true;
+    };
+  }, [filterYear, filterMonth, filterStatus, debouncedSearchTerm, page, statementsReloadKey]);
 
   const handleUpdateConfig = async (e: FormEvent) => {
     e.preventDefault();
@@ -154,11 +178,12 @@ export function PlatformFeeManagementPage() {
       });
 
       toast.success(
-        isEditingUpcoming || (effectiveFromIso && new Date(effectiveFromIso).getTime() > Date.now())
+        isEditingUpcoming || (effectiveFromIso && new Date(effectiveFromIso).getTime() > now)
           ? "Upcoming scheduled fee rate updated successfully!"
           : "Platform fee configuration updated successfully!",
       );
-      await loadConfigs();
+      setLoadingConfig(true);
+      setConfigReloadKey((k) => k + 1);
       setEffectiveDate("");
       setIsEditingUpcoming(false);
     } catch (error) {
@@ -179,7 +204,8 @@ export function PlatformFeeManagementPage() {
       } else {
         toast.info("Overdue check complete: No overdue fee statements past grace period found.");
       }
-      await loadStatements();
+      setLoadingStatements(true);
+      setStatementsReloadKey((k) => k + 1);
     } catch (error) {
       toast.error(getApiErrorMessage(error) || "Failed to process overdue fee statements.");
     } finally {
@@ -198,10 +224,11 @@ export function PlatformFeeManagementPage() {
       } else {
         toast.info(`No unbilled completed order fees found for period ${genMonth}/${genYear}.`);
       }
-      // Auto switch filter to generated month & year to view results immediately
+      setLoadingStatements(true);
       setFilterYear(genYear.toString());
       setFilterMonth(genMonth.toString());
       setPage(1);
+      setStatementsReloadKey((k) => k + 1);
     } catch (error) {
       toast.error(getApiErrorMessage(error) || "Failed to generate monthly statements.");
     } finally {
@@ -214,9 +241,9 @@ export function PlatformFeeManagementPage() {
     setShowReconcileModal(true);
   };
 
-  // Find latest upcoming scheduled config if any (sorted by newest created)
+  // Find latest upcoming scheduled config if any (pure without calling Date.now() directly in render)
   const upcomingConfig = allConfigs
-    .filter((c) => new Date(c.effectiveFrom).getTime() > Date.now())
+    .filter((c) => new Date(c.effectiveFrom).getTime() > now)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
   return (
@@ -233,8 +260,10 @@ export function PlatformFeeManagementPage() {
         </div>
         <button
           onClick={() => {
-            void loadConfigs();
-            void loadStatements();
+            setLoadingConfig(true);
+            setLoadingStatements(true);
+            setConfigReloadKey((k) => k + 1);
+            setStatementsReloadKey((k) => k + 1);
           }}
           disabled={loadingConfig || loadingStatements}
           className="inline-flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50"
@@ -250,7 +279,7 @@ export function PlatformFeeManagementPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Active Config Overview Card (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-800 p-7 text-white shadow-xl ring-1 ring-black/5">
+          <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-emerald-600 via-teal-600 to-emerald-800 p-7 text-white shadow-xl ring-1 ring-black/5">
             <div className="absolute -right-6 -bottom-6 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none" />
             <div className="relative z-10 space-y-6">
               <div className="flex items-center justify-between">
@@ -589,27 +618,27 @@ export function PlatformFeeManagementPage() {
 
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search shop or ID..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setPage(1);
-                }}
-                className="rounded-xl border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
+            <SearchInput
+              value={searchTerm}
+              onChange={(val) => {
+                setSearchTerm(val);
+                if (val.trim() !== debouncedSearchTerm.trim()) {
+                  setLoadingStatements(true);
+                }
+                setPage(1);
+              }}
+              placeholder="Search shop or ID..."
+              className="w-full sm:w-60"
+            />
 
             <select
               value={filterYear}
               onChange={(e) => {
+                setLoadingStatements(true);
                 setFilterYear(e.target.value === "All" ? "All" : parseInt(e.target.value));
                 setPage(1);
               }}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
             >
               <option value="All">All Years</option>
               {[2024, 2025, 2026, 2027].map((y) => (
@@ -622,10 +651,11 @@ export function PlatformFeeManagementPage() {
             <select
               value={filterMonth}
               onChange={(e) => {
+                setLoadingStatements(true);
                 setFilterMonth(e.target.value);
                 setPage(1);
               }}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
             >
               <option value="All">All Months</option>
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
@@ -638,10 +668,11 @@ export function PlatformFeeManagementPage() {
             <select
               value={filterStatus}
               onChange={(e) => {
+                setLoadingStatements(true);
                 setFilterStatus(e.target.value);
                 setPage(1);
               }}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
             >
               <option value="All">All Statuses</option>
               <option value="Issued">Issued</option>
@@ -764,7 +795,10 @@ export function PlatformFeeManagementPage() {
                 totalPages={totalPages}
                 totalItems={totalCount}
                 pageSize={10}
-                onPageChange={(p) => setPage(p)}
+                onPageChange={(p) => {
+                  setLoadingStatements(true);
+                  setPage(p);
+                }}
                 itemLabel="statements"
               />
             </div>
@@ -781,7 +815,10 @@ export function PlatformFeeManagementPage() {
         }}
         statements={statements}
         initialStatement={selectedStatementItem}
-        onSuccess={() => void loadStatements()}
+        onSuccess={() => {
+          setLoadingStatements(true);
+          setStatementsReloadKey((k) => k + 1);
+        }}
       />
 
       {/* Admin Statement Detail Modal */}

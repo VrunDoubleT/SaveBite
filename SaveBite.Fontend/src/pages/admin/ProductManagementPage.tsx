@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { AlertCircle, PackageSearch, RotateCw, SearchX } from "lucide-react";
+import {
+  AlertCircle,
+  PackageSearch,
+  RotateCw,
+  SearchX,
+  Package,
+  CheckCircle2,
+  EyeOff,
+  Clock,
+  ShieldAlert,
+} from "lucide-react";
 import { productApi } from "@/features/products/api/productApi";
 import { ProductManagementTable } from "@/features/products/components/ProductManagementTable";
 import type { ProductListManagement } from "@/features/products/types/product.types";
 import { Pagination } from "@/shared/components/pagination";
 import { SearchInput } from "@/shared/components/modal/SearchInput";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 const PAGE_SIZE = 5;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -83,7 +94,7 @@ function StateMessage({
 export function ProductManagementPage() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(searchInput, SEARCH_DEBOUNCE_MS);
 
   const [items, setItems] = useState<ProductListManagement[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -92,52 +103,91 @@ export function ProductManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const retry = useCallback(() => setReloadKey((key) => key + 1), []);
+  // Summary counts state
+  const [counts, setCounts] = useState<{
+    total: number;
+    active: number;
+    hidden: number;
+    pendingReview: number;
+    suspended: number;
+  }>({
+    total: 0,
+    active: 0,
+    hidden: 0,
+    pendingReview: 0,
+    suspended: 0,
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
+  const retry = useCallback(() => {
     setLoading(true);
     setError(null);
+    setLoadingStats(true);
+    setReloadKey((key) => key + 1);
+  }, []);
 
-    void productApi
+  // Stats effect
+  useEffect(() => {
+    let cancelled = false;
+
+    productApi
+      .getProductsForManagement({ page: 1, pageSize: 1000 })
+      .then((data) => {
+        if (!cancelled && data) {
+          const all = data.items ?? [];
+          const total = data.totalItems ?? all.length;
+          const active = all.filter((p) => p.status === 0).length;
+          const hidden = all.filter((p) => p.status === 1).length;
+          const pendingReview = all.filter((p) => p.latestReview?.status === 1).length;
+          const suspended = all.filter((p) => p.latestReview?.status === 4).length;
+          setCounts({ total, active, hidden, pendingReview, suspended });
+          setLoadingStats(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoadingStats(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  // Main data fetch effect: tự động fetch khi debouncedSearch thay đổi
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
+    productApi
       .getProductsForManagement(
         {
-          keyword: search || undefined,
+          keyword: debouncedSearch.trim() || undefined,
           page,
           pageSize: PAGE_SIZE,
         },
         controller.signal,
       )
       .then((data) => {
-        if (controller.signal.aborted) return;
-
+        if (cancelled || controller.signal.aborted) return;
         setItems(data?.items ?? []);
         setTotalItems(data?.totalItems ?? 0);
         setTotalPages(Math.max(1, data?.totalPages ?? 1));
+        setLoading(false);
       })
       .catch(() => {
-        if (!controller.signal.aborted) {
+        if (!cancelled && !controller.signal.aborted) {
           setError("Unable to load products.");
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
           setLoading(false);
         }
       });
 
-    return () => controller.abort();
-  }, [page, search, reloadKey]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [page, debouncedSearch, reloadKey]);
 
   const isInitialLoading = loading && items.length === 0;
 
@@ -157,11 +207,94 @@ export function ProductManagementPage() {
 
         <SearchInput
           value={searchInput}
-          onChange={setSearchInput}
+          onChange={(val) => {
+            setSearchInput(val);
+            if (val.trim() !== debouncedSearch.trim()) {
+              setLoading(true);
+            }
+            setPage(1);
+          }}
           placeholder="Search products or shops..."
           className="w-full sm:w-80"
         />
       </header>
+
+      {/* 5 Overview Stat Cards with icons (no hover, non-clickable) */}
+      <div
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 sm:gap-4 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1"
+        role="region"
+        aria-label="Product summary metrics"
+      >
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <Package className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 truncate">All Products</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+                {loadingStats ? "–" : counts.total}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 truncate">Active</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+                {loadingStats ? "–" : counts.active}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+              <EyeOff className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 truncate">Hidden</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+                {loadingStats ? "–" : counts.hidden}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <Clock className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 truncate">Pending Review</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+                {loadingStats ? "–" : counts.pendingReview}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+              <ShieldAlert className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 truncate">Suspended</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+                {loadingStats ? "–" : counts.suspended}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {isInitialLoading ? (
         <ListSkeleton />
@@ -184,11 +317,11 @@ export function ProductManagementPage() {
           }
         />
       ) : items.length === 0 ? (
-        search ? (
+        debouncedSearch ? (
           <StateMessage
             icon={SearchX}
             title="No matching products"
-            description={`Nothing matches “${search}”. Try a different product or shop name.`}
+            description={`Nothing matches “${debouncedSearch}”. Try a different product or shop name.`}
           />
         ) : (
           <StateMessage
@@ -209,7 +342,10 @@ export function ProductManagementPage() {
               <Pagination
                 currentPage={page}
                 totalPages={totalPages}
-                onPageChange={setPage}
+                onPageChange={(p) => {
+                  setLoading(true);
+                  setPage(p);
+                }}
                 totalItems={totalItems}
                 pageSize={PAGE_SIZE}
                 itemLabel="products"

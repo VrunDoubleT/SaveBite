@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, CheckCircle2, EyeOff, Layers, Package, Plus, Search } from "lucide-react";
 import { Pagination } from "@/shared/components/pagination";
@@ -8,7 +8,6 @@ import { useProductWorkspace } from "../hooks/useProductWorkspace";
 import {
   Empty,
   ErrorState,
-  inputClass,
   primaryButton,
   ProductPhoto,
   secondaryButton,
@@ -16,6 +15,7 @@ import {
 import { ProductListSkeleton } from "../components/ProductListSkeleton";
 import { money } from "../utils/productForm";
 import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 const statuses: { value: number | ""; label: string }[] = [
   { value: 0, label: "Active" },
@@ -26,19 +26,23 @@ export function ProductListPage() {
   const { shop, categories, productPath } = useProductWorkspace();
   const shopSuspended = useShopSuspended();
   const [searchInput, setSearchInput] = useState("");
-  const [query, setQuery] = useState<{
-    page: number;
-    pageSize: number;
-    search: string;
-    categoryId: string;
-    status: number | "";
-  }>({
-    page: 1,
-    pageSize: 20,
-    search: "",
-    categoryId: "",
-    status: "",
-  });
+  const debouncedSearch = useDebounce(searchInput, 350);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const [categoryId, setCategoryId] = useState("");
+  const [status, setStatus] = useState<number | "">("");
+
+  const query = useMemo(
+    () => ({
+      page,
+      pageSize,
+      search: debouncedSearch.trim(),
+      categoryId,
+      status,
+    }),
+    [page, pageSize, debouncedSearch, categoryId, status],
+  );
+
   const loadSummary = useCallback((signal: AbortSignal) => productApi.summary(signal), []);
   const { data: summary } = useProductResource(`${shop.id}:product-summary`, loadSummary);
   const load = useCallback(
@@ -57,7 +61,7 @@ export function ProductListPage() {
     `${shop.id}:${JSON.stringify(query)}`,
     load,
   );
-  const filtered = Boolean(query.search || query.categoryId || query.status !== "");
+  const filtered = Boolean(debouncedSearch.trim() || categoryId || status !== "");
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -132,33 +136,29 @@ export function ProductListPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <form
-          className="flex min-w-56 flex-1 gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setQuery({ ...query, search: searchInput.trim(), page: 1 });
-          }}
-        >
-          <div className="relative flex-1">
-            <Search className="absolute top-3 left-3 size-4 text-neutral-400" />
-            <input
-              aria-label="Search products by name"
-              className={`${inputClass} mt-0! pl-9`}
-              placeholder="Search by product name…"
-              maxLength={200}
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-          </div>
-          <button className={secondaryButton} type="submit">
-            Search
-          </button>
-        </form>
+        {/* Realtime Search Bar without Search Button */}
+        <div className="relative min-w-56 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+          <input
+            aria-label="Search products by name"
+            className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-4 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+            placeholder="Search by product name…"
+            maxLength={200}
+            value={searchInput}
+            onChange={(e) => {
+              setSearchInput(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
         <select
           aria-label="Filter by category"
-          className={`${inputClass} mt-0! w-auto! max-w-44`}
-          value={query.categoryId}
-          onChange={(e) => setQuery({ ...query, categoryId: e.target.value, page: 1 })}
+          className="h-10 w-auto! max-w-44 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+          value={categoryId}
+          onChange={(e) => {
+            setCategoryId(e.target.value);
+            setPage(1);
+          }}
         >
           <option value="">All categories</option>
           {categories.map((c) => (
@@ -168,15 +168,18 @@ export function ProductListPage() {
           ))}
         </select>
         <div role="group" aria-label="Filter by product status" className="flex gap-2">
-          {statuses.map((status) => (
+          {statuses.map((s) => (
             <button
-              key={status.value}
+              key={s.value}
               type="button"
-              aria-pressed={query.status === status.value}
-              onClick={() => setQuery({ ...query, status: status.value, page: 1 })}
-              className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition focus-visible:ring-2 focus-visible:ring-primary-400 ${query.status === status.value ? "border-primary-600 bg-primary-600 text-white" : "border-neutral-200 bg-white text-neutral-600 hover:border-primary-300"}`}
+              aria-pressed={status === s.value}
+              onClick={() => {
+                setStatus(s.value);
+                setPage(1);
+              }}
+              className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition focus-visible:ring-2 focus-visible:ring-primary-400 ${status === s.value ? "border-primary-600 bg-primary-600 text-white" : "border-neutral-200 bg-white text-neutral-600 hover:border-primary-300"}`}
             >
-              {status.label}
+              {s.label}
             </button>
           ))}
         </div>
@@ -190,7 +193,7 @@ export function ProductListPage() {
           </div>
         ) : data?.items.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-190 text-left text-sm">
               <thead className="border-b border-neutral-100 text-[10px] uppercase tracking-wider text-neutral-400">
                 <tr>
                   {["Products", "Category", "Price", "Variants", "Status", "Actions"].map(
@@ -279,7 +282,9 @@ export function ProductListPage() {
                   className={secondaryButton}
                   onClick={() => {
                     setSearchInput("");
-                    setQuery({ page: 1, pageSize: 20, search: "", categoryId: "", status: "" });
+                    setCategoryId("");
+                    setStatus("");
+                    setPage(1);
                   }}
                 >
                   Clear filters
@@ -309,7 +314,7 @@ export function ProductListPage() {
           totalPages={data.totalPages}
           totalItems={data.totalItems}
           pageSize={data.pageSize}
-          onPageChange={(page) => setQuery((prev) => ({ ...prev, page }))}
+          onPageChange={(nextPage) => setPage(nextPage)}
           itemLabel="products"
           showTotalItems={true}
           showFirstLast={true}

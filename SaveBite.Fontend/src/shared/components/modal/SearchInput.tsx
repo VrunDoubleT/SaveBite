@@ -16,21 +16,21 @@ export function SearchInput({
 }: SearchInputProps) {
   return (
     <div className={`relative ${className}`}>
-      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
       <input
         type="text"
         aria-label={placeholder}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-border-default py-2 pl-9 pr-9 text-sm focus:border-border-focus focus:outline-none transition-colors shadow-sm"
+        className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-9 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
       />
       {value && (
         <button
           type="button"
           aria-label="Clear search"
           onClick={() => onChange("")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-neutral-700 transition-colors"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-neutral-700 transition-colors"
         >
           <X className="size-3.5" />
         </button>
