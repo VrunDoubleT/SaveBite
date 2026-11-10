@@ -195,20 +195,29 @@ export function PlatformFeeManagementPage() {
 
         {/* Table */}
         <div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
+          <div className="hidden xl:block">
+            <table className="w-full table-fixed text-left text-sm">
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[12%]" />
+                <col className="w-[16%]" />
+                <col className="w-[11%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[9%]" />
+              </colgroup>
+              <thead className="border-b border-border-default bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                 <tr>
-                  <th className="px-4 py-3">Shop</th>
-                  <th className="px-4 py-3">Billing period</th>
-                  <th className="px-4 py-3">Fee amount</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Due date</th>
-                  <th className="px-4 py-3">Paid date</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                  <th className="px-3 py-3">Shop</th>
+                  <th className="px-3 py-3">Billing period</th>
+                  <th className="px-3 py-3">Fee amount</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">Due date</th>
+                  <th className="px-3 py-3">Paid date</th>
+                  <th className="px-3 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border-default text-sm text-text-primary">
                 {loadingStatements ? (
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-sm text-slate-500">
@@ -227,8 +236,8 @@ export function PlatformFeeManagementPage() {
                   statements.map((stmt) => {
                     return (
                       <tr key={stmt.id} className="transition-colors hover:bg-slate-50/70">
-                        <td className="px-4 py-3 font-semibold text-slate-900">
-                          <div className="flex items-center gap-2.5">
+                        <td className="px-3 py-3 font-semibold text-slate-900">
+                          <div className="flex min-w-0 items-center gap-2.5">
                             {stmt.shopLogoUrl ? (
                               <img
                                 src={stmt.shopLogoUrl}
@@ -240,38 +249,42 @@ export function PlatformFeeManagementPage() {
                                 <Store aria-hidden="true" className="size-4" />
                               </div>
                             )}
-                            <div>
-                              <div>{stmt.shopName || "Shop"}</div>
+                            <div className="min-w-0">
+                              <div className="truncate" title={stmt.shopName || "Shop"}>
+                                {stmt.shopName || "Shop"}
+                              </div>
                               <div className="mt-1">
                                 <RecordId id={stmt.id} />
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-medium text-slate-700">
+                        <td className="px-3 py-3 font-medium text-slate-700">
                           Month {stmt.billingMonth}/{stmt.billingYear}
                         </td>
-                        <td className="px-4 py-3 font-semibold tabular-nums text-slate-900">
+                        <td className="px-3 py-3 font-semibold tabular-nums text-slate-900">
                           {formatVnd(stmt.totalFeeAmount)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <StatusBadge status={stmt.status} />
                         </td>
-                        <td className="px-4 py-3 text-slate-600">
+                        <td className="px-3 py-3 text-xs text-slate-600">
                           {stmt.dueAt ? formatDateTime(stmt.dueAt) : "—"}
                         </td>
-                        <td className="px-4 py-3 text-slate-600">
+                        <td className="px-3 py-3 text-xs text-slate-600">
                           {stmt.paidAt ? formatDateTime(stmt.paidAt) : "—"}
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-3 py-3 text-right">
                           <div className="inline-flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() => setSelectedDetailStatementId(stmt.id)}
-                              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                              title="View"
+                              aria-label="View statement details"
+                              className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                             >
-                              <Eye aria-hidden="true" className="size-3.5 text-slate-500" />
-                              Details
+                              <Eye aria-hidden="true" className="size-4" />
+                              <span>View</span>
                             </button>
 
                           </div>
@@ -283,6 +296,88 @@ export function PlatformFeeManagementPage() {
               </tbody>
             </table>
           </div>
+
+          <ul className="divide-y divide-border-default xl:hidden">
+            {loadingStatements ? (
+              <li className="px-4 py-10 text-center text-sm text-slate-500">
+                <RefreshCw
+                  aria-hidden="true"
+                  className="mx-auto mb-2 size-5 animate-spin text-emerald-600"
+                />
+                Loading statements data...
+              </li>
+            ) : statements.length === 0 ? (
+              <li className="px-4 py-10 text-center text-sm text-slate-500">
+                <Receipt aria-hidden="true" className="mx-auto mb-2 size-7 text-slate-300" />
+                No fee statements found for the selected criteria.
+              </li>
+            ) : (
+              statements.map((stmt) => (
+                <li key={stmt.id} className="space-y-4 p-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {stmt.shopLogoUrl ? (
+                      <img
+                        src={stmt.shopLogoUrl}
+                        alt={stmt.shopName || "Shop"}
+                        className="size-10 shrink-0 rounded-lg border border-slate-200 object-cover"
+                      />
+                    ) : (
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-700">
+                        <Store aria-hidden="true" className="size-4" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-slate-900" title={stmt.shopName || "Shop"}>
+                        {stmt.shopName || "Shop"}
+                      </p>
+                      <RecordId id={stmt.id} />
+                    </div>
+                    <StatusBadge status={stmt.status} />
+                  </div>
+
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-3 text-sm">
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium text-slate-500">Billing period</dt>
+                      <dd className="mt-0.5 font-medium text-slate-700">
+                        Month {stmt.billingMonth}/{stmt.billingYear}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium text-slate-500">Fee amount</dt>
+                      <dd className="mt-0.5 break-words font-semibold tabular-nums text-slate-900">
+                        {formatVnd(stmt.totalFeeAmount)}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium text-slate-500">Due date</dt>
+                      <dd className="mt-0.5 text-xs text-slate-600">
+                        {stmt.dueAt ? formatDateTime(stmt.dueAt) : "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium text-slate-500">Paid date</dt>
+                      <dd className="mt-0.5 text-xs text-slate-600">
+                        {stmt.paidAt ? formatDateTime(stmt.paidAt) : "—"}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="flex justify-end border-t border-slate-100 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDetailStatementId(stmt.id)}
+                      title="View"
+                      aria-label="View statement details"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                    >
+                      <Eye aria-hidden="true" className="size-4" />
+                      <span>View</span>
+                    </button>
+                  </div>
+                </li>
+              ))
+            )}
+          </ul>
 
           {/* Pagination */}
           {totalPages > 1 && (

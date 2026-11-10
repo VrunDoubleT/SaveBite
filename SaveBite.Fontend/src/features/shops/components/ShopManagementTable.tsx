@@ -7,7 +7,7 @@ import type { ShopListManagement } from "../types/shopManagement.types";
 import { useState } from "react";
 
 const manageLinkClass =
-  "inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
+  "inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700";
 
 const manageHref = (id: string) => APP_PATHS.ADMIN_SHOP_CONTENT.replace(":shopId", id);
 
@@ -53,26 +53,34 @@ export function ShopManagementTable({ items }: { items: ShopListManagement[] }) 
     <>
       {/* Desktop table */}
       <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-neutral-50 text-xs text-text-secondary">
+        <table className="w-full min-w-[940px] table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[17%]" />
+            <col className="w-[26%]" />
+            <col className="w-[19%]" />
+            <col className="w-[16%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+          </colgroup>
+          <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
             <tr>
-              <th scope="col" className="px-4 py-3.5 font-semibold">
+              <th scope="col" className="px-6 py-4">
                 ID
               </th>
-              <th scope="col" className="px-6 py-3.5 font-semibold">
+              <th scope="col" className="px-6 py-4">
                 Shop
               </th>
-              <th scope="col" className="px-4 py-3.5 font-semibold">
+              <th scope="col" className="px-6 py-4">
                 Owner
               </th>
-              <th scope="col" className="px-4 py-3.5 font-semibold">
+              <th scope="col" className="px-6 py-4">
                 City
               </th>
-              <th scope="col" className="px-4 py-3.5 font-semibold">
+              <th scope="col" className="px-6 py-4">
                 Status
               </th>
-              <th scope="col" className="px-6 py-3.5 text-right font-semibold">
-                <span className="sr-only">Actions</span>
+              <th scope="col" className="px-6 py-4 text-right">
+                Actions
               </th>
             </tr>
           </thead>
@@ -80,27 +88,32 @@ export function ShopManagementTable({ items }: { items: ShopListManagement[] }) 
           <tbody className="divide-y divide-border-default text-text-primary">
             {items.map((shop) => (
               <tr key={shop.id} className="transition-colors hover:bg-neutral-50/70">
-                <td className="max-w-40 px-4 py-4">
+                <td className="max-w-40 px-6 py-4">
                   <RecordId id={shop.id} />
                 </td>
                 <td className="max-w-sm px-6 py-4">
                   <ShopMeta shop={shop} />
                 </td>
 
-                <td className="px-4 py-4 font-medium">{shop.ownerName || "—"}</td>
+                <td className="px-6 py-4 font-medium">{shop.ownerName || "—"}</td>
 
-                <td className="whitespace-nowrap px-4 py-4 text-text-secondary">
+                <td className="whitespace-nowrap px-6 py-4 text-text-secondary">
                   {shop.city || "—"}
                 </td>
 
-                <td className="px-4 py-4">
+                <td className="px-6 py-4">
                   <ShopStatusBadge status={shop.status} />
                 </td>
 
                 <td className="px-6 py-4 text-right">
-                  <Link to={manageHref(shop.id)} className={manageLinkClass}>
+                  <Link
+                    to={manageHref(shop.id)}
+                    className={manageLinkClass}
+                    title="View"
+                    aria-label="View shop"
+                  >
                     <Eye className="size-3.5" aria-hidden="true" />
-                    Manage content
+                    <span>View</span>
                   </Link>
                 </td>
               </tr>
@@ -132,9 +145,14 @@ export function ShopManagementTable({ items }: { items: ShopListManagement[] }) 
 
             <div className="flex items-center justify-between gap-3 border-t border-border-default pt-3">
               <ShopStatusBadge status={shop.status} />
-              <Link to={manageHref(shop.id)} className={manageLinkClass}>
+              <Link
+                to={manageHref(shop.id)}
+                className={manageLinkClass}
+                title="View"
+                aria-label="View shop"
+              >
                 <Eye className="size-3.5" aria-hidden="true" />
-                Manage content
+                <span>View</span>
               </Link>
             </div>
           </li>

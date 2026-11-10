@@ -40,11 +40,11 @@ const focusRing =
 /* ---------- Columns ---------- */
 
 const COLUMNS = [
-  { label: "ID", className: "w-[17%]" },
-  { label: "Customer", className: "w-[27%]" },
-  { label: "Product", className: "w-[25%]" },
-  { label: "Status", className: "w-[16%]" },
-  { label: "", className: "w-[15%] text-right" },
+  { label: "ID", className: "w-[16%]" },
+  { label: "Customer", className: "w-[28%]" },
+  { label: "Product", className: "w-[27%]" },
+  { label: "Status", className: "w-[17%]" },
+  { label: "Actions", className: "w-[12%] text-right" },
 ];
 
 /* ---------- Pieces ---------- */
@@ -79,14 +79,14 @@ type FeedbackTableProps = {
 export function FeedbackTable({ items, onViewDetails }: FeedbackTableProps) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
-        <thead className="bg-neutral-50">
+      <table className="w-full min-w-[1180px] table-fixed text-left text-sm">
+        <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
           <tr>
             {COLUMNS.map((column) => (
               <th
                 key={column.label}
                 scope="col"
-                className={`whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-text-muted ${column.className}`}
+                className={`whitespace-nowrap px-6 py-4 text-xs font-semibold uppercase tracking-wide text-text-secondary ${column.className}`}
               >
                 {column.label}
               </th>
@@ -94,7 +94,7 @@ export function FeedbackTable({ items, onViewDetails }: FeedbackTableProps) {
           </tr>
         </thead>
 
-        <tbody className="divide-y divide-border-default">
+        <tbody className="divide-y divide-border-default text-text-primary">
           {items.map((item) => {
             const status = statusCode(item.status);
             const style = STATUS_STYLES[status] ?? UNKNOWN_STYLE;
@@ -102,11 +102,11 @@ export function FeedbackTable({ items, onViewDetails }: FeedbackTableProps) {
 
             return (
               <tr key={item.id} className="align-middle transition-colors hover:bg-neutral-50/70">
-                <td className="max-w-40 px-5 py-4">
+                <td className="max-w-40 px-6 py-4">
                   <RecordId id={item.id} />
                 </td>
                 {/* Customer */}
-                <td className="px-5 py-4">
+                <td className="px-6 py-4">
                   <div className="flex items-start gap-3">
                     <FeedbackCustomerAvatar avatarUrl={item.avatarUrl} customerName={customer} />
                     <div className="min-w-0 flex-1 space-y-1">
@@ -129,7 +129,7 @@ export function FeedbackTable({ items, onViewDetails }: FeedbackTableProps) {
                 </td>
 
                 {/* Product + shop */}
-                <td className="px-5 py-4">
+                <td className="px-6 py-4">
                   <div className="space-y-2">
                     <p className="flex items-start gap-1.5 font-medium text-text-primary">
                       <span className="line-clamp-2 break-words" title={item.productName}>
@@ -145,7 +145,7 @@ export function FeedbackTable({ items, onViewDetails }: FeedbackTableProps) {
                 </td>
 
                 {/* Status */}
-                <td className="px-5 py-4">
+                <td className="px-6 py-4">
                   <span
                     className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${style.badge}`}
                   >
@@ -155,15 +155,16 @@ export function FeedbackTable({ items, onViewDetails }: FeedbackTableProps) {
                 </td>
 
                 {/* Action */}
-                <td className="px-5 py-4 text-right">
+                <td className="px-6 py-4 text-right">
                   <button
                     type="button"
                     onClick={() => onViewDetails(item)}
                     aria-label={`View feedback details from ${customer}`}
-                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 ${focusRing}`}
+                    title="View"
+                    className={`inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 ${focusRing}`}
                   >
                     <Eye className="size-3.5" aria-hidden="true" />
-                    View details
+                    <span>View</span>
                   </button>
                 </td>
               </tr>

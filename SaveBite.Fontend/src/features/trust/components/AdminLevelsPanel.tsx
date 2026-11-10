@@ -24,7 +24,7 @@ import { LevelStatusModal } from "./LevelStatusModal";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
 
 const actionButton =
-  "inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700 disabled:cursor-not-allowed disabled:opacity-40";
 
 const inactiveRowClass =
   "bg-neutral-200/80 text-neutral-500 transition-colors";
@@ -32,7 +32,7 @@ const inactiveRowClass =
 function ActiveBadge({ isActive }: { isActive: boolean }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
         isActive
           ? "border-primary-100 bg-primary-50 text-primary-700"
           : "border-neutral-400/60 bg-neutral-300/80 text-neutral-700"
@@ -58,7 +58,7 @@ function DepositPolicySummary({
     return (
       <div className="space-y-1">
         <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
             isActive
               ? "border-amber-200 bg-amber-50 text-amber-800"
               : "border-neutral-300 bg-neutral-200 text-neutral-600"
@@ -206,24 +206,33 @@ export function AdminLevelsPanel() {
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
-            className="inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
           >
             <Plus className="size-4" />
             Add new level
           </button>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-border-default bg-bg-surface">
-          <table className="min-w-full divide-y divide-border-default text-left text-sm">
-            <thead className="bg-neutral-50 text-text-secondary">
+        <div className="overflow-x-auto rounded-lg border border-border-default bg-bg-surface shadow-sm">
+          <table className="w-full table-fixed divide-y divide-border-default text-left text-sm">
+            <colgroup>
+              <col className="w-[13%]" />
+              <col className="w-[14%]" />
+              <col className="w-[11%]" />
+              <col className="w-[10%]" />
+              <col className="w-[26%]" />
+              <col className="w-[14%]" />
+              <col className="w-[12%]" />
+            </colgroup>
+            <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
               <tr>
-                <th className="px-5 py-3 font-semibold">ID</th>
-                <th className="px-5 py-3 font-semibold">Level</th>
-                <th className="px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3 text-right font-semibold">Customers</th>
-                <th className="px-5 py-3 font-semibold">Thresholds</th>
-                <th className="px-5 py-3 font-semibold">Updated</th>
-                <th className="px-5 py-3 text-right font-semibold">Actions</th>
+                <th className="px-3 py-3">ID</th>
+                <th className="px-3 py-3">Level</th>
+                <th className="px-3 py-3">Status</th>
+                <th className="px-3 py-3 text-right">Customers</th>
+                <th className="px-3 py-3">Thresholds</th>
+                <th className="px-3 py-3">Updated</th>
+                <th className="px-3 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default text-text-primary">
@@ -232,10 +241,10 @@ export function AdminLevelsPanel() {
                 const active = level.isActive;
                 return (
                   <tr key={level.id} className={!active ? inactiveRowClass : ""}>
-                    <td className="max-w-40 px-5 py-3.5">
+                    <td className="max-w-40 px-3 py-3">
                       <RecordId id={level.id} />
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 py-3">
                       <p className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}>
                         {level.name}
                       </p>
@@ -243,13 +252,13 @@ export function AdminLevelsPanel() {
                         Rank {level.rank}
                       </p>
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 py-3">
                       <ActiveBadge isActive={active} />
                     </td>
-                    <td className="px-5 py-3.5 text-right font-semibold tabular-nums">
+                    <td className="px-3 py-3 text-right font-semibold tabular-nums">
                       {level.userCount}
                     </td>
-                    <td className={`px-5 py-3.5 text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}>
+                    <td className={`px-3 py-3 text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}>
                       <span className="tabular-nums">
                         Score &ge;{" "}
                         <strong className={active ? "text-text-primary" : "text-neutral-600"}>
@@ -271,28 +280,28 @@ export function AdminLevelsPanel() {
                         </strong>
                       </span>
                     </td>
-                    <td className={`whitespace-nowrap px-5 py-3.5 text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}>
+                    <td className={`px-3 py-3 text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}>
                       {formatDateTime(level.updatedAt)}
                     </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <div className="flex flex-wrap justify-end gap-2">
+                    <td className="px-3 py-3 text-right">
+                      <div className="flex flex-wrap justify-end gap-1">
                         <button
                           type="button"
                           className={actionButton}
                           onClick={() => setInfoLevel(level)}
                           title="Rename level"
+                          aria-label="Rename level"
                         >
-                          <Pencil className="size-3.5" />
-                          Rename
+                          <Pencil className="size-4" aria-hidden="true" />
                         </button>
                         <button
                           type="button"
                           className={actionButton}
                           onClick={() => setHistoryLevel(level)}
                           title="View version history"
+                          aria-label="View version history"
                         >
-                          <History className="size-3.5" />
-                          History
+                          <History className="size-4" aria-hidden="true" />
                         </button>
                         <button
                           type="button"
@@ -304,15 +313,11 @@ export function AdminLevelsPanel() {
                                 ? "Deactivate level"
                                 : "Reactivate level"
                           }
+                          aria-label={active ? "Deactivate level" : "Reactivate level"}
                           onClick={() => setStatusLevel(level)}
-                          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                            active
-                              ? "border-red-200 bg-white text-danger hover:bg-red-50"
-                              : "border-primary-300 bg-white text-primary-700 hover:bg-primary-50"
-                          }`}
+                          className={actionButton}
                         >
-                          <Power className="size-3.5" />
-                          {active ? "Deactivate" : "Reactivate"}
+                          <Power className="size-4" aria-hidden="true" />
                         </button>
                       </div>
                     </td>
@@ -333,16 +338,16 @@ export function AdminLevelsPanel() {
           </p>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-border-default bg-bg-surface">
-          <table className="min-w-full divide-y divide-border-default text-left text-sm">
-            <thead className="bg-neutral-50 text-text-secondary">
+        <div className="overflow-x-auto rounded-lg border border-border-default bg-bg-surface shadow-sm">
+          <table className="w-full min-w-[1040px] table-fixed divide-y divide-border-default text-left text-sm">
+            <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
               <tr>
-                <th className="px-5 py-3 font-semibold">ID</th>
-                <th className="px-5 py-3 font-semibold">Level</th>
-                <th className="px-5 py-3 font-semibold">Benefits description</th>
-                <th className="px-5 py-3 font-semibold">Pay at shop deposit policy</th>
-                <th className="px-5 py-3 text-right font-semibold">
-                  <span className="sr-only">Actions</span>
+                <th className="px-3 py-3">ID</th>
+                <th className="px-3 py-3">Level</th>
+                <th className="px-3 py-3">Benefits description</th>
+                <th className="px-3 py-3">Pay at shop deposit policy</th>
+                <th className="px-3 py-3 text-right">
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -354,10 +359,10 @@ export function AdminLevelsPanel() {
                     key={level.id}
                     className={`align-top ${!active ? inactiveRowClass : ""}`}
                   >
-                    <td className="max-w-40 px-5 py-3.5">
+                    <td className="max-w-40 px-3 py-3">
                       <RecordId id={level.id} />
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 py-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}>
                           {level.name}
@@ -368,7 +373,7 @@ export function AdminLevelsPanel() {
                         Rank {level.rank}
                       </p>
                     </td>
-                    <td className="max-w-[280px] px-5 py-3.5">
+                    <td className="max-w-[280px] px-3 py-3">
                       {level.description ? (
                         <p
                           className={`line-clamp-3 whitespace-pre-line text-xs leading-relaxed ${
@@ -381,16 +386,19 @@ export function AdminLevelsPanel() {
                         <span className="text-xs italic text-text-muted">No benefits listed</span>
                       )}
                     </td>
-                    <td className="min-w-[260px] px-5 py-3.5">
+                    <td className="min-w-[260px] px-3 py-3">
                       <DepositPolicySummary policy={level.depositPolicy} isActive={active} />
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-3 py-3 text-right">
                       <button
                         type="button"
-                        className={actionButton}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
                         onClick={() => setBenefitsLevel(level)}
+                        title="Edit benefits"
+                        aria-label="Edit benefits"
                       >
-                        Edit benefits
+                        <Pencil className="size-4" aria-hidden="true" />
+                        <span>Edit</span>
                       </button>
                     </td>
                   </tr>
@@ -410,17 +418,17 @@ export function AdminLevelsPanel() {
           </p>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-border-default bg-bg-surface">
-          <table className="min-w-full divide-y divide-border-default text-left text-sm">
-            <thead className="bg-neutral-50 text-text-secondary">
+        <div className="overflow-x-auto rounded-lg border border-border-default bg-bg-surface shadow-sm">
+          <table className="w-full min-w-[960px] table-fixed divide-y divide-border-default text-left text-sm">
+            <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
               <tr>
-                <th className="px-5 py-3 font-semibold">ID</th>
-                <th className="px-5 py-3 font-semibold">Level</th>
-                <th className="px-5 py-3 text-right font-semibold">Min score</th>
-                <th className="px-5 py-3 text-right font-semibold">Min completed orders</th>
-                <th className="px-5 py-3 text-right font-semibold">Min order value</th>
-                <th className="px-5 py-3 text-right font-semibold">
-                  <span className="sr-only">Actions</span>
+                <th className="px-3 py-3">ID</th>
+                <th className="px-3 py-3">Level</th>
+                <th className="px-3 py-3 text-right">Min score</th>
+                <th className="px-3 py-3 text-right">Min completed orders</th>
+                <th className="px-3 py-3 text-right">Min order value</th>
+                <th className="px-3 py-3 text-right">
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -429,10 +437,10 @@ export function AdminLevelsPanel() {
                 const active = level.isActive;
                 return (
                   <tr key={level.id} className={!active ? inactiveRowClass : ""}>
-                    <td className="max-w-40 px-5 py-3">
+                    <td className="max-w-40 px-3 py-3">
                       <RecordId id={level.id} />
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-3 py-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}>
                           {level.name}
@@ -443,22 +451,25 @@ export function AdminLevelsPanel() {
                         {!active && <ActiveBadge isActive={false} />}
                       </div>
                     </td>
-                    <td className={`px-5 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}>
+                    <td className={`px-3 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}>
                       {level.requirement?.minScore ?? 0}
                     </td>
-                    <td className={`px-5 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}>
+                    <td className={`px-3 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}>
                       {level.requirement?.minCompletedOrders ?? 0}
                     </td>
-                    <td className={`px-5 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}>
+                    <td className={`px-3 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}>
                       {formatCurrency(level.requirement?.minTotalOrderValue ?? 0)}
                     </td>
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-3 py-3 text-right">
                       <button
                         type="button"
-                        className={actionButton}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
                         onClick={() => setRequirementLevel(level)}
+                        title="Edit requirements"
+                        aria-label="Edit requirements"
                       >
-                        Edit requirements
+                        <Pencil className="size-4" aria-hidden="true" />
+                        <span>Edit</span>
                       </button>
                     </td>
                   </tr>

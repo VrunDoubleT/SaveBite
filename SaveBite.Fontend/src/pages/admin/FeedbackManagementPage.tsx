@@ -468,9 +468,7 @@ export function FeedbackManagementPage() {
               aria-label="Feedback status"
               className={`h-10 w-full appearance-none rounded-lg border border-neutral-200 bg-white pl-4 pr-10 text-sm text-neutral-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 sm:w-48 ${focusRing}`}
               value={status}
-              onChange={(event) =>
-                handleStatusChange(event.target.value)
-              }
+              onChange={(event) => handleStatusChange(event.target.value)}
             >
               <option value="">All statuses</option>
               <option value="1">Visible</option>

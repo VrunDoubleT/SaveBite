@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, CheckCircle2, EyeOff, Layers, Package, Plus, Search } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Layers, Package, Plus, Search } from "lucide-react";
 import { Pagination } from "@/shared/components/pagination";
 import { productApi } from "../api/productApi";
 import { useProductResource } from "../hooks/useProductResource";
@@ -255,11 +255,13 @@ export function ProductListPage() {
                     </td>
                     <td className="px-5 py-4">
                       <Link
-                        className="inline-flex size-9 items-center justify-center rounded-lg border border-neutral-200 hover:border-primary-400 hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-400"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
                         to={productPath(`/${product.id}`)}
                         aria-label={`View ${product.name}`}
+                        title="View"
                       >
-                        <ArrowUpRight className="size-4" />
+                        <Eye className="size-3.5" aria-hidden="true" />
+                        <span>View</span>
                       </Link>
                     </td>
                   </tr>

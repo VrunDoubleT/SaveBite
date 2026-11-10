@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { useCallback, useState } from "react";
 import { getApiErrorMessage } from "@/shared/api";
 import { toast } from "@/shared/stores/toastStore";
@@ -81,18 +82,27 @@ export function ScoreRulesPanel({ variant }: ScoreRulesPanelProps) {
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border-default bg-bg-surface">
-        <table className="min-w-full divide-y divide-border-default text-left text-sm">
-          <thead className="bg-neutral-50 text-text-secondary">
+      <div className="overflow-x-auto rounded-lg border border-border-default bg-bg-surface shadow-sm">
+        <table className="w-full min-w-[960px] table-fixed divide-y divide-border-default text-left text-sm">
+          <colgroup>
+            <col className="w-[14%]" />
+            <col className="w-[26%]" />
+            <col className="w-[10%]" />
+            <col className="w-[13%]" />
+            <col className="w-[18%]" />
+            <col className="w-[11%]" />
+            <col className="w-[8%]" />
+          </colgroup>
+          <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
             <tr>
-              <th className="px-5 py-3 font-semibold">ID</th>
-              <th className="px-5 py-3 font-semibold">Type</th>
-              <th className="px-5 py-3 text-right font-semibold">Points</th>
-              <th className="px-5 py-3 font-semibold">Status</th>
-              <th className="px-5 py-3 font-semibold">Effective</th>
-              <th className="px-5 py-3 font-semibold">Updated by</th>
-              <th className="px-5 py-3 text-right font-semibold">
-                <span className="sr-only">Actions</span>
+              <th className="px-3 py-3">ID</th>
+              <th className="px-3 py-3">Type</th>
+              <th className="px-3 py-3 text-right">Points</th>
+              <th className="px-3 py-3">Status</th>
+              <th className="px-3 py-3">Effective</th>
+              <th className="px-3 py-3">Updated by</th>
+              <th className="px-3 py-3 text-right">
+                Actions
               </th>
             </tr>
           </thead>
@@ -101,14 +111,18 @@ export function ScoreRulesPanel({ variant }: ScoreRulesPanelProps) {
               const status = getRuleStatus(rule, now);
               return (
                 <tr key={rule.id} className={status === "replaced" ? "text-text-muted" : ""}>
-                  <td className="max-w-40 px-5 py-3">
+                  <td className="max-w-40 px-3 py-3">
                     <RecordId id={rule.id} />
                   </td>
-                  <td className="px-5 py-3 font-medium">
-                    {rule.ruleType === "OnlineOrderCompleted" ? "Online order completed" : rule.ruleType === "PayAtShopOrderCompleted" ? "Pay-at-shop order completed" : "NoShow penalty"}
+                  <td className="px-3 py-3 font-medium">
+                    {rule.ruleType === "OnlineOrderCompleted"
+                      ? "Online order completed"
+                      : rule.ruleType === "PayAtShopOrderCompleted"
+                        ? "Pay-at-shop order completed"
+                        : "NoShow penalty"}
                   </td>
                   <td
-                    className={`px-5 py-3 text-right font-semibold tabular-nums ${
+                    className={`px-3 py-3 text-right font-semibold tabular-nums ${
                       status === "replaced"
                         ? ""
                         : rule.scoreDelta >= 0
@@ -118,22 +132,25 @@ export function ScoreRulesPanel({ variant }: ScoreRulesPanelProps) {
                   >
                     {formatSignedPoints(rule.scoreDelta)}
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-3 py-3">
                     <RuleStatusBadge status={status} />
                   </td>
-                  <td className="px-5 py-3 text-xs">
+                  <td className="px-3 py-3 text-xs">
                     <p>From {formatDateTime(rule.effectiveFrom)}</p>
                     {rule.effectiveTo && <p>Until {formatDateTime(rule.effectiveTo)}</p>}
                   </td>
-                  <td className="px-5 py-3 text-xs">{rule.createdByName ?? "—"}</td>
-                  <td className="px-5 py-3 text-right">
+                  <td className="px-3 py-3 text-xs">{rule.createdByName ?? "—"}</td>
+                  <td className="px-3 py-3 text-right">
                     {isEditableVersion(rule) && (
                       <button
                         type="button"
                         onClick={() => setEditingRule(rule)}
-                        className="rounded-md border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-neutral-50"
+                        title="Edit rule"
+                        aria-label="Edit rule"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
                       >
-                        Edit
+                        <Pencil className="size-4" aria-hidden="true" />
+                        <span>Edit</span>
                       </button>
                     )}
                   </td>

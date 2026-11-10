@@ -112,7 +112,7 @@ function ProductMeta({ product }: { product: ProductListManagement }) {
 }
 
 const manageLinkClass =
-  "inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
+  "inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700";
 
 const manageHref = (id: string) => APP_PATHS.ADMIN_PRODUCT_CONTENT.replace(":productId", id);
 
@@ -120,30 +120,39 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-neutral-50 text-xs text-text-secondary">
+      <div className="hidden min-w-0 2xl:block">
+        <table className="w-full table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[12%]" />
+            <col className="w-[25%]" />
+            <col className="w-[12%]" />
+            <col className="w-[15%]" />
+            <col className="w-[12%]" />
+            <col className="w-[14%]" />
+            <col className="w-[10%]" />
+          </colgroup>
+          <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
             <tr>
-              <th scope="col" className="px-4 py-3.5 font-semibold">
+              <th scope="col" className="px-4 py-4">
                 ID
               </th>
-              <th scope="col" className="px-6 py-3.5 font-semibold">
+              <th scope="col" className="px-4 py-4">
                 Product
               </th>
-              <th scope="col" className="px-4 py-3.5 font-semibold">
+              <th scope="col" className="px-4 py-4">
                 Status
               </th>
-              <th scope="col" className="px-4 py-3.5 font-semibold">
+              <th scope="col" className="px-4 py-4">
                 Content review
               </th>
-              <th scope="col" className="px-4 py-3.5 font-semibold">
+              <th scope="col" className="px-4 py-4">
                 Edit source
               </th>
-              <th scope="col" className="px-4 py-3.5 text-right font-semibold">
+              <th scope="col" className="px-4 py-4 text-right">
                 Deal price
               </th>
-              <th scope="col" className="px-6 py-3.5 text-right font-semibold">
-                <span className="sr-only">Actions</span>
+              <th scope="col" className="px-6 py-4 text-right">
+                Actions
               </th>
             </tr>
           </thead>
@@ -152,9 +161,9 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
             {items.map((product) => (
               <tr key={product.id} className="transition-colors hover:bg-neutral-50/70">
                 <td className="max-w-40 px-4 py-4">
-                  <RecordId id={product.id} />
+                  <RecordId id={product.id} className="w-24 max-w-none shrink-0 justify-center" />
                 </td>
-                <td className="max-w-sm px-6 py-4">
+                <td className="max-w-sm px-4 py-4">
                   <div className="flex items-center gap-4">
                     <Thumbnail product={product} />
                     <ProductMeta product={product} />
@@ -173,14 +182,19 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
                   <EditSource product={product} />
                 </td>
 
-                <td className="whitespace-nowrap px-4 py-4 text-right font-semibold tabular-nums">
+                <td className="px-4 py-4 text-right font-semibold tabular-nums">
                   {formatPriceRange(product.minDealPrice, product.maxDealPrice)}
                 </td>
 
                 <td className="px-6 py-4 text-right">
-                  <Link to={manageHref(product.id)} className={manageLinkClass}>
+                  <Link
+                    to={manageHref(product.id)}
+                    className={manageLinkClass}
+                    title="View"
+                    aria-label="View product"
+                  >
                     <Eye className="size-3.5" aria-hidden="true" />
-                    Manage content
+                    <span>View</span>
                   </Link>
                 </td>
               </tr>
@@ -190,37 +204,56 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
       </div>
 
       {/* Mobile list */}
-      <ul className="divide-y divide-border-default md:hidden">
+      <ul className="divide-y divide-border-default 2xl:hidden">
         {items.map((product) => (
-          <li key={product.id} className="space-y-4 p-4">
-            <div className="flex items-center gap-2 text-xs text-text-secondary">
-              <span>ID</span>
-              <RecordId id={product.id} />
+          <li key={product.id} className="min-w-0 space-y-4 p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2 text-xs text-text-secondary">
+                <span>ID</span>
+                <RecordId id={product.id} className="w-24 max-w-none shrink-0 justify-center" />
+              </div>
+              <Link
+                to={manageHref(product.id)}
+                className={manageLinkClass}
+                title="View"
+                aria-label="View product"
+              >
+                <Eye className="size-3.5" aria-hidden="true" />
+                <span>View</span>
+              </Link>
             </div>
-            <div className="flex items-start gap-3">
+
+            <div className="flex min-w-0 items-start gap-3">
               <Thumbnail product={product} />
               <ProductMeta product={product} />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusPill status={product.status} />
-              <ReviewPill status={product.latestReview?.status} />
-            </div>
-
-            <div className="text-sm">
-              <span className="mb-1 block text-xs text-text-secondary">Edit source</span>
-              <EditSource product={product} />
-            </div>
-
-            <div className="flex items-center justify-between gap-3 border-t border-border-default pt-3">
-              <p className="text-sm font-semibold tabular-nums text-text-primary">
-                {formatPriceRange(product.minDealPrice, product.maxDealPrice)}
-              </p>
-              <Link to={manageHref(product.id)} className={manageLinkClass}>
-                <Eye className="size-3.5" aria-hidden="true" />
-                Manage content
-              </Link>
-            </div>
+            <dl className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 border-t border-border-default pt-4 sm:grid-cols-4">
+              <div className="min-w-0 space-y-1">
+                <dt className="text-xs font-medium text-text-secondary">Status</dt>
+                <dd>
+                  <StatusPill status={product.status} />
+                </dd>
+              </div>
+              <div className="min-w-0 space-y-1">
+                <dt className="text-xs font-medium text-text-secondary">Content review</dt>
+                <dd>
+                  <ReviewPill status={product.latestReview?.status} />
+                </dd>
+              </div>
+              <div className="col-span-2 min-w-0 space-y-1 sm:col-span-1">
+                <dt className="text-xs font-medium text-text-secondary">Deal price</dt>
+                <dd className="break-words text-sm font-semibold tabular-nums text-text-primary">
+                  {formatPriceRange(product.minDealPrice, product.maxDealPrice)}
+                </dd>
+              </div>
+              <div className="col-span-2 min-w-0 space-y-1 sm:col-span-1">
+                <dt className="text-xs font-medium text-text-secondary">Edit source</dt>
+                <dd className="min-w-0 text-sm">
+                  <EditSource product={product} />
+                </dd>
+              </div>
+            </dl>
           </li>
         ))}
       </ul>
