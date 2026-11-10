@@ -7,6 +7,7 @@ namespace SaveBite.Backend.Services.Interfaces;
 
 public interface IPlatformFeeStatementService
 {
+    Task<PlatformFeePeriodStatisticsResponse> GetPeriodStatisticsAsync(int? year, int? month, CancellationToken ct = default);
     Task RepairNotificationsAsync(Guid statementId, CancellationToken ct = default);
 
     // UC-79: View System Fees (BR-092, BR-093, BR-192, BR-193)

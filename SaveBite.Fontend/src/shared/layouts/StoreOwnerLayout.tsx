@@ -1,3 +1,4 @@
+import { StoreOwnerActionBadge } from "@/shared/components/navigation/StoreOwnerActionBadge";
 import { RestockWorkspaceProvider } from "@/features/restock/RestockWorkspaceProvider";
 import { RestockBadge } from "@/features/restock/RestockBadge";
 import { ShopRefundsBadge } from "@/features/refunds/components/ShopRefundsBadge";
@@ -76,6 +77,7 @@ const navigation = [
     label: "Platform Fees",
     end: false,
     icon: Receipt,
+    badge: <StoreOwnerActionBadge kind="fees" />,
   },
   {
     to: APP_PATHS.STORE_OWNER_REVIEWS,
@@ -94,6 +96,7 @@ const navigation = [
     label: "Warning History",
     end: false,
     icon: ShieldAlert,
+    badge: <StoreOwnerActionBadge kind="warnings" />,
   },
 ] as const;
 

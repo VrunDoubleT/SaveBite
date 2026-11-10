@@ -1,3 +1,5 @@
+import { AdminPlatformFeeDetailPage } from "@/pages/admin/AdminPlatformFeeDetailPage";
+import { CommissionFeeSchedulesPage } from "@/pages/admin/CommissionFeeSchedulesPage";
 import { RestockPage } from "@/pages/shop/RestockPage";
 import { FollowedShopsPage } from "@/pages/customer/FollowedShopsPage";
 import { CustomerRefundDetailPage } from "@/pages/customer/RefundDetailPage";
@@ -310,6 +312,14 @@ export const routes: RouteObject[] = [
           {
             path: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
             element: <AdminShopApplicationsPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_COMMISSION_FEE_SCHEDULES,
+            element: <CommissionFeeSchedulesPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_PLATFORM_FEE_DETAIL,
+            element: <AdminPlatformFeeDetailPage />,
           },
           {
             path: APP_PATHS.ADMIN_PLATFORM_FEE,

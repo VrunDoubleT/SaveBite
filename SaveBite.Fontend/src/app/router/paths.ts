@@ -52,6 +52,8 @@ export const APP_PATHS = {
   ADMIN_SHOP_APPLICATIONS: "/admin/shop-applications",
   ADMIN_TRUST: "/admin/trust",
   ADMIN_TRUST_TAB: "/admin/trust/:tab?",
+  ADMIN_COMMISSION_FEE_SCHEDULES: "/admin/commission-fee-schedules",
+  ADMIN_PLATFORM_FEE_DETAIL: "/admin/platform-fees/:statementId",
   ADMIN_PLATFORM_FEE: "/admin/platform-fees",
   ADMIN_PLATFORM_PAYOS_CONFIG: "/admin/platform-payos-config",
   ADMIN_FEEDBACK: "/admin/feedback",

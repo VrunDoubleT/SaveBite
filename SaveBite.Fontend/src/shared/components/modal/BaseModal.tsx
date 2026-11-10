@@ -9,6 +9,7 @@ interface SharedModalProps {
   headerContent?: ReactNode;
   children: ReactNode;
   maxWidthClass?: string;
+  scrollBody?: boolean;
 }
 // Retain the existing API; the shared primitive supplies dialog focus and Escape handling.
 export function SharedModal({

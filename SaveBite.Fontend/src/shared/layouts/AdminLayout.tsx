@@ -8,6 +8,7 @@ import {
   Users,
   Tags,
   Receipt,
+  CalendarClock,
   MessageSquare,
   KeyRound,
 } from "lucide-react";
@@ -56,8 +57,13 @@ const navigation = [
     icon: ShieldCheck,
   },
   {
+    to: APP_PATHS.ADMIN_COMMISSION_FEE_SCHEDULES,
+    label: "Fee Schedules",
+    icon: CalendarClock,
+  },
+  {
     to: APP_PATHS.ADMIN_PLATFORM_FEE,
-    label: "Platform Fees",
+    label: "Shop Fee Statements",
     icon: Receipt,
   },
   {

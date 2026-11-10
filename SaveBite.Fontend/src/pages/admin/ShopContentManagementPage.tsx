@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Ban,
   CheckCircle2,
-  ChevronRight,
   PauseCircle,
   RotateCw,
   SearchX,
@@ -246,23 +245,10 @@ export function ShopContentManagementPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-4">
-        <nav
-          aria-label="Breadcrumb"
-          className="flex flex-wrap items-center gap-1.5 text-sm text-text-secondary"
-        >
-          <Link
-            to={APP_PATHS.ADMIN_STORES}
-            className="rounded-md font-medium transition-colors hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-          >
-            Shops
-          </Link>
-
-          <ChevronRight className="size-4 text-text-muted" aria-hidden="true" />
-
-          <span aria-current="page" className="font-medium text-text-primary">
-            Content management
-          </span>
-        </nav>
+        <Link to={APP_PATHS.ADMIN_STORES} className="inline-flex items-center gap-2 rounded-md text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700">
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Back to shops
+        </Link>
       </header>
 
       {loading ? (

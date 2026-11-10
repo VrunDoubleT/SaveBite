@@ -174,6 +174,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
         return await _context.PlatformFeeStatements
             .Include(s => s.Shop)
             .Include(s => s.OrderPlatformFees)
+                .ThenInclude(f => f.Adjustments)
             .Include(s => s.Adjustments)
             .Include(s => s.Payments)
             .Include(s => s.Histories)
@@ -244,7 +245,11 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
         var startOfMonth = new DateTime(billingYear, billingMonth, 1, 0, 0, 0, DateTimeKind.Utc);
         var endOfMonth = startOfMonth.AddMonths(1);
         return await _context.Set<PlatformFeeAdjustment>()
-            .Where(a => a.StatementId == null && a.CreatedAt < endOfMonth)
+            // Include credits for every fee being billed, even when its refund was
+            // reconciled after the billing month ended (for example during backfill).
+            .Where(a => a.StatementId == null && (a.CreatedAt < endOfMonth
+                || a.Refund.TransferredAt < endOfMonth
+                || (a.OrderFee.StatementId == null && a.OrderFee.CalculatedAt < endOfMonth)))
             .ToListAsync(ct);
     }
 

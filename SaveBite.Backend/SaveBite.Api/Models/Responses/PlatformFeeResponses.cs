@@ -65,6 +65,8 @@ public sealed class OrderPlatformFeeItemResponse
     public decimal GrossAmount { get; set; }
     public decimal FeeRate { get; set; }
     public decimal FeeAmount { get; set; }
+    public decimal RefundCreditAmount { get; set; }
+    public decimal NetFeeAmount => Math.Max(0m, FeeAmount - RefundCreditAmount);
     public DateTime CalculatedAt { get; set; }
 
     public OrderPlatformFeeItemResponse() { }

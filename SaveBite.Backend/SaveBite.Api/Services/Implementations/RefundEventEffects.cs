@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
+using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Services.Interfaces;
@@ -48,9 +49,10 @@ public sealed class RefundEventEffects(AppDbContext db, TimeProvider clock, ITru
                     Reason = "Transferred refund: reconcile retained order value", CreatedAt = now };
                 if (fee.Statement != null && fee.Statement.Status != PlatformFeeStatementStatus.Paid)
                 {
-                    adjustment.StatementId = fee.Statement.Id;
                     var previous = fee.Statement.TotalFeeAmount;
-                    fee.Statement.TotalFeeAmount = Math.Max(0, previous - credit);
+                    var applied = PlatformFeeCreditAllocator.Apply(adjustment, fee.Statement.Id, previous);
+                    if (applied != null && !ReferenceEquals(applied, adjustment)) db.Add(applied);
+                    fee.Statement.TotalFeeAmount = previous + (applied?.Amount ?? 0m);
                     fee.Statement.UpdatedAt = now;
                     if (fee.Statement.TotalFeeAmount == 0)
                     {

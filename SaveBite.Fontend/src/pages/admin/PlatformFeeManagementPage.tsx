@@ -1,7 +1,14 @@
-import { AdminFeeSchedulePanel } from "@/features/platform-fees/components/AdminFeeSchedulePanel";
+import { Link } from "react-router-dom";
+import { APP_PATHS } from "@/app/router/paths";
+import { PlatformFeeStatisticsModal } from "@/features/platform-fees/components/PlatformFeeStatisticsModal";
 import { useEffect, useState, useCallback } from "react";
 import {
   RefreshCw,
+  ChartNoAxesCombined,
+  CheckCircle2,
+  Clock3,
+  AlertTriangle,
+  CircleCheck,
   Receipt,
   Search,
   Store,
@@ -10,9 +17,9 @@ import {
 import { platformFeeApi } from "@/features/platform-fees/api/platformFeeApi";
 import type {
   PlatformFeeStatementSummary,
+  PlatformFeePeriodStatistics,
 } from "@/features/platform-fees/types/platformFee.types";
 import { StatusBadge } from "@/features/platform-fees/components/StatusBadge";
-import { AdminStatementDetailModal } from "@/features/platform-fees/components/AdminStatementDetailModal";
 import { Pagination } from "@/shared/components/pagination";
 import { RecordId } from "@/shared/components/RecordId";
 import { toast } from "@/shared/stores/toastStore";
@@ -42,19 +49,38 @@ const formatDateTime = (dateStr?: string | null) => {
 };
 
 export function PlatformFeeManagementPage() {
+  const [statisticsOpen, setStatisticsOpen] = useState(false);
   // Statements list state for Admin
   const [statements, setStatements] = useState<PlatformFeeStatementSummary[]>([]);
   const [loadingStatements, setLoadingStatements] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterYear, setFilterYear] = useState<number | string>(new Date().getFullYear());
-  const [filterMonth, setFilterMonth] = useState<string>("All");
+  const [defaultBillingPeriod] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  });
+  const [filterYear, setFilterYear] = useState<number | string>(defaultBillingPeriod.getFullYear());
+  const [filterMonth, setFilterMonth] = useState<string>(() => String(defaultBillingPeriod.getMonth() + 1));
   const [filterStatus, setFilterStatus] = useState<string>("All");
   const [page, setPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
 
-  // Detail Modal state
-  const [selectedDetailStatementId, setSelectedDetailStatementId] = useState<string | null>(null);
+  const summaryKey = `${filterYear}:${filterMonth}`;
+  const [summaryResult, setSummaryResult] = useState<{ key: string; data?: PlatformFeePeriodStatistics; error?: boolean } | null>(null);
+  const summary = summaryResult?.key === summaryKey ? summaryResult.data : undefined;
+  const summaryError = summaryResult?.key === summaryKey && summaryResult.error;
+  useEffect(() => {
+    const controller = new AbortController();
+    void platformFeeApi.getPeriodStatistics(
+      filterYear === "All" ? undefined : Number(filterYear),
+      filterMonth === "All" ? undefined : Number(filterMonth), controller.signal,
+    ).then((data) => {
+      if (!controller.signal.aborted) setSummaryResult({ key: summaryKey, data });
+    }).catch(() => {
+      if (!controller.signal.aborted) setSummaryResult({ key: summaryKey, error: true });
+    });
+    return () => controller.abort();
+  }, [filterYear, filterMonth, summaryKey]);
 
   const loadStatements = useCallback(async () => {
     setLoadingStatements(true);
@@ -83,54 +109,58 @@ export function PlatformFeeManagementPage() {
   }, [loadStatements]);
 
   return (
-    <div className="space-y-5 pb-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
-            Finance
-          </p>
-          <h1 className="mt-1 text-xl font-bold tracking-tight text-neutral-900">
-            Platform Fees Management
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+            Shop Fee Statements
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Manage commission schedules and review shop fee statements.
+          <p className="mt-1.5 text-sm text-text-secondary">
+            Review monthly shop fees, payments and overdue balances.
           </p>
         </div>
-        <button
-          onClick={() => {
-            void loadStatements();
-          }}
-          disabled={loadingStatements}
-          className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50"
-        >
-          <RefreshCw
-            aria-hidden="true"
-            className={`size-4 ${loadingStatements ? "animate-spin" : ""}`}
-          />
-          Refresh
-        </button>
       </div>
 
-      <AdminFeeSchedulePanel />
+      <section aria-label="Statement summary metrics" className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        {[
+          { label: "All Statements", value: summary?.totalStatements, icon: Receipt, tone: "bg-neutral-100 text-neutral-600" },
+          { label: "Paid", value: summary?.paidStatements, icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-600" },
+          { label: "Unpaid", value: summary?.unpaidStatements, icon: Clock3, tone: "bg-amber-50 text-amber-600" },
+          { label: "Overdue", value: summary?.overdueStatements, icon: AlertTriangle, tone: "bg-red-50 text-red-600" },
+          { label: "No Payment Required", value: summary?.zeroFeeStatements, icon: CircleCheck, tone: "bg-slate-100 text-slate-600" },
+        ].map(({ label, value, icon: Icon, tone }) => (
+          <div key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${tone}`}><Icon aria-hidden="true" className="size-5" /></span>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500">{label}</p>
+                <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">{summaryError ? "—" : value ?? "–"}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </section>
+      {summaryError && <p role="status" className="text-sm text-red-700">Unable to load statement statistics.</p>}
 
       {/* Statements Table for Admin */}
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-        <div className="flex flex-col gap-4 border-b border-slate-200 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-              <Store aria-hidden="true" className="size-4.5" />
-            </span>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Shop fee statements</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {totalCount.toLocaleString("en-US")} statements
-              </p>
+        <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 xl:flex-row xl:items-center">
+          <div className="shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                <Store aria-hidden="true" className="size-4.5" />
+              </span>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Shop fee statements</h2>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {totalCount.toLocaleString("en-US")} statements
+                </p>
+              </div>
             </div>
           </div>
-
           {/* Filters */}
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center xl:ml-auto xl:flex-nowrap">
             <div className="relative col-span-2 sm:col-span-1">
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
               <input
@@ -191,6 +221,11 @@ export function PlatformFeeManagementPage() {
               <option value="Overdue">Overdue</option>
             </select>
           </div>
+            <button type="button" onClick={() => setStatisticsOpen(true)}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+              <ChartNoAxesCombined aria-hidden="true" className="size-4" />
+              Statistics
+            </button>
         </div>
 
         {/* Table */}
@@ -265,14 +300,13 @@ export function PlatformFeeManagementPage() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedDetailStatementId(stmt.id)}
+                            <Link
+                              to={`${APP_PATHS.ADMIN_PLATFORM_FEE}/${stmt.id}`}
                               className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                             >
                               <Eye aria-hidden="true" className="size-3.5 text-slate-500" />
                               Details
-                            </button>
+                            </Link>
 
                           </div>
                         </td>
@@ -285,7 +319,7 @@ export function PlatformFeeManagementPage() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {totalCount > 0 && (
             <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
               <Pagination
                 currentPage={page}
@@ -300,12 +334,9 @@ export function PlatformFeeManagementPage() {
         </div>
       </section>
 
-      {/* Admin Statement Detail Modal */}
-      <AdminStatementDetailModal
-        isOpen={Boolean(selectedDetailStatementId)}
-        statementId={selectedDetailStatementId}
-        onClose={() => setSelectedDetailStatementId(null)}
-      />
+      {statisticsOpen && <PlatformFeeStatisticsModal onClose={() => setStatisticsOpen(false)} />}
+
+
     </div>
   );
 }

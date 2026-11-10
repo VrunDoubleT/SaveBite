@@ -1,3 +1,4 @@
+import type { AdminProductSummary } from "../types/product.types";
 import { API_ENDPOINTS, httpClient } from "@/shared/api";
 import type { ApiResponse } from "@/shared/types";
 import type {
@@ -17,6 +18,12 @@ import type { ModerationActionResult } from "@/shared/types/moderationAction.typ
 // Override the shared JSON default so the browser supplies the multipart boundary.
 const uploadConfig = { headers: { "Content-Type": undefined }, timeout: 120_000 };
 export const productApi = {
+  async adminSummary(signal?: AbortSignal): Promise<AdminProductSummary> {
+    const response = await httpClient.get<ApiResponse<AdminProductSummary>>(
+      `${API_ENDPOINTS.PRODUCTS.ADMIN_LIST}/summary`, { signal },
+    );
+    return response.data.data;
+  },
   async summary(signal?: AbortSignal) {
     return (
       await httpClient.get<ApiResponse<ProductSummary>>(API_ENDPOINTS.PRODUCTS.SUMMARY, { signal })

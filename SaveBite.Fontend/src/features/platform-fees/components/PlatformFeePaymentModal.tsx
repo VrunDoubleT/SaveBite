@@ -1,5 +1,6 @@
+import { SharedModal } from "@/shared/components/modal/BaseModal";
 import { useEffect, useState } from "react";
-import { X, QrCode as QrIcon, CheckCircle2, Sparkles, Loader2, Copy, Check } from "lucide-react";
+import { CheckCircle2, Sparkles, Loader2, Copy, Check } from "lucide-react";
 import { platformFeeApi } from "../api/platformFeeApi";
 import type { PlatformFeePaymentLinkResponse } from "../types/platformFee.types";
 import { toast } from "@/shared/stores/toastStore";
@@ -73,7 +74,7 @@ export function PlatformFeePaymentModal({
     setIsSimulating(true);
     try {
       await platformFeeApi.simulateWebhook(paymentData.orderCode, paymentData.amount);
-      toast.success("Payment Successfully! Statement has been updated.");
+      window.dispatchEvent(new Event("store-owner-actions-changed"));
       onPaymentSuccess?.();
       onClose();
     } catch (err) {
@@ -84,35 +85,13 @@ export function PlatformFeePaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
-      <div className="relative w-full max-w-sm sm:max-w-md max-h-[92vh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10">
-        {/* Header */}
-        <div className="shrink-0 relative bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 px-5 py-3.5 text-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 backdrop-blur-xs shadow-inner">
-                <QrIcon className="h-4 w-4 text-white" />
-              </span>
-              <div>
-                <h3 className="text-sm sm:text-base font-bold leading-tight">
-                  Pay SaveBite Platform Fee
-                </h3>
-                {statementPeriodText && (
-                  <p className="text-[11px] text-emerald-100 font-medium">
-                    Period: {statementPeriodText}
-                  </p>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="rounded-lg p-1.5 text-emerald-100 transition-colors hover:bg-white/20 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
+    <SharedModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Pay SaveBite Platform Fee"
+      maxWidthClass="max-w-md"
+      headerContent={statementPeriodText ? <p className="text-sm text-slate-600">Period: {statementPeriodText}</p> : undefined}
+    >
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5">
           {/* Amount Callout */}
@@ -220,7 +199,6 @@ export function PlatformFeePaymentModal({
             Close
           </button>
         </div>
-      </div>
-    </div>
+    </SharedModal>
   );
 }

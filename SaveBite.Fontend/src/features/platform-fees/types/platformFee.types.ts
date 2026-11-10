@@ -88,12 +88,14 @@ export interface OrderPlatformFeeItem {
   grossAmount: number;
   feeRate: number;
   feeAmount: number;
+  refundCreditAmount?: number;
+  netFeeAmount?: number;
   calculatedAt: string;
 }
 
 export interface PlatformFeeAdjustmentItem {
   id: string;
-  type: string;
+  refundId: string;
   amount: number;
   reason: string;
   createdAt: string;
@@ -210,4 +212,24 @@ export interface PagedResult<T> {
   hasNext?: boolean;
   hasPreviousPage?: boolean;
   hasNextPage?: boolean;
+}
+
+export interface PlatformFeePeriodStatistics {
+  totalStatements: number;
+  paidStatements: number;
+  unpaidStatements: number;
+  overdueStatements: number;
+  zeroFeeStatements: number;
+  year: number;
+  month: number;
+  totalAmount: number;
+  paidAmount: number;
+  outstandingAmount: number;
+  overdueAmount: number;
+  totalShops: number;
+  paidShops: number;
+  unpaidShops: number;
+  overdueShops: number;
+  zeroFeeShops: number;
+  asOf: string;
 }

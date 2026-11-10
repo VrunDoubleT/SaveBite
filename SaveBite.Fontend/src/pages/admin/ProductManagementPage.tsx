@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertCircle, PackageSearch, RotateCw, SearchX } from "lucide-react";
+import { AlertCircle, PackageSearch, RotateCw, SearchX, Package, CheckCircle2, EyeOff, Zap, ShieldAlert } from "lucide-react";
 import { productApi } from "@/features/products/api/productApi";
 import { ProductManagementTable } from "@/features/products/components/ProductManagementTable";
-import type { ProductListManagement } from "@/features/products/types/product.types";
+import type { ProductListManagement, AdminProductSummary } from "@/features/products/types/product.types";
 import { Pagination } from "@/shared/components/pagination";
 import { SearchInput } from "@/shared/components/modal/SearchInput";
 
@@ -94,6 +94,18 @@ export function ProductManagementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  const [summary, setSummary] = useState<AdminProductSummary | null>(null);
+  const [summaryError, setSummaryError] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    void productApi.adminSummary(controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) { setSummary(data); setSummaryError(false); }
+      })
+      .catch(() => { if (!controller.signal.aborted) setSummaryError(true); });
+    return () => controller.abort();
+  }, [reloadKey]);
 
   const retry = useCallback(() => setReloadKey((key) => key + 1), []);
 
@@ -205,6 +217,29 @@ export function ProductManagementPage() {
           className="w-full sm:w-80"
         />
       </header>
+
+      <section aria-label="Product summary metrics" className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        {[
+          { label: "All Products", value: summary?.total, icon: Package, tone: "bg-neutral-100 text-neutral-600" },
+          { label: "Active", value: summary?.active, icon: CheckCircle2, tone: "bg-emerald-50 text-emerald-600" },
+          { label: "Hidden", value: summary?.hidden, icon: EyeOff, tone: "bg-slate-100 text-slate-600" },
+          { label: "With Flash Deals", value: summary?.withDeals, icon: Zap, tone: "bg-amber-50 text-amber-600" },
+          { label: "Needs Correction", value: summary?.needsCorrection, icon: ShieldAlert, tone: "bg-red-50 text-red-600" },
+        ].map(({ label, value, icon: Icon, tone }) => (
+          <div key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
+                <Icon aria-hidden="true" className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500">{label}</p>
+                <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">{summaryError ? "—" : value ?? "–"}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </section>
+      {summaryError && <p role="status" className="text-sm text-red-700">Unable to load product statistics.</p>}
 
       {isInitialLoading ? (
         <ListSkeleton />

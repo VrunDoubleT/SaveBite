@@ -268,7 +268,7 @@ export function PlatformFeeDetailPage() {
                   <th className="px-5 py-3.5">Order ID</th>
                   <th className="px-5 py-3.5">Gross Revenue</th>
                   <th className="px-5 py-3.5">Commission Rate</th>
-                  <th className="px-5 py-3.5">Platform Fee</th>
+                  <th className="px-5 py-3.5">Fee After Refunds</th>
                   <th className="px-5 py-3.5">Completion Date</th>
                 </tr>
               </thead>
@@ -293,7 +293,14 @@ export function PlatformFeeDetailPage() {
                               <span className="mt-1 block break-all font-mono text-xs text-slate-500">Version {ord.feeConfigId}</span>
                       </td>
                       <td className="px-5 py-3.5 font-black text-emerald-600">
-                        {formatVnd(ord.feeAmount)}
+                        {formatVnd(ord.netFeeAmount ?? Math.max(0, ord.feeAmount - (ord.refundCreditAmount ?? 0)))}
+                              {(ord.refundCreditAmount ?? 0) > 0 && (
+                                <div className="mt-1 space-y-0.5 text-xs font-medium text-slate-600">
+                                  <p>Original fee: {formatVnd(ord.feeAmount)}</p>
+                                  <p>Refund credit: −{formatVnd(ord.refundCreditAmount ?? 0)}</p>
+                                  <p>Credit may be applied to this or a later bill.</p>
+                                </div>
+                              )}
                       </td>
                       <td className="px-5 py-3.5 text-slate-500">
                         {new Date(ord.calculatedAt).toLocaleString("en-US")}
@@ -330,7 +337,7 @@ export function PlatformFeeDetailPage() {
                 ) : (
                   statement.adjustments.map((adj) => (
                     <tr key={adj.id} className="hover:bg-slate-50/50 transition">
-                      <td className="px-5 py-3.5 font-bold text-slate-800">{adj.type}</td>
+                      <td className="px-5 py-3.5 font-bold text-slate-800">{adj.refundId ? "Refund credit" : "Fee adjustment"}</td>
                       <td
                         className={`px-5 py-3.5 font-extrabold ${
                           adj.amount < 0 ? "text-rose-600" : "text-emerald-600"

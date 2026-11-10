@@ -465,7 +465,12 @@ public sealed class ShopOrderService : IShopOrderService
         var shopId = await _orders.WithOrderLockAsync(orderId, async () =>
         {
             var order = await _shops.GetAsync((await _orders.GetOrderAsync(orderId, null, ct))?.ShopId ?? Guid.Empty, orderId, ct);
-            if (order == null || order.Status != OrderStatus.Pending) return (Guid?)null;
+            if (order == null) return (Guid?)null;
+            // A prior attempt may have committed expiry before post-commit delivery failed.
+            if (order.Status == OrderStatus.Expired && order.ExpiredAt.HasValue
+                && order.StatusHistories.Any(h => h.FromStatus == OrderStatus.Pending && h.ToStatus == OrderStatus.Expired))
+                return (Guid?)order.ShopId;
+            if (order.Status != OrderStatus.Pending) return (Guid?)null;
             var deadline = ConfirmationDeadline(order);
             if (!deadline.HasValue) return null;
             if (deadline > Now) throw new InvalidOperationException("The shop confirmation job ran before its deadline.");
@@ -477,8 +482,9 @@ public sealed class ShopOrderService : IShopOrderService
         }, ct);
         if (shopId.HasValue)
         {
-            await _inventorySync.SyncAsync(orderId, ct);
             await _orderEvents.NotifyAsync(shopId.Value, orderId, RealtimeEvents.OrderReasons.ConfirmationExpired, ct);
+            // Inventory reconciliation is independently retryable and must not gate customer updates.
+            await _inventorySync.SyncAsync(orderId, ct);
         }
     }
 

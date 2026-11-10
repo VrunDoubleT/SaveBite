@@ -205,3 +205,11 @@ export interface ProductRevisionHistory {
   before: RevisionContentSnapshot | null;
   after: RevisionContentSnapshot;
 }
+
+export interface AdminProductSummary {
+  total: number;
+  active: number;
+  hidden: number;
+  withDeals: number;
+  needsCorrection: number;
+}

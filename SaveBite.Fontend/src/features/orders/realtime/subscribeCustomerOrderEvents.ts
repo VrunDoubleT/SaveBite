@@ -8,5 +8,13 @@ export function subscribeCustomerOrderEvents(client: RealtimeSubscriptions, refr
     if (typeof data?.orderId === "string" && (!orderId || data.orderId === orderId)) refresh();
   });
   const offConnected = client.onConnected(() => refresh());
-  return () => { offEvent(); offConnected(); };
+  // Durable order notifications can arrive even if the best-effort order refresh was missed.
+  const offNotification = client.on(REALTIME_EVENTS.NOTIFICATION_RECEIVED, (event) => {
+    const data = event.data as { notification?: { actionUrl?: unknown } } | null;
+    const actionUrl = data?.notification?.actionUrl;
+    if (typeof actionUrl !== "string") return;
+    const match = /^\/orders\/([^/?#]+)(?:[/?#]|$)/.exec(actionUrl);
+    if (match && (!orderId || match[1] === orderId)) refresh();
+  });
+  return () => { offEvent(); offConnected(); offNotification(); };
 }

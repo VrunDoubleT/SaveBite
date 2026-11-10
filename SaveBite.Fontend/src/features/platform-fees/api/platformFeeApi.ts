@@ -2,6 +2,7 @@ import { API_ENDPOINTS, httpClient } from "@/shared/api";
 import type { ApiResponse } from "@/shared/types";
 import type {
   PlatformFeeConfigResponse,
+  PlatformFeePeriodStatistics,
   PlatformPayOsConfigResponse,
   PlatformPayOsConfigHistoryItem,
   UpdatePlatformPayOsConfigRequest,
@@ -18,6 +19,13 @@ import type {
 } from "../types/platformFee.types";
 
 export const platformFeeApi = {
+  async getPeriodStatistics(year?: number, month?: number, signal?: AbortSignal): Promise<PlatformFeePeriodStatistics> {
+    const response = await httpClient.get<ApiResponse<PlatformFeePeriodStatistics>>(
+      `${API_ENDPOINTS.PLATFORM_FEES.ADMIN_STATEMENTS}/statistics`,
+      { params: { year, month }, signal },
+    );
+    return response.data.data;
+  },
   async getPayOsConfig(): Promise<PlatformPayOsConfigResponse> {
     const response = await httpClient.get<ApiResponse<PlatformPayOsConfigResponse>>(
       API_ENDPOINTS.PLATFORM_FEES.ADMIN_PAYOS_CONFIG,
@@ -93,11 +101,13 @@ export const platformFeeApi = {
   async getShopStatements(
     shopId: string,
     params?: GetShopPlatformFeesParams,
+    signal?: AbortSignal,
   ): Promise<PagedResult<PlatformFeeStatementSummary>> {
     const response = await httpClient.get<ApiResponse<PagedResult<PlatformFeeStatementSummary>>>(
       API_ENDPOINTS.PLATFORM_FEES.SHOP_STATEMENTS(shopId),
       {
         params,
+        signal,
       },
     );
     return response.data.data;
@@ -149,6 +159,7 @@ export const platformFeeApi = {
       code: "00",
       desc: "success",
       data: {
+        code: "00",
         orderCode,
         amount,
       },

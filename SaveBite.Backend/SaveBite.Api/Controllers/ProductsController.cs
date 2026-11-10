@@ -149,6 +149,11 @@ public sealed class ProductsController : ControllerBase
         var result = await _products.GetProductListAsync(keyword, page, pageSize, cancellationToken);
         return Ok(ApiResponse<PagedResult<ProductListResponse>>.Ok(result, "Product list retrieved successfully."));
     }
+
+    [HttpGet("admin/summary")]
+    [AdminAccess]
+    public async Task<ActionResult<ApiResponse<AdminProductSummaryResponse>>> AdminSummary(CancellationToken ct)
+        => Ok(ApiResponse<AdminProductSummaryResponse>.Ok(await _products.GetAdminSummaryAsync(ct)));
     
     // Manage Products.
     [HttpGet("admin/{productId:guid}")]

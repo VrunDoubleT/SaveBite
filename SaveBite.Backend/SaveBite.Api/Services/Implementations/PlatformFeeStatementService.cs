@@ -19,6 +19,15 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 {
+    public async Task<PlatformFeePeriodStatisticsResponse> GetPeriodStatisticsAsync(int? year, int? month, CancellationToken ct = default)
+    {
+        if (year < 1 || year > 9999 || month < 1 || month > 12)
+            throw AppException.BadRequest("Select a valid billing year and month.");
+        var bills = await _db.PlatformFeeStatements.AsNoTracking()
+            .Where(s => (!year.HasValue || s.BillingYear == year) && (!month.HasValue || s.BillingMonth == month) && s.Status != PlatformFeeStatementStatus.Draft)
+            .ToListAsync(ct);
+        return PlatformFeePeriodStatistics.Calculate(bills, year, month, _timeProvider.GetUtcNow().UtcDateTime);
+    }
     private readonly IAdminAuditWriter _audit;
     private readonly AppDbContext _db;
     private readonly INotificationQueue _notifications;
@@ -204,7 +213,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             o.FeeRate,
             o.FeeAmount,
             o.CalculatedAt
-        ) { FeeConfigId = o.FeeConfigId }).ToList();
+        ) { FeeConfigId = o.FeeConfigId, RefundCreditAmount = -o.Adjustments.Sum(a => a.Amount) }).ToList();
 
         var adjustmentItems = statement.Adjustments.Select(a => new PlatformFeeAdjustmentItemResponse(
             a.Id,
@@ -274,7 +283,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 o.FeeRate,
                 o.FeeAmount,
                 o.CalculatedAt
-            ) { FeeConfigId = o.FeeConfigId }).ToList();
+            ) { FeeConfigId = o.FeeConfigId, RefundCreditAmount = -o.Adjustments.Sum(a => a.Amount) }).ToList();
             var adjustmentItems = statement.Adjustments.Select(a => new PlatformFeeAdjustmentItemResponse(
                 a.Id,
                 a.RefundId,
@@ -799,14 +808,49 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             var now = _timeProvider.GetUtcNow().UtcDateTime;
             var paymentReady = await _availability.IsReadyAsync(ct);
             var unbilledFees = await _repository.GetUnbilledOrderFeesAsync(billingYear, billingMonth, ct);
+            // Include earlier paid orders too: their refunds become credit for this bill.
+            var endOfMonth = new DateTime(billingYear, billingMonth, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1);
+            var billedOrders = await _db.Orders.Include(o => o.Refunds)
+                .Where(o => o.PlatformFee != null && o.PlatformFee.CalculatedAt < endOfMonth
+                    && o.Refunds.Any(r => r.TransferredAmount > 0))
+                .ToListAsync(ct);
+            // Refund events may still be waiting in the outbox. Reconcile transferred
+            // refunds before billing, using the same idempotent credits as the consumer.
+            foreach (var order in unbilledFees.Select(f => f.Order).Concat(billedOrders).DistinctBy(o => o.Id))
+            {
+                if (order.Refunds.Any(r => r.TransferredAmount > 0))
+                    await RefundEventEffects.ReconcileFeesAsync(_db, order, now, ct);
+            }
+            await _repository.SaveChangesAsync(ct);
+            // Recover credits consumed by old zero-value bills without changing
+            // settled amounts. Only the portion supported by actual fees stays assigned.
+            var zeroBills = await _db.PlatformFeeStatements
+                .Include(s => s.OrderPlatformFees).Include(s => s.Adjustments).AsSplitQuery()
+                .Where(s => s.Status == PlatformFeeStatementStatus.Paid && s.TotalFeeAmount == 0
+                    && (s.BillingYear < billingYear || (s.BillingYear == billingYear && s.BillingMonth <= billingMonth)))
+                .ToListAsync(ct);
+            foreach (var bill in zeroBills)
+            {
+                var capacity = bill.OrderPlatformFees.Sum(f => f.FeeAmount);
+                foreach (var credit in bill.Adjustments.OrderBy(a => a.CreatedAt).ThenBy(a => a.Id).ToList())
+                {
+                    credit.StatementId = null;
+                    var applied = PlatformFeeCreditAllocator.Apply(credit, bill.Id, capacity);
+                    if (applied == null) continue;
+                    if (!ReferenceEquals(applied, credit)) _db.Add(applied);
+                    capacity += applied.Amount;
+                }
+            }
+            await _repository.SaveChangesAsync(ct);
             var unbilledAdjustments = await _repository.GetUnbilledAdjustmentsAsync(billingYear, billingMonth, ct);
 
-            if (unbilledFees.Count == 0 && unbilledAdjustments.Count == 0)
-            {
-                return 0;
-            }
+            var unpaidShopIds = await _db.PlatformFeeStatements
+                .Where(s => s.BillingYear == billingYear && s.BillingMonth == billingMonth
+                    && s.Status != PlatformFeeStatementStatus.Paid)
+                .Select(s => s.ShopId).ToListAsync(ct);
             var shopIds = unbilledFees.Select(f => f.ShopId)
                 .Union(unbilledAdjustments.Select(a => a.ShopId))
+                .Union(unpaidShopIds)
                 .Distinct()
                 .ToList();
 
@@ -815,85 +859,69 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             {
                 var shopFees = unbilledFees.Where(f => f.ShopId == shopId).ToList();
                 var shopAdjustments = unbilledAdjustments.Where(a => a.ShopId == shopId).ToList();
-                // Business Rule: If order was refunded by shop, refunded orders must not be counted into platform fee
-                // Refund consumers record explicit credits; do not infer a second waiver from refund status.
-                var periodGrossFees = shopFees.Sum(f => f.FeeAmount);
-                var periodAdjustments = shopAdjustments.Sum(a => a.Amount); // negative for refunds
+                var statement = await _repository.GetShopStatementForPeriodAsync(shopId, billingYear, billingMonth, ct);
+                if (statement?.Status == PlatformFeeStatementStatus.Paid)
+                    continue; // Outstanding credit remains unassigned for a later bill.
 
-                var existingStatement = await _repository.GetShopStatementForPeriodAsync(shopId, billingYear, billingMonth, ct);
-                if (existingStatement != null)
+                var isNew = statement == null;
+                statement ??= new PlatformFeeStatement
                 {
-              
-                    if (existingStatement.Status == PlatformFeeStatementStatus.Paid)
-                    {
-                        _logger.LogWarning("Statement {StatementId} for shop {ShopId} in period {Year}-{Month} is already Paid. Skipping modification.",
-                            existingStatement.Id, shopId, billingYear, billingMonth);
-                        continue;
-                    }
+                    Id = Guid.NewGuid(), ShopId = shopId, BillingYear = billingYear,
+                    BillingMonth = billingMonth, Status = PlatformFeeStatementStatus.Issued,
+                    IssuedAt = now, CreatedAt = now, UpdatedAt = now,
+                    DueAt = paymentReady ? now.AddDays(TimingConfiguration.PlatformFees.StatementPaymentDays) : null
+                };
+                if (isNew) await _repository.AddStatementAsync(statement, ct);
 
-                    existingStatement.TotalFeeAmount = Math.Max(0, existingStatement.TotalFeeAmount + periodGrossFees + periodAdjustments);
-                    existingStatement.UpdatedAt = now;
-                    if (existingStatement.TotalFeeAmount == 0 && existingStatement.Status == PlatformFeeStatementStatus.Issued)
-                    {
-                        existingStatement.PaymentPauseReason = null;
-                        existingStatement.PaymentPausedAt = null;
-                        existingStatement.Status = PlatformFeeStatementStatus.Paid;
-                        existingStatement.PaidAt = now;
-                        existingStatement.DueAt = null;
-                    }
-                    foreach (var fee in shopFees)
-                    {
-                        fee.StatementId = existingStatement.Id;
-                        fee.UpdatedAt = now;
-                    }
-                    foreach (var adj in shopAdjustments)
-                    {
-                        adj.StatementId = existingStatement.Id;
-                    }
+                var previous = statement.TotalFeeAmount;
+                foreach (var fee in shopFees)
+                {
+                    fee.StatementId = statement.Id;
+                    fee.UpdatedAt = now;
                 }
-                else
+                // Rebuild unpaid bills from their ledger rather than incrementing a
+                // potentially stale total. Pending fees above are not yet persisted.
+                var gross = await _db.OrderPlatformFees
+                    .Where(f => f.StatementId == statement.Id)
+                    .SumAsync(f => (decimal?)f.FeeAmount, ct) ?? 0m;
+                var assigned = await _db.Set<PlatformFeeAdjustment>()
+                    .Where(a => a.StatementId == statement.Id)
+                    .OrderBy(a => a.CreatedAt).ThenBy(a => a.Id).ToListAsync(ct);
+                var available = gross + shopFees.Sum(f => f.FeeAmount);
+
+                // Reallocate old credits as well, recovering any excess previously
+                // swallowed by Max(0, ...). The remainder stays available next month.
+                foreach (var credit in assigned) credit.StatementId = null;
+                foreach (var credit in assigned.Concat(shopAdjustments).DistinctBy(a => a.Id)
+                    .OrderBy(a => a.CreatedAt).ThenBy(a => a.Id))
                 {
-                    var netFee = Math.Max(0, periodGrossFees + periodAdjustments);
-                    var isZeroFee = netFee == 0;
-                    var statement = new PlatformFeeStatement
-                    {
-                        Id = Guid.NewGuid(),
-                        ShopId = shopId,
-                        BillingYear = billingYear,
-                        BillingMonth = billingMonth,
-                        Status = isZeroFee ? PlatformFeeStatementStatus.Paid : PlatformFeeStatementStatus.Issued,
-                        TotalFeeAmount = netFee,
-                        IssuedAt = now,
-                        DueAt = isZeroFee || !paymentReady ? null : now.AddDays(TimingConfiguration.PlatformFees.StatementPaymentDays), // BR-192: statement due 7 days after issuance
-                        PaidAt = isZeroFee ? now : null,
-                        CreatedAt = now,
-                        UpdatedAt = now
-                    };
+                    var applied = PlatformFeeCreditAllocator.Apply(credit, statement.Id, available);
+                    if (applied == null) continue;
+                    if (!ReferenceEquals(applied, credit)) _db.Add(applied);
+                    available += applied.Amount;
+                }
+                statement.TotalFeeAmount = available;
+                statement.UpdatedAt = now;
+                if (available == 0)
+                {
+                    statement.Status = PlatformFeeStatementStatus.Paid;
+                    statement.PaidAt = now;
+                    statement.DueAt = null;
+                    statement.PaymentPauseReason = null;
+                    statement.PaymentPausedAt = null;
+                }
+                if (isNew || previous != available)
                     statement.Histories.Add(new PlatformFeeStatementHistory
                     {
-                        Id = Guid.NewGuid(),
-                        StatementId = statement.Id,
-                        PreviousAmount = 0,
-                        ChangeAmount = netFee,
-                        NewAmount = netFee,
-                        ChangeType = StatementChangeType.InitialIssuance,
-                        Reason = $"Initial statement generated for period {billingMonth:D2}/{billingYear}.",
+                        Id = Guid.NewGuid(), StatementId = statement.Id,
+                        PreviousAmount = previous, ChangeAmount = available - previous, NewAmount = available,
+                        ChangeType = isNew ? StatementChangeType.InitialIssuance : StatementChangeType.PriorPeriodCreditApplied,
+                        Reason = $"Reconciled statement from order fees and refund credits for {billingMonth:D2}/{billingYear}.",
                         CreatedAt = now
                     });
-                    await _repository.AddStatementAsync(statement, ct);
-                    if (!isZeroFee && !paymentReady)
-                        await _availability.PauseAsync(statement, PlatformFeePaymentAvailability.MissingConfiguration, ct);
-                    foreach (var fee in shopFees)
-                    {
-                        fee.StatementId = statement.Id;
-                        fee.UpdatedAt = now;
-                    }
-                    foreach (var adj in shopAdjustments)
-                    {
-                        adj.StatementId = statement.Id;
-                    }
-                    statementsCreated++;
-                }
+                if (available > 0 && !paymentReady)
+                    await _availability.PauseAsync(statement, PlatformFeePaymentAvailability.MissingConfiguration, ct);
+                if (isNew) statementsCreated++;
             }
             await _repository.SaveChangesAsync(ct);
             _logger.LogInformation("Generated {Count} monthly platform fee statements for period {Year}-{Month}.", statementsCreated, billingYear, billingMonth);

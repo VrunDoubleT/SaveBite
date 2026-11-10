@@ -20,6 +20,17 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class ProductService : IProductService
 {
+    public async Task<AdminProductSummaryResponse> GetAdminSummaryAsync(CancellationToken ct = default)
+    {
+        return await _db.Products.AsNoTracking().Where(p => p.DeletedAt == null)
+            .GroupBy(p => 1)
+            .Select(g => new AdminProductSummaryResponse(g.Count(),
+                g.Count(p => p.Status == ProductStatus.Active),
+                g.Count(p => p.Status == ProductStatus.Hidden),
+                g.Count(p => p.FlashDeals.Any()),
+                g.Count(p => p.Warnings.Any(w => w.ResolvedAt == null && w.FirstEditedAt == null))))
+            .SingleOrDefaultAsync(ct) ?? new AdminProductSummaryResponse(0, 0, 0, 0, 0);
+    }
     private readonly AppDbContext _db;
     private readonly INotificationQueue _notifications;
     private readonly IProductRepository _repository;

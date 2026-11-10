@@ -6,6 +6,7 @@ using SaveBite.Backend.Models.Common;
 
 public interface IProductService
 {
+    Task<AdminProductSummaryResponse> GetAdminSummaryAsync(CancellationToken ct = default);
     Task<ProductSummaryResponse> GetSummaryAsync(Guid userId, CancellationToken ct);
     Task<ProductOptionsResponse> GetOptionsAsync(Guid userId, CancellationToken ct);
     Task<ProductResponse> CreateAsync(Guid userId, CreateProductRequest request, CancellationToken ct);

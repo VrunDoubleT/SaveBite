@@ -39,6 +39,14 @@ public sealed class AdminPlatformFeeController : ControllerBase
         return Ok(ApiResponse<PlatformPayOsConfigResponse>.Ok(result));
     }
 
+    [HttpGet("platform-fee-statements/statistics")]
+    public async Task<ActionResult<ApiResponse<PlatformFeePeriodStatisticsResponse>>> GetPeriodStatistics(
+        [FromQuery] int? year, [FromQuery] int? month, CancellationToken ct)
+    {
+        var result = await _feeStatementService.GetPeriodStatisticsAsync(year, month, ct);
+        return Ok(ApiResponse<PlatformFeePeriodStatisticsResponse>.Ok(result));
+    }
+
     [HttpPut("platform-payos-config")]
     public async Task<ActionResult<ApiResponse<PlatformPayOsConfigResponse>>> UpdatePlatformPayOsConfig(
         [FromBody] UpdatePlatformPayOsConfigRequest request,
