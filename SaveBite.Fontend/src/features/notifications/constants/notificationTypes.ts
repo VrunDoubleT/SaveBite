@@ -105,6 +105,8 @@ export const NOTIFICATION_TYPES = {
   PLATFORM_FEE_DUE_SOON: "PlatformFeeDueSoon",
   PLATFORM_FEE_OVERDUE: "PlatformFeeOverdue",
   PLATFORM_FEE_PAID: "PlatformFeePaid",
+  PLATFORM_FEE_SCHEDULE_ACTIVATED: "PlatformFeeScheduleActivated",
+  PLATFORM_FEE_RATE_CHANGED: "PlatformFeeRateChanged",
 } as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICATION_TYPES];
@@ -157,6 +159,8 @@ export const NOTIFICATION_TYPE_BY_ID: Record<number, NotificationType> = {
   42: NOTIFICATION_TYPES.SHOP_APPLICATION_SUBMITTED,
   43: NOTIFICATION_TYPES.REFUND_DESTINATION_REQUIRED,
   44: NOTIFICATION_TYPES.REFUND_OVERDUE,
+  45: NOTIFICATION_TYPES.PLATFORM_FEE_SCHEDULE_ACTIVATED,
+  46: NOTIFICATION_TYPES.PLATFORM_FEE_RATE_CHANGED,
 };
 
 export interface NotificationVisualConfig {
@@ -400,6 +404,16 @@ export const NOTIFICATION_VISUALS: Record<NotificationType, NotificationVisualCo
     Icon: AlertOctagon,
     bg: "bg-rose-100 text-rose-700",
     label: "Platform fee overdue",
+  },
+  [NOTIFICATION_TYPES.PLATFORM_FEE_SCHEDULE_ACTIVATED]: {
+    Icon: Receipt,
+    bg: "bg-blue-100 text-blue-700",
+    label: "Fee schedule activated",
+  },
+  [NOTIFICATION_TYPES.PLATFORM_FEE_RATE_CHANGED]: {
+    Icon: Receipt,
+    bg: "bg-amber-100 text-amber-700",
+    label: "Commission rate changed",
   },
   [NOTIFICATION_TYPES.PLATFORM_FEE_PAID]: {
     Icon: Receipt,

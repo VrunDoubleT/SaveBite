@@ -10,8 +10,10 @@ import type {
   PlatformFeeStatementDetail,
   PlatformFeePaymentLinkResponse,
   GetShopPlatformFeesParams,
+  GetShopMonthlyPlatformFeeReportParams,
+  ShopMonthlyPlatformFeeReport,
+  ShopCurrentPlatformFeeRate,
   GetAdminPlatformFeesParams,
-  RecordExternalPaymentRequest,
   PagedResult,
 } from "../types/platformFee.types";
 
@@ -79,39 +81,10 @@ export const platformFeeApi = {
   },
 
     // Admin: Cancel upcoming scheduled fee config
-  async cancelScheduledConfig(configId: string): Promise<string> {
+  async cancelScheduledConfig(configId: string, reason: string): Promise<string> {
     const response = await httpClient.delete<ApiResponse<string>>(
       API_ENDPOINTS.PLATFORM_FEES.ADMIN_CANCEL_SCHEDULED_CONFIG(configId),
-    );
-    return response.data.data;
-  },
-
-  // Admin: Process overdue statements and suspend delinquent shops
-  async processOverdue(): Promise<number> {
-    const response = await httpClient.post<ApiResponse<number>>(
-      API_ENDPOINTS.PLATFORM_FEES.ADMIN_PROCESS_OVERDUE,
-    );
-    return response.data.data;
-  },
-
-  // Admin: Generate monthly fee statements
-  async generateMonthly(year: number, month: number): Promise<number> {
-    const response = await httpClient.post<ApiResponse<number>>(
-      API_ENDPOINTS.PLATFORM_FEES.ADMIN_GENERATE_MONTHLY,
-      null,
-      { params: { year, month } },
-    );
-    return response.data.data;
-  },
-
-  // Admin: Record external reconciliation payment
-  async recordExternalPayment(
-    statementId: string,
-    payload: RecordExternalPaymentRequest,
-  ): Promise<string> {
-    const response = await httpClient.post<ApiResponse<string>>(
-      API_ENDPOINTS.PLATFORM_FEES.ADMIN_RECONCILIATION(statementId),
-      payload,
+      { data: { reason } },
     );
     return response.data.data;
   },
@@ -126,6 +99,24 @@ export const platformFeeApi = {
       {
         params,
       },
+    );
+    return response.data.data;
+  },
+
+  async getShopMonthlyReport(
+    shopId: string,
+    params: GetShopMonthlyPlatformFeeReportParams,
+  ): Promise<ShopMonthlyPlatformFeeReport> {
+    const response = await httpClient.get<ApiResponse<ShopMonthlyPlatformFeeReport>>(
+      API_ENDPOINTS.PLATFORM_FEES.SHOP_MONTHLY_REPORT(shopId),
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async getShopCurrentRate(shopId: string): Promise<ShopCurrentPlatformFeeRate> {
+    const response = await httpClient.get<ApiResponse<ShopCurrentPlatformFeeRate>>(
+      API_ENDPOINTS.PLATFORM_FEES.SHOP_CURRENT_RATE(shopId),
     );
     return response.data.data;
   },

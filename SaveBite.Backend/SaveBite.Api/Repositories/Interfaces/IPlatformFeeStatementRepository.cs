@@ -1,4 +1,5 @@
 using SaveBite.Backend.Models.Common;
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
@@ -11,6 +12,10 @@ public interface IPlatformFeeStatementRepository
     Task<IReadOnlyList<PlatformFeeStatement>> GetStatementsForPeriodAsync(int year, short month, CancellationToken ct = default);
 
     Task<PagedResult<PlatformFeeStatement>> GetShopStatementsAsync(Guid shopId, GetShopPlatformFeesRequest request, CancellationToken ct = default);
+    Task<ShopMonthlyPlatformFeeReportData> GetShopMonthlyPlatformFeeReportAsync(
+        Guid shopId,
+        GetShopMonthlyPlatformFeeReportRequest request,
+        CancellationToken ct = default);
     Task<PagedResult<PlatformFeeStatement>> GetAdminStatementsAsync(GetAdminPlatformFeesRequest request, CancellationToken ct = default);
     Task<PlatformFeeStatement?> GetStatementDetailAsync(Guid statementId, CancellationToken ct = default);
     Task<PlatformFeePayment?> GetPaymentByGatewayCodeAsync(string orderCodeStr, CancellationToken ct = default);
@@ -26,7 +31,6 @@ public interface IPlatformFeeStatementRepository
     Task<bool> HasOtherOverdueStatementsAsync(Guid shopId, Guid currentStatementId, CancellationToken ct = default);
     Task<PlatformFeeStatement?> GetShopStatementForPeriodAsync(Guid shopId, int billingYear, short billingMonth, CancellationToken ct = default);
     Task CancelPendingPaymentsForStatementAsync(Guid statementId, CancellationToken ct = default);
-    Task AddFeeAdjustmentAsync(PlatformFeeAdjustment adjustment, CancellationToken ct = default);
     Task AddStatementAsync(PlatformFeeStatement statement, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
 }

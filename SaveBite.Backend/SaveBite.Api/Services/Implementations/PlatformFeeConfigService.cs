@@ -1,293 +1,212 @@
+using System.Globalization;
 using System.Text.Json;
-using SaveBite.Backend.Constants;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
-using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Services.Implementations;
 
-public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
+// Billing, fee accrual and all schedule changes share this PostgreSQL transaction lock.
+public sealed class PlatformFeeConfigService(AppDbContext db, TimeProvider clock,
+    IAdminAuditWriter audit, INotificationQueue notifications) : IPlatformFeeConfigService
 {
-    private readonly IAdminAuditWriter _audit;
-    private static readonly TimeSpan EffectiveFromTolerance = TimeSpan.FromMinutes(1);
+    public const int MaxFutureSchedules = 5;
+    private DateTime Now => Microseconds(clock.GetUtcNow().UtcDateTime);
+    private static DateTime Microseconds(DateTime value) => new(value.Ticks / 10 * 10, DateTimeKind.Utc);
 
-    private readonly IPlatformFeeConfigRepository _repository;
-    private readonly TimeProvider _timeProvider;
-    private readonly ILogger<PlatformFeeConfigService> _logger;
-
-    public PlatformFeeConfigService(
-        IPlatformFeeConfigRepository repository,
-        TimeProvider timeProvider,
-        ILogger<PlatformFeeConfigService> logger, IAdminAuditWriter audit)
-    {
-        _audit = audit;
-        _repository = repository;
-        _timeProvider = timeProvider;
-        _logger = logger;
-    }
-
-    // UC-148: View Fee Configuration (BR-189, BR-093)
     public async Task<PlatformFeeConfigResponse> GetActiveConfigAsync(CancellationToken ct = default)
     {
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
-        var config = await _repository.GetActiveConfigAsync(now, ct);
-
-        if (config == null)
-        {
-            throw AppException.NotFound("Active platform fee configuration not found.");
-        }
-
-        return ToResponse(config);
+        var now = Now;
+        var config = await db.PlatformFeeConfigs.AsNoTracking().Include(c => c.CreatedByUser)
+            .Where(c => c.LifecycleStatus == "Published" && c.EffectiveFrom <= now
+                && (c.EffectiveTo == null || c.EffectiveTo > now))
+            .OrderByDescending(c => c.EffectiveFrom).FirstOrDefaultAsync(ct)
+            ?? throw AppException.NotFound("Active platform fee configuration not found.");
+        return Response(config, now);
     }
-    
-     public async Task<IReadOnlyList<PlatformFeeConfigResponse>> GetAllConfigsAsync(CancellationToken ct = default)
-        {
-            var configs = await _repository.GetAllConfigsAsync(ct);
-            return configs.Select(ToResponse).ToList();
-        }
 
-    // UC-149: Update Fee Configuration (BR-189, BR-164, BR-165, BR-163)
-    public async Task<PlatformFeeConfigResponse> UpdateConfigAsync(
-        Guid adminId,
-        UpdatePlatformFeeConfigRequest request,
-        CancellationToken ct = default)
+    public async Task<IReadOnlyList<PlatformFeeConfigResponse>> GetAllConfigsAsync(CancellationToken ct = default)
     {
-        if (adminId == Guid.Empty)
-        {
-            throw AppException.Forbidden("Only an Administrator may update platform-fee configuration.");
-        }
+        var now = Now;
+        var rows = await db.PlatformFeeConfigs.AsNoTracking().Include(c => c.CreatedByUser)
+            .OrderByDescending(c => c.EffectiveFrom).ThenByDescending(c => c.CreatedAt).ToListAsync(ct);
+        return rows.Select(c => Response(c, now)).ToList();
+    }
 
-        // BR-164: Monthly platform-fee percentage must be between 0% and 100%
+    public async Task<PlatformFeeConfigResponse> UpdateConfigAsync(Guid adminId,
+        UpdatePlatformFeeConfigRequest request, CancellationToken ct = default)
+    {
+        if (adminId == Guid.Empty) throw AppException.Forbidden();
         if (request.FeeRate < 0 || request.FeeRate > 100)
-        {
             throw AppException.BadRequest("Platform fee rate must be between 0% and 100%.");
-        }
-
-        // Normalize fee rate from percentage (0% to 100%) to fraction (0.0 to 1.0)
-        var normalizedRate = Math.Round(request.FeeRate / 100m, 6);
-
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
-        // BR-165: Reject effective dates in the past (allowing 1 minute tolerance for network clock drift)
-        if (request.EffectiveFrom.HasValue && request.EffectiveFrom.Value < now - EffectiveFromTolerance)
+        var reason = ValidateReason(request.Reason);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockAsync(ct);
+        var now = Now;
+        var rows = await db.PlatformFeeConfigs.Include(c => c.CreatedByUser).ToListAsync(ct);
+        // Announce every due version before a mutation can close/replace the currently effective one.
+        await ProcessDueAsync(rows, now, ct);
+        var effectiveFrom = request.EffectiveFrom.HasValue
+            ? Microseconds(request.EffectiveFrom.Value.ToUniversalTime()) : now;
+        if (effectiveFrom < now.AddMinutes(-1))
+            throw AppException.BadRequest("Effective date cannot be in the past.");
+        if (effectiveFrom < now) effectiveFrom = now;
+        var immediate = effectiveFrom <= now;
+        var future = rows.Where(c => c.LifecycleStatus == "Published" && c.EffectiveFrom > now).ToList();
+        PlatformFeeConfig? replaced = null;
+        if (request.ReplacesConfigId.HasValue)
         {
-            throw AppException.BadRequest("Effective date must be in the future or current time.");
+            replaced = future.SingleOrDefault(c => c.Id == request.ReplacesConfigId.Value)
+                ?? throw AppException.Conflict("This schedule is no longer upcoming. Refresh before making changes.");
+            if (immediate) throw AppException.BadRequest("A replacement schedule must start in the future. Use Apply now for an immediate change.");
+            if (request.CancelUpcomingScheduled) throw AppException.BadRequest("Replace one schedule or cancel all upcoming schedules, not both.");
         }
-
-        var effectiveFrom = request.EffectiveFrom ?? now;
-
-        if (effectiveFrom < now)
+        if (!immediate && request.CancelUpcomingScheduled)
+            throw AppException.BadRequest("Cancel upcoming schedules is only available when applying a rate immediately.");
+        if (!immediate && future.Count >= MaxFutureSchedules && replaced == null)
+            throw AppException.BadRequest($"A maximum of {MaxFutureSchedules} future fee schedules is allowed. Replace or cancel a schedule first.");
+        if (rows.Any(c => c.LifecycleStatus == "Published" && c.Id != replaced?.Id && c.EffectiveFrom == effectiveFrom))
         {
-            effectiveFrom = now;
+            if (!immediate) throw AppException.Conflict("Another fee schedule already starts at this time.");
+            // Rapid immediate changes still get disjoint nonempty intervals at PostgreSQL precision.
+            effectiveFrom = rows.Where(c => c.LifecycleStatus == "Published" && c.EffectiveFrom <= now)
+                .Max(c => c.EffectiveFrom).AddTicks(10);
         }
+        if (replaced != null) Close(replaced, "Superseded", adminId, reason, now);
+        if (request.CancelUpcomingScheduled)
+            foreach (var item in future) Close(item, "Cancelled", adminId, reason, now);
 
-        PlatformFeeConfig resultConfig;
-
-        if (effectiveFrom > now)
+        // Persist terminal decisions before inserting a replacement at the same start time.
+        // This releases the partial unique index inside the SAME transaction.
+        if (replaced != null || request.CancelUpcomingScheduled) await db.SaveChangesAsync(ct);
+        var previous = rows.Where(c => c.LifecycleStatus == "Published" && c.EffectiveFrom < effectiveFrom)
+            .OrderByDescending(c => c.EffectiveFrom).FirstOrDefault();
+        var config = new PlatformFeeConfig
         {
-            // CASE 1: Future Scheduled Configuration (Upcoming Rate)
-            // NO DELETE: If an upcoming scheduled config already exists, edit it in place!
-            var existingUpcoming = await _repository.GetUpcomingConfigAsync(now, ct);
-            if (existingUpcoming != null)
-            {
-                var oldRate = existingUpcoming.FeeRate;
-                var oldEffective = existingUpcoming.EffectiveFrom;
-
-                existingUpcoming.FeeRate = normalizedRate;
-                existingUpcoming.EffectiveFrom = effectiveFrom;
-                resultConfig = existingUpcoming;
-
-                // Sync current active config's EffectiveTo with the updated upcoming start date
-                var current = await _repository.GetActiveConfigAsync(now, ct);
-                if (current != null && current.EffectiveFrom < effectiveFrom)
-                {
-                    current.EffectiveTo = effectiveFrom;
-                }
-
-                var audit = new AuditLog
-                {
-                    Id = Guid.NewGuid(),
-                    ActorUserId = adminId,
-                    ActorType = AuditActorType.User,
-                    Action = AuditActionTypes.UpdateScheduledFeeConfiguration,
-                    TargetType = "PlatformFeeConfig",
-                    TargetId = existingUpcoming.Id,
-                    OldValuesJson = JsonSerializer.Serialize(new { FeeRate = oldRate, EffectiveFrom = oldEffective }),
-                    NewValuesJson = JsonSerializer.Serialize(new { FeeRate = normalizedRate, EffectiveFrom = effectiveFrom }),
-                    CreatedAt = now
-                };
-                _audit.Record(audit);
-            }
-            else
-            {
-                // No existing upcoming config, insert new future scheduled config
-                var current = await _repository.GetActiveConfigAsync(now, ct);
-                if (current != null && current.EffectiveFrom < effectiveFrom)
-                {
-                    current.EffectiveTo = effectiveFrom;
-                }
-
-                resultConfig = new PlatformFeeConfig
-                {
-                    Id = Guid.NewGuid(),
-                    FeeRate = normalizedRate,
-                    EffectiveFrom = effectiveFrom,
-                    EffectiveTo = null,
-                    CreatedBy = adminId,
-                    CreatedAt = now
-                };
-                await _repository.AddConfigAsync(resultConfig, ct);
-
-                var audit = new AuditLog
-                {
-                    Id = Guid.NewGuid(),
-                    ActorUserId = adminId,
-                    ActorType = AuditActorType.User,
-                    Action = AuditActionTypes.CreateScheduledFeeConfiguration,
-                    TargetType = "PlatformFeeConfig",
-                    TargetId = resultConfig.Id,
-                    OldValuesJson = null,
-                    NewValuesJson = JsonSerializer.Serialize(new { FeeRate = normalizedRate, EffectiveFrom = effectiveFrom }),
-                    CreatedAt = now
-                };
-                _audit.Record(audit);
-            }
-        }
-        else
-        {
-            // CASE 2: Immediate Fee Update (takes effect now)
-            var currentConfig = await _repository.GetActiveConfigAsync(now, ct);
-            if (currentConfig != null)
-            {
-                // Ensure check constraint "effective_to" > "effective_from" is always strictly satisfied
-                var closeTime = now > currentConfig.EffectiveFrom
-                    ? now
-                    : currentConfig.EffectiveFrom.AddSeconds(1);
-
-                currentConfig.EffectiveTo = closeTime;
-                effectiveFrom = closeTime;
-            }
-            
-            DateTime? upcomingStart = null;
-            if (request.CancelUpcomingScheduled)
-            {
-                var pendingConfigs = await _repository.GetPendingConfigsAsync(now, ct);
-                foreach (var pending in pendingConfigs)
-                {
-                    _repository.RemoveConfig(pending);
-                }
-            }
-            else
-            {
-                var upcoming = await _repository.GetUpcomingConfigAsync(now, ct);
-                if (upcoming != null && upcoming.EffectiveFrom > effectiveFrom)
-                {
-                    upcomingStart = upcoming.EffectiveFrom;
-                }
-            }
-
-
-            resultConfig = new PlatformFeeConfig
-            {
-                Id = Guid.NewGuid(),
-                FeeRate = normalizedRate,
-                EffectiveFrom = effectiveFrom,
-                EffectiveTo = upcomingStart,
-                CreatedBy = adminId,
-                CreatedAt = now
-            };
-
-            await _repository.AddConfigAsync(resultConfig, ct);
-
-            var audit = new AuditLog
-            {
-                Id = Guid.NewGuid(),
-                ActorUserId = adminId,
-                ActorType = AuditActorType.User,
-                Action = AuditActionTypes.UpdateFeeConfiguration,
-                TargetType = "PlatformFeeConfig",
-                TargetId = resultConfig.Id,
-                OldValuesJson = currentConfig == null
-                    ? null
-                    : JsonSerializer.Serialize(new { currentConfig.FeeRate, currentConfig.EffectiveFrom, currentConfig.EffectiveTo }),
-                NewValuesJson = JsonSerializer.Serialize(new { resultConfig.FeeRate, resultConfig.EffectiveFrom }),
-                CreatedAt = now
-            };
-            _audit.Record(audit);
-        }
-
-        await _repository.SaveChangesAsync(ct);
-        _logger.LogInformation("Platform fee configuration updated by Admin {AdminId}. Rate: {FeeRate}", adminId, normalizedRate);
-
-        return ToResponse(resultConfig);
-    }
-
-    public async Task CancelScheduledConfigAsync(Guid adminId, Guid configId, CancellationToken ct = default)
-    {
-        if (adminId == Guid.Empty)
-        {
-            throw AppException.Forbidden("Only an Administrator may cancel scheduled platform-fee configurations.");
-        }
-
-        var config = await _repository.GetByIdAsync(configId, ct);
-        if (config == null)
-        {
-            throw AppException.NotFound("Scheduled platform fee configuration not found.");
-        }
-
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
-        if (config.EffectiveFrom <= now)
-        {
-            throw AppException.BadRequest("Only upcoming scheduled configurations may be cancelled.");
-        }
-
-        _repository.RemoveConfig(config);
-
-        // Also clean up any other pending configs scheduled for the future to avoid ghost configs
-        var pendingConfigs = await _repository.GetPendingConfigsAsync(now, ct);
-        foreach (var pending in pendingConfigs.Where(p => p.Id != config.Id))
-        {
-            _repository.RemoveConfig(pending);
-        }
-
-        // Re-open current active config if its EffectiveTo was capped
-        var currentConfig = await _repository.GetActiveConfigAsync(now, ct);
-        if (currentConfig != null)
-        {
-            currentConfig.EffectiveTo = null;
-        }
-
-        var audit = new AuditLog
-        {
-            Id = Guid.NewGuid(),
-            ActorUserId = adminId,
-            ActorType = AuditActorType.User,
-            Action = AuditActionTypes.CancelScheduledFeeConfiguration,
-            TargetType = "PlatformFeeConfig",
-            TargetId = config.Id,
-            OldValuesJson = JsonSerializer.Serialize(new { config.FeeRate, config.EffectiveFrom }),
-            CreatedAt = now
+            Id = Guid.NewGuid(), FeeRate = Math.Round(request.FeeRate / 100m, 6),
+            EffectiveFrom = effectiveFrom, CreatedBy = adminId, CreatedAt = now, Reason = reason,
+            ReplacesConfigId = replaced?.Id ?? (immediate ? previous?.Id : null)
         };
-        _audit.Record(audit);
-
-        await _repository.SaveChangesAsync(ct);
-        _logger.LogInformation("Upcoming scheduled platform fee config {ConfigId} cancelled by Admin {AdminId}.", configId, adminId);
+        db.PlatformFeeConfigs.Add(config);
+        rows.Add(config);
+        RebuildTimeline(rows);
+        RecordAudit(adminId, config.Id, replaced == null ? "FEE_SCHEDULE_CREATED" : "FEE_SCHEDULE_REPLACED",
+            new { config.FeeRate, config.EffectiveFrom, config.ReplacesConfigId, config.Reason, request.CancelUpcomingScheduled }, now);
+        await db.SaveChangesAsync(ct);
+        await ProcessDueAsync(rows, now, ct);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return Response(config, now);
     }
 
-    private static PlatformFeeConfigResponse ToResponse(PlatformFeeConfig config)
+    public async Task CancelScheduledConfigAsync(Guid adminId, Guid configId, CancellationToken ct = default, string? reason = null)
     {
-        return new PlatformFeeConfigResponse(
-            config.Id,
-            config.FeeRate,
-            Math.Round(config.FeeRate * 100m, 4),
-            config.EffectiveFrom,
-            config.EffectiveTo,
-            config.CreatedBy,
-            config.CreatedAt
-        );
+        if (adminId == Guid.Empty) throw AppException.Forbidden();
+        var explanation = ValidateReason(reason);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockAsync(ct);
+        var now = Now;
+        var rows = await db.PlatformFeeConfigs.ToListAsync(ct);
+        var target = rows.SingleOrDefault(c => c.Id == configId) ?? throw AppException.NotFound();
+        if (target.LifecycleStatus != "Published" || target.EffectiveFrom <= now)
+            throw AppException.Conflict("Only an upcoming schedule can be cancelled. Refresh the schedule list.");
+        Close(target, "Cancelled", adminId, explanation, now);
+        RebuildTimeline(rows);
+        RecordAudit(adminId, configId, "FEE_SCHEDULE_CANCELLED",
+            new { target.FeeRate, target.EffectiveFrom, Reason = explanation }, now);
+        await ProcessDueAsync(rows, now, ct);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
     }
+
+    public async Task ProcessEffectiveConfigsAsync(CancellationToken ct = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockAsync(ct);
+        var rows = await db.PlatformFeeConfigs.ToListAsync(ct);
+        await ProcessDueAsync(rows, Now, ct);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
+    private async Task ProcessDueAsync(List<PlatformFeeConfig> rows, DateTime now, CancellationToken ct)
+    {
+        var timeline = rows.Where(c => c.LifecycleStatus == "Published").OrderBy(c => c.EffectiveFrom).ToList();
+        foreach (var current in timeline.Where(c => c.EffectiveFrom <= now && c.ActivationProcessedAt == null))
+        {
+            var previous = timeline.LastOrDefault(c => c.EffectiveFrom < current.EffectiveFrom);
+            if (previous != null && previous.ClosedAt == null)
+            {
+                previous.ClosedAt = current.EffectiveFrom;
+                previous.ClosedBy = current.CreatedBy;
+                previous.ClosureReason = $"Succeeded by fee version {current.Id}. {current.Reason}";
+                if (previous.ClosureReason.Length > 500) previous.ClosureReason = previous.ClosureReason[..500];
+            }
+            var changed = previous == null || previous.FeeRate != current.FeeRate;
+            var from = previous == null ? "not configured" : Percent(previous.FeeRate);
+            var to = Percent(current.FeeRate);
+            var when = current.EffectiveFrom.AddHours(7).ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) + " (UTC+7)";
+            await notifications.EnqueueAsync(NotificationTarget.Admins(), new(
+                NotificationType.PlatformFeeScheduleActivated, "Platform fee schedule is effective",
+                $"Schedule {current.Id} became effective at {when}. Fee: {from} → {to}. "
+                    + (changed ? "The commission rate changed." : "The commission rate is unchanged."),
+                "/admin/platform-fees", $"fee-schedule:{current.Id}:activated:admin"), ct);
+            if (changed)
+            {
+                // A catch-up run targets owners whose shops existed at this effective time.
+                var owners = await db.Shops.AsNoTracking().Where(s => s.CreatedAt <= current.EffectiveFrom)
+                    .Select(s => s.OwnerUserId).Distinct().ToListAsync(ct);
+                foreach (var ownerId in owners)
+                    await notifications.EnqueueAsync(NotificationTarget.User(ownerId), new(
+                        NotificationType.PlatformFeeRateChanged, "Platform commission rate changed",
+                        $"The platform commission changed from {from} to {to}, effective {when}. "
+                            + "Orders completed from that time use this rate until the next fee schedule. Fees already recorded on earlier orders remain unchanged.",
+                        "/store-owner/platform-fees", $"fee-schedule:{current.Id}:rate-changed"), ct);
+            }
+            current.ActivationProcessedAt = now;
+        }
+    }
+
+    private static void RebuildTimeline(IEnumerable<PlatformFeeConfig> rows)
+    {
+        var timeline = rows.Where(c => c.LifecycleStatus == "Published").OrderBy(c => c.EffectiveFrom).ToArray();
+        for (var index = 0; index < timeline.Length; index++)
+            timeline[index].EffectiveTo = index + 1 < timeline.Length ? timeline[index + 1].EffectiveFrom : null;
+    }
+    private static void Close(PlatformFeeConfig config, string status, Guid adminId, string reason, DateTime now)
+    {
+        config.LifecycleStatus = status;
+        config.ClosedAt = now;
+        config.ClosedBy = adminId;
+        config.ClosureReason = reason;
+    }
+    private Task LockAsync(CancellationToken ct) => db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
+    private static string ValidateReason(string? value)
+    {
+        var reason = value?.Trim();
+        if (string.IsNullOrEmpty(reason) || reason.Length < 3 || reason.Length > 500)
+            throw AppException.BadRequest("Provide a reason between 3 and 500 characters.");
+        return reason;
+    }
+    private static string Percent(decimal rate) => (rate * 100m).ToString("0.####", CultureInfo.InvariantCulture) + "%";
+    private void RecordAudit(Guid adminId, Guid id, string action, object values, DateTime now) => audit.Record(new AuditLog
+    {
+        ActorUserId = adminId, ActorType = AuditActorType.User, TargetType = "PlatformFeeConfig", TargetId = id, Action = action,
+        NewValuesJson = JsonSerializer.Serialize(values), CreatedAt = now
+    });
+    private static PlatformFeeConfigResponse Response(PlatformFeeConfig c, DateTime now) => new(
+        c.Id, c.FeeRate, c.FeeRate * 100m, c.EffectiveFrom, c.EffectiveTo, c.CreatedBy, c.CreatedAt)
+    {
+        Status = c.LifecycleStatus != "Published" ? c.LifecycleStatus
+            : c.EffectiveFrom > now ? "Scheduled" : c.EffectiveTo <= now ? "Ended" : "Active",
+        Reason = c.Reason, ReplacesConfigId = c.ReplacesConfigId, ClosedAt = c.ClosedAt, ClosedBy = c.ClosedBy,
+        ClosureReason = c.ClosureReason, ActivationProcessedAt = c.ActivationProcessedAt,
+        CreatedByName = c.CreatedByUser?.FullName, MaxFutureSchedules = MaxFutureSchedules
+    };
 }

@@ -15,7 +15,18 @@ public interface IPlatformFeeStatementService
         Guid currentUserId,
         GetShopPlatformFeesRequest request,
         CancellationToken ct = default);
-    
+
+    Task<ShopMonthlyPlatformFeeReportResponse> GetShopMonthlyPlatformFeeReportAsync(
+        Guid shopId,
+        Guid currentUserId,
+        GetShopMonthlyPlatformFeeReportRequest request,
+        CancellationToken ct = default);
+
+    Task<ShopCurrentPlatformFeeRateResponse> GetShopCurrentPlatformFeeRateAsync(
+        Guid shopId,
+        Guid currentUserId,
+        CancellationToken ct = default);
+
     Task<PagedResult<PlatformFeeStatementSummaryResponse>> GetAdminStatementsAsync(
         GetAdminPlatformFeesRequest request,
         CancellationToken ct = default);
@@ -52,13 +63,6 @@ public interface IPlatformFeeStatementService
         CancellationToken ct = default,
         Guid? initiatedByAdminId = null);
 
-    // BR-096, BR-194, BR-195: Admin records external payment reconciliation and reactivates shop
-    Task RecordExternalPaymentAsync(
-        Guid adminId,
-        Guid statementId,
-        RecordExternalFeePaymentRequest request,
-        CancellationToken ct = default);
-    
     // BR-093, BR-192: Aggregate unbilled order fees into monthly fee statements
     Task<int> GenerateMonthlyStatementsAsync(
         int billingYear,

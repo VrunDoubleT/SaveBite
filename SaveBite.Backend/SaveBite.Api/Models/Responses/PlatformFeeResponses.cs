@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Enums;
 
 namespace SaveBite.Backend.Models.Responses;
@@ -58,6 +59,7 @@ public sealed class PlatformFeeStatementSummaryResponse
 
 public sealed class OrderPlatformFeeItemResponse
 {
+    public Guid FeeConfigId { get; set; }
     public Guid Id { get; set; }
     public Guid OrderId { get; set; }
     public decimal GrossAmount { get; set; }
@@ -83,6 +85,39 @@ public sealed class OrderPlatformFeeItemResponse
         CalculatedAt = calculatedAt;
     }
 }
+
+public sealed class ShopMonthlyPlatformFeeReportResponse
+{
+    public int BillingYear { get; set; }
+    public short BillingMonth { get; set; }
+    public int OrderCount { get; set; }
+    public decimal TotalGrossAmount { get; set; }
+    public decimal TotalFeeAmount { get; set; }
+    public decimal UnbilledFeeAmount { get; set; }
+    public PagedResult<ShopMonthlyPlatformFeeOrderResponse> Orders { get; set; } = new();
+}
+
+public sealed class ShopCurrentPlatformFeeRateResponse
+{
+    public decimal? FeePercentage { get; set; }
+    public DateTime? EffectiveFrom { get; set; }
+}
+
+public sealed class ShopMonthlyPlatformFeeOrderResponse
+{
+    public Guid Id { get; set; }
+    public Guid OrderId { get; set; }
+    public string OrderCode { get; set; } = string.Empty;
+    public Guid FeeConfigId { get; set; }
+    public decimal GrossAmount { get; set; }
+    public decimal FeeRate { get; set; }
+    public decimal OriginalFeeAmount { get; set; }
+    public decimal RefundAdjustmentAmount { get; set; }
+    public decimal FeeAmount { get; set; }
+    public DateTime CalculatedAt { get; set; }
+    public Guid? StatementId { get; set; }
+}
+
 public sealed class PlatformFeeStatementHistoryItemResponse
 {
     public Guid Id { get; set; }

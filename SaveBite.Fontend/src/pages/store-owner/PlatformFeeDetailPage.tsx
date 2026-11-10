@@ -289,7 +289,8 @@ export function PlatformFeeDetailPage() {
                         {formatVnd(ord.grossAmount)}
                       </td>
                       <td className="px-5 py-3.5 font-semibold text-slate-600">
-                        {(ord.feeRate * 100).toFixed(1)}%
+                        {Number((ord.feeRate * 100).toFixed(4))}%
+                              <span className="mt-1 block break-all font-mono text-xs text-slate-500">Version {ord.feeConfigId}</span>
                       </td>
                       <td className="px-5 py-3.5 font-black text-emerald-600">
                         {formatVnd(ord.feeAmount)}

@@ -157,11 +157,11 @@ export const API_ENDPOINTS = {
     ADMIN_CANCEL_SCHEDULED_CONFIG: (configId: string) =>
       `/admin/platform-fee-configs/scheduled/${configId}`,
     ADMIN_STATEMENTS: "/admin/platform-fee-statements",
-    ADMIN_PROCESS_OVERDUE: "/admin/platform-fee-statements/process-overdue",
-    ADMIN_GENERATE_MONTHLY: "/admin/platform-fee-statements/generate-monthly",
-    ADMIN_RECONCILIATION: (statementId: string) =>
-      `/admin/platform-fee-statements/${statementId}/reconciliation`,
     SHOP_STATEMENTS: (shopId: string) => `/shops/${shopId}/platform-fees`,
+    SHOP_MONTHLY_REPORT: (shopId: string) =>
+      `/shops/${shopId}/platform-fees/monthly-report`,
+    SHOP_CURRENT_RATE: (shopId: string) =>
+      `/shops/${shopId}/platform-fees/current-rate`,
     SHOP_STATEMENT_DETAIL: (shopId: string, statementId: string) =>
       `/shops/${shopId}/platform-fees/${statementId}`,
     SHOP_PAYMENT_LINK: (shopId: string, statementId: string) =>

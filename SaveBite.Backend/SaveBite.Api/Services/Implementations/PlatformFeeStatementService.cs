@@ -97,6 +97,61 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             paged.TotalItems);
     }
 
+    public async Task<ShopMonthlyPlatformFeeReportResponse> GetShopMonthlyPlatformFeeReportAsync(
+        Guid shopId,
+        Guid currentUserId,
+        GetShopMonthlyPlatformFeeReportRequest request,
+        CancellationToken ct = default)
+    {
+        await ValidateStoreOwnerAccessAsync(shopId, currentUserId, ct);
+
+        var report = await _repository.GetShopMonthlyPlatformFeeReportAsync(shopId, request, ct);
+        var orderItems = report.Orders.Items.Select(f => new ShopMonthlyPlatformFeeOrderResponse
+        {
+            Id = f.Id,
+            OrderId = f.OrderId,
+            OrderCode = f.OrderCode,
+            FeeConfigId = f.FeeConfigId,
+            GrossAmount = f.GrossAmount,
+            FeeRate = f.FeeRate,
+            OriginalFeeAmount = f.OriginalFeeAmount,
+            RefundAdjustmentAmount = f.RefundAdjustmentAmount,
+            FeeAmount = f.FeeAmount,
+            CalculatedAt = f.CalculatedAt,
+            StatementId = f.StatementId
+        }).ToList();
+
+        return new ShopMonthlyPlatformFeeReportResponse
+        {
+            BillingYear = request.Year,
+            BillingMonth = request.Month,
+            OrderCount = report.OrderCount,
+            TotalGrossAmount = report.TotalGrossAmount,
+            TotalFeeAmount = report.TotalFeeAmount,
+            UnbilledFeeAmount = report.UnbilledFeeAmount,
+            Orders = PagedResult<ShopMonthlyPlatformFeeOrderResponse>.Create(
+                orderItems,
+                report.Orders.Page,
+                report.Orders.PageSize,
+                report.Orders.TotalItems)
+        };
+    }
+
+    public async Task<ShopCurrentPlatformFeeRateResponse> GetShopCurrentPlatformFeeRateAsync(
+        Guid shopId,
+        Guid currentUserId,
+        CancellationToken ct = default)
+    {
+        await ValidateStoreOwnerAccessAsync(shopId, currentUserId, ct);
+
+        var config = await _repository.GetActiveFeeConfigAsync(_timeProvider.GetUtcNow().UtcDateTime, ct);
+        return new ShopCurrentPlatformFeeRateResponse
+        {
+            FeePercentage = config is null ? null : config.FeeRate * 100m,
+            EffectiveFrom = config?.EffectiveFrom
+        };
+    }
+
     public async Task<PagedResult<PlatformFeeStatementSummaryResponse>> GetAdminStatementsAsync(
             GetAdminPlatformFeesRequest request,
             CancellationToken ct = default)
@@ -149,7 +204,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             o.FeeRate,
             o.FeeAmount,
             o.CalculatedAt
-        )).ToList();
+        ) { FeeConfigId = o.FeeConfigId }).ToList();
 
         var adjustmentItems = statement.Adjustments.Select(a => new PlatformFeeAdjustmentItemResponse(
             a.Id,
@@ -219,7 +274,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 o.FeeRate,
                 o.FeeAmount,
                 o.CalculatedAt
-            )).ToList();
+            ) { FeeConfigId = o.FeeConfigId }).ToList();
             var adjustmentItems = statement.Adjustments.Select(a => new PlatformFeeAdjustmentItemResponse(
                 a.Id,
                 a.RefundId,
@@ -698,124 +753,6 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         return (suspendedCount, suspendedShopIds);
     }
 
-    // BR-096, BR-194, BR-195: Admin records external payment reconciliation and reactivates shop
-    public async Task RecordExternalPaymentAsync(
-        Guid adminId,
-        Guid statementId,
-        RecordExternalFeePaymentRequest request,
-        CancellationToken ct = default)
-    {
-        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
-        await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
-        var reactivatedShopId = await RecordExternalPaymentCoreAsync(adminId, statementId, request, ct);
-        await transaction.CommitAsync(ct);
-        if (reactivatedShopId.HasValue)
-            await _shopStatusEvents.NotifyChangedAsync(reactivatedShopId.Value, ShopStatus.Active.ToString(), ct);
-    }
-
-    private async Task<Guid?> RecordExternalPaymentCoreAsync(
-        Guid adminId,
-        Guid statementId,
-        RecordExternalFeePaymentRequest request,
-        CancellationToken ct = default)
-    {
-        if (adminId == Guid.Empty)
-        {
-            throw AppException.Forbidden("Only an Administrator may record external payment reconciliation.");
-        }
-
-        if (request.Amount <= 0)
-        {
-            throw AppException.BadRequest("Payment amount must be greater than zero.");
-        }
-
-        var statement = await _repository.GetStatementDetailAsync(statementId, ct);
-        if (statement == null)
-        {
-            throw AppException.NotFound("Platform fee statement not found.");
-        }
-        
-        if (statement.Status == PlatformFeeStatementStatus.Paid)
-        {
-            throw AppException.BadRequest("This platform fee statement is already paid and settled.");
-        }
-
-        if (request.Amount < statement.TotalFeeAmount)
-        {
-            throw AppException.BadRequest($"Payment amount ({request.Amount:N0} VND) cannot be less than total fee amount ({statement.TotalFeeAmount:N0} VND).");
-        }
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
-        var refCode = string.IsNullOrWhiteSpace(request.ReferenceCode)
-            ? $"EXT-{Guid.NewGuid():N}"[..20]
-            : request.ReferenceCode.Trim();
-        var existingPayment = await _repository.GetPaymentByGatewayCodeAsync(refCode, ct);
-        if (existingPayment != null)
-        {
-            throw AppException.Conflict("Reconciliation reference code already exists in the system.");
-        }
-        // Cancel any pending payment attempts for this statement
-        await _repository.CancelPendingPaymentsForStatementAsync(statement.Id, ct);
-        var payment = new PlatformFeePayment
-        {
-            Id = Guid.NewGuid(),
-            StatementId = statement.Id,
-            ShopId = statement.ShopId,
-            Amount = request.Amount,
-            PaymentMethod = PaymentMethod.PayAtShop,
-            GatewayTransactionId = refCode,
-            Status = PaymentStatus.Succeeded,
-            PaidAt = now,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
-
-        await _repository.AddPaymentAsync(payment, ct);
-
-        // BR-097 & BR-194: Record against statement and mark Paid
-        statement.PaymentPauseReason = null;
-        statement.PaymentPausedAt = null;
-        statement.Status = PlatformFeeStatementStatus.Paid;
-        statement.PaidAt = now;
-        statement.UpdatedAt = now;
-
-        // BR-195: A Suspended Shop is reactivated only if all overdue fee statements are settled
-        var hasOtherOverdue = await _repository.HasOtherOverdueStatementsAsync(statement.ShopId, statement.Id, ct);
-        var reactivatedShopId = (Guid?)null;
-        if (!hasOtherOverdue && statement.Shop != null && statement.Shop.Status == ShopStatus.Suspended && statement.Shop.SuspendedForPlatformFees)
-        {
-            statement.Shop.SuspendedForPlatformFees = false;
-            statement.Shop.SuspendedForOverdueRefunds = await _db.Refunds.AnyAsync(refund => refund.Order.ShopId == statement.ShopId
-                && refund.RefundType == RefundType.ShopCancellation && refund.DestinationConfirmedAt != null
-                && refund.RequestedAmount > refund.TransferredAmount && (refund.Status == RefundStatus.Overdue
-                    || (refund.Status == RefundStatus.AwaitingTransfer && refund.ReviewDeadlineAt <= now)), ct);
-            statement.Shop.UpdatedAt = now;
-            if (ShopSuspensionRules.ReactivateIfResolved(statement.Shop)) reactivatedShopId = statement.Shop.Id;
-            if (reactivatedShopId.HasValue)
-                _logger.LogInformation("Shop {ShopId} reactivated to Active after external payment reconciliation by Admin {AdminId}.", statement.ShopId, adminId);
-        }
-        else if (hasOtherOverdue)
-        {
-            _logger.LogInformation("Shop {ShopId} remains Suspended because other overdue fee statements remain unsettled.", statement.ShopId);
-        }
-        var audit = new AuditLog
-        {
-            Id = Guid.NewGuid(),
-            ActorUserId = adminId,
-            ActorType = AuditActorType.User,
-            Action = AuditActionTypes.RecordExternalPlatformFeePayment,
-            TargetType = "PlatformFeeStatement",
-            TargetId = statement.Id,
-            NewValuesJson = JsonSerializer.Serialize(new { Amount = request.Amount, ReferenceCode = refCode, Note = request.Note }),
-            CreatedAt = now
-        };
-        _audit.Record(audit);
-
-        await _repository.SaveChangesAsync(ct);
-        await NotifyFeePaidAsync(statementId, ct);
-        _logger.LogInformation("Admin {AdminId} recorded external payment of {Amount} for statement {StatementId}.", adminId, request.Amount, statement.Id);
-        return reactivatedShopId;
-    }
-    
     // BR-093, BR-192: Aggregate unbilled order fees into monthly fee statements.
     public async Task<int> GenerateMonthlyStatementsAsync(
         int billingYear, short billingMonth, CancellationToken ct = default, Guid? initiatedByAdminId = null)

@@ -52,5 +52,7 @@ public enum NotificationType
     PickupDeadlineApproaching = 41,
     ShopApplicationSubmitted = 42,
     RefundDestinationRequired = 43,
-    RefundOverdue = 44
+    RefundOverdue = 44,
+    PlatformFeeScheduleActivated = 45,
+    PlatformFeeRateChanged = 46
 }

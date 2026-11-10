@@ -8,6 +8,7 @@ public interface IPlatformFeeConfigService
     Task<PlatformFeeConfigResponse> GetActiveConfigAsync(CancellationToken ct = default);
     Task<IReadOnlyList<PlatformFeeConfigResponse>> GetAllConfigsAsync(CancellationToken ct = default);
     Task<PlatformFeeConfigResponse> UpdateConfigAsync(Guid adminId, UpdatePlatformFeeConfigRequest request, CancellationToken ct = default);
-    Task CancelScheduledConfigAsync(Guid adminId, Guid configId, CancellationToken ct = default);
+    Task CancelScheduledConfigAsync(Guid adminId, Guid configId, CancellationToken ct = default, string? reason = null);
+    Task ProcessEffectiveConfigsAsync(CancellationToken ct = default);
 }
 

@@ -1,6 +1,15 @@
 export type PlatformFeeStatementStatus = "Draft" | "Issued" | "Paid" | "Overdue";
 
 export interface PlatformFeeConfigResponse {
+  status: "Scheduled" | "Active" | "Ended" | "Cancelled" | "Superseded";
+  reason: string | null;
+  replacesConfigId: string | null;
+  closedBy: string | null;
+  closedAt: string | null;
+  closureReason: string | null;
+  activationProcessedAt: string | null;
+  createdByName: string | null;
+  maxFutureSchedules: number;
   id: string;
   feeRate: number;
   feePercentage: number;
@@ -48,6 +57,8 @@ export interface GetAdminPlatformFeesParams {
 }
 
 export interface UpdatePlatformFeeConfigRequest {
+  replacesConfigId?: string;
+  reason: string;
   feeRate: number;
   effectiveFrom?: string;
   cancelUpcomingScheduled?: boolean;
@@ -71,6 +82,7 @@ export interface PlatformFeeStatementSummary {
 }
 
 export interface OrderPlatformFeeItem {
+  feeConfigId: string;
   id: string;
   orderId: string;
   grossAmount: number;
@@ -150,9 +162,40 @@ export interface GetShopPlatformFeesParams {
   pageSize?: number;
 }
 
-export interface RecordExternalPaymentRequest {
-  amount: number;
-  referenceCode?: string;
+export interface GetShopMonthlyPlatformFeeReportParams {
+  year: number;
+  month: number;
+  pageNumber?: number;
+  pageSize?: number;
+}
+
+export interface ShopMonthlyPlatformFeeOrder {
+  id: string;
+  orderId: string;
+  orderCode: string;
+  feeConfigId: string;
+  grossAmount: number;
+  feeRate: number;
+  originalFeeAmount: number;
+  refundAdjustmentAmount: number;
+  feeAmount: number;
+  calculatedAt: string;
+  statementId: string | null;
+}
+
+export interface ShopMonthlyPlatformFeeReport {
+  billingYear: number;
+  billingMonth: number;
+  orderCount: number;
+  totalGrossAmount: number;
+  totalFeeAmount: number;
+  unbilledFeeAmount: number;
+  orders: PagedResult<ShopMonthlyPlatformFeeOrder>;
+}
+
+export interface ShopCurrentPlatformFeeRate {
+  feePercentage: number | null;
+  effectiveFrom: string | null;
 }
 
 export interface PagedResult<T> {

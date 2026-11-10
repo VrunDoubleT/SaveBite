@@ -37,14 +37,12 @@ interface AdminStatementDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   statementId: string | null;
-  onOpenReconcile?: (statementId: string) => void;
 }
 
 export function AdminStatementDetailModal({
   isOpen,
   onClose,
   statementId,
-  onOpenReconcile,
 }: AdminStatementDetailModalProps) {
   const [statement, setStatement] = useState<PlatformFeeStatementDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -85,9 +83,6 @@ export function AdminStatementDetailModal({
   }, [isOpen, statementId]);
 
   if (!isOpen) return null;
-
-  const canReconcile =
-    statement && (statement.status === "Issued" || statement.status === "Overdue");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
@@ -270,7 +265,8 @@ export function AdminStatementDetailModal({
                               {formatVnd(ord.grossAmount)}
                             </td>
                             <td className="px-4 py-3 font-medium text-slate-600">
-                              {(ord.feeRate * 100).toFixed(1)}%
+                              {Number((ord.feeRate * 100).toFixed(4))}%
+                              <span className="mt-1 block break-all font-mono text-xs text-slate-500">Version {ord.feeConfigId}</span>
                             </td>
                             <td className="px-4 py-3 font-black text-emerald-600">
                               {formatVnd(ord.feeAmount)}
@@ -458,22 +454,7 @@ export function AdminStatementDetailModal({
         )}
 
         {/* Footer */}
-        <div className="shrink-0 flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-6 py-3">
-          <div>
-            {canReconcile && onOpenReconcile && statement && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenReconcile(statement.id);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition"
-              >
-                <Receipt className="h-3.5 w-3.5" />
-                Reconcile Statement
-              </button>
-            )}
-          </div>
+        <div className="shrink-0 flex justify-end border-t border-slate-100 bg-slate-50/70 px-6 py-3">
           <button
             type="button"
             onClick={onClose}

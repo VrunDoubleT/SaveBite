@@ -41,6 +41,7 @@ public static class HangfireExtensions
         services.AddScoped<CartAvailabilityRecoveryJob>();
         services.AddScoped<FlashDealRecoveryJob>();
         services.AddScoped<PlatformFeeRecoveryJob>();
+        services.AddScoped<PlatformFeeScheduleActivationJob>();
         services.AddScoped<PlatformFeeOverdueJob>();
         services.AddScoped<PlatformFeeMonthlyStatementJob>();
         services.AddScoped<UploadCleanupJob>();
@@ -96,6 +97,8 @@ public static class HangfireExtensions
         recurring.AddOrUpdate<RefundDeadlineRecoveryJob>("refund-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.RefundRecoveryCron);
         recurring.AddOrUpdate<FlashDealRecoveryJob>("flash-deal-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.FlashDealRecoveryCron);
         recurring.AddOrUpdate<StaffInvitationRecoveryJob>("staff-invitation-recovery", job => job.ExecuteAsync(false, CancellationToken.None), TimingConfiguration.Jobs.InvitationRecoveryCron);
+        recurring.AddOrUpdate<PlatformFeeScheduleActivationJob>("platform-fee-schedule-activation",
+            job => job.ExecuteAsync(CancellationToken.None), "* * * * *");
         recurring.AddOrUpdate<PlatformFeeRecoveryJob>("platform-fee-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.PlatformFeeRecoveryCron);
         recurring.AddOrUpdate<UploadCleanupJob>("temporary-upload-cleanup", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.UploadCleanupCron);
         recurring.RemoveIfExists("pickup-deadline-reminder-recovery");
@@ -106,6 +109,7 @@ public static class HangfireExtensions
         SafeSchedule.Try(() => jobs.Enqueue<OrderDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "order-startup", Guid.Empty);
         SafeSchedule.Try(() => jobs.Enqueue<FlashDealRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "flash-startup", Guid.Empty);
         SafeSchedule.Try(() => jobs.Enqueue<OrderOutboxRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "outbox-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<PlatformFeeScheduleActivationJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "fee-schedule-startup", Guid.Empty);
         SafeSchedule.Try(() => jobs.Enqueue<PlatformFeeRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "fee-startup", Guid.Empty);
         var options = app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value;
         if (app.Environment.IsDevelopment() && options.DashboardEnabled)

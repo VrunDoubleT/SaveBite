@@ -10,6 +10,7 @@ import type {
 import { normalizeStatementStatus } from "@/features/platform-fees/utils/platformFeeUtils";
 import { StatusBadge } from "@/features/platform-fees/components/StatusBadge";
 import { PlatformFeePaymentModal } from "@/features/platform-fees/components/PlatformFeePaymentModal";
+import { ShopMonthlyPlatformFeeReport } from "@/features/platform-fees/components/ShopMonthlyPlatformFeeReport";
 import { Pagination } from "@/shared/components/pagination";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
@@ -126,14 +127,6 @@ export function PlatformFeesPage() {
             Track periodic commission statements and settle balances online via PayOS
           </p>
         </div>
-        <button
-          onClick={() => void loadStatements()}
-          disabled={loading}
-          className="inline-flex items-center gap-2 self-start rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:opacity-50"
-        >
-          <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
       </div>
 
       {/* Overdue fee guidance stays on this page; shop suspension is shown by the workspace layout. */}
@@ -155,6 +148,8 @@ export function PlatformFeesPage() {
           </div>
         </div>
       )}
+
+      {shop?.id && <ShopMonthlyPlatformFeeReport shopId={shop.id} />}
 
       {/* 3 Stats Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">

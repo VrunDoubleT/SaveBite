@@ -1413,6 +1413,23 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("gen_random_uuid()");
 
+                    b.Property<DateTime?>("ActivationProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("activation_processed_at");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<Guid?>("ClosedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by");
+
+                    b.Property<string>("ClosureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("closure_reason");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1434,13 +1451,41 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("numeric(7,6)")
                         .HasColumnName("fee_rate");
 
+                    b.Property<string>("LifecycleStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Published")
+                        .HasColumnName("lifecycle_status");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid?>("ReplacesConfigId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replaces_config_id");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("ClosedBy");
+
                     b.HasIndex("CreatedBy");
+
+                    b.HasIndex("EffectiveFrom")
+                        .IsUnique()
+                        .HasDatabaseName("ux_platform_fee_published_start")
+                        .HasFilter("lifecycle_status = 'Published'");
+
+                    b.HasIndex("ReplacesConfigId");
 
                     b.ToTable("platform_fee_configs", null, t =>
                         {
                             t.HasCheckConstraint("ck_platform_fee_effective_period", "\"effective_to\" IS NULL OR \"effective_to\" > \"effective_from\"");
+
+                            t.HasCheckConstraint("ck_platform_fee_lifecycle", "lifecycle_status IN ('Published', 'Cancelled', 'Superseded')");
 
                             t.HasCheckConstraint("ck_platform_fee_rate", "\"fee_rate\" BETWEEN 0 AND 1");
                         });
@@ -4689,11 +4734,21 @@ namespace SaveBite.Backend.Data.Migrations
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.PlatformFeeConfig", b =>
                 {
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ClosedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SaveBite.Backend.Models.Entities.User", "CreatedByUser")
                         .WithMany("CreatedPlatformFeeConfigs")
                         .HasForeignKey("CreatedBy")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.PlatformFeeConfig", null)
+                        .WithMany()
+                        .HasForeignKey("ReplacesConfigId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("CreatedByUser");
                 });
