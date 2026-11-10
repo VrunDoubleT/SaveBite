@@ -140,6 +140,11 @@ export function AdminStatementDetailModal({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {statement.paymentPauseReason && (
+              <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                Payment is paused due to platform PayOS configuration. Verify and save the payment credentials to restore a new 7-day deadline.
+              </div>
+            )}
             {/* Overview Metric Cards */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-3.5">
@@ -419,7 +424,7 @@ export function AdminStatementDetailModal({
                             </td>
                             <td className="px-4 py-3">
                               <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                                {h.changeType}
+                                {h.changeType === "PaymentPaused" ? "Payment paused" : h.changeType === "PaymentResumed" ? "Payment restored" : h.changeType}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-slate-600">

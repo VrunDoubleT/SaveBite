@@ -20,6 +20,7 @@ public sealed class RabbitFailureRecoveryJob(IConnection connection, RabbitMqTop
         (RabbitMqQueues.UserTrustDeadLetterQueueName, RabbitMqQueues.UserTrustQueueName),
         (RabbitMqQueues.OrderTrustDeadLetterQueueName, RabbitMqQueues.OrderTrustQueueName),
         (RabbitMqQueues.OrderPlatformFeeDeadLetterQueueName, RabbitMqQueues.OrderPlatformFeeQueueName),
+        (RabbitMqQueues.PlatformPayOsVerifiedDeadLetterQueueName, RabbitMqQueues.PlatformPayOsVerifiedQueueName),
         (RabbitMqQueues.RefundPlatformFeeQueueName + "_dead_letter", RabbitMqQueues.RefundPlatformFeeQueueName),
         (RabbitMqQueues.RefundTrustQueueName + "_dead_letter", RabbitMqQueues.RefundTrustQueueName),
         (RabbitMqQueues.InventoryQueueName + "_dead_letter", RabbitMqQueues.InventoryQueueName)

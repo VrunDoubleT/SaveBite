@@ -1,3 +1,4 @@
+import { SecretInput } from "@/shared/components/ui/SecretInput";
 import { toast } from "@/shared/stores/toastStore";
 import { UploadTaskGuard } from "@/shared/uploads/UploadTaskGuard";
 import {
@@ -156,6 +157,35 @@ function ShopApplicationFormContent({ application, onSaved, onCancel, onQueued }
   const [documents, setDocuments] = useState<ShopDocumentUpload[]>([]);
 
   const [saving, setSaving] = useState(false);
+  const [verifyingPayOs, setVerifyingPayOs] = useState(false);
+  const [verifiedPayOsInput, setVerifiedPayOsInput] = useState<string | null>(null);
+  const [payOsVerificationError, setPayOsVerificationError] = useState("");
+  const verificationInFlight = useRef(false);
+  const payOsInput = JSON.stringify([application?.id, form.payosClientId.trim(), form.payosApiKey.trim(), form.payosChecksumKey.trim()]);
+  const payOsVerified = verifiedPayOsInput === payOsInput;
+
+  async function verifyPayOs() {
+    if (verificationInFlight.current) return;
+    verificationInFlight.current = true;
+    setVerifyingPayOs(true);
+    setVerifiedPayOsInput(null);
+    setPayOsVerificationError("");
+    const checkedInput = payOsInput;
+    try {
+      await shopApplicationApi.verifyPayOs({
+        applicationId: application?.id,
+        clientId: form.payosClientId.trim() || undefined,
+        apiKey: form.payosApiKey.trim() || undefined,
+        checksumKey: form.payosChecksumKey.trim() || undefined,
+      });
+      setVerifiedPayOsInput(checkedInput);
+    } catch (error) {
+      setPayOsVerificationError(getApiErrorMessage(error) || "We could not check your PayOS keys right now. Please try again shortly.");
+    } finally {
+      verificationInFlight.current = false;
+      setVerifyingPayOs(false);
+    }
+  }
   const [submitting, setSubmitting] = useState(false);
   const [uploadNotice, setUploadNotice] = useState("");
   const uploadController = useRef<AbortController | null>(null);
@@ -348,6 +378,10 @@ function ShopApplicationFormContent({ application, onSaved, onCancel, onQueued }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving || uploadController.current) return;
+    if (!payOsVerified || verifyingPayOs) {
+      setError("Verify your PayOS credentials successfully before submitting the application.");
+      return;
+    }
     setUploadNotice("");
     setError("");
 
@@ -800,7 +834,7 @@ function ShopApplicationFormContent({ application, onSaved, onCancel, onQueued }
                 />
 
                 <Field
-                  label="API key"
+                  label="API Key"
                   type="password"
                   value={form.payosApiKey}
                   onChange={(value) => setField("payosApiKey", value)}
@@ -811,7 +845,7 @@ function ShopApplicationFormContent({ application, onSaved, onCancel, onQueued }
                 />
 
                 <Field
-                  label="Checksum key"
+                  label="Checksum Key"
                   type="password"
                   value={form.payosChecksumKey}
                   onChange={(value) => setField("payosChecksumKey", value)}
@@ -820,6 +854,22 @@ function ShopApplicationFormContent({ application, onSaved, onCancel, onQueued }
                   required={!hasPayos}
                   error={fieldErrors.payosChecksumKey}
                 />
+              </div>
+              <div className="mt-4 space-y-3">
+                <p className="text-sm text-text-secondary">
+                  Verify your payment credentials before submitting. Verification creates and cancels a temporary payment link; no payment is made.
+                  Changing a key requires verification again.
+                </p>
+                <CustomerActionNativeButton type="button" onClick={() => void verifyPayOs()}
+                  disabled={verifyingPayOs || saving || payOsVerified}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+                  {verifyingPayOs && <LoaderCircle size={17} className="animate-spin" />}
+                  {verifyingPayOs ? "Verifying PayOS…" : payOsVerified ? "PayOS verified" : "Verify PayOS credentials"}
+                </CustomerActionNativeButton>
+                <p role="status" className="text-sm text-text-secondary">
+                  {payOsVerified ? "Verification successful. You can submit your application." : "Verify PayOS to enable submission."}
+                </p>
+                {payOsVerificationError && <p role="alert" className="text-sm text-red-700">{payOsVerificationError}</p>}
               </div>
             </Section>
           </div>
@@ -838,7 +888,7 @@ function ShopApplicationFormContent({ application, onSaved, onCancel, onQueued }
 
         <CustomerActionNativeButton
           type="submit"
-          disabled={saving}
+          disabled={saving || verifyingPayOs || !payOsVerified}
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? <LoaderCircle size={17} className="animate-spin" /> : <Save size={17} />}
@@ -922,20 +972,37 @@ function Field({
         {required && <span className="ml-0.5 text-danger">*</span>}
       </span>
 
-      <input
-        type={type}
-        lang={lang}
-        value={value}
-        required={required}
-        placeholder={placeholder}
-        step={step}
-        inputMode={inputMode}
-        autoComplete={autoComplete}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onBlur}
-        aria-invalid={hasError}
-        className={inputClass}
-      />
+      {type === "password" ? (
+        <SecretInput
+          secretLabel={label}
+          lang={lang}
+          value={value}
+          required={required}
+          placeholder={placeholder}
+          step={step}
+          inputMode={inputMode}
+          autoComplete={autoComplete}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
+          aria-invalid={hasError}
+          className={inputClass}
+        />
+      ) : (
+        <input
+          type={type}
+          lang={lang}
+          value={value}
+          required={required}
+          placeholder={placeholder}
+          step={step}
+          inputMode={inputMode}
+          autoComplete={autoComplete}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
+          aria-invalid={hasError}
+          className={inputClass}
+        />
+      )}
 
       {error && (
         <span role="alert" className="mt-1 block text-xs font-normal text-danger">

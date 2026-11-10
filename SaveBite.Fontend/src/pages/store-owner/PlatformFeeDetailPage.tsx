@@ -67,6 +67,7 @@ export function PlatformFeeDetailPage() {
       setPaymentData(linkData);
     } catch (error) {
       toast.error(getApiErrorMessage(error) || "Unable to generate payment link.");
+      void loadData();
     } finally {
       setIsCreatingLink(false);
     }
@@ -107,7 +108,7 @@ export function PlatformFeeDetailPage() {
   }
 
   const normalizedStatus = normalizeStatementStatus(statement.status);
-  const canPay = normalizedStatus === "Issued" || normalizedStatus === "Overdue";
+  const canPay = !statement.paymentPauseReason && (normalizedStatus === "Issued" || normalizedStatus === "Overdue");
 
   return (
     <div className="space-y-6 pb-12">
@@ -121,6 +122,12 @@ export function PlatformFeeDetailPage() {
         </Link>
       </div>
 
+      {statement.paymentPauseReason && (
+        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          Payment is temporarily unavailable due to the platform's payment configuration. Your deadline is paused.
+          You will be notified when payment is restored and will have a new 7-day payment window.
+        </div>
+      )}
       {/* Statement Header Card */}
       <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 sm:p-8 text-white">
@@ -437,7 +444,7 @@ export function PlatformFeeDetailPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
-                          {h.changeType}
+                          {h.changeType === "PaymentPaused" ? "Payment paused" : h.changeType === "PaymentResumed" ? "Payment restored" : h.changeType}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-slate-600">{formatVnd(h.previousAmount)}</td>

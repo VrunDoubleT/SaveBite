@@ -5,6 +5,7 @@ namespace SaveBite.Backend.Services.Interfaces;
 
 public interface IShopApplicationService
 {
+    Task VerifyPayOsAsync(Guid userId, VerifyShopApplicationPayOsRequest request, CancellationToken cancellationToken = default);
     Task<ShopApplicationResponse?> GetMyApplicationAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ShopApplicationResponse>> GetMyApplicationHistoryAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<ShopApplicationResponse> CreateAsync(Guid userId, CreateShopApplicationRequest request, IFormFile? logo, IFormFile? coverImage, IReadOnlyList<IFormFile> documents, IReadOnlyList<string> documentTypes, CancellationToken cancellationToken = default);

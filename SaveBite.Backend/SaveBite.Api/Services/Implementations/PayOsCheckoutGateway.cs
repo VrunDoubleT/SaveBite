@@ -1,5 +1,4 @@
 using SaveBite.Backend.Constants;
-using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -13,14 +12,17 @@ namespace SaveBite.Backend.Services.Implementations;
 // Create and reconcile real PayOS links with signed request and response validation.
 public sealed class PayOsCheckoutGateway : ICheckoutPaymentGateway
 {
-    private readonly IHttpClientFactory _clients;
+    private readonly IPayOsApiClient _api;
+    private readonly IPayOsCredentialProtector _protector;
     private readonly IConfiguration _configuration;
 
     public PayOsCheckoutGateway(
-        IHttpClientFactory clients,
+        IPayOsApiClient api,
+        IPayOsCredentialProtector protector,
         IConfiguration configuration)
     {
-        _clients = clients;
+        _api = api;
+        _protector = protector;
         _configuration = configuration;
     }
 
@@ -33,6 +35,7 @@ public sealed class PayOsCheckoutGateway : ICheckoutPaymentGateway
     public async Task<GatewayPayment> CreateAsync(Order order, Payment payment, ShopPaymentConfig config, CancellationToken ct)
     {
         EnsureReal(payment);
+        config = PaymentConfig(payment, config);
         var frontend = _configuration["Checkout:FrontendBaseUrl"] ?? "http://localhost:5173";
         if (!Uri.TryCreate(frontend, UriKind.Absolute, out var baseUri) || baseUri.Scheme is not ("https" or "http"))
             throw AppException.ServiceUnavailable("The payment return address is not configured.");
@@ -58,13 +61,13 @@ public sealed class PayOsCheckoutGateway : ICheckoutPaymentGateway
     public async Task<GatewayPayment> GetAsync(Payment payment, ShopPaymentConfig config, CancellationToken ct)
     {
         EnsureReal(payment);
-        return Parse(await SendAsync(HttpMethod.Get, $"v2/payment-requests/{payment.GatewayOrderCode}", config, null, ct), payment, false);
+        return Parse(await SendForPaymentAsync(HttpMethod.Get, $"v2/payment-requests/{payment.GatewayOrderCode}", payment, config, null, ct), payment, false);
     }
     // Request PayOS link closure and return its verified payment outcome.
     public async Task<GatewayPayment> CancelAsync(Payment payment, ShopPaymentConfig config, CancellationToken ct)
     {
         EnsureReal(payment);
-        return Parse(await SendAsync(HttpMethod.Post, $"v2/payment-requests/{payment.GatewayOrderCode}/cancel", config,
+        return Parse(await SendForPaymentAsync(HttpMethod.Post, $"v2/payment-requests/{payment.GatewayOrderCode}/cancel", payment, config,
             new { cancellationReason = "Order payment window closed or order cancelled" }, ct), payment, false);
     }
     // Reject simulated payment rows before contacting the real payment provider.
@@ -74,33 +77,28 @@ public sealed class PayOsCheckoutGateway : ICheckoutPaymentGateway
             throw AppException.Conflict("Simulated payments cannot be sent to PayOS. Use Development simulation mode to resolve this order.");
     }
 
-    // Send an authenticated PayOS request and validate the provider's response and signature.
-    private async Task<JsonElement> SendAsync(HttpMethod method, string path, ShopPaymentConfig config, object? body, CancellationToken ct)
+    private Task<JsonElement> SendAsync(HttpMethod method, string path, ShopPaymentConfig config, object? body, CancellationToken ct)
+        => _api.SendAsync(method, path, new(config.PayosClientId, config.PayosApiKey, config.PayosChecksumKey), body, ct);
+
+    private async Task<JsonElement> SendForPaymentAsync(HttpMethod method, string path, Payment payment,
+        ShopPaymentConfig current, object? body, CancellationToken ct)
     {
-        if (!IsConfigured(config)) throw AppException.ServiceUnavailable("This shop has not configured online payments yet.");
-        try
+        var original = PaymentConfig(payment, current);
+        try { return await SendAsync(method, path, original, body, ct); }
+        catch (AppException ex) when (ex.ErrorCode == ErrorCodes.PaymentCredentialsInvalid
+            && original.PayosClientId == current.PayosClientId
+            && (original.PayosApiKey != current.PayosApiKey || original.PayosChecksumKey != current.PayosChecksumKey))
         {
-            using var request = new HttpRequestMessage(method, path);
-            request.Headers.Add("x-client-id", config.PayosClientId);
-            request.Headers.Add("x-api-key", config.PayosApiKey);
-            if (body != null) request.Content = JsonContent.Create(body);
-            using var response = await _clients.CreateClient("PayOsCheckout").SendAsync(request, ct);
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound && method == HttpMethod.Get)
-                return JsonSerializer.SerializeToElement(new { status = "NOT_FOUND" });
-            using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-            var root = json.RootElement;
-            if (!response.IsSuccessStatusCode || !root.TryGetProperty("code", out var code) || code.GetString() != "00")
-                throw AppException.ServiceUnavailable("The payment provider could not process this request. Your payment has not been confirmed; please retry.");
-            var data = root.GetProperty("data");
-            if (!root.TryGetProperty("signature", out var signature) || !Verify(data, signature.GetString(), config.PayosChecksumKey))
-                throw AppException.ServiceUnavailable("The payment provider response could not be verified. Please retry.");
-            return data.Clone();
+            return await SendAsync(method, path, current, body, ct);
         }
-        catch (HttpRequestException) { throw AppException.ServiceUnavailable("The payment provider is temporarily unavailable. You can retry payment from your order."); }
-        catch (TaskCanceledException) when (!ct.IsCancellationRequested) { throw AppException.ServiceUnavailable("Payment provider timeout. Check your order before retrying."); }
-        catch (KeyNotFoundException) { throw AppException.ServiceUnavailable("The payment provider returned an incomplete response."); }
-        catch (InvalidOperationException) { throw AppException.ServiceUnavailable("The payment provider returned an invalid response."); }
-        catch (JsonException) { throw AppException.ServiceUnavailable("The payment provider returned an invalid response."); }
+    }
+
+    private ShopPaymentConfig PaymentConfig(Payment payment, ShopPaymentConfig current)
+    {
+        if (payment.ProtectedPayOsCredentials is null) return current;
+        var credentials = _protector.Unprotect(payment.ProtectedPayOsCredentials);
+        return new ShopPaymentConfig { ShopId = current.ShopId, PayosClientId = credentials.ClientId,
+            PayosApiKey = credentials.ApiKey, PayosChecksumKey = credentials.ChecksumKey };
     }
 
     // Convert provider payment data into the shared gateway result used by reconciliation.

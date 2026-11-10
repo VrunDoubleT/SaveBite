@@ -31,6 +31,8 @@ public sealed class ShopService : IShopService
     private readonly IShopSuspensionCleanupService _suspensionCleanup;
     private readonly IShopStatusEventService _shopStatusEvents;
     private readonly IRealtimePublisher _realtime;
+    private readonly IPayOsCredentialsValidator _payOsValidator;
+    private readonly IPayOsCredentialProtector _credentialProtector;
 
     public ShopService(
         IShopRepository shopRepository,
@@ -40,9 +42,12 @@ public sealed class ShopService : IShopService
         INotificationQueue notifications, AppDbContext db,
         IShopSuspensionCleanupService suspensionCleanup,
         IShopStatusEventService shopStatusEvents,
-        IRealtimePublisher realtime)
+        IRealtimePublisher realtime, IPayOsCredentialsValidator payOsValidator,
+        IPayOsCredentialProtector credentialProtector)
     {
         _realtime = realtime;
+        _payOsValidator = payOsValidator;
+        _credentialProtector = credentialProtector;
         _db = db;
         _notifications = notifications;
         _shopRepository = shopRepository;
@@ -297,14 +302,34 @@ public sealed class ShopService : IShopService
     public async Task<ShopPaymentConfigResponse> UpdateOwnerPaymentConfigAsync(Guid ownerUserId, UpdateShopPaymentConfigRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
         var paymentConfig = await _shopRepository.GetPaymentConfigByOwnerUserIdAsync(ownerUserId, cancellationToken);
         if (paymentConfig == null)
             throw AppException.NotFound("Shop payment configuration not found.");
 
+        // Match checkout's user -> order -> shop locking order when an owner is also a customer.
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM users WHERE id = {ownerUserId} FOR UPDATE", cancellationToken);
+        var lockName = $"payos-shop:{paymentConfig.ShopId}";
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({lockName}, 0))", cancellationToken);
+        await _db.Entry(paymentConfig).ReloadAsync(cancellationToken);
         var clientChanged = !string.IsNullOrWhiteSpace(request.PayosClientId) && paymentConfig.PayosClientId != request.PayosClientId.Trim();
         var apiKeyChanged = !string.IsNullOrWhiteSpace(request.PayosApiKey) && paymentConfig.PayosApiKey != request.PayosApiKey.Trim();
         var checksumChanged = !string.IsNullOrWhiteSpace(request.PayosChecksumKey) && paymentConfig.PayosChecksumKey != request.PayosChecksumKey.Trim();
-        if (!clientChanged && !apiKeyChanged && !checksumChanged) return MapPaymentConfigResponse(paymentConfig);
+        if (!clientChanged && !apiKeyChanged && !checksumChanged)
+        {
+            await tx.CommitAsync(cancellationToken);
+            return MapPaymentConfigResponse(paymentConfig);
+        }
+        await _payOsValidator.ValidateAsync(new(
+            string.IsNullOrWhiteSpace(request.PayosClientId) ? paymentConfig.PayosClientId : request.PayosClientId.Trim(),
+            string.IsNullOrWhiteSpace(request.PayosApiKey) ? paymentConfig.PayosApiKey : request.PayosApiKey.Trim(),
+            string.IsNullOrWhiteSpace(request.PayosChecksumKey) ? paymentConfig.PayosChecksumKey : request.PayosChecksumKey.Trim()), cancellationToken);
+        // Preserve existing links before replacing the shop's active credential set.
+        var legacy = await _db.Payments.Where(p => p.Order.ShopId == paymentConfig.ShopId
+            && p.GatewayCreationAttempted && p.ProtectedPayOsCredentials == null)
+            .ToListAsync(cancellationToken);
+        foreach (var payment in legacy) payment.ProtectedPayOsCredentials = _credentialProtector.Protect(new(
+            paymentConfig.PayosClientId, paymentConfig.PayosApiKey, paymentConfig.PayosChecksumKey));
 
         if (!string.IsNullOrWhiteSpace(request.PayosClientId))
             paymentConfig.PayosClientId = request.PayosClientId.Trim();
@@ -330,6 +355,7 @@ public sealed class ShopService : IShopService
         });
         paymentConfig.UpdatedAt = DateTime.UtcNow;
         await _shopRepository.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
         return MapPaymentConfigResponse(paymentConfig);
     }
 

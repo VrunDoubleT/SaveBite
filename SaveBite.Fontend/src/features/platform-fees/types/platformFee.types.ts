@@ -15,6 +15,8 @@ export interface PlatformPayOsConfigResponse {
   hasClientId: boolean;
   hasApiKey: boolean;
   hasChecksumKey: boolean;
+  isVerified: boolean;
+  paymentsAvailable: boolean;
   updatedAt: string | null;
   updatedByUserId: string | null;
   updatedByName: string | null;
@@ -62,6 +64,8 @@ export interface PlatformFeeStatementSummary {
   totalFeeAmount: number;
   issuedAt: string | null;
   dueAt: string | null;
+  paymentPauseReason: string | null;
+  paymentPausedAt: string | null;
   paidAt: string | null;
   createdAt: string;
 }
@@ -116,7 +120,9 @@ export interface PlatformFeeStatementDetail {
   status: PlatformFeeStatementStatus;
   totalFeeAmount: number;
   issuedAt?: string;
-  dueAt?: string;
+  dueAt?: string | null;
+  paymentPauseReason: string | null;
+  paymentPausedAt: string | null;
   paidAt?: string;
   createdAt: string;
   orders: OrderPlatformFeeItem[];

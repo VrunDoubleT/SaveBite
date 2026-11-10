@@ -34,6 +34,15 @@ public sealed class ShopApplicationController : ControllerBase
         return Ok(ApiResponse<IReadOnlyList<ShopApplicationResponse>>.Ok(applications, "Shop application history retrieved successfully."));
     }
 
+    [HttpPost("verify-payos")]
+    [CustomerAccess]
+    public async Task<ActionResult<ApiResponse>> VerifyPayOs(
+        [FromBody] VerifyShopApplicationPayOsRequest request, CancellationToken cancellationToken)
+    {
+        await _service.VerifyPayOsAsync(GetAuthenticatedUserId(), request, cancellationToken);
+        return Ok(ApiResponse.Ok("payOS credentials verified successfully."));
+    }
+
     [HttpPost]
     [CustomerAccess]
     [Consumes("multipart/form-data")]

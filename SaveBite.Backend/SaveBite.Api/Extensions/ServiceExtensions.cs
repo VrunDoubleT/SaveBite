@@ -48,6 +48,10 @@ public static class ServiceExtensions
         services.AddScoped<ITrustNotificationService, TrustNotificationService>();
         services.AddScoped<ITrustConfigService, TrustConfigService>();
         services.AddScoped<ITrustReconciliationService, TrustReconciliationService>();
+        services.AddScoped<IPayOsApiClient, PayOsApiClient>();
+        services.AddScoped<IPayOsCredentialsValidator, PayOsCredentialsValidator>();
+        services.AddScoped<IPayOsCredentialProtector, PayOsCredentialProtector>();
+        services.AddScoped<PlatformFeePaymentAvailability>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddPasswordHasher();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();

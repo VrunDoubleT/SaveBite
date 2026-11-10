@@ -216,6 +216,13 @@ public sealed class CheckoutRepository : ICheckoutRepository
         if (ownerId.HasValue)
             await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM users WHERE id = {ownerId.Value} FOR UPDATE", ct);
         await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM orders WHERE id = {orderId} FOR UPDATE", ct);
+        var shopId = await _dbContext.Orders.AsNoTracking().Where(o => o.Id == orderId)
+            .Select(o => (Guid?)o.ShopId).SingleOrDefaultAsync(ct);
+        if (shopId.HasValue)
+        {
+            var lockName = $"payos-shop:{shopId.Value}";
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({lockName}, 0))", ct);
+        }
         _dbContext.ChangeTracker.Clear();
         var before = await _dbContext.Orders.AsNoTracking().Where(o => o.Id == orderId)
             .Select(o => (OrderStatus?)o.Status).SingleOrDefaultAsync(ct);

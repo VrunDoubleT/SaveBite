@@ -1321,6 +1321,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("payment_type");
 
+                    b.Property<string>("ProtectedPayOsCredentials")
+                        .HasColumnType("text")
+                        .HasColumnName("protected_payos_credentials");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -1459,6 +1463,19 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("GatewayCheckoutUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("gateway_checkout_url");
+
+                    b.Property<DateTime?>("GatewayExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("gateway_expires_at");
+
+                    b.Property<string>("GatewayQrCode")
+                        .HasColumnType("text")
+                        .HasColumnName("gateway_qr_code");
+
                     b.Property<string>("GatewayTransactionId")
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)")
@@ -1473,6 +1490,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("payment_method");
+
+                    b.Property<string>("ProtectedPayOsCredentials")
+                        .HasColumnType("text")
+                        .HasColumnName("protected_payos_credentials");
 
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
@@ -1539,6 +1560,19 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("paid_at");
 
+                    b.Property<string>("PaymentPauseReason")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("payment_pause_reason");
+
+                    b.Property<DateTime?>("PaymentPausedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("payment_paused_at");
+
+                    b.Property<long?>("PaymentResumeRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("payment_resume_revision");
+
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
@@ -1568,6 +1602,8 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("platform_fee_statements", null, t =>
                         {
                             t.HasCheckConstraint("ck_platform_fee_statement_month", "\"billing_month\" BETWEEN 1 AND 12");
+
+                            t.HasCheckConstraint("ck_platform_fee_statement_paused_deadline", "payment_pause_reason IS NULL OR due_at IS NULL");
 
                             t.HasCheckConstraint("ck_platform_fee_statement_total", "\"total_fee_amount\" >= 0");
                         });
@@ -1644,6 +1680,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("client_id");
 
+                    b.Property<bool>("IsInvalid")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_invalid");
+
                     b.Property<string>("ProtectedApiKey")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -1656,6 +1696,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("protected_checksum_key");
 
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1663,6 +1707,10 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Property<Guid>("UpdatedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by_user_id");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at");
 
                     b.HasKey("Id");
 

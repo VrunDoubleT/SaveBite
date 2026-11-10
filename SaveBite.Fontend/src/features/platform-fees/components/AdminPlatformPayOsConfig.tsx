@@ -1,3 +1,4 @@
+import { SecretInput } from "@/shared/components/ui/SecretInput";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Clock3, KeyRound, RefreshCw, Save, ShieldCheck } from "lucide-react";
 import { platformFeeApi } from "@/features/platform-fees/api/platformFeeApi";
@@ -10,8 +11,8 @@ import { toast } from "@/shared/stores/toastStore";
 
 const fieldLabels: Record<string, string> = {
   ClientId: "Client ID",
-  ApiKey: "API key",
-  ChecksumKey: "Checksum key",
+  ApiKey: "API Key",
+  ChecksumKey: "Checksum Key",
   ConfigurationSource: "Initial database setup",
 };
 
@@ -83,7 +84,7 @@ export function AdminPlatformPayOsConfig() {
     }
   };
 
-  const configured = Boolean(config?.hasClientId && config.hasApiKey && config.hasChecksumKey);
+  const configured = Boolean(config?.paymentsAvailable);
 
   return (
     <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-7">
@@ -96,7 +97,7 @@ export function AdminPlatformPayOsConfig() {
             <h2 className="text-lg font-bold text-slate-900">Payment credentials</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
               Manage the PayOS credentials used to create platform-fee payment links and verify webhooks.
-              Credentials are encrypted at rest and secret values are never returned by the API.
+              Saving verifies the keys with a temporary payment link that is immediately cancelled. No payment is made. Verified settings restore paused statements with a new 7-day deadline.
             </p>
           </div>
         </div>
@@ -124,7 +125,7 @@ export function AdminPlatformPayOsConfig() {
       >
         <span className="inline-flex items-center gap-2 font-semibold">
           <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-          {configured ? "PayOS is ready" : "PayOS credentials are incomplete"}
+          {configured ? "PayOS is ready" : "PayOS verification required — fee deadlines are paused"}
         </span>
         {config?.maskedClientId && (
           <span className="font-mono text-slate-700">Client ID: {config.maskedClientId}</span>
@@ -153,24 +154,24 @@ export function AdminPlatformPayOsConfig() {
             </span>
           </label>
           <label className="block text-sm font-semibold text-slate-800">
-            API key
-            <input
+            API Key
+            <SecretInput
               className={inputClassName}
-              type="password"
+              secretLabel="API Key"
               autoComplete="new-password"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder={config?.hasApiKey ? "Leave blank to keep the current key" : "Enter your PayOS API key"}
+              placeholder={config?.hasApiKey ? "Leave blank to keep the current key" : "Enter your PayOS API Key"}
             />
             <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
               Secret values cannot be viewed after saving. Leave blank to keep the current key.
             </span>
           </label>
           <label className="block text-sm font-semibold text-slate-800">
-            Checksum key
-            <input
+            Checksum Key
+            <SecretInput
               className={inputClassName}
-              type="password"
+              secretLabel="Checksum Key"
               autoComplete="new-password"
               value={checksumKey}
               onChange={(event) => setChecksumKey(event.target.value)}
@@ -192,7 +193,7 @@ export function AdminPlatformPayOsConfig() {
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Save className="h-4 w-4" aria-hidden="true" />
-            {saving ? "Saving..." : "Save PayOS settings"}
+            {saving ? "Verifying and saving..." : "Verify and save PayOS settings"}
           </button>
         </div>
       </form>

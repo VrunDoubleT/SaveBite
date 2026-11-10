@@ -35,6 +35,8 @@ public static class NotificationMessages
 
     public static class Payments
     {
+        public const string ShopPaymentConfigInvalidTitle = "Action required: check your payOS configuration";
+        public const string ShopPaymentConfigInvalidBody = "A customer payment link could not be verified because payOS authentication or signature validation failed. Please check your Client ID, API Key and Checksum Key in Payment Settings.";
         public const string PaymentSucceededTitle = "Payment Succeeded";
         public const string PaymentSucceededAwaitingConfirmationBody = "Your payment was successful and your order is awaiting store confirmation.";
         public const string RemainingPaymentVerifiedBody = "The remaining payment for your order has been verified.";

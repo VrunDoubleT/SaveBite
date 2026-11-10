@@ -17,6 +17,9 @@ public class PlatformFeeStatement
     public DateTime? IssuedAt { get; set; }
     public DateTime? DueAt { get; set; }
     public DateTime? PaidAt { get; set; }
+    public string? PaymentPauseReason { get; set; }
+    public DateTime? PaymentPausedAt { get; set; }
+    public long? PaymentResumeRevision { get; set; }
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

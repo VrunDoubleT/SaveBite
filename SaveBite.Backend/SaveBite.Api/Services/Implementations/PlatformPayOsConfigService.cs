@@ -20,19 +20,23 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
     private readonly IDataProtector _protector;
     private readonly IAdminAuditWriter _audit;
     private readonly TimeProvider _clock;
+    private readonly IPayOsCredentialsValidator _validator;
+    private readonly IPayOsCredentialProtector _paymentProtector;
 
     public PlatformPayOsConfigService(
         AppDbContext db,
         IConfiguration configuration,
         IDataProtectionProvider protectionProvider,
         IAdminAuditWriter audit,
-        TimeProvider clock)
+        TimeProvider clock, IPayOsCredentialsValidator validator, IPayOsCredentialProtector paymentProtector)
     {
         _db = db;
         _configuration = configuration;
         _protector = protectionProvider.CreateProtector("SaveBite.PlatformPayOsConfig.v1");
         _audit = audit;
         _clock = clock;
+        _validator = validator;
+        _paymentProtector = paymentProtector;
     }
 
     public async Task<PlatformPayOsConfigResponse> GetAdminConfigAsync(CancellationToken cancellationToken = default)
@@ -80,6 +84,7 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
             throw AppException.Unauthorized();
 
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", cancellationToken);
         await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194604)", cancellationToken);
 
         var config = await GetStoredConfigAsync(cancellationToken);
@@ -102,7 +107,7 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
         var newCredentials = new PlatformPayOsCredentials(newClientId, newApiKey, newChecksumKey);
         var fields = GetChangedFields(old, newCredentials);
         var creatingDatabaseConfig = config is null;
-        if (config is not null && fields.Count == 0)
+        if (config is not null && fields.Count == 0 && config.VerifiedAt != null && !config.IsInvalid)
         {
             await transaction.CommitAsync(cancellationToken);
             return ToResponse(config);
@@ -111,6 +116,16 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
         if (creatingDatabaseConfig && fields.Count == 0)
             fields.Add("ConfigurationSource");
 
+        await _validator.ValidateAsync(newCredentials, cancellationToken);
+        // Preserve legacy pending links before rotating the global credential set.
+        if (!string.IsNullOrWhiteSpace(old.ClientId) && !string.IsNullOrWhiteSpace(old.ApiKey)
+            && !string.IsNullOrWhiteSpace(old.ChecksumKey))
+        {
+            var legacy = await _db.PlatformFeePayments.Where(p => p.ProtectedPayOsCredentials == null
+                && p.GatewayTransactionId != null)
+                .ToListAsync(cancellationToken);
+            foreach (var payment in legacy) payment.ProtectedPayOsCredentials = _paymentProtector.Protect(old);
+        }
         var now = _clock.GetUtcNow().UtcDateTime;
         if (config is null)
         {
@@ -118,6 +133,10 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
             _db.PlatformPayOsConfigs.Add(config);
         }
 
+        config.Revision++;
+        config.VerifiedAt = now;
+        config.IsInvalid = false;
+        if (fields.Count == 0) fields.Add("Verification");
         config.ClientId = newCredentials.ClientId;
         config.ProtectedApiKey = _protector.Protect(newCredentials.ApiKey);
         config.ProtectedChecksumKey = _protector.Protect(newCredentials.ChecksumKey);
@@ -159,6 +178,16 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
             CreatedAt = now
         });
 
+        var outboxId = Guid.NewGuid();
+        _db.Set<OrderEventOutbox>().Add(new OrderEventOutbox
+        {
+            Id = outboxId,
+            EventKey = $"platform-payos-verified:{config.Revision}",
+            RoutingKey = SaveBite.Backend.Messaging.Constants.RabbitMqRoutingKeys.PlatformPayOsVerified,
+            PayloadJson = JsonSerializer.Serialize(new SaveBite.Backend.Messaging.Events.PlatformPayOsVerifiedEvent(config.Revision)),
+            CreatedAt = now
+        });
+        _db.TrackNotificationOutbox(outboxId);
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         config.UpdatedByUser = await _db.Users.SingleAsync(x => x.Id == adminId, cancellationToken);
@@ -207,7 +236,8 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
             !string.IsNullOrWhiteSpace(config.ProtectedChecksumKey),
             config.UpdatedAt,
             config.UpdatedByUserId,
-            config.UpdatedByUser?.FullName);
+            config.UpdatedByUser?.FullName)
+        { IsVerified = config.VerifiedAt != null, PaymentsAvailable = config.VerifiedAt != null && !config.IsInvalid };
 
     private (string ClientId, string ApiKey, string ChecksumKey, bool HasAny, bool HasAllCredentials) GetEnvironmentCredentials()
     {

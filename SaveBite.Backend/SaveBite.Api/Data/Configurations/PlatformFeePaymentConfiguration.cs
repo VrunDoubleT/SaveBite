@@ -16,6 +16,10 @@ public class PlatformFeePaymentConfiguration
                 "\"amount\" > 0");
         });
 
+        builder.Property(x => x.ProtectedPayOsCredentials).HasColumnName("protected_payos_credentials").HasColumnType("text");
+        builder.Property(x => x.GatewayCheckoutUrl).HasColumnName("gateway_checkout_url").HasMaxLength(2000);
+        builder.Property(x => x.GatewayQrCode).HasColumnName("gateway_qr_code").HasColumnType("text");
+        builder.Property(x => x.GatewayExpiresAt).HasColumnName("gateway_expires_at");
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

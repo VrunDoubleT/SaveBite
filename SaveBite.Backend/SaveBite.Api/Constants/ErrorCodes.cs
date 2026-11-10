@@ -17,6 +17,14 @@ public static class ErrorCodes
     public const string AdminRequired = "ADMIN_REQUIRED";
     public const string Conflict = "CONFLICT";
     public const string TooManyRequests = "TOO_MANY_REQUESTS";
+    public const string PlatformPaymentUnavailable = "PLATFORM_PAYMENT_UNAVAILABLE";
+    public const string PayOsConnectionFailed = "PAYOS_CONNECTION_FAILED";
+    public const string PayOsTimeout = "PAYOS_TIMEOUT";
+    public const string PayOsRateLimited = "PAYOS_RATE_LIMITED";
+    public const string PayOsProviderUnavailable = "PAYOS_PROVIDER_UNAVAILABLE";
+    public const string PayOsRequestRejected = "PAYOS_REQUEST_REJECTED";
+    public const string PayOsInvalidResponse = "PAYOS_INVALID_RESPONSE";
+    public const string PaymentCredentialsInvalid = "PAYMENT_CREDENTIALS_INVALID";
     public const string ServiceUnavailable = "SERVICE_UNAVAILABLE";
     public const string InvalidOtp = "INVALID_OTP";
     public const string InternalError = "INTERNAL_ERROR";

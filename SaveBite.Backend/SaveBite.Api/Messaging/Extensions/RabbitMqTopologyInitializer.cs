@@ -34,6 +34,16 @@ public class RabbitMqTopologyInitializer : IHostedService
             autoDelete: false,
             cancellationToken: cancellationToken);
 
+        await channel.QueueDeclareAsync(RabbitMqQueues.PlatformPayOsVerifiedDeadLetterQueueName,
+            durable: true, exclusive: false, autoDelete: false, cancellationToken: cancellationToken);
+        await channel.QueueDeclareAsync(RabbitMqQueues.PlatformPayOsVerifiedQueueName,
+            durable: true, exclusive: false, autoDelete: false,
+            arguments: new Dictionary<string, object?> { ["x-dead-letter-exchange"] = "",
+                ["x-dead-letter-routing-key"] = RabbitMqQueues.PlatformPayOsVerifiedDeadLetterQueueName },
+            cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(RabbitMqQueues.PlatformPayOsVerifiedQueueName, _options.ExchangeName,
+            RabbitMqRoutingKeys.PlatformPayOsVerified, cancellationToken: cancellationToken);
+
         await channel.QueueDeclareAsync(
             queue: RabbitMqQueues.TrustLevelReconcileQueueName,
             durable: true,

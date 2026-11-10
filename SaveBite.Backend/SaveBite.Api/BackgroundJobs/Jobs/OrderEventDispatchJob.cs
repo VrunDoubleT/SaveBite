@@ -136,6 +136,11 @@ public sealed class OrderEventDispatchJob
                         JsonSerializer.Deserialize<OrderNoShowEvent>(message.PayloadJson)
                             ?? throw new InvalidOperationException("Invalid NoShow order event."), ct);
                     break;
+                case RabbitMqRoutingKeys.PlatformPayOsVerified:
+                    await _publisher.PublishAsync(message.RoutingKey,
+                        JsonSerializer.Deserialize<PlatformPayOsVerifiedEvent>(message.PayloadJson)
+                            ?? throw new InvalidOperationException("Invalid payOS activation event."), ct);
+                    break;
                 case RabbitMqRoutingKeys.TrustLevelReconcile:
                     await _publisher.PublishAsync(message.RoutingKey,
                         JsonSerializer.Deserialize<TrustLevelReconcileEvent>(message.PayloadJson)

@@ -5,5 +5,7 @@ public enum StatementChangeType
     InitialIssuance,
     PartialRefundDeduction,
     FullRefundDeduction,
-    PriorPeriodCreditApplied
+    PriorPeriodCreditApplied,
+    PaymentPaused,
+    PaymentResumed
 }

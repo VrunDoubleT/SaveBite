@@ -29,3 +29,10 @@ public sealed class ReviewShopApplicationRequest
     public string Decision { get; set; } = string.Empty;
     public string? Note { get; set; }
 }
+public sealed class VerifyShopApplicationPayOsRequest
+{
+    public Guid? ApplicationId { get; set; }
+    public string? ClientId { get; set; }
+    public string? ApiKey { get; set; }
+    public string? ChecksumKey { get; set; }
+}

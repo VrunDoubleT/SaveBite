@@ -135,7 +135,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
     {
         return await _context.PlatformFeeStatements
             .Include(s => s.Shop)
-            .Where(s => s.Status == PlatformFeeStatementStatus.Issued && s.TotalFeeAmount > 0 && s.DueAt != null && s.DueAt < asOf)
+            .Where(s => s.Status == PlatformFeeStatementStatus.Issued && s.PaymentPauseReason == null && s.TotalFeeAmount > 0 && s.DueAt != null && s.DueAt < asOf)
             .ToListAsync(ct);
     }
 

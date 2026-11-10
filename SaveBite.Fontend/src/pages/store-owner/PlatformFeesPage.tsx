@@ -91,6 +91,7 @@ export function PlatformFeesPage() {
       setPaymentData(linkData);
     } catch (error) {
       toast.error(getApiErrorMessage(error) || "Unable to initiate payment.");
+      void loadStatements();
     } finally {
       setIsCreatingLink(false);
     }
@@ -302,7 +303,7 @@ export function PlatformFeesPage() {
               ) : (
                 statements.map((stmt) => {
                   const normalizedStatus = normalizeStatementStatus(stmt.status);
-                  const canPay = normalizedStatus === "Issued" || normalizedStatus === "Overdue";
+                  const canPay = !stmt.paymentPauseReason && (normalizedStatus === "Issued" || normalizedStatus === "Overdue");
                   return (
                     <tr key={stmt.id} className="hover:bg-neutral-50/60 transition-colors">
                       <td className="px-5 py-4 font-bold text-neutral-900">
@@ -315,7 +316,7 @@ export function PlatformFeesPage() {
                         <StatusBadge status={stmt.status} />
                       </td>
                       <td className="px-5 py-4 text-neutral-600">
-                        {stmt.dueAt ? new Date(stmt.dueAt).toLocaleDateString("en-US") : "—"}
+                        {stmt.paymentPauseReason ? "Paused — system payment configuration" : stmt.dueAt ? new Date(stmt.dueAt).toLocaleDateString("en-US") : "—"}
                       </td>
                       <td className="px-5 py-4 text-neutral-600">
                         {stmt.paidAt ? new Date(stmt.paidAt).toLocaleDateString("en-US") : "—"}

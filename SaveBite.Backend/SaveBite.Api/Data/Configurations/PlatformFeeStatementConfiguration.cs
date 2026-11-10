@@ -12,6 +12,7 @@ public class PlatformFeeStatementConfiguration
     {
         builder.ToTable("platform_fee_statements", table =>
         {
+            table.HasCheckConstraint("ck_platform_fee_statement_paused_deadline", "payment_pause_reason IS NULL OR due_at IS NULL");
             table.HasCheckConstraint(
                 "ck_platform_fee_statement_month",
                 "\"billing_month\" BETWEEN 1 AND 12");
@@ -21,6 +22,9 @@ public class PlatformFeeStatementConfiguration
                 "\"total_fee_amount\" >= 0");
         });
 
+        builder.Property(x => x.PaymentPauseReason).HasColumnName("payment_pause_reason").HasMaxLength(60);
+        builder.Property(x => x.PaymentPausedAt).HasColumnName("payment_paused_at");
+        builder.Property(x => x.PaymentResumeRevision).HasColumnName("payment_resume_revision");
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

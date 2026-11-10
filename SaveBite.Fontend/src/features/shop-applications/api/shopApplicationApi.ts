@@ -42,6 +42,9 @@ const multipartConfig = {
 };
 
 export const shopApplicationApi = {
+  async verifyPayOs(input: { applicationId?: string; clientId?: string; apiKey?: string; checksumKey?: string }): Promise<void> {
+    await httpClient.post("/shop-applications/verify-payos", input, { timeout: 40_000 });
+  },
   async getMine(): Promise<ShopApplication | null> {
     try {
       const response = await httpClient.get<ApiResponse<ShopApplication>>(
