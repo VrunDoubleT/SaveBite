@@ -12,13 +12,14 @@ public static class ShopDealOpenedOutbox
     public static async Task<Guid> StageAsync(AppDbContext db, Guid dealId, Guid shopId, DateTime openedAt, CancellationToken ct)
     {
         var id = Guid.NewGuid();
-        var key = $"shop-deal-opened:{dealId}";
+        // Use a unique event key per opening so that reopening/unhiding a deal produces a fresh event and dispatches notifications
+        var key = $"shop-deal-opened:{dealId}:{Guid.NewGuid():N}";
         var payload = JsonSerializer.Serialize(new ShopDealOpenedEvent(dealId, shopId, openedAt));
         await db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO event_outbox (id, order_id, event_key, routing_key, payload_json, created_at)
-            VALUES ({id}, NULL, {key}, {RabbitMqRoutingKeys.ShopDealOpened}, CAST({payload} AS jsonb), {openedAt})
-            ON CONFLICT (event_key) DO NOTHING
-            """, ct);
+                                                       INSERT INTO event_outbox (id, order_id, event_key, routing_key, payload_json, created_at)
+                                                       VALUES ({id}, NULL, {key}, {RabbitMqRoutingKeys.ShopDealOpened}, CAST({payload} AS jsonb), {openedAt})
+                                                       ON CONFLICT (event_key) DO NOTHING
+                                                       """, ct);
         // Return the original row on replay so immediate delivery and recovery share one message.
         return await db.Set<SaveBite.Backend.Models.Entities.OrderEventOutbox>().Where(e => e.EventKey == key)
             .Select(e => e.Id).SingleAsync(ct);

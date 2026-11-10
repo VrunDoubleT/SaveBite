@@ -97,18 +97,31 @@ public sealed class ShopService : IShopService
             return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
         }
 
-        var shops = await _shopRepository.GetActiveShopsAsync(request.Keyword, cancellationToken);
+        var shops = await _shopRepository.GetActiveShopsAsync(request.Keyword, request.Category, request.ShopName, cancellationToken);
         if (!shops.Any())
             return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
 
         var nowTime = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
 
-        var radiusLimit = Math.Min(request.RadiusInKm <= 0 ? 10.0 : request.RadiusInKm, 10.0);
+        double maxDistance = Math.Min(request.RadiusInKm <= 0 ? 5.0 : request.RadiusInKm, 50.0);
+        if (!string.IsNullOrWhiteSpace(request.Distance))
+        {
+            var distanceRules = request.Distance.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (distanceRules.Length > 0)
+            {
+                if (distanceRules.Any(r => r.Contains("2km", StringComparison.OrdinalIgnoreCase))) maxDistance = Math.Max(maxDistance, 2.0);
+                if (distanceRules.Any(r => r.Contains("5km", StringComparison.OrdinalIgnoreCase))) maxDistance = Math.Max(maxDistance, 5.0);
+                if (distanceRules.Any(r => r.Contains("10km", StringComparison.OrdinalIgnoreCase))) maxDistance = Math.Max(maxDistance, 10.0);
+                if (distanceRules.Any(r => r.Contains("20km", StringComparison.OrdinalIgnoreCase))) maxDistance = Math.Max(maxDistance, 20.0);
+                if (distanceRules.Any(r => r.Contains("50km", StringComparison.OrdinalIgnoreCase))) maxDistance = Math.Max(maxDistance, 50.0);
+            }
+        }
+
         var matchingShops = new List<(Shop Shop, double Distance, bool IsOpen)>();
         foreach (var shop in shops)
         {
             var distance = CalculateDistanceInKm(userLat, userLon, shop.Latitude, shop.Longitude);
-            if (distance > radiusLimit) continue;
+            if (distance > maxDistance) continue;
 
             var isOpen = CheckIsOpen(shop.OpeningTime, shop.ClosingTime, nowTime);
             if (request.OnlyOpen == true && !isOpen) continue;
@@ -657,7 +670,7 @@ public sealed class ShopService : IShopService
 
         var nowUtc = DateTime.UtcNow;
 
-        // 1. Kiểm tra các Flash Deal đang mở bán (OnSale) hoặc đã lên lịch (Pending)
+        // 1. Check active (OnSale) or scheduled (Pending) Flash Deals
         var activeDeals = await _db.FlashDeals
             .AsNoTracking()
             .Include(d => d.Product)
@@ -683,22 +696,22 @@ public sealed class ShopService : IShopService
             {
                 var firstDeal = conflictingDeals[0];
                 var firstDealEndLocal = TimeOnly.FromDateTime(firstDeal.OrderEndTime.AddHours(7));
-                var statusText = firstDeal.Status == FlashDealStatus.OnSale ? "đang mở bán" : "đã lên lịch";
-                var productName = firstDeal.Product?.Name ?? "sản phẩm";
+                var statusText = firstDeal.Status == FlashDealStatus.OnSale ? "active" : "scheduled";
+                var productName = firstDeal.Product?.Name ?? "product";
 
                 var hoursText = newOpening.HasValue && newClosing.HasValue
                     ? $"{newOpening.Value:HH\\:mm} - {newClosing.Value:HH\\:mm}"
-                    : (newClosing.HasValue ? $"đóng cửa lúc {newClosing.Value:HH\\:mm}" : $"mở cửa lúc {newOpening!.Value:HH\\:mm}");
+                    : (newClosing.HasValue ? $"closing at {newClosing.Value:HH\\:mm}" : $"opening at {newOpening!.Value:HH\\:mm}");
 
                 throw AppException.BadRequest(
-                    $"Không thể đổi giờ hoạt động sang ({hoursText}). " +
-                    $"Cửa hàng đang có {conflictingDeals.Count} Flash Deal ({statusText}: '{productName}') " +
-                    $"kết thúc lúc {firstDealEndLocal:HH\\:mm}, vượt quá khung giờ hoạt động mới. " +
-                    $"Vui lòng kết thúc hoặc hủy các Flash Deal này trước khi thay đổi giờ hoạt động.");
+                    $"Cannot change operating hours to ({hoursText}). " +
+                    $"The shop currently has {conflictingDeals.Count} Flash Deal(s) ({statusText}: '{productName}') " +
+                    $"ending at {firstDealEndLocal:HH\\:mm}, which exceeds the new operating hours. " +
+                    $"Please end or cancel these Flash Deals before changing operating hours.");
             }
         }
 
-        // 2. Kiểm tra các đơn hàng đang xử lý hoặc chờ nhận hàng có hạn chót nhận hàng (HardDeadlineAt)
+        // 2. Check pending or pickup orders with pickup deadline (HardDeadlineAt)
         var activeOrderStatuses = new[]
         {
             OrderStatus.AwaitingPayment,
@@ -731,13 +744,13 @@ public sealed class ShopService : IShopService
                 var firstOrder = conflictingOrders[0];
                 var pickupDeadlineLocal = TimeOnly.FromDateTime(firstOrder.HardDeadlineAt!.Value.AddHours(7));
 
-                var hoursText = newClosing.HasValue ? $"đóng cửa lúc {newClosing.Value:HH\\:mm}" : "mới";
+                var hoursText = newClosing.HasValue ? $"closing at {newClosing.Value:HH\\:mm}" : "new";
 
                 throw AppException.BadRequest(
-                    $"Không thể đổi giờ hoạt động sang khung giờ {hoursText}. " +
-                    $"Cửa hàng đang có {conflictingOrders.Count} đơn hàng đang chờ khách nhận " +
-                    $"(Đơn #{firstOrder.OrderCode} có hạn chót nhận lúc {pickupDeadlineLocal:HH\\:mm}), " +
-                    $"nằm ngoài giờ mở cửa mới. Vui lòng hoàn tất hoặc xử lý các đơn hàng này trước khi đổi giờ.");
+                    $"Cannot change operating hours to {hoursText}. " +
+                    $"The shop currently has {conflictingOrders.Count} order(s) awaiting pickup " +
+                    $"(Order #{firstOrder.OrderCode} has pickup deadline at {pickupDeadlineLocal:HH\\:mm}), " +
+                    $"which falls outside the new operating hours. Please fulfill or resolve these orders before changing hours.");
             }
         }
     }

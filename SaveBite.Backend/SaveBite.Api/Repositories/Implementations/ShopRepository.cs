@@ -25,16 +25,52 @@ public sealed class ShopRepository : IShopRepository
             .FirstOrDefaultAsync(shop => shop.OwnerUserId == ownerUserId, cancellationToken);
     }
 
-    public async Task<List<Shop>> GetActiveShopsAsync(string? keyword, CancellationToken cancellationToken = default)
+    public async Task<List<Shop>> GetActiveShopsAsync(string? keyword, string? category = null, string? shopName = null, CancellationToken cancellationToken = default)
     {
         var query = _context.Shops
             .AsNoTracking()
+            .Include(s => s.FlashDeals)
+                .ThenInclude(d => d.Product)
+                    .ThenInclude(p => p.Category)
             .Where(s => s.Status == ShopStatus.Active);
+
+        if (!string.IsNullOrWhiteSpace(shopName))
+        {
+            var rawShop = SaveBite.Backend.Helpers.VietnameseTextHelper.NormalizeNfc(shopName).ToLowerInvariant();
+            var cleanShop = SaveBite.Backend.Helpers.VietnameseTextHelper.RemoveDiacritics(shopName);
+            query = query.Where(s => s.Name.ToLower() == rawShop || EF.Functions.Unaccent(s.Name).ToLower() == cleanShop);
+        }
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            var cleanKeyword = keyword.Trim().ToLower();
-            query = query.Where(s => s.Name.ToLower().Contains(cleanKeyword));
+            var rawKw = SaveBite.Backend.Helpers.VietnameseTextHelper.NormalizeNfc(keyword).ToLowerInvariant();
+            var cleanKw = SaveBite.Backend.Helpers.VietnameseTextHelper.RemoveDiacritics(keyword);
+            query = query.Where(s =>
+                EF.Functions.ILike(s.Name, $"%{rawKw}%") ||
+                EF.Functions.ILike(EF.Functions.Unaccent(s.Name), $"%{cleanKw}%") ||
+                EF.Functions.ILike(s.AddressLine, $"%{rawKw}%") ||
+                EF.Functions.ILike(EF.Functions.Unaccent(s.AddressLine), $"%{cleanKw}%") ||
+                s.FlashDeals.Any(d => d.Status == FlashDealStatus.OnSale &&
+                    (EF.Functions.ILike(d.Product.Name, $"%{rawKw}%") ||
+                     EF.Functions.ILike(EF.Functions.Unaccent(d.Product.Name), $"%{cleanKw}%") ||
+                     EF.Functions.ILike(d.Product.Category.Name, $"%{rawKw}%") ||
+                     EF.Functions.ILike(EF.Functions.Unaccent(d.Product.Category.Name), $"%{cleanKw}%"))));
+        }
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var rawCategories = category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                        .Select(c => SaveBite.Backend.Helpers.VietnameseTextHelper.NormalizeNfc(c).ToLowerInvariant())
+                                        .ToList();
+            var unaccentCategories = category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                             .Select(c => SaveBite.Backend.Helpers.VietnameseTextHelper.RemoveDiacritics(c))
+                                             .ToList();
+            if (rawCategories.Count > 0)
+            {
+                query = query.Where(s => s.FlashDeals.Any(d => d.Status == FlashDealStatus.OnSale &&
+                    (rawCategories.Contains(d.Product.Category.Name.ToLower()) ||
+                     unaccentCategories.Contains(EF.Functions.Unaccent(d.Product.Category.Name).ToLower()))));
+            }
         }
 
         return await query.ToListAsync(cancellationToken);
