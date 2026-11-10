@@ -1,4 +1,4 @@
-import { Utensils } from "lucide-react";
+import { AlertTriangle, Utensils } from "lucide-react";
 import { DealCard } from "@/features/flash-deals/components/DealCard";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
@@ -10,8 +10,10 @@ interface DealGridProps {
   isSameShop?: boolean;
   isLoading?: boolean;
   emptyMessage?: string;
+  isCategoryMismatch?: boolean;
   onRefresh?: () => void;
   onClearSearch?: () => void;
+  onClearCategory?: () => void;
 }
 
 export function DealGrid({
@@ -20,8 +22,10 @@ export function DealGrid({
   isSameShop = false,
   isLoading = false,
   emptyMessage = "No flash deals found within this radius.",
+  isCategoryMismatch = false,
   onRefresh,
   onClearSearch,
+  onClearCategory,
 }: DealGridProps) {
   const gridClassName = `grid grid-cols-1 gap-4 sm:grid-cols-2 ${desktopColumns === 4 ? "lg:grid-cols-3 xl:grid-cols-4" : "xl:grid-cols-3"}`;
   if (isLoading) {
@@ -48,14 +52,32 @@ export function DealGrid({
   if (!deals.length) {
     return (
       <EmptyState
-        title={onClearSearch ? "No matching deals" : "No deals nearby yet"}
+        title={
+          isCategoryMismatch
+            ? "No deals in this category matching keyword"
+            : onClearSearch
+              ? "No matching deals"
+              : "No deals nearby yet"
+        }
         description={emptyMessage}
-        icon={Utensils}
+        icon={isCategoryMismatch ? AlertTriangle : Utensils}
         action={
           <div className="flex flex-wrap justify-center gap-3">
-            {onClearSearch && <Button onClick={onClearSearch}>Clear search</Button>}
-            {onRefresh && (
-              <Button variant={onClearSearch ? "secondary" : "primary"} onClick={onRefresh}>
+            {onClearCategory && (
+              <Button variant="primary" onClick={onClearCategory}>
+                Clear category filter
+              </Button>
+            )}
+            {onClearSearch && (
+              <Button
+                variant={onClearCategory ? "secondary" : "primary"}
+                onClick={onClearSearch}
+              >
+                Clear search
+              </Button>
+            )}
+            {onRefresh && !onClearCategory && !onClearSearch && (
+              <Button variant="primary" onClick={onRefresh}>
                 Refresh deals
               </Button>
             )}

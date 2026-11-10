@@ -1,3 +1,22 @@
+export interface SaveSearchFilterPayload {
+  keyword?: string | null;
+  category?: string | null;
+  distance?: string | null;
+  price?: string | null;
+  shopName?: string | null;
+  radiusInKm?: number | null;
+  sessionKey?: string | null;
+}
+
+export interface CachedSearchFilter {
+  keyword?: string | null;
+  category?: string | null;
+  distance?: string | null;
+  price?: string | null;
+  shopName?: string | null;
+  radiusInKm?: number | null;
+}
+
 import { API_ENDPOINTS, httpClient } from "@/shared/api";
 import type { ApiResponse } from "@/shared/types";
 
@@ -63,6 +82,21 @@ export const flashDealApi = {
       params,
     );
     return response.data.data;
+  },
+
+  async removeGps(): Promise<void> {
+    await httpClient.delete(API_ENDPOINTS.LOCATION.GPS);
+  },
+
+  async saveSearchFilter(payload: SaveSearchFilterPayload): Promise<void> {
+    await httpClient.post(API_ENDPOINTS.LOCATION.SEARCH_FILTER, payload);
+  },
+
+  async getSearchFilter(): Promise<CachedSearchFilter | null> {
+    const response = await httpClient.get<ApiResponse<CachedSearchFilter>>(
+      API_ENDPOINTS.LOCATION.SEARCH_FILTER,
+    );
+    return response.data.data ?? null;
   },
 
   // --- Store Owner Flash Deals APIs ---

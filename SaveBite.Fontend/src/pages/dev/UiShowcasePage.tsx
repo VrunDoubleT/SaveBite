@@ -138,7 +138,7 @@ export function UiShowcasePage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <MediaImage
               src="/images/deals/banh-mi/bm-overview.jpg"
-              alt="Vegetable bánh mì"
+              alt="Vegetable sandwich"
               className="aspect-[4/3] w-full rounded-md"
             />
             <MediaImage alt="Product without a photo" className="aspect-[4/3] w-full rounded-md" />
@@ -213,7 +213,7 @@ export function UiShowcasePage() {
                 </Badge>
               ),
             )}
-            <Avatar fullName="Nguyễn Minh Anh" />
+            <Avatar fullName="Minh Anh" />
           </div>
         </Card>
         <div className="grid gap-4 sm:grid-cols-2">

@@ -69,6 +69,7 @@ export function useFlashDealRealtime(
       if (event.version !== 1) return;
       if (event.type === "flashdeal.changed") {
         const payload = event.data as FlashDealRealtimePayload | undefined;
+        window.dispatchEvent(new CustomEvent("flashdeal:changed", { detail: payload }));
         if (kind === "all") {
           const act = payload?.action?.toLowerCase();
           const st = payload?.status?.toLowerCase();

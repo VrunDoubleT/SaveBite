@@ -27,19 +27,19 @@ export function cleanAddressParts(parts: (string | null | undefined)[]): string 
     if (!trimmed) continue;
 
     const normalized = trimmed
-      .toLowerCase()
-      .replace(/^(thành phố|tp\.|tp|tỉnh|quận|huyện|phường|thị xã|tx\.)\s+/i, "")
-      .trim();
-
-    const isDuplicate = cleaned.some((existing) => {
-      const existingNorm = existing
         .toLowerCase()
         .replace(/^(thành phố|tp\.|tp|tỉnh|quận|huyện|phường|thị xã|tx\.)\s+/i, "")
         .trim();
+
+    const isDuplicate = cleaned.some((existing) => {
+      const existingNorm = existing
+          .toLowerCase()
+          .replace(/^(thành phố|tp\.|tp|tỉnh|quận|huyện|phường|thị xã|tx\.)\s+/i, "")
+          .trim();
       return (
-        existing.toLowerCase() === trimmed.toLowerCase() ||
-        (normalized.length > 2 && existingNorm === normalized) ||
-        (existing.toLowerCase().includes(trimmed.toLowerCase()) && trimmed.length > 3)
+          existing.toLowerCase() === trimmed.toLowerCase() ||
+          (normalized.length > 2 && existingNorm === normalized) ||
+          (existing.toLowerCase().includes(trimmed.toLowerCase()) && trimmed.length > 3)
       );
     });
 
@@ -48,6 +48,24 @@ export function cleanAddressParts(parts: (string | null | undefined)[]): string 
     }
   }
   return cleaned.join(", ");
+}
+
+function normalizeNfcLower(text?: string | null): string {
+  if (!text) return "";
+  return text.trim().normalize("NFC").toLowerCase();
+}
+
+function removeVietnameseDiacritics(text?: string | null): string {
+  if (!text) return "";
+  return text
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .normalize("NFC")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D")
+      .trim()
+      .toLowerCase();
 }
 
 export function useNearbyFlashDeals() {
@@ -77,7 +95,7 @@ export function useNearbyFlashDeals() {
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Keyset Cursor state (Section 8.2 & 8.4)
+  // Keyset Cursor state
   const [nextCursor, setNextCursor] = useState<string | null>(() => cachedNextCursor);
   const [hasOlder, setHasOlder] = useState(() => cachedHasOlder);
   const [newDealsCount, setNewDealsCount] = useState(0);
@@ -121,23 +139,38 @@ export function useNearbyFlashDeals() {
     category: [],
   });
 
+  const filtersRef = useRef(filters);
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  const selectedShopRef = useRef(selectedShop);
+  useEffect(() => {
+    selectedShopRef.current = selectedShop;
+  }, [selectedShop]);
+
+  const debouncedKeywordRef = useRef(debouncedKeyword);
+  useEffect(() => {
+    debouncedKeywordRef.current = debouncedKeyword;
+  }, [debouncedKeyword]);
+
   // Load active categories directly from database
   useEffect(() => {
     let isMounted = true;
     setIsLoadingCategories(true);
     categoryApi
-      .getCategories()
-      .then((items) => {
-        if (isMounted && items.length > 0) {
-          setCategories(items.map((c) => c.name));
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (isMounted) {
-          setIsLoadingCategories(false);
-        }
-      });
+        .getCategories()
+        .then((items) => {
+          if (isMounted && items.length > 0) {
+            setCategories(items.map((c) => c.name));
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (isMounted) {
+            setIsLoadingCategories(false);
+          }
+        });
 
     return () => {
       isMounted = false;
@@ -186,17 +219,17 @@ export function useNearbyFlashDeals() {
     const onGeoError = (err: GeolocationPositionError) => {
       if (err.code !== 1) {
         navigator.geolocation.getCurrentPosition(
-          onGeoSuccess,
-          () => {
-            setIsGpsLoading(false);
-            if (user?.defaultAddress) {
-              selectSavedAddress();
-            } else {
-              setIsLocationReady(false);
-              setGpsError("Unable to retrieve GPS coordinates automatically.");
-            }
-          },
-          { timeout: 8000, enableHighAccuracy: false, maximumAge: 300000 },
+            onGeoSuccess,
+            () => {
+              setIsGpsLoading(false);
+              if (user?.defaultAddress) {
+                selectSavedAddress();
+              } else {
+                setIsLocationReady(false);
+                setGpsError("Unable to retrieve GPS coordinates automatically.");
+              }
+            },
+            { timeout: 8000, enableHighAccuracy: false, maximumAge: 300000 },
         );
         return;
       }
@@ -228,16 +261,16 @@ export function useNearbyFlashDeals() {
       cachedCoords = newCoords;
       cachedLocationMode = "saved_address";
       const label = user.defaultAddress.label
-        ? `${user.defaultAddress.label} - ${user.defaultAddress.addressLine}`
-        : user.defaultAddress.addressLine;
+          ? `${user.defaultAddress.label} - ${user.defaultAddress.addressLine}`
+          : user.defaultAddress.addressLine;
       cachedLocationLabel = label;
       const addrToDisplay =
-        cleanAddressParts([
-          user.defaultAddress.addressLine,
-          user.defaultAddress.ward,
-          user.defaultAddress.district,
-          user.defaultAddress.city,
-        ]) || user.defaultAddress.addressLine;
+          cleanAddressParts([
+            user.defaultAddress.addressLine,
+            user.defaultAddress.ward,
+            user.defaultAddress.district,
+            user.defaultAddress.city,
+          ]) || user.defaultAddress.addressLine;
       cachedLocationAddress = addrToDisplay;
 
       setCoords(newCoords);
@@ -286,8 +319,8 @@ export function useNearbyFlashDeals() {
       if (!coords) return;
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}&zoom=18&addressdetails=1`,
-          { headers: { "Accept-Language": "vi,en" } }
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}&zoom=18&addressdetails=1`,
+            { headers: { "Accept-Language": "vi,en" } }
         );
         if (res.ok) {
           const data = await res.json();
@@ -336,12 +369,12 @@ export function useNearbyFlashDeals() {
       });
 
       const uniqueDeals = Array.from(
-        new Map(
-          res.deals.map((deal) => {
-            const isNewlyArrived = newDealIdsRef.current.has(deal.id.toLowerCase());
-            return [deal.id, { ...deal, isNew: isNewlyArrived || deal.isNew }];
-          }),
-        ).values(),
+          new Map(
+              res.deals.map((deal) => {
+                const isNewlyArrived = newDealIdsRef.current.has(deal.id.toLowerCase());
+                return [deal.id, { ...deal, isNew: isNewlyArrived || deal.isNew }];
+              }),
+          ).values(),
       );
       setDeals(uniqueDeals);
       setNextCursor(res.nextCursor ?? null);
@@ -405,61 +438,136 @@ export function useNearbyFlashDeals() {
   // - Deal Hidden / Closed / Cancelled: Lập tức loại bỏ khỏi danh sách deal đang hiển thị
   // - Deal Opened / Re-opened / Published: Tự động hiện ra ngay trên màn hình với chữ "NEW", không cần click nút
   const handleRealtimeDealEvent = useCallback(
-    async (eventData?: FlashDealRealtimePayload) => {
-      if (!eventData) return;
+      async (eventData?: FlashDealRealtimePayload) => {
+        if (!eventData) return;
 
-      const action = eventData.action?.toLowerCase();
-      const status = eventData.status?.toLowerCase();
-      const dealId = eventData.dealId?.toLowerCase();
+        const rawAction = eventData.action ?? (eventData as any)?.Action;
+        const action = rawAction ? String(rawAction).toLowerCase() : undefined;
 
-      // 1. Hide / Close / Cancel: IMMEDIATELY remove from active feed!
-      if (
-        action === "hidden" ||
-        status === "hidden" ||
-        action === "closed" ||
-        status === "closed" ||
-        action === "cancelled" ||
-        status === "cancelled"
-      ) {
-        if (dealId) {
-          newDealIdsRef.current.delete(dealId);
-          setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
-        }
-        return;
-      }
+        const rawStatus = eventData.status ?? (eventData as any)?.Status;
+        const status = rawStatus ? String(rawStatus).toLowerCase() : undefined;
 
-      // 2. Open / Published / Reopen: Tự động hiện ra ngay lập tức trên UI với nhãn NEW!
-      if (
-        action === "opened" ||
-        action === "published" ||
-        action === "reopened" ||
-        status === "onsale" ||
-        status === "open" ||
-        status === "pending"
-      ) {
-        if (dealId) {
-          newDealIdsRef.current.add(dealId);
-          try {
-            const freshDeal = await flashDealApi.getDealById(dealId);
-            if (freshDeal && freshDeal.status !== 2 && freshDeal.status !== 4 && freshDeal.status !== 5) {
-              const markedDeal: FlashDeal = {
-                ...freshDeal,
-                isNew: true,
-              };
-              setDeals((prev) => {
-                const rest = prev.filter((d) => d.id.toLowerCase() !== dealId);
-                return [markedDeal, ...rest];
-              });
-              return;
-            }
-          } catch {
-            // Fallback: nếu lấy chi tiết lỗi, tự động refresh Page 1
+        const rawDealId = eventData.dealId ?? (eventData as any)?.DealId;
+        const dealId = rawDealId ? String(rawDealId).toLowerCase() : undefined;
+
+        // 1. Hide / Close / Cancel: IMMEDIATELY remove from active feed!
+        if (
+            action === "hidden" ||
+            status === "hidden" ||
+            action === "closed" ||
+            status === "closed" ||
+            action === "cancelled" ||
+            status === "cancelled"
+        ) {
+          if (dealId) {
+            newDealIdsRef.current.delete(dealId);
+            setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
           }
+          return;
         }
-        void fetchInitialDeals();
-      }
-    },
-    [fetchInitialDeals],
+
+        // 2. Open / Published / Reopen: Tự động hiện ra ngay lập tức trên UI với nhãn NEW!
+        if (
+            action === "opened" ||
+            action === "published" ||
+            action === "reopened" ||
+            status === "onsale" ||
+            status === "open" ||
+            status === "pending"
+        ) {
+          if (dealId) {
+            try {
+              let freshDeal: FlashDeal | null = null;
+              try {
+                freshDeal = await flashDealApi.getDealById(dealId);
+              } catch {
+                // Retry 150ms để phòng ngừa độ trễ mili-giây giữa SignalR event và Database transaction commit
+                await new Promise((r) => setTimeout(r, 150));
+                try {
+                  freshDeal = await flashDealApi.getDealById(dealId);
+                } catch {
+                  freshDeal = null;
+                }
+              }
+
+              if (freshDeal && freshDeal.status !== 2 && freshDeal.status !== 4 && freshDeal.status !== 5) {
+                const activeFilters = filtersRef.current;
+                const activeShop = selectedShopRef.current;
+                const activeKw = debouncedKeywordRef.current;
+
+                // Kiểm tra Category Filter: Nếu đang lọc category, deal phải đúng category đó
+                if (activeFilters.category.length > 0) {
+                  const dealCatNorm = normalizeNfcLower(freshDeal.categoryName);
+                  const dealCatUnaccent = removeVietnameseDiacritics(freshDeal.categoryName);
+                  const isCatMatched = activeFilters.category.some((cat) => {
+                    const fCatNorm = normalizeNfcLower(cat);
+                    const fCatUnaccent = removeVietnameseDiacritics(cat);
+                    return (
+                        (fCatNorm.length > 0 && fCatNorm === dealCatNorm) ||
+                        (fCatUnaccent.length > 0 && fCatUnaccent === dealCatUnaccent)
+                    );
+                  });
+
+                  if (!isCatMatched) {
+                    // Không đúng category đang lọc -> loại bỏ và không hiển thị
+                    newDealIdsRef.current.delete(dealId);
+                    setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
+                    return;
+                  }
+                }
+
+                // Kiểm tra Shop Filter: nếu người dùng đang lọc theo shop cụ thể
+                if (activeShop) {
+                  const fShopNorm = normalizeNfcLower(activeShop);
+                  const fShopUnaccent = removeVietnameseDiacritics(activeShop);
+                  const dShopNorm = normalizeNfcLower(freshDeal.shopName);
+                  const dShopUnaccent = removeVietnameseDiacritics(freshDeal.shopName);
+                  if (fShopNorm !== dShopNorm && fShopUnaccent !== dShopUnaccent) {
+                    newDealIdsRef.current.delete(dealId);
+                    setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
+                    return;
+                  }
+                }
+
+                // Kiểm tra Keyword Filter
+                if (activeKw) {
+                  const kwNorm = normalizeNfcLower(activeKw);
+                  const kwUnaccent = removeVietnameseDiacritics(activeKw);
+                  const pNameNorm = normalizeNfcLower(freshDeal.productName);
+                  const pNameUnaccent = removeVietnameseDiacritics(freshDeal.productName);
+                  const pDescNorm = normalizeNfcLower(freshDeal.description);
+                  const pDescUnaccent = removeVietnameseDiacritics(freshDeal.description);
+                  const isKwMatched =
+                      (kwNorm.length > 0 && (pNameNorm.includes(kwNorm) || pDescNorm.includes(kwNorm))) ||
+                      (kwUnaccent.length > 0 && (pNameUnaccent.includes(kwUnaccent) || pDescUnaccent.includes(kwUnaccent)));
+                  if (!isKwMatched) {
+                    newDealIdsRef.current.delete(dealId);
+                    setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
+                    return;
+                  }
+                }
+
+                // Khớp bộ lọc (hoặc không áp dụng bộ lọc nào) -> hiển thị ngay lập tức với nhãn NEW
+                newDealIdsRef.current.add(dealId);
+                const markedDeal: FlashDeal = {
+                  ...freshDeal,
+                  isNew: true,
+                };
+                setDeals((prev) => {
+                  const rest = prev.filter((d) => d.id.toLowerCase() !== dealId);
+                  return [markedDeal, ...rest];
+                });
+                setNewDealsCount((c) => c + 1);
+                return;
+              }
+            } catch {
+              // Fallback: nếu lấy chi tiết lỗi, tự động refresh Page 1
+            }
+          }
+          void fetchInitialDeals();
+        }
+      },
+      [fetchInitialDeals],
   );
 
   useFlashDealRealtime("all", undefined, handleRealtimeDealEvent);

@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { List, Map, MapPin, Search, Star, Store } from "lucide-react";
+import { List, Map, MapPin, Search, Star, Store, X } from "lucide-react";
 import {
   Badge,
-  Button,
   EmptyState,
   ErrorState,
   MediaImage,
@@ -20,7 +19,7 @@ export function NearbyStoresBrowser(props: NearbyStoresMapSectionProps) {
   const [focusRequest, setFocusRequest] = useState<{ shop: NearbyShop; location: string } | null>(
     null,
   );
-  const locationKey = `${props.latitude}:${props.longitude}:${props.locationMode}:${props.locationVersion}:${props.radiusInKm}`;
+  const locationKey = `${props.latitude}:${props.longitude}:${props.locationMode}:${props.locationVersion}:${props.radiusInKm}:${props.searchKeyword ?? ""}:${props.category ?? ""}:${props.distance ?? ""}:${props.selectedShop ?? ""}`;
   const view = useHomePreferencesStore((state) => state.storesView);
   const setView = useHomePreferencesStore((state) => state.setStoresView);
   return (
@@ -60,7 +59,7 @@ export function NearbyStoresBrowser(props: NearbyStoresMapSectionProps) {
         />
       ) : (
         <NearbyStoresList
-          key={`${props.latitude}:${props.longitude}:${props.locationMode}:${props.locationVersion}:${props.radiusInKm}`}
+          key={locationKey}
           {...props}
           onViewOnMap={(shop) => {
             setFocusRequest({ shop, location: locationKey });
@@ -74,10 +73,14 @@ export function NearbyStoresBrowser(props: NearbyStoresMapSectionProps) {
 function NearbyStoresList({
   latitude,
   longitude,
-  radiusInKm = 10,
+  radiusInKm = 5,
   locationMode,
   isLocationReady,
   onViewOnMap,
+  searchKeyword,
+  category,
+  distance,
+  selectedShop: propSelectedShop,
 }: NearbyStoresMapSectionProps & { onViewOnMap: (shop: NearbyShop) => void }) {
   const [keyword, setKeyword] = useState("");
   const [query, setQuery] = useState("");
@@ -90,16 +93,42 @@ function NearbyStoresList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Real-time store search debounce (300ms) - no need to press Search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const next = keyword.trim();
+      if (next !== query) {
+        setQuery(next);
+        setPage(1);
+        setLoading(true);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [keyword, query]);
+
+  // Real-time flash deal update listener
+  useEffect(() => {
+    const handleFlashDealChanged = () => {
+      setAttempt((v) => v + 1);
+    };
+    window.addEventListener("flashdeal:changed", handleFlashDealChanged);
+    return () => window.removeEventListener("flashdeal:changed", handleFlashDealChanged);
+  }, []);
+
   useEffect(() => {
     if (!isLocationReady) return;
     const controller = new AbortController();
+    const effectiveKw = query?.trim() || searchKeyword?.trim() || undefined;
     shopApi
       .getNearbyShops(
         {
           latitude: locationMode === "saved_address" ? undefined : (latitude ?? undefined),
           longitude: locationMode === "saved_address" ? undefined : (longitude ?? undefined),
-          radiusInKm,
-          keyword: query || undefined,
+          radiusInKm: Math.min(radiusInKm ?? 5, 50),
+          keyword: effectiveKw,
+          category: category || undefined,
+          distance: distance || undefined,
+          shopName: propSelectedShop || undefined,
           onlyWithFlashDeals: onlyDeals,
           page,
           pageSize: 8,
@@ -126,7 +155,10 @@ function NearbyStoresList({
     radiusInKm,
     locationMode,
     isLocationReady,
-    query,
+    searchKeyword,
+    category,
+    distance,
+    propSelectedShop,
     onlyDeals,
     page,
     attempt,
@@ -175,16 +207,18 @@ function NearbyStoresList({
         className="flex flex-col gap-3 sm:flex-row sm:items-center"
         onSubmit={(event) => {
           event.preventDefault();
-          setLoading(true);
-          setQuery(keyword.trim());
-          setPage(1);
-          setAttempt((value) => value + 1);
+          const next = keyword.trim();
+          if (next !== query) {
+            setQuery(next);
+            setPage(1);
+            setLoading(true);
+          }
         }}
       >
         <label className="relative flex-1">
           <span className="sr-only">Search nearby stores by name</span>
           <Search
-            className="pointer-events-none absolute left-3 top-3 size-4 text-text-muted"
+            className="pointer-events-none absolute left-3 top-3.5 size-4 text-text-muted"
             aria-hidden="true"
           />
           <input
@@ -193,22 +227,27 @@ function NearbyStoresList({
             maxLength={120}
             placeholder="Search stores by name…"
             onChange={(event) => {
-              setKeyword(event.target.value);
+              setKeyword(event.target.value.normalize("NFC"));
             }}
-            onBlur={(event) => {
-              if (!event.currentTarget.value.trim() && query) {
+            className="min-h-11 w-full rounded-md border border-border-default bg-bg-surface pl-10 pr-9 text-body text-text-primary focus-visible:outline-2 focus-visible:outline-primary-700"
+          />
+          {keyword && (
+            <button
+              type="button"
+              onClick={() => {
                 setKeyword("");
                 setQuery("");
                 setPage(1);
                 setLoading(true);
-              }
-            }}
-            className="min-h-11 w-full rounded-md border border-border-default bg-bg-surface pl-10 pr-3 text-body text-text-primary focus-visible:outline-2 focus-visible:outline-primary-700"
-          />
+              }}
+              className="absolute right-2.5 top-2.5 p-1 text-text-muted hover:text-text-primary transition-colors"
+              aria-label="Clear search"
+              title="Clear search"
+            >
+              <X className="size-4" />
+            </button>
+          )}
         </label>
-        <Button type="submit" className="min-h-11" loading={loading}>
-          Search
-        </Button>
         <label className="flex min-h-11 cursor-pointer items-center gap-2 text-body text-text-secondary">
           <input
             type="checkbox"

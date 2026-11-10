@@ -46,7 +46,12 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
   }, [deal, isDealSoldOut]);
 
   return (
-    <Card className="group flex h-full flex-col overflow-hidden !p-0 transition-shadow hover:shadow-md">
+    <Card
+      id={`flash-deal-card-${deal.id}`}
+      className={`group flex h-full flex-col overflow-hidden !p-0 transition-all duration-500 hover:shadow-md ${
+        isNew ? "ring-2 ring-emerald-500 shadow-md shadow-emerald-500/15" : ""
+      }`}
+    >
       <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100">
         <Link
           to={`/flash-deals/${deal.id}`}
