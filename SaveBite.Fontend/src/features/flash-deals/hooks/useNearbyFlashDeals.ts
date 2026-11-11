@@ -4,6 +4,9 @@ import { categoryApi } from "@/features/categories/api/categoryApi";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { useNotificationStore } from "@/features/notifications/stores/notificationStore";
+import { shopFollowApi } from "@/features/shop-follows/api/shopFollowApi";
+import { shopApi } from "@/features/shops/api/shopApi";
+import { isDealViewed, removeDealFromViewed } from "@/features/flash-deals/utils/viewedDeals";
 import { useFlashDealRealtime, type FlashDealRealtimePayload } from "./useFlashDealRealtime";
 import type { DealFilterState, FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
@@ -108,9 +111,35 @@ export function useNearbyFlashDeals() {
   const dealsRef = useRef(deals);
   const newDealIdsRef = useRef<Set<string>>(new Set());
   const notifiedDealsRef = useRef<Set<string>>(new Set());
+  const followedShopIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     dealsRef.current = deals;
   }, [deals]);
+
+  // Synchronize followed shops cache when user is authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      followedShopIdsRef.current.clear();
+      return;
+    }
+    let isMounted = true;
+    shopFollowApi
+      .list(1, 100)
+      .then((data) => {
+        if (isMounted && data?.items) {
+          followedShopIdsRef.current = new Set(
+            data.items
+              .filter((item) => item.notificationStatus !== "Disabled")
+              .map((item) => item.shopId.toLowerCase()),
+          );
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]);
 
   const isLoadingOlderRef = useRef(false);
   const nextCursorRef = useRef(nextCursor);
@@ -388,8 +417,9 @@ export function useNearbyFlashDeals() {
       const uniqueDeals = Array.from(
           new Map(
               res.deals.map((deal) => {
-                const isNewlyArrived = newDealIdsRef.current.has(deal.id.toLowerCase());
-                return [deal.id, { ...deal, isNew: isNewlyArrived || deal.isNew }];
+                const viewed = isDealViewed(deal.id);
+                const isNewlyArrived = !viewed && newDealIdsRef.current.has(deal.id.toLowerCase());
+                return [deal.id, { ...deal, isNew: isNewlyArrived || (!viewed && Boolean(deal.isNew)) }];
               }),
           ).values(),
       );
@@ -453,8 +483,9 @@ export function useNearbyFlashDeals() {
   // 3. Realtime SignalR handler:
   // - Deal Hidden / Closed / Cancelled: Remove immediately from customer view
   // - Deal Opened / Published / Reopen: Check active filters (Category, Shop, Keyword, Price)
-  //     + If matches: Prepend to list with NEW badge & trigger NotificationBell alert in English
-  //     + If not matches: Do not show on screen & do not notify
+  //     + If matches: Prepend to list with NEW badge
+  //     + Check Follow: If customer follows shop -> Notify Bell. If not -> Only notify bottom toast!
+  //     + If not matches active filter: Do not show on screen & do not notify
   const handleRealtimeDealEvent = useCallback(
       async (eventData?: FlashDealRealtimePayload) => {
         if (!eventData) return;
@@ -480,6 +511,7 @@ export function useNearbyFlashDeals() {
           if (dealId) {
             newDealIdsRef.current.delete(dealId);
             notifiedDealsRef.current.delete(dealId);
+            removeDealFromViewed(dealId);
             setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
             setNewDealsCount((c) => Math.max(0, c - 1));
           }
@@ -496,6 +528,7 @@ export function useNearbyFlashDeals() {
             status === "pending"
         ) {
           if (dealId) {
+            removeDealFromViewed(dealId);
             try {
               let freshDeal: FlashDeal | null = null;
               try {
@@ -578,6 +611,7 @@ export function useNearbyFlashDeals() {
                     if (p === "Over 50k") return minPrice > 50000;
                     return true;
                   });
+
                   if (!isPriceMatched) {
                     newDealIdsRef.current.delete(dealId);
                     setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
@@ -585,7 +619,25 @@ export function useNearbyFlashDeals() {
                   }
                 }
 
-                // 2.5. All filters matched -> Display deal with NEW badge
+                // 2.5. Check if customer follows this shop (with deal notifications enabled)
+                let isFollowed = false;
+                const shopIdToCheck = freshDeal.shopId || eventData.shopId || eventData.ShopId;
+                if (isAuthenticated && shopIdToCheck) {
+                  try {
+                    const profile = await shopApi.getShopProfile(shopIdToCheck);
+                    if (
+                      profile?.currentUserFollow &&
+                      profile.currentUserFollow.notificationStatus !== "Disabled"
+                    ) {
+                      isFollowed = true;
+                      followedShopIdsRef.current.add(shopIdToCheck.toLowerCase());
+                    }
+                  } catch {
+                    isFollowed = followedShopIdsRef.current.has(shopIdToCheck.toLowerCase());
+                  }
+                }
+
+                // 2.6. All filters matched -> Display deal with NEW badge
                 newDealIdsRef.current.add(dealId);
                 const markedDeal: FlashDeal = {
                   ...freshDeal,
@@ -596,23 +648,28 @@ export function useNearbyFlashDeals() {
                   return [markedDeal, ...rest];
                 });
 
-                // Only push to NotificationBell ONCE per deal opening session
+                // 2.7. Trigger notifications (once per deal opening session)
                 if (!notifiedDealsRef.current.has(dealId)) {
                   notifiedDealsRef.current.add(dealId);
+
+                  // Bottom alert toast is ALWAYS shown when deal matches filter
                   setNewDealsCount((c) => c + 1);
 
-                  useNotificationStore.getState().onNotificationReceived({
-                    notification: {
-                      id: `deal-${freshDeal.id}`,
-                      type: 17,
-                      title: `New Flash Deal from ${freshDeal.shopName}!`,
-                      body: `'${freshDeal.productName}' is now on sale. Order now before it runs out!`,
-                      actionUrl: `/flash-deals/${freshDeal.id}`,
-                      isRead: false,
-                      createdAt: new Date().toISOString(),
-                    },
-                    unreadCount: useNotificationStore.getState().unreadCount + 1,
-                  });
+                  // Notification Bell is ONLY triggered if customer follows this shop!
+                  if (isFollowed) {
+                    useNotificationStore.getState().onNotificationReceived({
+                      notification: {
+                        id: `deal-${freshDeal.id}`,
+                        type: 17,
+                        title: `New Flash Deal from ${freshDeal.shopName}!`,
+                        body: `'${freshDeal.productName}' is now on sale. Order now before it runs out!`,
+                        actionUrl: `/flash-deals/${freshDeal.id}`,
+                        isRead: false,
+                        createdAt: new Date().toISOString(),
+                      },
+                      unreadCount: useNotificationStore.getState().unreadCount + 1,
+                    });
+                  }
                 }
                 return;
               }
@@ -623,7 +680,7 @@ export function useNearbyFlashDeals() {
           void fetchInitialDeals();
         }
       },
-      [fetchInitialDeals],
+      [fetchInitialDeals, isAuthenticated],
   );
 
   useFlashDealRealtime("all", undefined, handleRealtimeDealEvent);

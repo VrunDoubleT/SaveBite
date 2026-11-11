@@ -20,7 +20,9 @@ export function subscribeNotificationEvents(client: ReturnType<typeof createReal
 
     const isCustomerOnHomePage =
       typeof window !== "undefined" &&
-      (window.location.pathname === "/" || window.location.pathname === "/home");
+      (window.location.pathname === "/" ||
+        window.location.pathname === "" ||
+        window.location.pathname === "/home");
 
     // On home page, useNearbyFlashDeals validates the active category filter
     // and handles the bell notification directly with exact filter matching.
