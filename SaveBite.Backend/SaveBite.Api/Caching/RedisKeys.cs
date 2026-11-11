@@ -37,4 +37,8 @@ public static class RedisKeys
 
     public static string PublicationGpsTemp(Guid publicationId) => $"savebite:tmp:publication:{publicationId:N}:gps";
     public static string PublicationDefaultTemp(Guid publicationId) => $"savebite:tmp:publication:{publicationId:N}:default";
+
+    // User Search & Filter Cache
+    public static string UserSearchFilter(Guid userId) => $"savebite:user:{userId:N}:search-filter";
+    public static string GuestSearchFilter(string sessionKey) => $"savebite:guest:{sessionKey}:search-filter";
 }

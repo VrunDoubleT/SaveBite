@@ -97,14 +97,14 @@ internal class Program
                 if (!exists)
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("\n[CẢNH BÁO] Database PostgreSQL hiện tại chưa có bảng 'flash_deals'!");
-                    Console.WriteLine("👉 NGUYÊN NHÂN: Database vừa được reset hoặc chưa được chạy Migration.");
-                    Console.WriteLine("👉 CÁCH XỬ LÝ:");
-                    Console.WriteLine("   1. Mở terminal và chạy API chính trước:");
+                    Console.WriteLine("\n[WARNING] PostgreSQL database does not have the 'flash_deals' table yet!");
+                    Console.WriteLine("👉 CAUSE: Database was just reset or migrations haven't run yet.");
+                    Console.WriteLine("👉 RESOLUTION:");
+                    Console.WriteLine("   1. Open terminal and run the main API first:");
                     Console.WriteLine("      cd \"../SaveBite.Api\"");
                     Console.WriteLine("      dotnet run");
-                    Console.WriteLine("      (SaveBite.Api sẽ tự động chạy Migrate & Seed dữ liệu vào Postgres)");
-                    Console.WriteLine("   2. Sau khi SaveBite.Api khởi động xong, chạy lại tool này để nạp vào Redis.");
+                    Console.WriteLine("      (SaveBite.Api will automatically run migrations & seed data into Postgres)");
+                    Console.WriteLine("   2. Once SaveBite.Api has started, re-run this tool to sync Redis.");
                     Console.ResetColor();
                     return;
                 }
@@ -173,12 +173,12 @@ internal class Program
             if (deals.Count == 0)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("[WARN] Không tìm thấy Flash Deal nào đang mở bán (OnSale) trong PostgreSQL.");
+                Console.WriteLine("[WARN] No active (OnSale) Flash Deals found in PostgreSQL.");
                 Console.ResetColor();
                 return;
             }
 
-            Console.WriteLine($"[INFO] Tìm thấy {deals.Count} flash deals đang hoạt động trong PostgreSQL.");
+            Console.WriteLine($"[INFO] Found {deals.Count} active flash deals in PostgreSQL.");
 
             // Apply an explicitly enabled location override to both sources so checkout and nearby search agree.
             if (customLocation)
@@ -451,7 +451,7 @@ internal class Program
                 await redisDb.GeoAddAsync("savebite:geo:active-shops", deal.Longitude, deal.Latitude, deal.ShopId.ToString());
 
                 uniqueShops.Add(deal.ShopId);
-                Console.WriteLine($" -> Synced: [{deal.ShopName}] \"{deal.ProductName}\" ({minDealPrice:N0}đ) - OrderEnd: {deal.OrderEndTime:yyyy-MM-dd HH:mm}");
+                Console.WriteLine($" -> Synced: [{deal.ShopName}] \"{deal.ProductName}\" ({minDealPrice:N0} VND) - OrderEnd: {deal.OrderEndTime:yyyy-MM-dd HH:mm}");
             }
 
             Console.WriteLine();

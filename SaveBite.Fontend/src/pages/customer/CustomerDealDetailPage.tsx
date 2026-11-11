@@ -1,5 +1,6 @@
 import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
 import { ShopFollowControls } from "@/features/shop-follows/components/ShopFollowControls";
+import { markDealAsViewed } from "@/features/flash-deals/utils/viewedDeals";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
@@ -88,16 +89,29 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
     setRevision((value) => value + 1);
   });
 
+  // Mark deal as viewed so customer won't see NEW badge after leaving detail page
+  useEffect(() => {
+    if (id) {
+      markDealAsViewed(id);
+    }
+  }, [id]);
+
   // Real-time synchronization when admin blocks the shop of this deal
   useEffect(() => {
     const handleShopStatus = (e: Event) => {
-      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>)
-        .detail;
-      const rawShopId = detail?.shopId || (detail as any)?.ShopId;
-      const rawStatus = detail?.status || (detail as any)?.Status;
-      const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
+      const detail = (e as CustomEvent<{
+        shopId?: string;
+        ShopId?: string;
+        status?: string;
+        Status?: string;
+        isBlocked?: boolean;
+        IsBlocked?: boolean;
+      }>).detail;
+      const rawShopId = detail?.shopId || detail?.ShopId;
+      const rawStatus = detail?.status || detail?.Status;
+      const isBlocked = detail?.isBlocked || detail?.IsBlocked;
       const targetShopId = rawShopId?.toLowerCase();
-      const currentDealShopId = (deal?.shopId || (deal as any)?.ShopId)?.toLowerCase();
+      const currentDealShopId = deal?.shopId?.toLowerCase();
 
       if (targetShopId && currentDealShopId && targetShopId === currentDealShopId) {
         const isInactive = !rawStatus || rawStatus.toLowerCase() !== "active" || Boolean(isBlocked);

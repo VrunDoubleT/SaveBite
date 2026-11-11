@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Clock3, ImageOff, MapPin, Package, ShoppingBag, Sparkles } from "lucide-react";
 import { Badge, ButtonLink, Card } from "@/shared/components/ui";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
+import { isDealViewed, markDealAsViewed } from "@/features/flash-deals/utils/viewedDeals";
 
 interface DealCardProps {
   deal: FlashDeal;
@@ -23,6 +24,9 @@ function countdown(deal: FlashDeal, soldOut: boolean) {
 }
 
 function isDealRecentlyCreated(deal: FlashDeal) {
+  // If customer has already viewed this deal's detail, it is no longer NEW
+  if (isDealViewed(deal.id)) return false;
+
   if (deal.isNew) return true;
   if (!deal.createdAt) return false;
   const createdMs = new Date(deal.createdAt).getTime();
@@ -46,10 +50,16 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
   }, [deal, isDealSoldOut]);
 
   return (
-    <Card className="group flex h-full flex-col overflow-hidden !p-0 transition-shadow hover:shadow-md">
+    <Card
+      id={`flash-deal-card-${deal.id}`}
+      className={`group flex h-full flex-col overflow-hidden !p-0 transition-all duration-500 hover:shadow-md ${
+        isNew ? "ring-2 ring-emerald-500 shadow-md shadow-emerald-500/15" : ""
+      }`}
+    >
       <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100">
         <Link
           to={`/flash-deals/${deal.id}`}
+          onClick={() => markDealAsViewed(deal.id)}
           className="block h-full"
           aria-label={`View ${deal.productName}`}
         >
@@ -101,6 +111,7 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
         </div>
         <Link
           to={`/flash-deals/${deal.id}`}
+          onClick={() => markDealAsViewed(deal.id)}
           title={deal.productName}
           className="line-clamp-2 text-base font-semibold leading-snug text-text-primary hover:text-primary-700"
         >
@@ -162,6 +173,7 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
         </div>
         <ButtonLink
           to={`/flash-deals/${deal.id}`}
+          onClick={() => markDealAsViewed(deal.id)}
           variant={isDealSoldOut ? "secondary" : "primary"}
           aria-label={`View deal: ${deal.productName}`}
           className="mt-1 min-h-11"

@@ -30,3 +30,4 @@ export { MediaImage } from "./MediaImage";
 
 export { FilterBar } from "./FilterBar";
 export { AmountSummary } from "./AmountSummary";
+export { ScrollToTopButton } from "./ScrollToTopButton";

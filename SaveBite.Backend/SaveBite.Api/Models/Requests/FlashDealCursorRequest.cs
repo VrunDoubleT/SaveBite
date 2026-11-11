@@ -11,7 +11,7 @@ public class FlashDealCursorRequest
 {
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
-    public double RadiusInKm { get; set; } = 15.0;
+    public double RadiusInKm { get; set; } = 5.0;
 
     // Keyset Cursor Token (Section 8.2)
     public string? Cursor { get; set; }

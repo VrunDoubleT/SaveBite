@@ -35,6 +35,15 @@ public static class DatabaseExtensions
         var auditContext = scope.ServiceProvider.GetRequiredService<IAuditContext>();
         auditContext.Enabled = false;
 
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS unaccent;", ct);
+        }
+        catch
+        {
+            // Ignore if already exists or permission denied
+        }
+
         await context.Database.MigrateAsync(ct);
         await DbSeeder.SeedAsync(context);
         await PlatformFeeDefaults.EnsureAsync(context, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);

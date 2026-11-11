@@ -45,6 +45,10 @@ export interface NearbyStoresMapSectionProps {
   onSelectDefaultLocation?: () => void;
   hasDefaultAddress?: boolean;
   userDefaultAddressLabel?: string | null;
+  searchKeyword?: string;
+  category?: string;
+  distance?: string;
+  selectedShop?: string | null;
 }
 
 // Module cache to avoid blank flash on back navigation
@@ -54,7 +58,7 @@ export function NearbyStoresMapSection({
   focusShop,
   latitude,
   longitude,
-  radiusInKm = 10,
+  radiusInKm = 5,
   isLocationReady = false,
   locationMode,
   locationLabel,
@@ -65,6 +69,10 @@ export function NearbyStoresMapSection({
   onSelectSavedAddress,
   onSelectDefaultLocation,
   userDefaultAddressLabel,
+  searchKeyword,
+  category,
+  distance,
+  selectedShop: propSelectedShop,
 }: NearbyStoresMapSectionProps) {
   const [shops, setShops] = useState<NearbyShop[]>(() => cachedNearbyShops);
   const [isLoading, setIsLoading] = useState(false);
@@ -79,10 +87,47 @@ export function NearbyStoresMapSection({
   const [routeError, setRouteError] = useState<string | null>(null);
   const [showStepDetails, setShowStepDetails] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
-
   const [searchText, setSearchText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
   const shopsAbortRef = useRef<AbortController | null>(null);
+  const hasInitialFittedRef = useRef(false);
+  const flashDealDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Real-time store search with 300ms debounce (no need to press search button)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const nextQuery = searchText.trim();
+      if (nextQuery !== searchQuery) {
+        setSelectedShop(null);
+        setRouteResult(null);
+        setRouteError(null);
+        routeAbortControllerRef.current?.abort();
+        if (routePolylineRef.current && mapInstanceRef.current) {
+          mapInstanceRef.current.removeLayer(routePolylineRef.current);
+          routePolylineRef.current = null;
+        }
+        hasInitialFittedRef.current = false;
+        setSearchQuery(nextQuery);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchText, searchQuery]);
+
+  const handleClearSearch = () => {
+    setSearchText("");
+    setSearchQuery("");
+    setSelectedShop(null);
+    setRouteResult(null);
+    setRouteError(null);
+    routeAbortControllerRef.current?.abort();
+    if (routePolylineRef.current && mapInstanceRef.current) {
+      mapInstanceRef.current.removeLayer(routePolylineRef.current);
+      routePolylineRef.current = null;
+    }
+    hasInitialFittedRef.current = false;
+  };
 
 
   // Filter mode: "all" stores vs "deals_only"
@@ -92,7 +137,14 @@ export function NearbyStoresMapSection({
     () => cachedNearbyShops.filter((s) => (s.flashDealCount ?? 0) > 0).length,
   );
 
-  const filteredShops = !searchQuery && storeFilter === "all" && focusShop && !shops.some((shop) => shop.id === focusShop.id) ? [...shops, focusShop] : shops;
+  const effectiveRadius = radiusInKm ?? 5;
+  const filteredShops = (!searchQuery && storeFilter === "all" && focusShop && !shops.some((shop) => shop.id === focusShop.id) ? [...shops, focusShop] : shops)
+    .filter((shop) => {
+      if (shop.distanceInKm != null && shop.distanceInKm > 0) {
+        return shop.distanceInKm <= effectiveRadius;
+      }
+      return true;
+    });
   const appliedFocusRef = useRef<string | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -119,13 +171,17 @@ export function NearbyStoresMapSection({
       setError(null);
       const activeFilter = filterOverride ?? storeFilter;
       try {
+        const effectiveKeyword = (searchQuery?.trim() || searchKeyword?.trim()) || undefined;
         const res = await shopApi.getNearbyShops({
           latitude: isSavedAddress ? undefined : (targetLat ?? undefined),
           longitude: isSavedAddress ? undefined : (targetLng ?? undefined),
-          radiusInKm: Math.min(radiusInKm, 10),
+          radiusInKm: Math.min(radiusInKm ?? 5, 50),
           page: 1,
           pageSize: 50,
-          keyword: searchQuery || undefined,
+          keyword: effectiveKeyword,
+          category: category || undefined,
+          distance: distance || undefined,
+          shopName: propSelectedShop || undefined,
           onlyWithFlashDeals: activeFilter === "deals_only",
         }, controller.signal);
         if (controller.signal.aborted) return;
@@ -142,7 +198,7 @@ export function NearbyStoresMapSection({
         } else {
           setDealsStoresCount(list.filter((s) => (s.flashDealCount ?? 0) > 0).length);
         }
-        if (activeFilter === "all" && !searchQuery) {
+        if (activeFilter === "all") {
           cachedNearbyShops = list;
         }
       } catch {
@@ -151,7 +207,7 @@ export function NearbyStoresMapSection({
         if (!controller.signal.aborted) setIsLoading(false);
       }
     },
-    [isLocationReady, latitude, longitude, locationMode, radiusInKm, storeFilter, searchQuery],
+    [isLocationReady, latitude, longitude, locationMode, radiusInKm, storeFilter, searchQuery, searchKeyword, category, distance, propSelectedShop],
   );
 
   const handleFilterChange = (filter: "all" | "deals_only") => {
@@ -177,7 +233,7 @@ export function NearbyStoresMapSection({
       }
     }
     return () => shopsAbortRef.current?.abort();
-  }, [isLocationReady, latitude, longitude, locationMode, locationVersion, radiusInKm, fetchShops]);
+  }, [isLocationReady, latitude, longitude, locationMode, locationVersion, radiusInKm, searchKeyword, category, distance, propSelectedShop, fetchShops]);
 
   // Real-time update: remove suspended store marker and selection from map
   useEffect(() => {
@@ -217,6 +273,91 @@ export function NearbyStoresMapSection({
 
     window.addEventListener("shop:status-changed", handleShopStatus);
     return () => window.removeEventListener("shop:status-changed", handleShopStatus);
+  }, [latitude, longitude, fetchShops]);
+
+  // Real-time update: un-dim / dim store markers and update deal counts when flash deals are created/opened/closed
+  useEffect(() => {
+    const handleFlashDealChanged = (e: Event) => {
+      const detail = (e as CustomEvent<any>).detail;
+      if (!detail) return;
+
+      const rawShopId = detail.shopId || detail.ShopId;
+      const targetShopId = rawShopId ? String(rawShopId).toLowerCase() : null;
+      const action = (detail.action || detail.Action || "").toLowerCase();
+      const status = (detail.status || detail.Status || "").toLowerCase();
+
+      const isRemoval =
+        action === "closed" ||
+        action === "cancelled" ||
+        action === "hidden" ||
+        status === "closed" ||
+        status === "cancelled" ||
+        status === "hidden";
+      const isOpening =
+        action === "opened" ||
+        action === "created" ||
+        status === "onsale" ||
+        status === "pending";
+
+      // 1. Immediately update local store flashDealCount so marker opacity/badge/filter updates in real-time
+      if (targetShopId) {
+        setShops((prev) => {
+          let updated = false;
+          const next = prev.map((s) => {
+            const currentId = ((s.id || (s as any).shopId) as string)?.toLowerCase();
+            if (currentId === targetShopId) {
+              updated = true;
+              const currentCount = s.flashDealCount ?? 0;
+              let nextCount = currentCount;
+              if (isOpening) {
+                nextCount = currentCount > 0 ? currentCount + 1 : 1;
+              } else if (isRemoval) {
+                nextCount = Math.max(0, currentCount - 1);
+              }
+              return { ...s, flashDealCount: nextCount };
+            }
+            return s;
+          });
+          if (updated) {
+            cachedNearbyShops = next;
+            return next;
+          }
+          return prev;
+        });
+
+        setSelectedShop((prev) => {
+          if (!prev) return null;
+          const prevId = ((prev.id || (prev as any).shopId) as string)?.toLowerCase();
+          if (prevId !== targetShopId) return prev;
+          const currentCount = prev.flashDealCount ?? 0;
+          let nextCount = currentCount;
+          if (isOpening) {
+            nextCount = currentCount > 0 ? currentCount + 1 : 1;
+          } else if (isRemoval) {
+            nextCount = Math.max(0, currentCount - 1);
+          }
+          return { ...prev, flashDealCount: nextCount };
+        });
+      }
+
+      // 2. Debounce background fetch to ensure store counts & list stay 100% in sync
+      if (flashDealDebounceRef.current) {
+        clearTimeout(flashDealDebounceRef.current);
+      }
+      flashDealDebounceRef.current = setTimeout(() => {
+        if (latitude != null && longitude != null) {
+          void fetchShops(latitude, longitude);
+        }
+      }, 400);
+    };
+
+    window.addEventListener("flashdeal:changed", handleFlashDealChanged);
+    return () => {
+      window.removeEventListener("flashdeal:changed", handleFlashDealChanged);
+      if (flashDealDebounceRef.current) {
+        clearTimeout(flashDealDebounceRef.current);
+      }
+    };
   }, [latitude, longitude, fetchShops]);
 
   // 2. Initialize VietMap Leaflet map instance ONCE (never destroy on prop change, only on unmount)
@@ -372,6 +513,7 @@ export function NearbyStoresMapSection({
       prev.mode !== locationMode;
 
     if (locationChanged) {
+      hasInitialFittedRef.current = false;
       lastLocationRef.current = { lat: latitude, lng: longitude, mode: locationMode };
       if (routeAbortControllerRef.current) {
         routeAbortControllerRef.current.abort();
@@ -400,17 +542,33 @@ export function NearbyStoresMapSection({
         });
     }
 
+    const radiusMeters = (radiusInKm ?? 5) * 1000;
+
     if (userCircleRef.current) {
       userCircleRef.current.setLatLng(userLatLng);
-      userCircleRef.current.setStyle({ color: primaryColor });
+      userCircleRef.current.setStyle({
+        color: primaryColor,
+        weight: 2,
+        fill: false,
+        fillOpacity: 0,
+      });
+      userCircleRef.current.setRadius(radiusMeters);
+      userCircleRef.current.setTooltipContent(`Search radius: ${radiusInKm ?? 5} km`);
     } else {
       userCircleRef.current = L.circle(userLatLng, {
-        radius: 120,
+        radius: radiusMeters,
         color: primaryColor,
-        weight: 1.5,
-        fillOpacity: 0.08,
+        weight: 2,
+        fill: false,
+        fillOpacity: 0,
         interactive: false,
-      }).addTo(map);
+      })
+        .addTo(map)
+        .bindTooltip(`Search radius: ${radiusInKm ?? 5} km`, {
+          permanent: false,
+          direction: "center",
+          className: "font-semibold text-xs shadow-md rounded-lg px-2.5 py-1",
+        });
     }
   }, [
     isMapReady,
@@ -420,6 +578,7 @@ export function NearbyStoresMapSection({
     userDefaultAddressLabel,
     locationLabel,
     locationAddress,
+    radiusInKm,
   ]);
 
   // 3. Render circular avatar markers
@@ -554,18 +713,28 @@ export function NearbyStoresMapSection({
       });
     }
 
-    // Smoothly fit bounds when no store is selected
-    if (!selectedShop) {
-      if (boundsPoints.length > 1) {
+    // Smoothly fit bounds when no store is selected (on initial load, search, or radius change)
+    const shouldFit = !selectedShop && (!hasInitialFittedRef.current || searchQuery);
+    if (shouldFit) {
+      if (userCircleRef.current) {
+        const circleBounds = userCircleRef.current.getBounds();
+        map.fitBounds(circleBounds, {
+          padding: [25, 25],
+          maxZoom: 15,
+        });
+        hasInitialFittedRef.current = true;
+      } else if (boundsPoints.length > 1) {
         map.fitBounds(L.latLngBounds(boundsPoints), {
           padding: [50, 50],
           maxZoom: 15,
         });
+        hasInitialFittedRef.current = true;
       } else if (latitude != null && longitude != null) {
         map.flyTo([latitude, longitude], 14, { animate: true, duration: 0.8 });
+        hasInitialFittedRef.current = true;
       }
     }
-  }, [isMapReady, filteredShops, selectedShop, latitude, longitude]);
+  }, [isMapReady, filteredShops, selectedShop, latitude, longitude, radiusInKm]);
 
   // 4. Handle shop selection
   const handleSelectShop = (shop: NearbyShop) => {
@@ -694,7 +863,12 @@ export function NearbyStoresMapSection({
     const L = (window as any).L;
     if (!map || !L) return;
 
-    const points: [number, number][] = shops
+    if (userCircleRef.current) {
+      map.fitBounds(userCircleRef.current.getBounds(), { padding: [25, 25], maxZoom: 15 });
+      return;
+    }
+
+    const points: [number, number][] = filteredShops
       .filter((s) => s.latitude && s.longitude)
       .map((s) => [s.latitude, s.longitude]);
     if (latitude != null && longitude != null) {
@@ -747,39 +921,52 @@ export function NearbyStoresMapSection({
         </div>
       </div>
 
-      <form className="mb-4 flex items-start gap-2" onSubmit={(event) => {
-        event.preventDefault();
-        const nextQuery = searchText.trim();
-        setSelectedShop(null);
-        setRouteResult(null);
-        setRouteError(null);
-        routeAbortControllerRef.current?.abort();
-        if (routePolylineRef.current && mapInstanceRef.current) {
-          mapInstanceRef.current.removeLayer(routePolylineRef.current);
-          routePolylineRef.current = null;
-        }
-        if (nextQuery === searchQuery) void fetchShops(latitude, longitude);
-        else setSearchQuery(nextQuery);
-      }}>
-      <label className="relative block min-w-0 flex-1">
-        <span className="sr-only">Search nearby stores by name</span>
-        <Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-text-muted" aria-hidden="true" />
-        <input
-          type="search"
-          value={searchText}
-          maxLength={120}
-          placeholder="Search stores by name…"
-          onChange={(event) => setSearchText(event.target.value)}
-          onBlur={(event) => {
-            if (!event.currentTarget.value.trim() && searchQuery) {
-              setSearchText("");
-              setSearchQuery("");
-            }
-          }}
-          className="min-h-11 w-full rounded-md border border-border-default bg-bg-surface pl-10 pr-3 text-body text-text-primary focus-visible:outline-2 focus-visible:outline-primary-700"
-        />
-      </label>
-      <Button type="submit" className="min-h-11" loading={isLoading}>Search</Button>
+
+
+            <form
+        className="mb-4 flex items-center gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const nextQuery = searchText.trim();
+          setSelectedShop(null);
+          setRouteResult(null);
+          setRouteError(null);
+          routeAbortControllerRef.current?.abort();
+          if (routePolylineRef.current && mapInstanceRef.current) {
+            mapInstanceRef.current.removeLayer(routePolylineRef.current);
+            routePolylineRef.current = null;
+          }
+          hasInitialFittedRef.current = false;
+          if (nextQuery === searchQuery) {
+            void fetchShops(latitude, longitude);
+          } else {
+            setSearchQuery(nextQuery);
+          }
+        }}
+      >
+        <label className="relative block min-w-0 flex-1">
+          <span className="sr-only">Search nearby stores by name</span>
+          <Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-text-muted" aria-hidden="true" />
+          <input
+            type="search"
+            value={searchText}
+            maxLength={120}
+            placeholder="Search stores by name…"
+            onChange={(event) => setSearchText(event.target.value.normalize("NFC"))}
+            className="min-h-11 w-full rounded-md border border-border-default bg-bg-surface pl-10 pr-9 text-body text-text-primary focus-visible:outline-2 focus-visible:outline-primary-700"
+          />
+          {searchText && (
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              className="absolute right-2.5 top-2.5 p-1 text-text-muted hover:text-text-primary transition-colors"
+              aria-label="Clear search"
+              title="Clear search"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </label>
       </form>
 
       {!isLoading && !error && searchQuery && shops.length === 0 && (
@@ -882,6 +1069,14 @@ export function NearbyStoresMapSection({
             <span>{error}</span>
           </div>
         )}
+
+        {/* Active Radius Badge on Map */}
+        <div className="absolute top-3.5 left-3.5 z-10 pointer-events-none">
+          <div className="flex items-center gap-1.5 rounded-full border border-primary-200/90 bg-white/95 px-3 py-1 text-[11px] font-bold text-primary-800 shadow-sm backdrop-blur-md">
+            <span className="size-2 rounded-full bg-primary-600 animate-pulse" />
+            <span>Radius: {radiusInKm ?? 5} km</span>
+          </div>
+        </div>
 
         {/* Interaction Hint */}
         {!selectedShop && (

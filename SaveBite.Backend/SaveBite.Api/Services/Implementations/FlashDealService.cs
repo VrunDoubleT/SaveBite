@@ -135,7 +135,19 @@ public sealed class FlashDealService : IFlashDealService
         if (!double.IsFinite(request.RadiusInKm) || request.RadiusInKm <= 0)
             throw AppException.BadRequest("Radius must be greater than zero.");
         request.Limit = Math.Clamp(request.Limit, 1, 100);
-        var radius = Math.Min(request.RadiusInKm, 50);
+        var radius = Math.Min(request.RadiusInKm <= 0 ? 5.0 : request.RadiusInKm, 50.0);
+        if (!string.IsNullOrWhiteSpace(request.Distance))
+        {
+            var distanceRules = (request.Distance ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (distanceRules.Length > 0)
+            {
+                if (distanceRules.Any(r => r.Contains("2km", StringComparison.OrdinalIgnoreCase))) radius = Math.Max(radius, 2.0);
+                if (distanceRules.Any(r => r.Contains("5km", StringComparison.OrdinalIgnoreCase))) radius = Math.Max(radius, 5.0);
+                if (distanceRules.Any(r => r.Contains("10km", StringComparison.OrdinalIgnoreCase))) radius = Math.Max(radius, 10.0);
+                if (distanceRules.Any(r => r.Contains("20km", StringComparison.OrdinalIgnoreCase))) radius = Math.Max(radius, 20.0);
+                if (distanceRules.Any(r => r.Contains("50km", StringComparison.OrdinalIgnoreCase))) radius = Math.Max(radius, 50.0);
+            }
+        }
 
         // Section 8.2 & 8.4: Keyset Cursor & Snapshot Handling
         DateTime snapshotAt = DateTime.UtcNow;
@@ -185,16 +197,6 @@ public sealed class FlashDealService : IFlashDealService
                 * Math.Pow(Math.Sin((shop.Longitude - longitude) * Math.PI / 360), 2))))
         }).Where(shop => shop.Distance <= radius);
 
-        var distanceRules = (request.Distance ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (distanceRules.Length > 0)
-        {
-            var under2 = distanceRules.Contains("Under 2km", StringComparer.OrdinalIgnoreCase);
-            var under5 = distanceRules.Contains("Under 5km", StringComparer.OrdinalIgnoreCase);
-            var over5 = distanceRules.Contains("Over 5km", StringComparer.OrdinalIgnoreCase)
-                || distanceRules.Contains("Over 5km - 10km", StringComparer.OrdinalIgnoreCase);
-            nearbyShops = nearbyShops.Where(shop => (under2 && shop.Distance < 2)
-                || (under5 && shop.Distance < 5) || (over5 && shop.Distance >= 5 && shop.Distance <= 10));
-        }
         query = query.Where(d => nearbyShops.Select(shop => shop.Id).Contains(d.ShopId));
         if (userId.HasValue)
         {
@@ -202,20 +204,34 @@ public sealed class FlashDealService : IFlashDealService
         }
         if (!string.IsNullOrWhiteSpace(request.Keyword))
         {
-            var kw = request.Keyword.Trim().ToLowerInvariant();
-            query = query.Where(d => d.Product.Name.ToLower().Contains(kw) || d.Shop.Name.ToLower().Contains(kw)
-                || (d.Product.Description != null && d.Product.Description.ToLower().Contains(kw)));
+            var rawKw = VietnameseTextHelper.NormalizeNfc(request.Keyword).ToLowerInvariant();
+            var cleanKw = VietnameseTextHelper.RemoveDiacritics(request.Keyword);
+            query = query.Where(d =>
+                EF.Functions.ILike(d.Product.Name, $"%{rawKw}%")
+                || EF.Functions.ILike(EF.Functions.Unaccent(d.Product.Name), $"%{cleanKw}%")
+                || (d.Product.Description != null && (
+                    EF.Functions.ILike(d.Product.Description, $"%{rawKw}%")
+                    || EF.Functions.ILike(EF.Functions.Unaccent(d.Product.Description), $"%{cleanKw}%"))));
         }
         if (!string.IsNullOrWhiteSpace(request.Category))
         {
-            var categories = request.Category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(value => value.ToLowerInvariant()).ToArray();
-            if (categories.Length > 0) query = query.Where(d => categories.Contains(d.Product.Category.Name.ToLower()));
+            var rawCategories = request.Category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(value => VietnameseTextHelper.NormalizeNfc(value).ToLowerInvariant()).ToArray();
+            var unaccentCategories = request.Category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(value => VietnameseTextHelper.RemoveDiacritics(value)).ToArray();
+
+            if (rawCategories.Length > 0)
+            {
+                query = query.Where(d => rawCategories.Contains(d.Product.Category.Name.ToLower())
+                    || unaccentCategories.Contains(EF.Functions.Unaccent(d.Product.Category.Name).ToLower()));
+            }
         }
         if (!string.IsNullOrWhiteSpace(request.ShopName))
         {
-            var name = request.ShopName.Trim().ToLowerInvariant();
-            query = query.Where(d => d.Shop.Name.ToLower() == name);
+            var rawName = VietnameseTextHelper.NormalizeNfc(request.ShopName).ToLowerInvariant();
+            var cleanName = VietnameseTextHelper.RemoveDiacritics(request.ShopName);
+            query = query.Where(d => d.Shop.Name.ToLower() == rawName
+                || EF.Functions.Unaccent(d.Shop.Name).ToLower() == cleanName);
         }
         var priceRules = (request.Price ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (priceRules.Length > 0)
@@ -254,7 +270,7 @@ public sealed class FlashDealService : IFlashDealService
                 Latitude = latitude,
                 Longitude = longitude,
                 LocationMode = request.LocationMode,
-                FilterHash = $"{request.RadiusInKm}:{request.Category}:{request.Price}:{request.Distance}:{request.ShopName}"
+                FilterHash = $"{request.RadiusInKm}:{request.Keyword}:{request.Category}:{request.Price}:{request.Distance}:{request.ShopName}"
             });
         }
 
@@ -960,7 +976,7 @@ public sealed class FlashDealService : IFlashDealService
             remainingDuration = TimeSpan.FromMinutes(5);
         }
 
-        // 2. Resume timing: start NOW, end at NOW + remainingDuration (Bảo lưu thời lượng còn lại)
+        // 2. Resume timing: start NOW, end at NOW + remainingDuration (Preserve remaining duration)
         var pickupBuffer = deal.ShopClosingTime > deal.OrderEndTime
             ? deal.ShopClosingTime - deal.OrderEndTime
             : TimeSpan.FromMinutes(30);

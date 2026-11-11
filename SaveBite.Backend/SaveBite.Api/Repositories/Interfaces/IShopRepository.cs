@@ -5,7 +5,7 @@ namespace SaveBite.Backend.Repositories.Interfaces;
 public interface IShopRepository
 {
     Task<Shop?> GetShopByOwnerUserIdAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
-    Task<List<Shop>> GetActiveShopsAsync(string? keyword, CancellationToken cancellationToken = default);
+    Task<List<Shop>> GetActiveShopsAsync(string? keyword, string? category = null, string? shopName = null, CancellationToken cancellationToken = default);
     Task<Shop?> GetActiveShopByIdAsync(Guid shopId, CancellationToken cancellationToken = default);
     Task<bool> ShopExistsAsync(Guid shopId, CancellationToken cancellationToken = default);
 

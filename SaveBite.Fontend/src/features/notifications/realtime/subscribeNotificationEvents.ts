@@ -11,9 +11,28 @@ import type {
 export function subscribeNotificationEvents(client: ReturnType<typeof createRealtimeClient>) {
   const offReceived = client.on(REALTIME_EVENTS.NOTIFICATION_RECEIVED, (event) => {
     const payload = event.data as NotificationRealtimePayload;
-    useNotificationStore.getState().onNotificationReceived(payload);
-    // Realtime invalidate feedback when feedback notification arrives (e.g. FeedbackRemovedByAdmin = 31)
     const notiType = payload?.notification?.type;
+
+    const isFlashDealNotification =
+      notiType === 17 ||
+      notiType === "FlashDealAvailable" ||
+      String(notiType).toUpperCase() === "FLASHDEALAVAILABLE";
+
+    const isCustomerOnHomePage =
+      typeof window !== "undefined" &&
+      (window.location.pathname === "/" ||
+        window.location.pathname === "" ||
+        window.location.pathname === "/home");
+
+    // On home page, useNearbyFlashDeals validates the active category filter
+    // and handles the bell notification directly with exact filter matching.
+    if (isFlashDealNotification && isCustomerOnHomePage) {
+      return;
+    }
+
+    useNotificationStore.getState().onNotificationReceived(payload);
+
+    // Realtime invalidate feedback when feedback notification arrives
     if (
       notiType === 31 ||
       notiType === 25 ||

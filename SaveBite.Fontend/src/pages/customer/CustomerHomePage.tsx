@@ -1,6 +1,8 @@
 import { useAuthStore } from "@/shared/stores/authStore";
 import { CustomerSuspensionBanner } from "@/shared/components/CustomerSuspensionBanner";
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { APP_PATHS } from "@/app/router/paths";
 import { useHomePreferencesStore } from "@/features/shops/stores/homePreferencesStore";
 import {
   SlidersHorizontal,
@@ -14,13 +16,15 @@ import {
   Pause,
   Play,
 } from "lucide-react";
-import { Badge, Button, ErrorState } from "@/shared/components/ui";
-import { useNearbyFlashDeals } from "@/features/flash-deals/hooks/useNearbyFlashDeals";
+import { Badge, Button, ErrorState, ScrollToTopButton } from "@/shared/components/ui";
+import { NewDealAlertToast } from "@/features/flash-deals/components/NewDealAlertToast";
+import { useNearbyFlashDeals, cleanAddressParts } from "@/features/flash-deals/hooks/useNearbyFlashDeals";
 import { FilterSidebar } from "@/features/flash-deals/components/FilterSidebar";
 import { DealSection } from "@/features/flash-deals/components/DealSection";
 import { NearbyStoresBrowser } from "@/features/shops/components/NearbyStoresBrowser";
 
 export function CustomerHomePage() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const customerSuspended = useAuthStore(
     (state) => state.isAuthenticated && state.user?.customerStatus === "suspended",
   );
@@ -72,6 +76,22 @@ export function CustomerHomePage() {
     filters.distance.length +
     filters.price.length +
     (selectedShop ? 1 : 0);
+
+  const isCategoryMismatch = Boolean(
+    !isLoading &&
+    deals.length === 0 &&
+    searchKeyword.trim().length > 0 &&
+    filters.category.length > 0
+  );
+
+  const defaultAddressText = userDefaultAddress
+    ? cleanAddressParts([
+        userDefaultAddress.addressLine,
+        userDefaultAddress.ward,
+        userDefaultAddress.district,
+        userDefaultAddress.city,
+      ]) || userDefaultAddress.addressLine
+    : "";
 
   if (!isLocationReady) {
     return (
@@ -128,18 +148,35 @@ export function CustomerHomePage() {
                       : "Use my location"}
                   {!isGpsLoading && <ArrowRight className="size-4" aria-hidden="true" />}
                 </Button>
-                {userDefaultAddress && (
+
+                {isAuthenticated && userDefaultAddress && (
                   <Button
                     size="lg"
-                    variant="secondary"
-                    className="min-h-11 rounded-full border border-slate-200 bg-white/80 px-4 sm:min-h-13"
-                    onClick={selectSavedAddress}
+                    className="min-h-11 rounded-full bg-primary-700 px-5 text-white shadow-lg shadow-primary-700/25 hover:bg-primary-800 sm:min-h-13 sm:px-7"
+                    onClick={() => selectSavedAddress(userDefaultAddress)}
+                    title={defaultAddressText}
                   >
                     <Home className="size-4 shrink-0" aria-hidden="true" />
-                    Use saved address
+                    Use my default address
+                    <ArrowRight className="size-4" aria-hidden="true" />
                   </Button>
                 )}
               </div>
+
+
+              {/* If authenticated but no default address saved yet */}
+              {isAuthenticated && !userDefaultAddress && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-slate-600">
+                  <Home className="size-4 shrink-0 text-slate-400" />
+                  <span>No default address saved.</span>
+                  <Link
+                    to={APP_PATHS.ACCOUNT_PROFILE}
+                    className="font-semibold text-primary-700 underline hover:text-primary-800"
+                  >
+                    Add one in your profile
+                  </Link>
+                </div>
+              )}
               <p className="mt-2 max-w-md text-[11px] leading-4 text-slate-600 sm:mt-3 sm:text-xs sm:leading-5">
                 Allow location access in your browser to use GPS. You can change your browsing
                 location later.
@@ -341,6 +378,10 @@ export function CustomerHomePage() {
                   userDefaultAddressLabel={
                     userDefaultAddress?.label || userDefaultAddress?.addressLine
                   }
+                  searchKeyword={searchKeyword}
+                  category={filters.category.length > 0 ? filters.category.join(",") : undefined}
+                  distance={filters.distance.length > 0 ? filters.distance.join(",") : undefined}
+                  selectedShop={selectedShop}
                 />
               </div>
             )}
@@ -376,6 +417,7 @@ export function CustomerHomePage() {
               categories={categories}
               isLoadingCategories={isLoadingCategories}
               isSearching={Boolean(searchKeyword && searchKeyword.trim().length > 0)}
+              isCategoryMismatch={isCategoryMismatch}
             />
           </div>
           <div className="min-w-0">
@@ -397,16 +439,11 @@ export function CustomerHomePage() {
                 hasOlder={hasOlder}
                 isLoadingOlder={isLoadingOlder}
                 onLoadOlder={loadOlderDeals}
-                newDealsCount={newDealsCount}
-                onApplyNewDeals={applyNewDeals}
                 searchKeyword={searchKeyword}
-                onSearchChange={(kw) => {
-                  setSearchKeyword(kw);
-                  if (kw.trim() && filters.category.length > 0) {
-                    setFilters((prev) => ({ ...prev, category: [] }));
-                  }
-                }}
+                onSearchChange={setSearchKeyword}
                 onClearSearch={clearSearch}
+                selectedCategories={filters.category}
+                onClearCategory={() => setFilters((prev) => ({ ...prev, category: [] }))}
                 locationAddress={locationAddress || locationLabel}
                 locationMode={locationMode}
               />
@@ -414,6 +451,24 @@ export function CustomerHomePage() {
           </div>
         </div>
       </div>
+
+      {/* Floating Real-time New Deal Notifier Alert */}
+      <NewDealAlertToast
+        newDealsCount={newDealsCount}
+        onViewNewDeals={() => {
+          applyNewDeals();
+          setTimeout(() => {
+            const heading = document.getElementById("flash-deals-heading");
+            if (heading) {
+              const targetPos = heading.getBoundingClientRect().top + window.scrollY - 80;
+              window.scrollTo({ top: Math.max(0, targetPos), behavior: "smooth" });
+            }
+          }, 50);
+        }}
+      />
+
+      {/* Floating Scroll to Top Button */}
+      <ScrollToTopButton />
     </div>
   );
 }

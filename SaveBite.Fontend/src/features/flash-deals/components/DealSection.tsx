@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
-import { Flame, RefreshCw, Sparkles, Search, X } from "lucide-react";
+import { Flame, RefreshCw, Search, X } from "lucide-react";
 import { DealGrid } from "@/features/flash-deals/components/DealGrid";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
-import { Badge, Button, IconButton, Input } from "@/shared/components/ui";
+import { Button, IconButton, Input } from "@/shared/components/ui";
 
 interface DealSectionProps {
   deals: FlashDeal[];
@@ -13,11 +13,11 @@ interface DealSectionProps {
   hasOlder?: boolean;
   isLoadingOlder?: boolean;
   onLoadOlder?: () => void;
-  newDealsCount?: number;
-  onApplyNewDeals?: () => void;
   searchKeyword?: string;
   onSearchChange?: (kw: string) => void;
   onClearSearch?: () => void;
+  selectedCategories?: string[];
+  onClearCategory?: () => void;
   locationAddress?: string | null;
   locationMode?: "gps" | "saved_address" | "default" | null;
 }
@@ -30,16 +30,23 @@ export function DealSection({
   hasOlder = false,
   isLoadingOlder = false,
   onLoadOlder,
-  newDealsCount = 0,
-  onApplyNewDeals,
   searchKeyword = "",
   onSearchChange,
   onClearSearch,
+  selectedCategories = [],
+  onClearCategory,
   locationAddress,
   locationMode,
 }: DealSectionProps) {
   const observerRef = useRef<HTMLDivElement | null>(null);
   const isTriggeringRef = useRef(false);
+
+  const isCategoryMismatch = Boolean(
+    !isLoading &&
+    deals.length === 0 &&
+    searchKeyword.trim().length > 0 &&
+    selectedCategories.length > 0
+  );
 
   useEffect(() => {
     isTriggeringRef.current = false;
@@ -126,8 +133,8 @@ export function DealSection({
             id="flash-deal-search"
             type="search"
             value={searchKeyword}
-            onChange={(event) => onSearchChange?.(event.target.value)}
-            placeholder="Search food, stores, or a favorite bite"
+            onChange={(event) => onSearchChange?.(event.target.value.normalize("NFC"))}
+            placeholder="Search food or a favorite bite"
             className="min-h-12 pl-12 pr-12 [&::-webkit-search-cancel-button]:appearance-none"
           />
           {searchKeyword && (
@@ -145,26 +152,41 @@ export function DealSection({
             Results for <strong className="text-text-primary">“{searchKeyword}”</strong>
           </p>
         )}
+        {isCategoryMismatch && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-caption text-amber-900 shadow-sm animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <span className="text-base" aria-hidden="true">⚠️</span>
+              <span>
+                No items match keyword <strong>“{searchKeyword}”</strong> in category <strong>{selectedCategories.map((c) => `“${c}”`).join(", ")}</strong>.
+              </span>
+            </div>
+            {onClearCategory && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClearCategory}
+                className="h-8 px-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+              >
+                Clear category filter
+              </Button>
+            )}
+          </div>
+        )}
       </div>
-      {newDealsCount > 0 && onApplyNewDeals && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 p-4">
-          <p role="status" className="flex items-center gap-2 text-body text-primary-700">
-            <Sparkles className="size-4 shrink-0" aria-hidden="true" />
-            <Badge tone="primary">{newDealsCount} new deals</Badge>Ready to discover
-          </p>
-          <Button onClick={onApplyNewDeals}>Show new deals</Button>
-        </div>
-      )}
       <DealGrid
         deals={deals}
         isLoading={isLoading}
+        isCategoryMismatch={isCategoryMismatch}
         emptyMessage={
-          searchKeyword
-            ? `Nothing matches “${searchKeyword}”. Try another food or store, or clear your filters.`
-            : emptyMessage
+          isCategoryMismatch
+            ? `Keyword “${searchKeyword}” has no items in category ${selectedCategories.map((c) => `“${c}”`).join(", ")} within the current radius. You can clear the category filter or try another keyword.`
+            : searchKeyword
+              ? `Nothing matches “${searchKeyword}”. Try another food or store, or clear your filters.`
+              : emptyMessage
         }
         onRefresh={onRefresh}
         onClearSearch={searchKeyword ? onClearSearch : undefined}
+        onClearCategory={selectedCategories.length > 0 ? onClearCategory : undefined}
       />
       {!isLoading && deals.length > 0 && (
         <div className="flex justify-center border-t border-border-default pt-5">

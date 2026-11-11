@@ -53,7 +53,10 @@ export function NotificationBell() {
   const dismissLivePreview = useNotificationStore((state) => state.dismissLivePreview);
 
   useEffect(() => {
-    void fetchNotifications();
+    const timer = setTimeout(() => {
+      void fetchNotifications();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchNotifications]);
 
   useEffect(() => {

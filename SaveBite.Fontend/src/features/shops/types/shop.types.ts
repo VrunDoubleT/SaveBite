@@ -99,6 +99,9 @@ export interface NearbyShopsRequest {
   longitude?: number;
   radiusInKm?: number;
   keyword?: string;
+  category?: string;
+  shopName?: string;
+  distance?: string;
   onlyOpen?: boolean;
   onlyWithFlashDeals?: boolean;
   hasFlashDeals?: boolean;

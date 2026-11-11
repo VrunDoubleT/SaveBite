@@ -15,6 +15,33 @@ export interface FlashDealRealtimePayload {
   action?: string;
   status?: string;
   visibilityVersion?: number;
+  DealId?: string;
+  ShopId?: string;
+  Action?: string;
+  Status?: string;
+  VisibilityVersion?: number;
+}
+
+interface ShopStatusEventData {
+  shopId?: string;
+  ShopId?: string;
+  status?: string;
+  Status?: string;
+  isBlocked?: boolean;
+  IsBlocked?: boolean;
+}
+
+interface FeedbackEventData {
+  action?: string;
+  Action?: string;
+  feedbackId?: string;
+  FeedbackId?: string;
+  shopId?: string;
+  ShopId?: string;
+  productId?: string;
+  ProductId?: string;
+  rating?: number;
+  Rating?: number;
 }
 
 // Public pages keep their subscription even when the deal becomes unavailable.
@@ -65,32 +92,50 @@ export function useFlashDealRealtime(
         hasJoinedOnce = true;
       }
     };
-    connection.on("ReceiveEvent", (event: RealtimeEvent<any>) => {
+    connection.on("ReceiveEvent", (event: RealtimeEvent<unknown>) => {
       if (event.version !== 1) return;
       if (event.type === "flashdeal.changed") {
         const payload = event.data as FlashDealRealtimePayload | undefined;
+        window.dispatchEvent(new CustomEvent("flashdeal:changed", { detail: payload }));
         if (kind === "all") {
-          const act = payload?.action?.toLowerCase();
-          const st = payload?.status?.toLowerCase();
-          // Hidden / Closed / Cancelled deals must be dropped from active feed immediately without delay!
-          if (act === "hidden" || st === "hidden" || act === "closed" || st === "closed" || act === "cancelled" || st === "cancelled") {
+          const rawAction = payload?.action ?? payload?.Action;
+          const act = rawAction ? String(rawAction).toLowerCase() : undefined;
+          const rawStatus = payload?.status ?? payload?.Status;
+          const st = rawStatus ? String(rawStatus).toLowerCase() : undefined;
+
+          // Hidden / Closed / Cancelled hoặc Opened / Reopened -> gọi trực tiếp callback không bị lag
+          if (
+            act === "hidden" ||
+            st === "hidden" ||
+            act === "closed" ||
+            st === "closed" ||
+            act === "cancelled" ||
+            st === "cancelled" ||
+            act === "opened" ||
+            act === "published" ||
+            act === "reopened" ||
+            st === "onsale"
+          ) {
             if (!stopped) callback.current(payload);
           } else {
             refreshSoon(payload);
           }
           return;
         }
-        const receivedId = kind === "shop" ? payload?.shopId : payload?.dealId;
+        const rawDealId = payload?.dealId ?? payload?.DealId;
+        const rawShopId = payload?.shopId ?? payload?.ShopId;
+        const receivedId = kind === "shop" ? rawShopId : rawDealId;
         if (
           (id && receivedId?.toLowerCase() === id.toLowerCase()) ||
-          (kind === "deal" && id && payload?.dealId?.toLowerCase() === id.toLowerCase())
+          (kind === "deal" && id && rawDealId?.toLowerCase() === id.toLowerCase())
         ) {
           refreshSoon(payload);
         }
       } else if (event.type === "shop.status.changed") {
-        const changedShopId = event.data?.shopId;
+        const shopData = event.data as ShopStatusEventData | undefined;
+        const changedShopId = shopData?.shopId ?? shopData?.ShopId;
         window.dispatchEvent(new CustomEvent("shop:status-changed", { detail: event.data }));
-        const isInactive = !event.data?.status || event.data?.status.toLowerCase() !== "active" || Boolean(event.data?.isBlocked);
+        const isInactive = !shopData?.status || shopData.status.toLowerCase() !== "active" || Boolean(shopData.isBlocked ?? shopData.IsBlocked);
         if (kind === "all") {
           refreshSoon();
         } else if (kind === "shop" && id && changedShopId?.toLowerCase() === id.toLowerCase()) {
@@ -101,10 +146,20 @@ export function useFlashDealRealtime(
           refreshSoon();
         }
       } else if (event.type === "feedback.changed") {
-        emitFeedbackSync(event.data?.action ?? "hide", event.data?.feedbackId, event.data);
+        const fbData = event.data as FeedbackEventData | undefined;
+        const fbShopId = fbData?.shopId ?? fbData?.ShopId;
+        emitFeedbackSync(
+          fbData?.action ?? fbData?.Action ?? "hide",
+          fbData?.feedbackId ?? fbData?.FeedbackId,
+          {
+            shopId: fbShopId,
+            productId: fbData?.productId ?? fbData?.ProductId,
+            rating: fbData?.rating ?? fbData?.Rating,
+          },
+        );
         if (kind === "all") {
           refreshSoon();
-        } else if (kind === "shop" && id && event.data?.shopId?.toLowerCase() === id.toLowerCase()) {
+        } else if (kind === "shop" && id && fbShopId?.toLowerCase() === id.toLowerCase()) {
           refreshSoon();
         }
       }

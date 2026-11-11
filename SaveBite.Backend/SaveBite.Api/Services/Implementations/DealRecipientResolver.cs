@@ -1,9 +1,12 @@
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Caching;
 using SaveBite.Backend.Data;
+using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
+using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Services.Interfaces;
 using StackExchange.Redis;
 
@@ -44,6 +47,11 @@ public sealed class DealRecipientResolver : IDealRecipientResolver
         var shopLonStr = shopLongitude.ToString(CultureInfo.InvariantCulture);
         var shopLatStr = shopLatitude.ToString(CultureInfo.InvariantCulture);
         var radiusStr = radiusInKm.ToString(CultureInfo.InvariantCulture);
+
+        var dealCategory = await _db.FlashDeals.AsNoTracking()
+            .Where(d => d.Id == flashDealId)
+            .Select(d => d.Product.Category.Name)
+            .FirstOrDefaultAsync(ct);
 
         // 1. Materialize GPS candidates via GEOSEARCHSTORE
         try
@@ -86,19 +94,35 @@ public sealed class DealRecipientResolver : IDealRecipientResolver
                 if (!Guid.TryParse(member.ToString(), out var userId)) continue;
                 if (processedUsers.Contains(userId)) continue;
 
-                // Validate GPS metadata in Redis
                 var metadata = await _locationService.GetGpsMetadataAsync(userId, ct);
-                if (metadata == null)
-                {
-                    // Stale candidate: member exists in GEO index but metadata TTL expired
-                    // Do not mark as processed so Default Address can fallback if eligible
-                    continue;
-                }
+                if (metadata == null) continue;
 
-                if (metadata.Accuracy.HasValue && metadata.Accuracy.Value > 3000)
+                if (metadata.Accuracy.HasValue && metadata.Accuracy.Value > 3000) continue;
+
+                // Check active search filter from Redis
+                var filterJson = await db.StringGetAsync(RedisKeys.UserSearchFilter(userId));
+                if (!filterJson.IsNullOrEmpty)
                 {
-                    // Inaccurate GPS reading
-                    continue;
+                    try
+                    {
+                        var filter = JsonSerializer.Deserialize<SaveSearchFilterRequest>(filterJson.ToString());
+                        if (filter != null && !string.IsNullOrWhiteSpace(filter.Category) && !string.IsNullOrWhiteSpace(dealCategory))
+                        {
+                            var rawCats = filter.Category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                .Select(c => c.ToLowerInvariant()).ToArray();
+                            var cleanCats = filter.Category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                .Select(c => VietnameseTextHelper.RemoveDiacritics(c)).ToArray();
+                            var cleanDealCat = VietnameseTextHelper.RemoveDiacritics(dealCategory);
+
+                            if (rawCats.Length > 0 && !rawCats.Contains(dealCategory.ToLowerInvariant()) && !cleanCats.Contains(cleanDealCat))
+                            {
+                                continue;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
                 }
 
                 processedUsers.Add(userId);
@@ -124,18 +148,37 @@ public sealed class DealRecipientResolver : IDealRecipientResolver
             foreach (var member in members)
             {
                 if (!Guid.TryParse(member.ToString(), out var userId)) continue;
-                if (processedUsers.Contains(userId)) continue; // Already resolved via GPS
+                if (processedUsers.Contains(userId)) continue;
 
-                // Critical Rule: Check if user has valid GPS metadata
                 var metadata = await _locationService.GetGpsMetadataAsync(userId, ct);
-                if (metadata != null)
+                if (metadata != null) continue;
+
+                // Check active search filter from Redis
+                var filterJson = await db.StringGetAsync(RedisKeys.UserSearchFilter(userId));
+                if (!filterJson.IsNullOrEmpty)
                 {
-                    // Valid GPS exists!
-                    // If GPS is valid (whether inside or outside radius), DO NOT fallback to Default Address!
-                    continue;
+                    try
+                    {
+                        var filter = JsonSerializer.Deserialize<SaveSearchFilterRequest>(filterJson.ToString());
+                        if (filter != null && !string.IsNullOrWhiteSpace(filter.Category) && !string.IsNullOrWhiteSpace(dealCategory))
+                        {
+                            var rawCats = filter.Category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                .Select(c => c.ToLowerInvariant()).ToArray();
+                            var cleanCats = filter.Category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                .Select(c => VietnameseTextHelper.RemoveDiacritics(c)).ToArray();
+                            var cleanDealCat = VietnameseTextHelper.RemoveDiacritics(dealCategory);
+
+                            if (rawCats.Length > 0 && !rawCats.Contains(dealCategory.ToLowerInvariant()) && !cleanCats.Contains(cleanDealCat))
+                            {
+                                continue;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
                 }
 
-                // GPS is missing/expired: Fallback to Default Address is permitted
                 var addressVersion = await _locationService.GetSyncedDefaultAddressVersionAsync(userId, ct) ?? 1;
                 processedUsers.Add(userId);
 
@@ -186,7 +229,6 @@ public sealed class DealRecipientResolver : IDealRecipientResolver
         }
         else
         {
-            // InMemory provider support for unit testing
             foreach (var r in recipients)
             {
                 if (!await _db.DealNotificationRecipients.AnyAsync(existing => existing.PublicationId == r.PublicationId && existing.UserId == r.UserId, ct))

@@ -4,8 +4,11 @@ public class NearbyShopsRequest
 {
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
-    public double RadiusInKm { get; set; } = 10.0;
+    public double RadiusInKm { get; set; } = 5.0;
     public string? Keyword { get; set; }
+    public string? Category { get; set; }
+    public string? ShopName { get; set; }
+    public string? Distance { get; set; }
     public bool? OnlyOpen { get; set; } = false;
     public bool? OnlyWithFlashDeals { get; set; } = false;
     public bool? HasFlashDeals { get; set; }

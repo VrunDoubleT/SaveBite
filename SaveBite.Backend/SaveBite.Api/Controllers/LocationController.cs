@@ -1,11 +1,15 @@
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SaveBite.Backend.Authorization;
+using SaveBite.Backend.Caching;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Services.Interfaces;
+using StackExchange.Redis;
 
 namespace SaveBite.Backend.Controllers;
 
@@ -14,10 +18,12 @@ namespace SaveBite.Backend.Controllers;
 public sealed class LocationController : ControllerBase
 {
     private readonly ILocationService _locationService;
+    private readonly IConnectionMultiplexer _redis;
 
-    public LocationController(ILocationService locationService)
+    public LocationController(ILocationService locationService, IConnectionMultiplexer redis)
     {
         _locationService = locationService;
+        _redis = redis;
     }
 
     [HttpPost("gps")]
@@ -46,10 +52,64 @@ public sealed class LocationController : ControllerBase
         return Ok(ApiResponse.Ok("GPS location removed successfully."));
     }
 
+    [HttpPost("search-filter")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse>> SaveSearchFilter(
+        [FromBody] SaveSearchFilterRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = TryGetCurrentUserId();
+        var key = userId.HasValue
+            ? RedisKeys.UserSearchFilter(userId.Value)
+            : RedisKeys.GuestSearchFilter(request.SessionKey ?? "anonymous");
+
+        var db = _redis.GetDatabase();
+        var json = JsonSerializer.Serialize(request);
+        await db.StringSetAsync(key, json, TimeSpan.FromHours(24));
+
+        return Ok(ApiResponse.Ok("Search filter cached in Redis successfully."));
+    }
+
+    [HttpGet("search-filter")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<SaveSearchFilterRequest?>>> GetSearchFilter(
+        [FromQuery] string? sessionKey,
+        CancellationToken cancellationToken)
+    {
+        var userId = TryGetCurrentUserId();
+        var key = userId.HasValue
+            ? RedisKeys.UserSearchFilter(userId.Value)
+            : RedisKeys.GuestSearchFilter(sessionKey ?? "anonymous");
+
+        var db = _redis.GetDatabase();
+        var json = await db.StringGetAsync(key);
+        if (json.IsNullOrEmpty)
+        {
+            return Ok(ApiResponse<SaveSearchFilterRequest?>.Ok(null));
+        }
+
+        try
+        {
+            var result = JsonSerializer.Deserialize<SaveSearchFilterRequest>(json.ToString());
+            return Ok(ApiResponse<SaveSearchFilterRequest?>.Ok(result));
+        }
+        catch
+        {
+            return Ok(ApiResponse<SaveSearchFilterRequest?>.Ok(null));
+        }
+    }
+
     private Guid GetRequiredUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
         return Guid.TryParse(value, out var id) ? id : throw AppException.Unauthorized();
+    }
+
+    private Guid? TryGetCurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        return Guid.TryParse(value, out var id) ? id : null;
     }
 }

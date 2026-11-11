@@ -94,6 +94,7 @@ export const API_ENDPOINTS = {
   },
   LOCATION: {
     GPS: "/location/gps",
+    SEARCH_FILTER: "/location/search-filter",
   },
   FLASH_DEALS: {
     NEARBY: "/flash-deals",
