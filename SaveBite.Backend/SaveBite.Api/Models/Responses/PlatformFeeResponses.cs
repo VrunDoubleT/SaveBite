@@ -8,6 +8,7 @@ public sealed class PlatformFeeStatementSummaryResponse
     public Guid Id { get; set; }
     public Guid ShopId { get; set; }
     public string? ShopName { get; set; }
+    public string? ShopLogoUrl { get; set; }
     public int BillingYear { get; set; }
     public short BillingMonth { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -31,11 +32,13 @@ public sealed class PlatformFeeStatementSummaryResponse
         DateTime? dueAt,
         DateTime? paidAt,
         DateTime createdAt,
-        string? shopName = null)
+        string? shopName = null,
+        string? shopLogoUrl = null)
     {
         Id = id;
         ShopId = shopId;
         ShopName = shopName;
+        ShopLogoUrl = shopLogoUrl;
         BillingYear = billingYear;
         BillingMonth = billingMonth;
         Status = status;
@@ -72,6 +75,46 @@ public sealed class OrderPlatformFeeItemResponse
         FeeRate = feeRate;
         FeeAmount = feeAmount;
         CalculatedAt = calculatedAt;
+    }
+}
+
+public sealed class PlatformFeeStatementHistoryItemResponse
+{
+    public Guid Id { get; set; }
+    public Guid StatementId { get; set; }
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public StatementChangeType ChangeType { get; set; }
+    public decimal PreviousAmount { get; set; }
+    public decimal ChangeAmount { get; set; }
+    public decimal AdjustmentAmount => ChangeAmount;
+    public decimal NewAmount { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public Guid? RelatedRefundId { get; set; }
+    public Guid? RelatedOrderId { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public PlatformFeeStatementHistoryItemResponse() { }
+    public PlatformFeeStatementHistoryItemResponse(
+        Guid id,
+        Guid statementId,
+        StatementChangeType changeType,
+        decimal previousAmount,
+        decimal changeAmount,
+        decimal newAmount,
+        string reason,
+        Guid? relatedRefundId,
+        Guid? relatedOrderId,
+        DateTime createdAt)
+    {
+        Id = id;
+        StatementId = statementId;
+        ChangeType = changeType;
+        PreviousAmount = previousAmount;
+        ChangeAmount = changeAmount;
+        NewAmount = newAmount;
+        Reason = reason;
+        RelatedRefundId = relatedRefundId;
+        RelatedOrderId = relatedOrderId;
+        CreatedAt = createdAt;
     }
 }
 
@@ -138,6 +181,7 @@ public sealed class PlatformFeeStatementDetailResponse
     public Guid Id { get; set; }
     public Guid ShopId { get; set; }
     public string ShopName { get; set; } = string.Empty;
+    public string? ShopLogoUrl { get; set; }
     public int BillingYear { get; set; }
     public short BillingMonth { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -150,6 +194,7 @@ public sealed class PlatformFeeStatementDetailResponse
     public IReadOnlyList<OrderPlatformFeeItemResponse> Orders { get; set; } = Array.Empty<OrderPlatformFeeItemResponse>();
     public IReadOnlyList<PlatformFeeAdjustmentItemResponse> Adjustments { get; set; } = Array.Empty<PlatformFeeAdjustmentItemResponse>();
     public IReadOnlyList<PlatformFeePaymentItemResponse> Payments { get; set; } = Array.Empty<PlatformFeePaymentItemResponse>();
+    public IReadOnlyList<PlatformFeeStatementHistoryItemResponse> Histories { get; set; } = Array.Empty<PlatformFeeStatementHistoryItemResponse>();
 
     public PlatformFeeStatementDetailResponse() { }
 
@@ -167,11 +212,14 @@ public sealed class PlatformFeeStatementDetailResponse
         DateTime createdAt,
         IReadOnlyList<OrderPlatformFeeItemResponse> orders,
         IReadOnlyList<PlatformFeeAdjustmentItemResponse> adjustments,
-        IReadOnlyList<PlatformFeePaymentItemResponse> payments)
+        IReadOnlyList<PlatformFeePaymentItemResponse> payments,
+        IReadOnlyList<PlatformFeeStatementHistoryItemResponse>? histories = null,
+        string? shopLogoUrl = null)
     {
         Id = id;
         ShopId = shopId;
         ShopName = shopName;
+        ShopLogoUrl = shopLogoUrl;
         BillingYear = billingYear;
         BillingMonth = billingMonth;
         Status = status;
@@ -183,6 +231,7 @@ public sealed class PlatformFeeStatementDetailResponse
         Orders = orders;
         Adjustments = adjustments;
         Payments = payments;
+        Histories = histories ?? Array.Empty<PlatformFeeStatementHistoryItemResponse>();
     }
 }
 
@@ -192,6 +241,7 @@ public sealed class PlatformFeePaymentLinkResponse
     public Guid StatementId { get; set; }
     public decimal Amount { get; set; }
     public long OrderCode { get; set; }
+    public bool IsSimulated { get; set; }
     public string CheckoutUrl { get; set; } = string.Empty;
     public string? QrCode { get; set; }
     public DateTime? ExpiredAt { get; set; }

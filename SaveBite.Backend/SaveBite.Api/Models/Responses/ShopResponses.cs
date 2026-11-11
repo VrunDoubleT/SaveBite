@@ -1,4 +1,5 @@
 using SaveBite.Backend.Models.Common;
+
 namespace SaveBite.Backend.Models.Responses;
 
 public class NearbyShopResponse
@@ -20,8 +21,35 @@ public class NearbyShopResponse
     public int FlashDealCount { get; set; }
 }
 
+public class NearbyShopsPagedResult : PagedResult<NearbyShopResponse>
+{
+    public int AllStoresCount { get; init; }
+    public int FlashDealsStoresCount { get; init; }
+
+    public static NearbyShopsPagedResult Create(
+        IReadOnlyList<NearbyShopResponse> items,
+        int page,
+        int pageSize,
+        int totalItems,
+        int allStoresCount,
+        int flashDealsStoresCount)
+        => new()
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems,
+            AllStoresCount = allStoresCount,
+            FlashDealsStoresCount = flashDealsStoresCount
+        };
+}
+
 public class ShopProfileResponse
 {
+    public Guid OwnerUserId { get; set; }
+    public int FollowerCount { get; set; }
+    public ShopFollowResponse? CurrentUserFollow { get; set; }
+    public bool SuspendedForPlatformFees { get; set; }
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
@@ -75,11 +103,9 @@ public class StoreReviewsSummaryResponse
     public Dictionary<int, int> RatingBreakdown { get; set; } = new();
     public PagedResult<StoreReviewResponse> Reviews { get; set; } = null!;
 }
+
 public class ShopPaymentConfigResponse
 {
-    public string? BankName { get; set; }
-    public string? BankAccountNumber { get; set; }
-    public string? BankAccountHolder { get; set; }
     public string PayosClientId { get; set; } = string.Empty;
     public bool HasPayosApiKey { get; set; }
     public bool HasPayosChecksumKey { get; set; }
@@ -106,10 +132,12 @@ public class ShopOwnerResponse
 }
 
 // Manage Shops.
+// Manage Shops.
 public class ShopListResponse
 {
     public Guid Id { get; set; }
     public string Name  { get; set; } = string.Empty;
+    public string? LogoUrl  { get; set; }
     public string? Description  { get; set; }
     public string Status   { get; set; } = string.Empty;
     public string? City { get; set; }

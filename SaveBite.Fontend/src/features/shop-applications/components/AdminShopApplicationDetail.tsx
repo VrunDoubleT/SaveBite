@@ -17,7 +17,7 @@ type Props = {
   saving: boolean;
   onBack: () => void;
   onNoteChange: (value: string) => void;
-  onReview: (decision: "Approved" | "Rejected") => void;
+  onReview: (decision: "Approved" | "Rejected" | "NeedsRevision") => void;
 };
 
 export function AdminShopApplicationDetail({
@@ -124,12 +124,6 @@ export function AdminShopApplicationDetail({
 
           <Panel title="Payment">
             <dl className="divide-y divide-slate-100">
-              <InfoRow label="Bank">{app.bankName || "—"}</InfoRow>
-
-              <InfoRow label="Account holder">{app.bankAccountHolder || "—"}</InfoRow>
-
-              <InfoRow label="Account number">{app.bankAccountNumber || "—"}</InfoRow>
-
               <InfoRow label="PayOS configuration">
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${
@@ -205,7 +199,9 @@ export function AdminShopApplicationDetail({
               <>
                 <label htmlFor="review-note" className="block text-sm font-medium text-slate-900">
                   Review note
-                  <span className="ml-1.5 font-normal text-slate-500">Required to reject</span>
+                  <span className="ml-1.5 font-normal text-slate-500">
+                    Required to reject or request changes
+                  </span>
                 </label>
 
                 <textarea
@@ -228,6 +224,14 @@ export function AdminShopApplicationDetail({
                   {note.length} / {NOTE_MAX_LENGTH}
                 </p>
 
+                <button
+                  type="button"
+                  disabled={saving || !note.trim()}
+                  onClick={() => onReview("NeedsRevision")}
+                  className="mt-3 w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 disabled:opacity-50"
+                >
+                  Request changes
+                </button>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <button
                     disabled={saving}

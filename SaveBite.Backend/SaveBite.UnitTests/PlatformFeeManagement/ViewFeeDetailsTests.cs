@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +27,7 @@ public class ViewFeeDetailsTests
     private readonly Mock<ILogger<PlatformFeeStatementService>> _loggerMock = new();
     private readonly Mock<IConfiguration> _configurationMock = new();
     private readonly Mock<IHttpClientFactory> _httpClientFactoryMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly PlatformFeeStatementService _service;
 
     // Explicit GUIDs for test determinism and traceability
@@ -42,13 +44,7 @@ public class ViewFeeDetailsTests
     public ViewFeeDetailsTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new PlatformFeeStatementService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _configurationMock.Object,
-            _httpClientFactoryMock.Object
-        );
+        _service = new PlatformFeeStatementService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _configurationMock.Object, _httpClientFactoryMock.Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), _auditMock.Object, new Mock<IPlatformPayOsConfigService>().Object, new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object);
     }
 
     private Shop CreateValidShop(Guid shopId, Guid ownerUserId, string name = "SaveBite Official Bakery") => new()

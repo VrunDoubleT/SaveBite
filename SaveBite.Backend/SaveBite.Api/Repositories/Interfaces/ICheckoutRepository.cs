@@ -12,6 +12,7 @@ public interface ICheckoutRepository
     Task<Order?> FindRequestAsync(Guid userId, Guid requestId, Guid quoteId, CancellationToken ct);
     Task<int> OrderCodeMaximumAsync(Guid shopId, DateOnly date, CancellationToken ct);
     Task<Order?> GetOrderAsync(Guid orderId, Guid? userId, CancellationToken ct);
+    Task<Order?> GetOrderForHistoryAsync(Guid orderId, Guid userId, CancellationToken ct);
     Task<(IReadOnlyList<Order> Orders, bool HasMore, IReadOnlyDictionary<string, int> Counts)> GetOrderPageAsync(Guid userId, SaveBite.Backend.Models.Enums.OrderStatus? status, DateTime? beforeCreatedAt, Guid? beforeId, int pageSize, CancellationToken ct);
     Task<IReadOnlyList<Order>> GetOrdersAsync(Guid userId, CancellationToken ct);
     Task<Guid?> FindGatewayOrderAsync(long gatewayCode, CancellationToken ct);

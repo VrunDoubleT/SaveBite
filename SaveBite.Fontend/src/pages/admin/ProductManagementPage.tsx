@@ -143,17 +143,12 @@ export function ProductManagementPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col justify-between gap-4 border-b border-border-default pb-5 sm:flex-row sm:items-end">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-text-primary">
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
               Product Management
             </h1>
-            {!isInitialLoading && !error && (
-              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-sm font-semibold tabular-nums text-text-secondary">
-                {totalItems.toLocaleString("vi-VN")}
-              </span>
-            )}
           </div>
           <p className="text-sm text-text-secondary">
             Review products registered on the platform and moderate their content.
@@ -204,20 +199,28 @@ export function ProductManagementPage() {
         )
       ) : (
         <div
-          className={`space-y-5 transition-opacity ${loading ? "opacity-60" : "opacity-100"}`}
+          className={`overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-sm transition-opacity ${
+            loading ? "opacity-60" : "opacity-100"
+          }`}
           aria-busy={loading}
         >
           <ProductManagementTable items={items} />
 
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            totalItems={totalItems}
-            pageSize={PAGE_SIZE}
-            itemLabel="products"
-            showFirstLast
-          />
+          {totalItems > 0 && (
+            <div className="flex w-full items-center justify-around border-t border-border-default bg-neutral-50/30 px-6 py-5">
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                totalItems={totalItems}
+                pageSize={PAGE_SIZE}
+                itemLabel="products"
+                showTotalItems={true}
+                showFirstLast={true}
+                className="w-full"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

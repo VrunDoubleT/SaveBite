@@ -40,6 +40,6 @@ public class NoShowPenalty
     public RecoveryRequirementRule RecoveryRule { get; set; } = null!;
 
     public ICollection<NoShowPenaltyOrderHistory> RecoveryOrders { get; set; } = new List<NoShowPenaltyOrderHistory>();
-    public ICollection<TrustScoreHistory> TrustScoreHistories { get; set; } = new List<TrustScoreHistory>();
+    public ICollection<TrustProgressHistory> TrustProgressHistories { get; set; } = new List<TrustProgressHistory>();
     public ICollection<UserTrustLevelHistory> TrustLevelHistories { get; set; } = new List<UserTrustLevelHistory>();
 }

@@ -22,7 +22,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public Mock<IEmailService> EmailServiceMock { get; } = new();
     public Mock<ICloudinaryService> CloudinaryServiceMock { get; } = new();
     public Mock<IRabbitMqPublisher> RabbitMqPublisherMock { get; } = new();
-    public Mock<IFlashDealRedisService> FlashDealRedisServiceMock { get; } = new();
     public Mock<ICheckoutPaymentGateway> CheckoutPaymentGatewayMock { get; } = new();
 
     public CustomWebApplicationFactory()
@@ -40,17 +39,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             .Setup(c => c.DeleteImageAsync(It.IsAny<string>()))
             .ReturnsAsync(true);
 
-        FlashDealRedisServiceMock
-            .Setup(x => x.GetNearbyDealsAsync(It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>()))
-            .ReturnsAsync(new List<SaveBite.Backend.Models.Responses.FlashDealResponse>());
 
-        FlashDealRedisServiceMock
-            .Setup(x => x.GetDealsByShopAsync(It.IsAny<Guid>()))
-            .ReturnsAsync(new List<SaveBite.Backend.Models.Responses.FlashDealResponse>());
 
-        FlashDealRedisServiceMock
-            .Setup(x => x.GetDealAsync(It.IsAny<Guid>()))
-            .ReturnsAsync((SaveBite.Backend.Models.Responses.FlashDealResponse?)null);
 
         CheckoutPaymentGatewayMock
             .Setup(x => x.IsConfigured(It.IsAny<SaveBite.Backend.Models.Entities.ShopPaymentConfig?>()))
@@ -124,8 +114,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll(typeof(IAuthRedisService));
             services.AddSingleton(Mock.Of<IAuthRedisService>());
 
-            services.RemoveAll(typeof(IFlashDealRedisService));
-            services.AddSingleton(FlashDealRedisServiceMock.Object);
 
             // 4. Mock RabbitMQ and remove its hosted background consumers
             services.RemoveAll(typeof(IConnection));
@@ -134,15 +122,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll(typeof(IRabbitMqPublisher));
             services.AddSingleton(RabbitMqPublisherMock.Object);
 
-            var hostedServices = services.Where(d => d.ServiceType == typeof(IHostedService)).ToList();
-            foreach (var hs in hostedServices)
-            {
-                var implName = hs.ImplementationType?.FullName ?? "";
-                if (implName.Contains("RabbitMq") || implName.Contains("Messaging") || implName.Contains("Consumer"))
-                {
-                    services.Remove(hs);
-                }
-            }
+            // Remove all background hosted services (Hangfire, RabbitMQ consumers, background workers) so tests run cleanly
+            services.RemoveAll(typeof(IHostedService));
         });
     }
 }

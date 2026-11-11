@@ -29,14 +29,7 @@ public class AdminViewProductContentTests
     public AdminViewProductContentTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ProductService(
-            _repositoryMock.Object,
-            _cloudinaryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _publisherMock.Object,
-            null!
-        );
+        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, new Mock<IAdminAuditWriter>().Object, TestDbContextFactory.Create(), new Mock<INotificationQueue>().Object);
     }
 
     [Fact]

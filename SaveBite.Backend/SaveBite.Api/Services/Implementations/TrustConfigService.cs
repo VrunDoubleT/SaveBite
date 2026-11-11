@@ -1,4 +1,8 @@
+using SaveBite.Backend.Constants;
+using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -11,6 +15,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class TrustConfigService : ITrustConfigService
 {
+    private readonly IAdminAuditWriter _audit;
     private const string KindEarning = "Earning";
     private const string KindPenalty = "Penalty";
 
@@ -18,29 +23,372 @@ public sealed class TrustConfigService : ITrustConfigService
     private static readonly TimeSpan EffectiveFromTolerance = TimeSpan.FromMinutes(1);
 
     private readonly ITrustConfigRepository _repository;
+    private readonly INotificationQueue _notifications;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<TrustConfigService> _logger;
 
     public TrustConfigService(
-        ITrustConfigRepository repository,
+        ITrustConfigRepository repository, IAdminAuditWriter audit,
         TimeProvider timeProvider,
-        ILogger<TrustConfigService> logger)
+        ILogger<TrustConfigService> logger, INotificationQueue notifications)
     {
+        _audit = audit;
         _repository = repository;
+        _notifications = notifications;
         _timeProvider = timeProvider;
         _logger = logger;
     }
 
     // -----------------------------------------------------------------------
-    // Levels (UC-129 .. UC-132)
+    // Levels (UC-129 .. UC-132, UC-152 .. UC-155)
     // -----------------------------------------------------------------------
 
+    // UC-129 / UC-131 / UC-152
     public async Task<IReadOnlyList<AdminTrustLevelResponse>> GetLevelsAsync(CancellationToken cancellationToken = default)
     {
         var levels = await _repository.GetLevelsAsync(cancellationToken);
         var counts = await _repository.GetUserCountsByLevelAsync(cancellationToken);
 
         return levels.Select(level => ToLevelResponse(level, counts)).ToList();
+    }
+
+    // UC-152: View Level History
+    public async Task<IReadOnlyList<TrustLevelHistoryItemResponse>> GetLevelHistoryAsync(
+        Guid levelId, CancellationToken cancellationToken = default)
+    {
+        if (!await _repository.LevelExistsAsync(levelId, cancellationToken))
+            throw AppException.NotFound("Trust level not found.");
+
+        var histories = await _repository.GetLevelHistoriesAsync(levelId, cancellationToken);
+        return histories.Select(ToLevelHistoryResponse).ToList();
+    }
+
+    // UC-153: Add New Level (Rank = max(all levels) + 1, default Active, single transaction)
+    public async Task<AdminTrustLevelResponse> CreateLevelAsync(
+        Guid adminId, CreateTrustLevelRequest request, CancellationToken cancellationToken = default)
+    {
+        var name = NormalizeLevelName(request.Name);
+        var orderedRanges = ValidateAndNormalizeDepositPolicy(request.Benefits);
+        var description = string.IsNullOrWhiteSpace(request.Benefits.Description)
+            ? null
+            : request.Benefits.Description.Trim();
+        var freeAmount = request.Benefits.RequireFullOnlinePayment ? null : request.Benefits.DepositFreeOrderAmount;
+        var maxAmount = request.Benefits.RequireFullOnlinePayment ? null : request.Benefits.MaxDepositOrderAmount;
+
+        try
+        {
+            return await _repository.ExecuteInTransactionAsync(async ct =>
+            {
+                if (await _repository.LevelNameExistsAsync(name, null, ct))
+                    throw AppException.Conflict("A trust level with this name already exists.");
+
+                var allLevels = await _repository.GetAllLevelsWithRequirementsAsync(ct);
+                var nextRank = (allLevels.Count == 0 ? 0 : allLevels.Max(l => l.Rank)) + 1;
+
+                var now = _timeProvider.GetUtcNow().UtcDateTime;
+                var newLevel = new TrustLevel
+                {
+                    Id = Guid.NewGuid(),
+                    Name = name,
+                    Description = description,
+                    Rank = nextRank,
+                    IsActive = true,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+
+                var requirement = new TrustLevelRequirement
+                {
+                    Id = Guid.NewGuid(),
+                    TrustLevelId = newLevel.Id,
+                    MinScore = request.Requirement.MinScore,
+                    MinCompletedOrders = request.Requirement.MinCompletedOrders,
+                    MinTotalOrderValue = request.Requirement.MinTotalOrderValue
+                };
+                newLevel.Requirement = requirement;
+
+                // Validate thresholds against active levels (BR-157, BR-158) and preceding level if any.
+                var activeLevels = allLevels.Where(l => l.IsActive).Append(newLevel).ToList();
+                ValidateThresholds(activeLevels, newLevel.Id, request.Requirement);
+
+                var previousHighest = allLevels.OrderByDescending(l => l.Rank).FirstOrDefault();
+                if (previousHighest?.Requirement is not null && !previousHighest.IsActive)
+                {
+                    var prevReq = previousHighest.Requirement;
+                    var nonDecreasing = request.Requirement.MinScore >= prevReq.MinScore
+                                        && request.Requirement.MinCompletedOrders >= prevReq.MinCompletedOrders
+                                        && request.Requirement.MinTotalOrderValue >= prevReq.MinTotalOrderValue;
+                    var increases = request.Requirement.MinScore > prevReq.MinScore
+                                    || request.Requirement.MinCompletedOrders > prevReq.MinCompletedOrders
+                                    || request.Requirement.MinTotalOrderValue > prevReq.MinTotalOrderValue;
+
+                    if (!nonDecreasing || !increases)
+                    {
+                        throw AppException.BadRequest(
+                            $"Requirements must exceed the preceding level ({previousHighest.Name}, Rank {previousHighest.Rank}): " +
+                            "every criterion must be at least as much, and at least one must be strictly greater.");
+                    }
+                }
+
+                var policy = new TrustLevelDepositPolicy
+                {
+                    Id = Guid.NewGuid(),
+                    TrustLevelId = newLevel.Id,
+                    RequireFullOnlinePayment = request.Benefits.RequireFullOnlinePayment,
+                    DepositFreeOrderAmount = freeAmount,
+                    MaxDepositOrderAmount = maxAmount,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+
+                var rangeEntities = orderedRanges.Select(r => new TrustLevelDepositRange
+                {
+                    Id = Guid.NewGuid(),
+                    DepositPolicyId = policy.Id,
+                    FromOrderAmount = r.FromOrderAmount,
+                    ToOrderAmount = r.ToOrderAmount,
+                    DepositAmount = r.DepositAmount
+                }).ToList();
+
+                foreach (var r in rangeEntities)
+                    policy.Ranges.Add(r);
+
+                newLevel.DepositPolicy = policy;
+
+                _repository.AddLevel(newLevel);
+                _repository.AddRequirement(requirement);
+                _repository.AddDepositPolicy(policy);
+                if (rangeEntities.Count > 0)
+                    _repository.AddDepositRanges(rangeEntities);
+
+                WriteLevelHistory(newLevel, 1, TrustLevelChangeType.Created, affectedUserCount: 0, adminId, now);
+                WriteAudit(adminId, AuditActionTypes.CreateTrustLevel, "TrustLevel", newLevel.Id, null, SnapshotTrustLevel(newLevel), now);
+
+                await _repository.SaveChangesAsync(ct);
+                _logger.LogInformation("New Trust Level created. LevelId: {LevelId}, Name: {Name}, Rank: {Rank}",
+                    newLevel.Id, newLevel.Name, newLevel.Rank);
+
+                return ToLevelResponse(newLevel, new Dictionary<Guid, int>());
+            }, lockLevelsAndScores: true, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw AppException.Conflict("A trust level with this name or rank already exists.");
+        }
+    }
+
+    // UC-154: Update Level Information (Rename only)
+    public async Task<AdminTrustLevelResponse> UpdateLevelInfoAsync(
+        Guid adminId, Guid levelId, UpdateTrustLevelInfoRequest request, CancellationToken cancellationToken = default)
+    {
+        var name = NormalizeLevelName(request.Name);
+        var level = await GetLevelAsync(levelId, cancellationToken);
+        var counts = await _repository.GetUserCountsByLevelAsync(cancellationToken);
+
+        // If nothing changed, return immediately without recording a new version.
+        if (string.Equals(level.Name, name, StringComparison.Ordinal))
+            return ToLevelResponse(level, counts);
+
+        if (await _repository.LevelNameExistsAsync(name, level.Id, cancellationToken))
+            throw AppException.Conflict("Another trust level with this name already exists.");
+
+        var oldValues = SnapshotTrustLevel(level);
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var nextVersion = await _repository.GetNextLevelHistoryVersionAsync(level.Id, cancellationToken);
+
+        level.Name = name;
+        level.UpdatedAt = now;
+
+        WriteLevelHistory(
+            level,
+            nextVersion,
+            TrustLevelChangeType.InfoUpdated,
+            counts.GetValueOrDefault(level.Id),
+            adminId,
+            now);
+        WriteAudit(adminId, AuditActionTypes.UpdateTrustLevelInfo, "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
+
+        try
+        {
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw AppException.Conflict("Another trust level with this name already exists.");
+        }
+
+        _logger.LogInformation("Trust level renamed. LevelId: {LevelId}, NewName: {Name}", level.Id, level.Name);
+        return ToLevelResponse(level, counts);
+    }
+
+    // UC-155: Update Level Status (Deactivate / Reactivate)
+    public async Task<AdminTrustLevelResponse> UpdateLevelStatusAsync(
+        Guid adminId, Guid levelId, UpdateTrustLevelStatusRequest request, CancellationToken cancellationToken = default)
+    {
+        var notices = new List<(Guid UserId, Guid HistoryId, string Name)>();
+        try
+        {
+            var result = await _repository.ExecuteInTransactionAsync(async ct =>
+            {
+                notices.Clear();
+                var level = await GetLevelAsync(levelId, ct);
+                var counts = await _repository.GetUserCountsByLevelAsync(ct);
+
+                if (level.IsActive == request.IsActive)
+                    return ToLevelResponse(level, counts);
+
+                var activeLevels = await _repository.GetActiveLevelsForValidationAsync(ct);
+                var now = _timeProvider.GetUtcNow().UtcDateTime;
+                var nextVersion = await _repository.GetNextLevelHistoryVersionAsync(level.Id, ct);
+
+                if (!request.IsActive)
+                {
+                    // Deactivating a level
+                    var remainingActive = activeLevels
+                        .Where(l => l.Id != level.Id)
+                        .OrderBy(l => l.Rank)
+                        .ToList();
+
+                    if (remainingActive.Count == 0)
+                        throw AppException.BadRequest("Cannot deactivate the only active trust level.");
+
+                    // BR-158: Do not allow deactivating the lowest-ranked active level.
+                    var currentLowestActive = activeLevels.OrderBy(l => l.Rank).First();
+                    if (currentLowestActive.Id == level.Id)
+                    {
+                        throw AppException.BadRequest(
+                            $"Cannot deactivate the lowest active level ({level.Name}). " +
+                            "Every customer must qualify for at least one active level with zero minimum requirements.");
+                    }
+
+                    // Ensure remaining active levels still satisfy BR-157 and BR-158.
+                    var lowestRemaining = remainingActive[0];
+                    ValidateThresholds(
+                        remainingActive,
+                        lowestRemaining.Id,
+                        new UpdateTrustLevelRequirementRequest
+                        {
+                            MinScore = lowestRemaining.Requirement?.MinScore ?? 0,
+                            MinCompletedOrders = lowestRemaining.Requirement?.MinCompletedOrders ?? 0,
+                            MinTotalOrderValue = lowestRemaining.Requirement?.MinTotalOrderValue ?? 0m
+                        });
+
+                    var oldValues = SnapshotTrustLevel(level);
+                    level.IsActive = false;
+                    level.UpdatedAt = now;
+
+                    // Recalculate every customer currently on this level to the highest active level they meet (BR-051, BR-207).
+                    var affectedScores = await _repository.GetUserScoresByLevelForUpdateAsync(level.Id, ct);
+                    var userIds = affectedScores.Select(s => s.UserId).ToList();
+                    var progressMap = await _repository.GetUserProgressMapAsync(userIds, ct);
+
+                    var levelHistories = new List<UserTrustLevelHistory>(affectedScores.Count);
+                    foreach (var userScore in affectedScores)
+                    {
+                        progressMap.TryGetValue(userScore.UserId, out var progress);
+                        var completedOrders = progress?.CompletedOrdersCount ?? 0;
+                        var accumulatedValue = progress?.AccumulatedOrderValue ?? 0m;
+
+                        var targetLevel = remainingActive
+                            .Where(candidate => candidate.Requirement != null
+                                                && userScore.CurrentScore >= candidate.Requirement.MinScore
+                                                && completedOrders >= candidate.Requirement.MinCompletedOrders
+                                                && accumulatedValue >= candidate.Requirement.MinTotalOrderValue)
+                            .OrderByDescending(candidate => candidate.Rank)
+                            .FirstOrDefault() ?? remainingActive[0];
+
+                        userScore.TrustLevelId = targetLevel.Id;
+                        userScore.UpdatedAt = now;
+
+                        var historyId = Guid.NewGuid();
+                        notices.Add((userScore.UserId, historyId, targetLevel.Name));
+                        levelHistories.Add(new UserTrustLevelHistory
+                        {
+                            Id = historyId,
+                            UserId = userScore.UserId,
+                            PreviousTrustLevelId = level.Id,
+                            NewTrustLevelId = targetLevel.Id,
+                            Reason = TrustLevelChangeReason.AdminAdjustment,
+                            OrderId = null,
+                            NoShowPenaltyId = null,
+                            CreatedAt = now
+                        });
+                    }
+
+                    if (levelHistories.Count > 0)
+                        _repository.AddUserTrustLevelHistories(levelHistories);
+
+                    WriteLevelHistory(
+                        level,
+                        nextVersion,
+                        TrustLevelChangeType.Deactivated,
+                        affectedScores.Count,
+                        adminId,
+                        now);
+                    WriteAudit(adminId, AuditActionTypes.DeactivateTrustLevel, "TrustLevel", level.Id, oldValues,
+                        new { Level = SnapshotTrustLevel(level), AffectedUserCount = affectedScores.Count }, now);
+
+                    await _repository.SaveChangesAsync(ct);
+
+                    _logger.LogInformation(
+                        "Trust level deactivated. LevelId: {LevelId}, ReassignedUsers: {ReassignedCount}",
+                        level.Id, affectedScores.Count);
+                }
+                else
+                {
+                    // Reactivating a level: verify requirement & deposit policy and validate BR-157 / BR-158.
+                    if (level.Requirement is null)
+                        throw AppException.BadRequest("Configure level requirements before activating this level.");
+
+                    if (level.DepositPolicy is null)
+                        throw AppException.BadRequest("Configure level deposit policy before activating this level.");
+
+                    var candidateActiveLevels = activeLevels
+                        .Append(level)
+                        .OrderBy(l => l.Rank)
+                        .ToList();
+
+                    ValidateThresholds(
+                        candidateActiveLevels,
+                        level.Id,
+                        new UpdateTrustLevelRequirementRequest
+                        {
+                            MinScore = level.Requirement.MinScore,
+                            MinCompletedOrders = level.Requirement.MinCompletedOrders,
+                            MinTotalOrderValue = level.Requirement.MinTotalOrderValue
+                        });
+
+                    var oldValues = SnapshotTrustLevel(level);
+                    level.IsActive = true;
+                    level.UpdatedAt = now;
+
+                    WriteLevelHistory(
+                        level,
+                        nextVersion,
+                        TrustLevelChangeType.Reactivated,
+                        affectedUserCount: 0,
+                        adminId,
+                        now);
+                    WriteAudit(adminId, AuditActionTypes.ReactivateTrustLevel, "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
+
+                    await _repository.SaveChangesAsync(ct);
+
+                    _logger.LogInformation("Trust level reactivated. LevelId: {LevelId}", level.Id);
+                }
+
+                foreach (var notice in notices)
+                    await _notifications.EnqueueAsync(NotificationTarget.User(notice.UserId), new CreateNotificationCommand(
+                        NotificationType.TrustLevelChanged, NotificationMessages.TrustAndPenalties.TrustLevelUpdatedTitle, NotificationMessages.TrustAndPenalties.TrustLevelUpdatedFromConfigBody(notice.Name),
+                        "/account/trust-score", $"trust-level:{notice.HistoryId}"), ct);
+                var updatedCounts = await _repository.GetUserCountsByLevelAsync(ct);
+                return ToLevelResponse(level, updatedCounts);
+            }, lockLevelsAndScores: true, cancellationToken);
+            return result;
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw AppException.Conflict("A concurrent update occurred on this trust level. Please retry.");
+        }
     }
 
     // UC-130: update benefit description and PayAtShop deposit policy & ranges of a level (BR-155, BR-156, BR-197).
@@ -53,11 +401,13 @@ public sealed class TrustConfigService : ITrustConfigService
         var description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         var freeAmount = request.RequireFullOnlinePayment ? null : request.DepositFreeOrderAmount;
         var maxAmount = request.RequireFullOnlinePayment ? null : request.MaxDepositOrderAmount;
+        var counts = await _repository.GetUserCountsByLevelAsync(cancellationToken);
 
         if (!IsBenefitsUnchanged(level, description, request.RequireFullOnlinePayment, freeAmount, maxAmount, orderedRanges))
         {
+            var oldValues = SnapshotTrustLevel(level);
             var now = _timeProvider.GetUtcNow().UtcDateTime;
-            var oldSnapshot = SnapshotLevelBenefits(level);
+            var nextVersion = await _repository.GetNextLevelHistoryVersionAsync(level.Id, cancellationToken);
 
             level.Description = description;
             level.UpdatedAt = now;
@@ -86,14 +436,28 @@ public sealed class TrustConfigService : ITrustConfigService
 
             SyncDepositRanges(policy, orderedRanges);
 
-            var newSnapshot = SnapshotLevelBenefits(level);
-            WriteAudit(adminId, "UpdateTrustLevelBenefits", "TrustLevel", level.Id, oldSnapshot, newSnapshot, now);
+            WriteLevelHistory(
+                level,
+                nextVersion,
+                TrustLevelChangeType.BenefitsUpdated,
+                counts.GetValueOrDefault(level.Id),
+                adminId,
+                now);
+            WriteAudit(adminId, AuditActionTypes.UpdateTrustLevelBenefits, "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
-            await _repository.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _repository.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                throw AppException.Conflict("A concurrent update occurred on this trust level. Please retry.");
+            }
+
             _logger.LogInformation("Trust level benefits and deposit policy updated. LevelId: {LevelId}", level.Id);
         }
 
-        return ToLevelResponse(level, await _repository.GetUserCountsByLevelAsync(cancellationToken));
+        return ToLevelResponse(level, counts);
     }
 
     // Validate BR-155, BR-156, BR-197 and DB check constraints on deposit policy and ranges.
@@ -264,26 +628,39 @@ public sealed class TrustConfigService : ITrustConfigService
         return true;
     }
 
-    private static object SnapshotLevelBenefits(TrustLevel level) => new
+    private static object? SnapshotDepositPolicy(TrustLevelDepositPolicy? policy) => policy is null
+        ? null
+        : new
+        {
+            policy.RequireFullOnlinePayment,
+            policy.DepositFreeOrderAmount,
+            policy.MaxDepositOrderAmount,
+            Ranges = policy.Ranges
+                .OrderBy(r => r.FromOrderAmount)
+                .Select(r => new
+                {
+                    r.FromOrderAmount,
+                    r.ToOrderAmount,
+                    r.DepositAmount
+                })
+                .ToList()
+        };
+
+    private static object SnapshotTrustLevel(TrustLevel level) => new
     {
+        level.Name,
         level.Description,
-        DepositPolicy = level.DepositPolicy is null
+        level.Rank,
+        level.IsActive,
+        Requirement = level.Requirement is null
             ? null
             : new
             {
-                level.DepositPolicy.RequireFullOnlinePayment,
-                level.DepositPolicy.DepositFreeOrderAmount,
-                level.DepositPolicy.MaxDepositOrderAmount,
-                Ranges = level.DepositPolicy.Ranges
-                    .OrderBy(r => r.FromOrderAmount)
-                    .Select(r => new
-                    {
-                        r.FromOrderAmount,
-                        r.ToOrderAmount,
-                        r.DepositAmount
-                    })
-                    .ToList()
-            }
+                level.Requirement.MinScore,
+                level.Requirement.MinCompletedOrders,
+                level.Requirement.MinTotalOrderValue
+            },
+        DepositPolicy = SnapshotDepositPolicy(level.DepositPolicy)
     };
 
     // UC-132: the thresholds a customer must reach to be on a level.
@@ -291,21 +668,13 @@ public sealed class TrustConfigService : ITrustConfigService
         Guid adminId, Guid levelId, UpdateTrustLevelRequirementRequest request, CancellationToken cancellationToken = default)
     {
         var level = await GetLevelAsync(levelId, cancellationToken);
+        var counts = await _repository.GetUserCountsByLevelAsync(cancellationToken);
 
         if (level.IsActive)
         {
             var activeLevels = await _repository.GetActiveLevelsForValidationAsync(cancellationToken);
             ValidateThresholds(activeLevels, level.Id, request);
         }
-
-        var old = level.Requirement is null
-            ? null
-            : new
-            {
-                level.Requirement.MinScore,
-                level.Requirement.MinCompletedOrders,
-                level.Requirement.MinTotalOrderValue
-            };
 
         var unchanged = level.Requirement is not null
                         && level.Requirement.MinScore == request.MinScore
@@ -314,7 +683,9 @@ public sealed class TrustConfigService : ITrustConfigService
 
         if (!unchanged)
         {
+            var oldValues = SnapshotTrustLevel(level);
             var now = _timeProvider.GetUtcNow().UtcDateTime;
+            var nextVersion = await _repository.GetNextLevelHistoryVersionAsync(level.Id, cancellationToken);
 
             if (level.Requirement is null)
             {
@@ -323,6 +694,7 @@ public sealed class TrustConfigService : ITrustConfigService
                     Id = Guid.NewGuid(),
                     TrustLevelId = level.Id
                 };
+                _repository.AddRequirement(level.Requirement);
             }
 
             level.Requirement.MinScore = request.MinScore;
@@ -330,14 +702,28 @@ public sealed class TrustConfigService : ITrustConfigService
             level.Requirement.MinTotalOrderValue = request.MinTotalOrderValue;
             level.UpdatedAt = now;
 
-            WriteAudit(adminId, "UpdateTrustLevelRequirement", "TrustLevel", level.Id, old,
-                new { request.MinScore, request.MinCompletedOrders, request.MinTotalOrderValue }, now);
+            WriteLevelHistory(
+                level,
+                nextVersion,
+                TrustLevelChangeType.RequirementUpdated,
+                counts.GetValueOrDefault(level.Id),
+                adminId,
+                now);
+            WriteAudit(adminId, AuditActionTypes.UpdateTrustLevelRequirement, "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
-            await _repository.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _repository.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                throw AppException.Conflict("A concurrent update occurred on this trust level. Please retry.");
+            }
+
             _logger.LogInformation("Trust level requirement updated. LevelId: {LevelId}", level.Id);
         }
 
-        return ToLevelResponse(level, await _repository.GetUserCountsByLevelAsync(cancellationToken));
+        return ToLevelResponse(level, counts);
     }
 
     private sealed record Threshold(string Name, int MinScore, int MinCompletedOrders, decimal MinTotalOrderValue);
@@ -391,7 +777,7 @@ public sealed class TrustConfigService : ITrustConfigService
     }
 
     // -----------------------------------------------------------------------
-    // Penalty rules (UC-133, UC-134)
+    // Penalty rules (UC-133, UC-134, UC-156)
     // -----------------------------------------------------------------------
 
     public async Task<IReadOnlyList<PenaltyRuleResponse>> GetPenaltyRulesAsync(CancellationToken cancellationToken = default)
@@ -402,72 +788,177 @@ public sealed class TrustConfigService : ITrustConfigService
         return rules.Select(rule => ToPenaltyRuleResponse(rule, now)).ToList();
     }
 
-    // UC-134: saving creates a new version; earlier versions are kept so existing penalties
-    // keep the requirements they were created with (BR-160, BR-161).
+    // UC-156: Add New Penalty Rule (allows same MinimumOccurrence if [EffectiveFrom, EffectiveTo) does not overlap).
+    public async Task<PenaltyRuleResponse> CreatePenaltyRuleAsync(
+        Guid adminId, CreatePenaltyRuleRequest request, CancellationToken cancellationToken = default)
+    {
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var effectiveFrom = ResolveEffectiveFrom(request.EffectiveFrom, now);
+        var effectiveTo = ResolveEffectiveTo(request.EffectiveTo, effectiveFrom);
+
+        var conflict = await _repository.FindOverlappingPenaltyRuleAsync(
+            request.MinimumOccurrence, effectiveFrom, effectiveTo, excludeRuleId: null, cancellationToken);
+
+        if (conflict is not null)
+        {
+            throw AppException.Conflict(BuildPenaltyOverlapMessage(conflict));
+        }
+
+        var rule = new RecoveryRequirementRule
+        {
+            Id = Guid.NewGuid(),
+            MinimumOccurrence = request.MinimumOccurrence,
+            ScoreDeduction = request.ScoreDeduction,
+            RequiredOnlineOrders = request.RequiredOnlineOrders,
+            RequiredOnlineOrderValue = request.RequiredOnlineOrderValue,
+            PermanentOfflineLock = request.PermanentOfflineLock,
+            IsActive = request.IsActive,
+            EffectiveFrom = effectiveFrom,
+            EffectiveTo = effectiveTo,
+            CreatedByUserId = adminId,
+            CreatedAt = now
+        };
+
+        _repository.AddPenaltyRule(rule);
+        WriteAudit(adminId, AuditActionTypes.CreatePenaltyRule, "RecoveryRequirementRule", rule.Id, null, SnapshotPenaltyRule(rule), now);
+
+        try
+        {
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw AppException.Conflict($"Another penalty rule for occurrence #{request.MinimumOccurrence} was created concurrently.");
+        }
+
+        _logger.LogInformation("New penalty rule created. RuleId: {RuleId}, MinimumOccurrence: {Occurrence}",
+            rule.Id, rule.MinimumOccurrence);
+
+        return ToPenaltyRuleResponse(rule, now);
+    }
+
+    // UC-134: Edit any penalty rule and validate non-overlapping [EffectiveFrom, EffectiveTo) intervals.
     public async Task<PenaltyRuleResponse> UpdatePenaltyRuleAsync(
         Guid adminId, Guid ruleId, UpdatePenaltyRuleRequest request, CancellationToken cancellationToken = default)
     {
         var rule = await _repository.GetPenaltyRuleForUpdateAsync(ruleId, cancellationToken)
                    ?? throw AppException.NotFound("Penalty rule not found.");
 
-        if (rule.EffectiveTo.HasValue)
-            throw AppException.Conflict("This rule version has been replaced. Update the latest version of the rule instead.");
-
         var now = _timeProvider.GetUtcNow().UtcDateTime;
-        // A version that has not started yet is edited in place and keeps its start time.
-        var isPending = rule.EffectiveFrom > now;
-        var effectiveFrom = isPending ? rule.EffectiveFrom : ResolveEffectiveFrom(request.EffectiveFrom, now);
+        var effectiveFrom = ResolveUpdatedEffectiveFrom(rule.EffectiveFrom, request.EffectiveFrom, now);
+        var effectiveTo = ResolveEffectiveTo(request.EffectiveTo, effectiveFrom);
 
-        // BR-159: only one enabled rule per occurrence tier at any time.
-        if (request.IsActive
-            && await _repository.HasOverlappingPenaltyRuleAsync(request.MinimumOccurrence, effectiveFrom, rule.Id, cancellationToken))
+        var conflict = await _repository.FindOverlappingPenaltyRuleAsync(
+            request.MinimumOccurrence, effectiveFrom, effectiveTo, excludeRuleId: rule.Id, cancellationToken);
+
+        if (conflict is not null)
         {
-            throw AppException.Conflict($"Another active penalty rule already covers occurrence {request.MinimumOccurrence}.");
+            throw AppException.Conflict(BuildPenaltyOverlapMessage(conflict));
         }
 
         var old = SnapshotPenaltyRule(rule);
-        RecoveryRequirementRule target;
 
-        if (isPending)
-        {
-            // Scheduled but not applied yet: nothing depends on it, so it is edited in place.
-            target = rule;
-            ApplyPenaltyValues(target, request);
-        }
-        else
-        {
-            if (effectiveFrom <= rule.EffectiveFrom)
-                throw AppException.BadRequest("The new version must start after the current version.");
-
-            rule.EffectiveTo = effectiveFrom;
-
-            target = new RecoveryRequirementRule
-            {
-                Id = Guid.NewGuid(),
-                EffectiveFrom = effectiveFrom,
-                CreatedByUserId = adminId,
-                CreatedAt = now
-            };
-            ApplyPenaltyValues(target, request);
-            _repository.AddPenaltyRule(target);
-        }
-
-        WriteAudit(adminId, "UpdatePenaltyRule", "RecoveryRequirementRule", target.Id, old, SnapshotPenaltyRule(target), now);
-
-        await _repository.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Penalty rule updated. RuleId: {RuleId}, PreviousRuleId: {PreviousRuleId}", target.Id, rule.Id);
-
-        return ToPenaltyRuleResponse(target, now);
-    }
-
-    private static void ApplyPenaltyValues(RecoveryRequirementRule rule, UpdatePenaltyRuleRequest request)
-    {
         rule.MinimumOccurrence = request.MinimumOccurrence;
         rule.ScoreDeduction = request.ScoreDeduction;
         rule.RequiredOnlineOrders = request.RequiredOnlineOrders;
         rule.RequiredOnlineOrderValue = request.RequiredOnlineOrderValue;
         rule.PermanentOfflineLock = request.PermanentOfflineLock;
         rule.IsActive = request.IsActive;
+        rule.EffectiveFrom = effectiveFrom;
+        rule.EffectiveTo = effectiveTo;
+
+        WriteAudit(adminId, AuditActionTypes.UpdatePenaltyRule, "RecoveryRequirementRule", rule.Id, old, SnapshotPenaltyRule(rule), now);
+
+        try
+        {
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw AppException.Conflict("A concurrent update occurred on this penalty rule. Please retry.");
+        }
+
+        _logger.LogInformation("Penalty rule updated. RuleId: {RuleId}", rule.Id);
+
+        return ToPenaltyRuleResponse(rule, now);
+    }
+
+    // Delete a future scheduled penalty rule that has not taken effect yet.
+    public async Task DeletePenaltyRuleAsync(
+        Guid adminId, Guid ruleId, CancellationToken cancellationToken = default)
+    {
+        var rule = await _repository.GetPenaltyRuleForUpdateAsync(ruleId, cancellationToken)
+                   ?? throw AppException.NotFound("Penalty rule not found.");
+
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        if (rule.EffectiveFrom <= now)
+        {
+            throw AppException.BadRequest(
+                "Only future scheduled penalty rules that have not taken effect yet can be deleted.");
+        }
+
+        if (await _repository.IsPenaltyRuleReferencedAsync(rule.Id, cancellationToken))
+        {
+            throw AppException.Conflict(
+                "Cannot delete a penalty rule that has already been applied to customer penalties.");
+        }
+
+        var old = SnapshotPenaltyRule(rule);
+        _repository.RemovePenaltyRule(rule);
+        WriteAudit(adminId, AuditActionTypes.DeletePenaltyRule, "RecoveryRequirementRule", rule.Id, old, new { Deleted = true }, now);
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Future penalty rule deleted. RuleId: {RuleId}", rule.Id);
+    }
+
+    private static DateTime ResolveUpdatedEffectiveFrom(DateTime currentEffectiveFrom, DateTime? requested, DateTime now)
+    {
+        if (!requested.HasValue)
+            return currentEffectiveFrom;
+
+        var value = NormalizeUtc(requested.Value);
+
+        // HTML datetime-local inputs truncate seconds/milliseconds; preserve exact DB timestamp if unchanged within 1 minute.
+        if (Math.Abs((value - currentEffectiveFrom).TotalMinutes) < 1)
+            return currentEffectiveFrom;
+
+        if (value < now - EffectiveFromTolerance)
+        {
+            throw AppException.BadRequest(
+                currentEffectiveFrom > now
+                    ? "The effective start time cannot be in the past."
+                    : "Cannot move the start time of an existing rule to another time in the past.");
+        }
+
+        return value < now ? now : value;
+    }
+
+    private static DateTime? ResolveEffectiveTo(DateTime? requestedTo, DateTime effectiveFrom)
+    {
+        if (!requestedTo.HasValue)
+            return null;
+
+        var value = NormalizeUtc(requestedTo.Value);
+        if (value <= effectiveFrom)
+            throw AppException.BadRequest("The 'Until' date/time must be strictly later than the 'From' date/time.");
+
+        return value;
+    }
+
+    private static DateTime NormalizeUtc(DateTime value)
+        => value.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+            : value.ToUniversalTime();
+
+    private static string BuildPenaltyOverlapMessage(RecoveryRequirementRule conflict)
+    {
+        var fromText = conflict.EffectiveFrom.ToString("dd/MM/yyyy HH:mm 'UTC'");
+        var toText = conflict.EffectiveTo.HasValue
+            ? conflict.EffectiveTo.Value.ToString("dd/MM/yyyy HH:mm 'UTC'")
+            : "Indefinite (no end date)";
+
+        return $"The selected period overlaps with an existing rule for no-show #{conflict.MinimumOccurrence} " +
+               $"({fromText} – {toText}). Please set an 'Until' date on the existing rule or choose a non-overlapping period.";
     }
 
     private static object SnapshotPenaltyRule(RecoveryRequirementRule rule) => new
@@ -494,11 +985,11 @@ public sealed class TrustConfigService : ITrustConfigService
 
     public Task<TrustScoreRuleResponse> UpdateScoreRuleAsync(
         Guid adminId, Guid ruleId, UpdateTrustScoreRuleRequest request, CancellationToken cancellationToken = default)
-        => UpdateRuleAsync(adminId, ruleId, request, earningOnly: false, "UpdateTrustScoreRule", cancellationToken);
+        => UpdateRuleAsync(adminId, ruleId, request, earningOnly: false, AuditActionTypes.UpdateTrustScoreRule, cancellationToken);
 
     public Task<TrustScoreRuleResponse> UpdateEarningRuleAsync(
         Guid adminId, Guid ruleId, UpdateTrustScoreRuleRequest request, CancellationToken cancellationToken = default)
-        => UpdateRuleAsync(adminId, ruleId, request, earningOnly: true, "UpdateTrustEarningRule", cancellationToken);
+        => UpdateRuleAsync(adminId, ruleId, request, earningOnly: true, AuditActionTypes.UpdateTrustEarningRule, cancellationToken);
 
     private async Task<IReadOnlyList<TrustScoreRuleResponse>> GetRulesAsync(bool earningOnly, CancellationToken cancellationToken)
     {
@@ -578,14 +1069,23 @@ public sealed class TrustConfigService : ITrustConfigService
         => await _repository.GetLevelForUpdateAsync(levelId, cancellationToken)
            ?? throw AppException.NotFound("Trust level not found.");
 
+    private static string NormalizeLevelName(string? name)
+    {
+        var trimmed = (name ?? string.Empty).Trim();
+        if (trimmed.Length is < 1 or > 100)
+            throw AppException.BadRequest("Level name must be between 1 and 100 characters.");
+        return trimmed;
+    }
+
+    private static bool IsUniqueViolation(DbUpdateException exception)
+        => exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+
     private static DateTime ResolveEffectiveFrom(DateTime? requested, DateTime now)
     {
         if (!requested.HasValue)
             return now;
 
-        var value = requested.Value.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(requested.Value, DateTimeKind.Utc)
-            : requested.Value.ToUniversalTime();
+        var value = NormalizeUtc(requested.Value);
 
         if (value < now - EffectiveFromTolerance)
             throw AppException.BadRequest("The effective time cannot be in the past.");
@@ -631,6 +1131,42 @@ public sealed class TrustConfigService : ITrustConfigService
             userCounts.GetValueOrDefault(level.Id),
             level.UpdatedAt);
 
+    private static TrustLevelHistoryItemResponse ToLevelHistoryResponse(TrustLevelHistory history)
+    {
+        TrustLevelDepositPolicySnapshotResponse? policySnapshot = null;
+        if (!string.IsNullOrWhiteSpace(history.DepositPolicySnapshotJson))
+        {
+            try
+            {
+                policySnapshot = JsonSerializer.Deserialize<TrustLevelDepositPolicySnapshotResponse>(
+                    history.DepositPolicySnapshotJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException)
+            {
+                policySnapshot = null;
+            }
+        }
+
+        return new TrustLevelHistoryItemResponse(
+            history.Id,
+            history.TrustLevelId,
+            history.VersionNo,
+            history.ChangeType.ToString(),
+            history.Name,
+            history.Description,
+            history.Rank,
+            history.IsActive,
+            history.MinScore,
+            history.MinCompletedOrders,
+            history.MinTotalOrderValue,
+            policySnapshot,
+            history.AffectedUserCount,
+            history.ChangedByUserId,
+            history.ChangedByUser?.FullName,
+            history.ChangedAt);
+    }
+
     private static PenaltyRuleResponse ToPenaltyRuleResponse(RecoveryRequirementRule rule, DateTime now)
         => new(
             rule.Id,
@@ -658,10 +1194,39 @@ public sealed class TrustConfigService : ITrustConfigService
             rule.CreatedAt,
             rule.RuleType.ToString());
 
+    private void WriteLevelHistory(
+        TrustLevel level,
+        int versionNo,
+        TrustLevelChangeType changeType,
+        int affectedUserCount,
+        Guid adminId,
+        DateTime now)
+    {
+        var policySnapshot = SnapshotDepositPolicy(level.DepositPolicy);
+        _repository.AddLevelHistory(new TrustLevelHistory
+        {
+            Id = Guid.NewGuid(),
+            TrustLevelId = level.Id,
+            VersionNo = versionNo,
+            ChangeType = changeType,
+            Name = level.Name,
+            Description = level.Description,
+            Rank = level.Rank,
+            IsActive = level.IsActive,
+            MinScore = level.Requirement?.MinScore ?? 0,
+            MinCompletedOrders = level.Requirement?.MinCompletedOrders ?? 0,
+            MinTotalOrderValue = level.Requirement?.MinTotalOrderValue ?? 0m,
+            DepositPolicySnapshotJson = policySnapshot is null ? null : JsonSerializer.Serialize(policySnapshot),
+            AffectedUserCount = Math.Max(0, affectedUserCount),
+            ChangedByUserId = adminId,
+            ChangedAt = now
+        });
+    }
+
     private void WriteAudit(
         Guid adminId, string action, string targetType, Guid targetId, object? oldValues, object newValues, DateTime now)
     {
-        _repository.AddAuditLog(new AuditLog
+        _audit.Record(new AuditLog
         {
             Id = Guid.NewGuid(),
             ActorUserId = adminId,

@@ -36,6 +36,7 @@ function toAuthUser(response: CurrentUserResponse): AuthUser {
     ...response,
     role,
     customerStatus: response.customerStatus.toLowerCase() as CustomerStatus,
+    shop: response.shop ?? null,
   };
 }
 

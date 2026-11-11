@@ -1,0 +1,26 @@
+.toast-countdown {
+  animation-name: toast-countdown;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes toast-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-countdown {
+    animation-timing-function: steps(8, end);
+  }
+}
+
+/* The same animation controls dismissal, so pausing also preserves remaining time. */
+.toast-notification:hover .toast-countdown,
+.toast-notification:focus-within .toast-countdown {
+  animation-play-state: paused;
+}

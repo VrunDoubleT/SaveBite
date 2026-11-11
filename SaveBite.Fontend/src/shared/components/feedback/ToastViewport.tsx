@@ -1,156 +1,81 @@
-import {
-  CheckCircle2,
-  CircleAlert,
-  Info,
-  X,
-} from "lucide-react";
+import "./ToastViewport.css";
+import { CheckCircle2, CircleAlert, Info, X } from "lucide-react";
+import { useToastStore } from "@/shared/stores/toastStore";
 
-import {
-  type ToastType,
-  useToastStore,
-} from "@/shared/stores/toastStore";
-
-const toastStyles: Record<
-  ToastType,
-  {
-    container: string;
-    icon: string;
-  }
-> = {
+const toastStyles = {
   success: {
-    container: "border-emerald-200 bg-white",
-    icon: "text-emerald-600",
+    title: "Success",
+    container: "border-border-default bg-bg-surface",
+    icon: "bg-primary-50 text-primary-700",
+    heading: "text-text-primary",
+    progress: "bg-primary-700",
+    Icon: CheckCircle2,
   },
-
   error: {
-    container: "border-red-200 bg-white",
-    icon: "text-red-600",
+    title: "Something went wrong",
+    container: "border-border-default bg-bg-surface",
+    icon: "bg-danger-soft text-danger-strong",
+    heading: "text-text-primary",
+    progress: "bg-danger-strong",
+    Icon: CircleAlert,
   },
-
   info: {
-    container: "border-blue-200 bg-white",
-    icon: "text-blue-600",
+    title: "Just so you know",
+    container: "border-border-default bg-bg-surface",
+    icon: "bg-info-soft text-info-strong",
+    heading: "text-text-primary",
+    progress: "bg-info-strong",
+    Icon: Info,
   },
 };
 
-function ToastIcon({
-  type,
-}: {
-  type: ToastType;
-}) {
-  const className =
-    `mt-0.5 shrink-0 ${toastStyles[type].icon}`;
-
-  if (type === "success") {
-    return (
-      <CheckCircle2
-        size={20}
-        className={className}
-      />
-    );
-  }
-
-  if (type === "error") {
-    return (
-      <CircleAlert
-        size={20}
-        className={className}
-      />
-    );
-  }
-
-  return (
-    <Info
-      size={20}
-      className={className}
-    />
-  );
-}
-
 export function ToastViewport() {
-  const toasts = useToastStore(
-    (state) => state.toasts,
-  );
-
-  const removeToast = useToastStore(
-    (state) => state.removeToast,
-  );
-
+  const toasts = useToastStore((state) => state.toasts);
+  const removeToast = useToastStore((state) => state.removeToast);
   return (
-    <div
-      className="
-        pointer-events-none
-        fixed
-        right-4
-        top-4
-        z-[100]
-        flex
-        w-[calc(100%-2rem)]
-        max-w-sm
-        flex-col
-        gap-3
-        sm:right-6
-        sm:top-6
-      "
-      aria-live="polite"
-      aria-atomic="true"
+    <section
+      aria-label="Notifications"
+      className="pointer-events-none fixed right-4 top-[max(5rem,env(safe-area-inset-top))] z-[100] flex max-h-[calc(100dvh-6rem)] w-[calc(100%-2rem)] max-w-[340px] flex-col gap-2 overflow-y-auto overscroll-contain sm:right-6"
     >
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          role={
-            toast.type === "error"
-              ? "alert"
-              : "status"
-          }
-          className={`
-            pointer-events-auto
-            flex
-            items-start
-            gap-3
-            rounded-2xl
-            border
-            px-4
-            py-3.5
-            shadow-lg
-            ${toastStyles[toast.type].container}
-          `}
-        >
-          <ToastIcon type={toast.type} />
-
-          <p
-            className="
-              min-w-0
-              flex-1
-              text-sm
-              font-medium
-              leading-5
-              text-gray-800
-            "
+      {toasts.map((toast) => {
+        const style = toastStyles[toast.type];
+        const Icon = style.Icon;
+        return (
+          <div
+            key={toast.id}
+            role={toast.type === "error" ? "alert" : "status"}
+            aria-atomic="true"
+            className={`toast-notification relative overflow-hidden pointer-events-auto grid shrink-0 grid-cols-[28px_minmax(0,1fr)_28px] items-start gap-2.5 rounded-lg border p-3 shadow-md ${style.container}`}
           >
-            {toast.message}
-          </p>
-
-          <button
-            type="button"
-            onClick={() =>
-              removeToast(toast.id)
-            }
-            className="
-              shrink-0
-              rounded-lg
-              p-1
-              text-gray-400
-              transition
-              hover:bg-gray-100
-              hover:text-gray-700
-            "
-            aria-label="Dismiss notification"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      ))}
-    </div>
+            <span className={`flex size-7 items-center justify-center rounded-md ${style.icon}`}>
+              <Icon className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 space-y-0.5">
+              <p className={`text-sm font-semibold leading-5 ${style.heading}`}>{style.title}</p>
+              <p className="whitespace-pre-line text-sm leading-5 text-text-primary [overflow-wrap:anywhere]">
+                {toast.message}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeToast(toast.id)}
+              className="flex size-7 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-neutral-200 hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
+              aria-label="Dismiss notification"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+            <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-neutral-100">
+              <div
+                onAnimationEnd={() => removeToast(toast.id)}
+                className={`toast-countdown h-full origin-left ${style.progress}`}
+                style={{
+                  animationDuration: `${Math.max(0, toast.duration)}ms`,
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </section>
   );
 }

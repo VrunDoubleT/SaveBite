@@ -70,10 +70,10 @@ public sealed class OrderService : IOrderService
     public async Task<CheckoutOrderResponse> GetAsync(Guid userId, Guid orderId, CancellationToken ct = default)
     {
         var order = await _repository.GetOrderAsync(orderId, userId, ct)
-            ?? throw AppException.NotFound("Order not found.");
+                    ?? await _repository.GetOrderForHistoryAsync(orderId, userId, ct)
+                    ?? throw AppException.NotFound("Order not found.");
         return CheckoutOrderMapper.Map(order, now: Now);
     }
-
     // Apply the shared customer cancellation policy and payment reconciliation workflow.
     public Task<CheckoutOrderResponse> CancelAsync(Guid userId, Guid orderId, CancellationToken ct = default)
         => _payments.CancelAsync(userId, orderId, ct);

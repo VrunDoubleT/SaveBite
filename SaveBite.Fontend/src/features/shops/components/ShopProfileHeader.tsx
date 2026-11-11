@@ -88,6 +88,7 @@ export function isOpenNow(open?: string | null, close?: string | null, now = new
   const start = toMinutes(open);
   const end = toMinutes(close);
   if (start === null || end === null) return null;
+  if (start === end || (start === 0 && end === 0)) return true;
   const current = now.getHours() * 60 + now.getMinutes();
   return start <= end ? current >= start && current < end : current >= start || current < end;
 }
@@ -126,16 +127,24 @@ export function OpenStateBadge({
   );
 }
 
-export function ShopProfileHeader({ shop, onEdit }: { shop: OwnerShop; onEdit: () => void }) {
+export function ShopProfileHeader({
+  shop,
+  onEdit,
+  editDisabled = false,
+}: {
+  shop: OwnerShop;
+  onEdit: () => void;
+  editDisabled?: boolean;
+}) {
   const area = [shop.district, shop.city].filter(Boolean).join(", ");
   const open = shop.openingTime?.slice(0, 5);
   const close = shop.closingTime?.slice(0, 5);
   const hasHours = Boolean(open && close);
 
   return (
-    <section className="rounded-[2rem] border border-border-default bg-bg-surface shadow-sm">
+    <section className="rounded-xl border border-neutral-200 bg-white shadow-2xs">
       {/* Cover */}
-      <div className="relative h-48 overflow-hidden rounded-t-[2rem] sm:h-64">
+      <div className="relative h-48 overflow-hidden rounded-t-xl sm:h-64">
         {shop.coverImageUrl ? (
           <>
             <img src={shop.coverImageUrl} alt="Shop cover" className="h-full w-full object-cover" />
@@ -179,8 +188,12 @@ export function ShopProfileHeader({ shop, onEdit }: { shop: OwnerShop; onEdit: (
 
           <button
             type="button"
+            disabled={editDisabled}
+            title={
+              editDisabled ? "Editing is unavailable while your shop is suspended." : undefined
+            }
             onClick={onEdit}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Pencil size={16} aria-hidden />
             <span className="hidden sm:inline">Edit business info</span>
@@ -192,6 +205,7 @@ export function ShopProfileHeader({ shop, onEdit }: { shop: OwnerShop; onEdit: (
           <h1 className="min-w-0 max-w-full truncate text-2xl font-bold tracking-tight text-text-primary sm:text-4xl">
             {shop.name}
           </h1>
+          <p className="mt-1 text-sm text-neutral-500">{shop.followerCount ?? 0} followers</p>
 
           {(area || hasHours) && (
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">

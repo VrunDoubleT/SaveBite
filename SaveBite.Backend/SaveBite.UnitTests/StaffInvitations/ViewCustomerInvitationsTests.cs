@@ -1,3 +1,5 @@
+using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.BackgroundJobs.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,7 +37,7 @@ public class ViewCustomerInvitationsTests
     public ViewCustomerInvitationsTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object);
+        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object, new Mock<IStaffInvitationScheduler>().Object, new StaffInvitationNotificationService(_invitationRepoMock.Object, new Mock<INotificationQueue>().Object), TestDbContextFactory.Create(), new Mock<IRealtimePublisher>().Object);
     }
 
     // =========================================================================
@@ -148,13 +150,8 @@ public class ViewCustomerInvitationsTests
         // Output log
         PrintSuccess("UT03", result);
 
-        // Assert: Trạng thái hiển thị phải là Cancelled
-        result.First().Status.Should().Be(nameof(StaffInvitationStatus.Cancelled));
-
-        // Phải cập nhật lại trạng thái vào DB và lưu thay đổi
-        expiredInvitation.Status.Should().Be(nameof(StaffInvitationStatus.Cancelled));
-        _invitationRepoMock.Verify(r => r.UpdateInvitationAsync(expiredInvitation, It.IsAny<CancellationToken>()), Times.Once);
-        _invitationRepoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        // Assert: Trạng thái hiển thị phải là Expired
+        result.First().Status.Should().Be(nameof(StaffInvitationStatus.Expired));
     }
 
     // =========================================================================

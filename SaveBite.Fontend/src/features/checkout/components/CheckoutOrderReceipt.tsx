@@ -1,4 +1,6 @@
-﻿import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
+import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
+import { Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
+import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
 import { CustomerOrderRefunds } from "@/features/refunds/components/CustomerOrderRefunds";
 import { OrderPickupDeadlines } from "./OrderPickupDeadlines";
@@ -6,8 +8,10 @@ import { OrderPickupCode } from "./OrderPickupCode";
 import { OrderStatusPanel } from "./OrderStatusPanel";
 import { CancelOrderAction } from "./CancelOrderAction";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, CreditCard, Store, Package, MapPin, ShoppingBag, Star } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { CreditCard, Clock3, Store, MapPin, ShoppingBag } from "lucide-react";
+import { OrderItems, type OrderReviewTarget } from "@/features/orders/components/OrderItems";
+import { OrderPaymentAmounts } from "@/features/orders/components/OrderPaymentAmounts";
 import { RateOrderModal } from "@/features/feedbacks/components/RateOrderModal";
 import { EditReviewModal } from "@/features/feedbacks/components/EditReviewModal";
 import { APP_PATHS } from "@/app/router/paths";
@@ -18,30 +22,70 @@ import { checkoutTime, safePaymentUrl } from "../utils/checkoutPolicy";
 import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
 import { getApiErrorMessage } from "@/shared/api";
 import { useCartStore } from "@/features/cart/stores/cartStore";
+import { getUploadDraft } from "@/shared/uploads/uploadDraftStore";
+import { useAuthStore } from "@/shared/stores/authStore";
 
 export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
   const realtime = useRealtimeSubscriptions();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const userId = useAuthStore((state) => state.user?.id);
   const [order, setOrder] = useState<CheckoutOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [ratingItemId, setRatingItemId] = useState<string | null>(null);
-  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<{
-    feedbackId: string;
-    productName?: string;
-    variantName?: string;
-    imageUrl?: string | null;
-  } | null>(null);
+  const [ratingUploadDraftId, setRatingUploadDraftId] = useState<string>();
+  const [editingFeedbackTarget, setEditingFeedbackTarget] = useState<OrderReviewTarget | null>(
+    null,
+  );
+  const [editingUploadDraftId, setEditingUploadDraftId] = useState<string>();
   const [now, setNow] = useState(Date.now);
   const alive = useRef(true);
   const revision = useRef(0);
   const operation = useRef(false);
   const pending = order?.paymentStatus === "Pending" && order.status === "AwaitingPayment";
   const expired = !!order?.paymentExpiresAt && Date.parse(order.paymentExpiresAt) <= now;
+  const resumeUploadDraftId = (location.state as { uploadDraftId?: string } | null)?.uploadDraftId;
+
+  useEffect(() => {
+    if (!resumeUploadDraftId) return;
+    let active = true;
+    void getUploadDraft(resumeUploadDraftId)
+      .then((draft) => {
+        if (!active) return;
+        const form = draft?.formData as
+          | { kind?: string; orderItemId?: string; feedbackId?: string }
+          | undefined;
+        if (!draft || draft.userId !== userId || draft.purpose !== "feedback" || !form) {
+          setError("This saved review is unavailable or has expired.");
+          return;
+        }
+        if (form.kind === "create-review" && form.orderItemId) {
+          setRatingItemId(form.orderItemId);
+          setRatingUploadDraftId(draft.id);
+        } else if (form.kind === "edit-review" && form.feedbackId) {
+          setEditingFeedbackTarget({ feedbackId: form.feedbackId });
+          setEditingUploadDraftId(draft.id);
+        } else {
+          setError("This saved review is unavailable or has expired.");
+        }
+      })
+      .catch((error) => setError(getApiErrorMessage(error)))
+      .finally(() => {
+        if (active) navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+      });
+    return () => {
+      active = false;
+    };
+  }, [resumeUploadDraftId, userId, navigate, location.pathname, location.search]);
 
   useEffect(() => {
     alive.current = true;
     const clock = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => { alive.current = false; window.clearInterval(clock); };
+    return () => {
+      alive.current = false;
+      window.clearInterval(clock);
+    };
   }, []);
   useEffect(() => {
     if (busy) return;
@@ -57,15 +101,29 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
           dirty = false;
           const current = ++revision.current;
           const next = await orderApi.order(orderId, controller.signal);
-          if (!controller.signal.aborted && alive.current && current === revision.current) setOrder(next);
+          if (!controller.signal.aborted && alive.current && current === revision.current) {
+            setOrder(next);
+            setError(null);
+          }
         }
       } catch (error) {
         if (!controller.signal.aborted && alive.current) setError(getApiErrorMessage(error));
-      } finally { reading = false; }
+      } finally {
+        reading = false;
+      }
     }
-    const off = subscribeCustomerOrderEvents(realtime, () => { void refresh(); }, orderId);
+    const off = subscribeCustomerOrderEvents(
+      realtime,
+      () => {
+        void refresh();
+      },
+      orderId,
+    );
     void refresh();
-    return () => { off(); controller.abort(); };
+    return () => {
+      off();
+      controller.abort();
+    };
   }, [orderId, realtime, busy]);
   useEffect(() => {
     if (!pending) return;
@@ -114,66 +172,87 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
     }
   }
   return (
-    <div className="w-full min-w-0 py-5 md:py-6">
+    <div className="min-w-0 py-6 sm:py-8">
       <RateOrderModal
         isOpen={ratingItemId !== null}
-        onClose={() => setRatingItemId(null)}
+        onClose={() => {
+          setRatingItemId(null);
+          setRatingUploadDraftId(undefined);
+        }}
         order={order}
         focusOrderItemId={ratingItemId || undefined}
+        uploadDraftId={ratingUploadDraftId}
         onSubmitted={() => void update(() => orderApi.order(orderId))}
       />
       <EditReviewModal
         isOpen={Boolean(editingFeedbackTarget)}
-        onClose={() => setEditingFeedbackTarget(null)}
+        onClose={() => {
+          setEditingFeedbackTarget(null);
+          setEditingUploadDraftId(undefined);
+        }}
         feedbackId={editingFeedbackTarget?.feedbackId ?? null}
         initialProductName={editingFeedbackTarget?.productName}
         initialVariantName={editingFeedbackTarget?.variantName}
         initialImageUrl={editingFeedbackTarget?.imageUrl}
+        orderId={orderId}
+        uploadDraftId={editingUploadDraftId}
         onUpdated={() => void update(() => orderApi.order(orderId))}
       />
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to={APP_PATHS.ACCOUNT_ORDERS}
-          className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-emerald-700"
-        >
-          <ArrowLeft size={16} />
-          My orders
-        </Link>
-      </div>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Order details</h1>
-        </div>
-        {order?.createdAt && (
-          <p className="text-xs text-neutral-500">Placed {checkoutTime(order.createdAt)} · GMT+7</p>
-        )}
+      <div className="mb-6 space-y-3">
+        <nav aria-label="Breadcrumb" className="text-caption text-text-secondary">
+          <ol className="flex flex-wrap items-center gap-2">
+            <li>
+              <Link
+                to={APP_PATHS.HOME}
+                className="inline-flex min-h-8 items-center font-medium hover:text-primary-700"
+              >
+                Home
+              </Link>
+            </li>
+            <li className="flex items-center gap-2">
+              <span aria-hidden="true">›</span>
+              <Link
+                to={APP_PATHS.ACCOUNT_ORDERS}
+                className="inline-flex min-h-8 items-center font-medium hover:text-primary-700"
+              >
+                My orders
+              </Link>
+            </li>
+            <li className="flex items-center gap-2">
+              <span aria-hidden="true">›</span>
+              <span aria-current="page" className="font-medium text-text-primary">
+                Order details
+              </span>
+            </li>
+          </ol>
+        </nav>
+        <h1 className="text-page font-semibold text-text-primary">Order details</h1>
       </div>
       {error && (
-        <p
-          role="alert"
-          className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
-        >
-          {error}
-        </p>
+        <div className="mb-5">
+          <ErrorState
+            title="Couldn't verify your order"
+            description={error}
+            onRetry={() => void update(() => orderApi.order(orderId))}
+          />
+        </div>
       )}
       {!order && !error && (
-        <p role="status" className="py-12 text-center text-neutral-500">
-          Verifying your order status…
-        </p>
+        <div role="status" aria-label="Verifying your order status" className="space-y-4">
+          <span className="sr-only">Verifying your order status…</span>
+          <Skeleton className="h-24" />
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+            <Skeleton className="h-96" />
+            <Skeleton className="h-72" />
+          </div>
+        </div>
       )}
       {order && (
         <div className="space-y-4">
-          <section
-            aria-label="Order overview"
-            className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border border-neutral-200 bg-white px-4 py-3"
-          >
-            <OrderPickupCode code={order.orderCode} compact />
-            <OrderStatusPanel order={order} compact />
-          </section>
           {order.paymentReviewRequired && (
             <p
               role="alert"
-              className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+              className="rounded-md border border-accent-100 bg-accent-50 px-4 py-3 text-body text-accent-700"
             >
               Your payment needs review. Contact the shop to check the payment; your pickup deadline
               has not been extended.
@@ -182,27 +261,80 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
           {order.paymentMessage && (
             <p
               role="alert"
-              className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+              className="rounded-md border border-accent-100 bg-accent-50 p-4 text-body text-accent-700"
             >
               {order.paymentMessage}
             </p>
           )}
-          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="min-w-0 space-y-4">
-              <section
+              <Card padding="none" aria-label="Pickup information" className="overflow-hidden">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
+                  <OrderPickupCode code={order.orderCode} compact />
+                  <CancelOrderAction
+                    order={order}
+                    now={now}
+                    busy={busy}
+                    onCancel={() => update(() => orderApi.cancel(orderId))}
+                  />
+                  {order.createdAt && (
+                    <p className="flex w-full items-center gap-1.5 text-caption text-text-secondary">
+                      <Clock3 size={14} aria-hidden="true" />
+                      <time dateTime={order.createdAt}>
+                        Placed {checkoutTime(order.createdAt)} · GMT+7
+                      </time>
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-4 p-4 sm:p-5">
+                  <h2 className="text-body font-semibold text-text-primary">Pickup information</h2>
+                  <OrderStatusPanel order={order} compact />
+                  <OrderPickupDeadlines order={order} now={now} compact />
+                  <p className="text-caption text-text-secondary">
+                    GMT+7 · Pickup deadlines do not extend during payment.
+                  </p>
+                  <details className="group border-t border-border-default pt-2">
+                    <summary className="min-h-8 cursor-pointer text-caption font-medium text-text-secondary">
+                      About these statuses
+                    </summary>
+                    <div className="pt-3">
+                      <OrderStatusPanel order={order} />
+                    </div>
+                  </details>
+                </div>
+              </Card>
+              <Card
+                padding="none"
                 aria-label="Shop and ordered products"
-                className="overflow-hidden rounded-xl border border-neutral-200 bg-white"
+                className="overflow-hidden"
               >
-                <header className="flex items-center gap-3 border-b border-neutral-100 p-4 sm:p-5">
-                  <OrderImage src={order.shopLogoUrl} alt={order.shopName} shop />
+                <header className="flex items-center gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
+                  <Link
+                    to={APP_PATHS.SHOP_DETAIL.replace(":id", encodeURIComponent(order.shopId))}
+                    className="shrink-0 transition-opacity hover:opacity-80"
+                    aria-label={`Visit ${order.shopName}`}
+                  >
+                    <MediaImage
+                      src={order.shopLogoUrl}
+                      alt={order.shopName}
+                      fallbackIcon={Store}
+                      showFallbackLabel={false}
+                      className="size-10 shrink-0 rounded-md cursor-pointer"
+                    />
+                  </Link>
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-neutral-500">Pickup shop</p>
-                    <h2 className="mt-0.5 break-words text-base font-bold text-neutral-900">
-                      {order.shopName}
+                    <p className="text-caption font-medium text-text-secondary">Pickup shop</p>
+                    <h2 className="mt-0.5 break-words text-section font-bold text-text-primary">
+                      <Link
+                        to={APP_PATHS.SHOP_DETAIL.replace(":id", encodeURIComponent(order.shopId))}
+                        className="transition-colors hover:text-primary-700 hover:underline cursor-pointer"
+                      >
+                        {order.shopName}
+                      </Link>
                     </h2>
                     {order.shopAddress && (
-                      <p className="mt-1 flex items-start gap-1.5 text-xs text-neutral-500">
-                        <MapPin size={15} className="mt-0.5 shrink-0" />
+                      <p className="mt-1 flex items-start gap-1.5 text-caption text-text-secondary">
+                        <MapPin aria-hidden="true" size={15} className="mt-0.5 shrink-0" />
                         <span className="break-words">{order.shopAddress}</span>
                       </p>
                     )}
@@ -210,207 +342,116 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                 </header>
                 <div className="px-4 sm:px-5">
                   <div className="flex items-center justify-between gap-3 pt-4">
-                    <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
-                      <ShoppingBag size={17} className="text-emerald-600" />
+                    <h3 className="flex items-center gap-2 text-body font-semibold text-text-primary">
+                      <ShoppingBag aria-hidden="true" size={17} className="text-primary-600" />
                       Ordered products
                     </h3>
-                    <span className="text-xs text-neutral-500">
+                    <span className="text-caption text-text-secondary">
                       {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
                     </span>
                   </div>
-                  <ul className="divide-y divide-neutral-100" aria-label="Ordered products">
-                    {order.items.map((item) => (
-                      <li
-                        key={item.flashDealVariantId}
-                        className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-2 py-4 sm:grid-cols-[64px_minmax(0,1fr)_auto] sm:gap-x-4"
-                      >
-                        <div className="row-span-2 sm:row-span-1">
-                          <OrderImage src={item.imageUrl} alt={item.productName} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="break-words text-sm font-semibold text-neutral-900">
-                            {item.productName}
-                          </p>
-                          {item.variantName && (
-                            <p className="mt-1 text-xs text-neutral-500">{item.variantName}</p>
-                          )}
-                          <p className="mt-1.5 text-xs text-neutral-500">
-                            Qty{" "}
-                            <span className="font-semibold text-neutral-800">{item.quantity}</span>{" "}
-                            × {money(item.unitPrice)}
-                          </p>
-                          {order.status === "Completed" && (
-                            <div className="mt-2">
-                              {item.canReview && item.orderItemId ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setRatingItemId(item.orderItemId ?? "")}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-                                >
-                                  <Star size={13} className="fill-amber-400 text-amber-500" />
-                                  Rate this item
-                                </button>
-                              ) : item.rating ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (item.feedbackId) {
-                                      setEditingFeedbackTarget({
-                                        feedbackId: item.feedbackId,
-                                        productName: item.productName,
-                                        variantName: item.variantName,
-                                        imageUrl: item.imageUrl,
-                                      });
-                                    }
-                                  }}
-                                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer text-left"
-                                >
-                                  <CheckCircle2 size={13} />
-                                  Reviewed
-                                  <Star size={12} className="fill-amber-400 text-amber-400" />
-                                  {item.rating}/5 · Edit review
-                                </button>
-                              ) : null}
-                            </div>
-                          )}
-                          <p className="hidden">
-                          </p>
-                        </div>
-                        <p className="col-start-2 text-sm font-bold tabular-nums text-neutral-900 sm:col-start-auto sm:text-right">
-                          {money(item.subtotal)}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
+                  <OrderItems
+                    items={order.items}
+                    onEditReview={setEditingFeedbackTarget}
+                    onRate={order.status === "Completed" ? setRatingItemId : undefined}
+                  />
                 </div>
-                <div className="flex items-center justify-between gap-4 border-t border-neutral-100 bg-neutral-50/70 px-4 py-3 sm:px-5">
-                  <p className="text-sm font-semibold text-neutral-600">Order total</p>
-                  <p className="text-xl font-bold tabular-nums text-emerald-700">
+                <div className="flex items-center justify-between gap-4 border-t border-border-default bg-neutral-50/70 px-4 py-3 sm:px-5">
+                  <p className="text-body font-semibold text-text-secondary">Order total</p>
+                  <p className="text-section font-bold tabular-nums text-primary-700">
                     {money(order.totalAmount)}
                   </p>
                 </div>
-              </section>
-              <section
-                aria-label="Pickup information"
-                className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-5"
-              >
-                <h2 className="mb-3 text-sm font-semibold text-neutral-900">Pickup information</h2>
-                <OrderPickupDeadlines order={order} now={now} compact />
-                <p className="mt-3 text-xs leading-relaxed text-neutral-500">
-                  GMT+7 · Pickup deadlines do not extend during payment.
-                </p>
-              </section>
-
+              </Card>
             </div>
-            <aside
-              aria-label="Payment summary"
-              className="min-w-0 space-y-3 rounded-xl border border-neutral-200 bg-white p-4 sm:p-5 lg:sticky lg:top-24"
-            >
-              <h2 className="flex items-center gap-2 text-base font-bold text-neutral-900">
-                <CreditCard size={20} className="text-emerald-600" />
-                Payment summary
-              </h2>
-              <dl className="space-y-3 text-xs">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-neutral-500">Method</dt>
-                  <dd className="min-w-0 max-w-[65%] break-words text-right font-semibold text-neutral-800">
-                    {order.paymentMethod === "PayAtShop"
-                      ? "Online deposit + pay at shop"
-                      : "Full online payment"}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-neutral-500">
-                    {order.paymentStatus === "Succeeded"
-                      ? "Paid online"
-                      : "Required online payment"}
-                  </dt>
-                  <dd className="shrink-0 font-bold tabular-nums text-neutral-900">
-                    {money(order.requiredOnlineAmount)}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4 border-t border-neutral-100 pt-4">
-                  <dt className="font-semibold text-neutral-700">Remaining at shop</dt>
-                  <dd className="shrink-0 text-lg font-extrabold tabular-nums text-emerald-700">
-                    {money(order.remainingAtShop)}
-                  </dd>
-                </div>
-              </dl>
-              {pending && (
-                <div className="space-y-3 border-t border-neutral-100 pt-4">
-                  <p className="text-xs text-neutral-500">
-                    Payment deadline: {checkoutTime(order.paymentExpiresAt)}
-                  </p>
-                  <button
-                    type="button"
-                    disabled={busy || expired}
-                    onClick={() => void update(() => paymentApi.payment(orderId), true)}
-                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-200 disabled:text-neutral-500"
-                  >
-                    <CreditCard size={18} className="shrink-0" />
-                    {busy
-                      ? "Checking…"
-                      : expired
-                        ? "Payment expired · Verifying"
-                        : `${order.paymentMethod === "PayAtShop" ? "Pay deposit" : "Pay online"} ${money(order.requiredOnlineAmount)}`}
-                  </button>
-                </div>
+            <div className="min-w-0 space-y-4">
+              <aside
+                aria-label="Payment summary"
+                className="min-w-0 space-y-4 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5"
+              >
+                <h2 className="flex items-center gap-2 text-section font-bold text-text-primary">
+                  <CreditCard aria-hidden="true" size={20} className="text-primary-600" />
+                  Payment summary
+                </h2>
+                <OrderPaymentAmounts order={order} />
+                <dl className="space-y-3 border-t border-border-default pt-4 text-body">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-text-secondary">Method</dt>
+                    <dd className="min-w-0 max-w-[65%] break-words text-right font-semibold text-text-primary">
+                      {order.paymentMethod === "PayAtShop"
+                        ? "Online deposit + pay at shop"
+                        : "Full online payment"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-text-secondary">
+                      {order.paymentStatus === "Succeeded"
+                        ? "Paid online"
+                        : "Required online payment"}
+                    </dt>
+                    <dd className="shrink-0 font-bold tabular-nums text-text-primary">
+                      {money(order.requiredOnlineAmount)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4 border-t border-border-default pt-4">
+                    <dt className="font-semibold text-text-secondary">Remaining at shop</dt>
+                    <dd className="shrink-0 text-lg font-extrabold tabular-nums text-primary-700">
+                      {money(order.remainingAtShop)}
+                    </dd>
+                  </div>
+                </dl>
+                {pending && (
+                  <div className="space-y-3 border-t border-border-default pt-4">
+                    <p className="text-caption text-text-secondary">
+                      Payment deadline: {checkoutTime(order.paymentExpiresAt)}
+                    </p>
+                    <CustomerActionButton
+                      loading={busy}
+                      size="md"
+                      type="button"
+                      disabled={busy || expired}
+                      onClick={() => void update(() => paymentApi.payment(orderId), true)}
+                      className="min-h-11 w-full whitespace-normal !px-3 py-2"
+                    >
+                      <CreditCard aria-hidden="true" size={18} className="shrink-0" />
+                      {busy
+                        ? "Checking…"
+                        : expired
+                          ? "Payment expired · Verifying"
+                          : `${order.paymentMethod === "PayAtShop" ? "Pay deposit" : "Pay online"} ${money(order.requiredOnlineAmount)}`}
+                    </CustomerActionButton>
+                  </div>
+                )}
+                {order.policy && (
+                  <div className="rounded-md bg-neutral-50 p-3">
+                    <p className="text-caption font-medium text-text-secondary">
+                      Your policy at checkout
+                    </p>
+                    <p className="mt-1 text-body font-semibold text-text-primary">
+                      {order.policy.levelRank ? `Level ${order.policy.levelRank} · ` : ""}
+                      {order.policy.levelName}
+                    </p>
+                    <p className="mt-2 text-caption leading-relaxed text-text-secondary">
+                      {order.paymentMethod === "OnlinePayment"
+                        ? "Full order amount is required online."
+                        : order.policy.appliedRange
+                          ? `Over ${money(order.policy.appliedRange.fromOrderAmount)} up to ${money(order.policy.appliedRange.toOrderAmount)} · Fixed deposit ${money(order.depositAmount)}.`
+                          : `No deposit required for orders up to ${money(order.policy.freeOrderAmount ?? 0)}.`}
+                    </p>
+                    <p className="mt-2 text-caption leading-relaxed text-text-secondary">
+                      Later level or policy changes do not affect the deposit recorded on this
+                      order.
+                    </p>
+                  </div>
+                )}
+              </aside>
+              {["Completed", "Rejected", "Expired"].includes(order.status) && (
+                <CustomerOrderRefunds key={`${order.id}:${order.status}`} order={order} />
               )}
-              {order.policy && (
-                <div className="rounded-lg bg-neutral-50 p-3">
-                  <p className="text-xs font-medium text-neutral-500">Your policy at checkout</p>
-                  <p className="mt-1 text-sm font-semibold text-neutral-900">
-                    {order.policy.levelRank ? `Level ${order.policy.levelRank} · ` : ""}
-                    {order.policy.levelName}
-                  </p>
-                  <p className="mt-2 text-xs leading-relaxed text-neutral-600">
-                    {order.paymentMethod === "OnlinePayment"
-                      ? "Full order amount is required online."
-                      : order.policy.appliedRange
-                        ? `Over ${money(order.policy.appliedRange.fromOrderAmount)} up to ${money(order.policy.appliedRange.toOrderAmount)} · Fixed deposit ${money(order.depositAmount)}.`
-                        : `No deposit required for orders up to ${money(order.policy.freeOrderAmount ?? 0)}.`}
-                  </p>
-                  <p className="mt-2 text-xs leading-relaxed text-neutral-500">
-                    Later level or policy changes do not affect the deposit recorded on this order.
-                  </p>
-                </div>
-              )}
-            </aside>
-          </div>
-          <div className="space-y-4">
-            {["Completed", "Rejected", "Expired"].includes(order.status) && (
-              <CustomerOrderRefunds key={`${order.id}:${order.status}`} order={order} />
-            )}
-            <CancelOrderAction
-              order={order}
-              now={now}
-              busy={busy}
-              onCancel={() => update(() => orderApi.cancel(orderId))}
-            />
+            </div>
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-function OrderImage({ src, alt, shop = false }: { src?: string; alt: string; shop?: boolean }) {
-  return (
-    <span
-      className={`relative flex shrink-0 items-center justify-center overflow-hidden border border-neutral-100 bg-neutral-50 text-neutral-400 ${shop ? "size-12 rounded-lg" : "size-16 rounded-lg"}`}
-    >
-      {shop ? <Store size={27} /> : <Package size={27} />}
-      {src && (
-        <img
-          loading="lazy"
-          src={src}
-          alt={alt}
-          onError={(event) => {
-            event.currentTarget.style.display = "none";
-          }}
-          className="absolute inset-0 size-full object-cover"
-        />
-      )}
-    </span>
   );
 }

@@ -25,6 +25,7 @@ public class DeleteCategoryTests
     private readonly Mock<ILogger<CategoryService>> _loggerMock = new();
     private readonly CategoryService _service;
 
+    private readonly Guid _adminId = Guid.NewGuid();
     private readonly Guid _existingCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly Guid _nonExistentCategoryId = Guid.Parse("99999999-9999-9999-9999-999999999999");
 
@@ -33,6 +34,7 @@ public class DeleteCategoryTests
         _output = output;
         _service = new CategoryService(
             _categoryRepoMock.Object,
+            new Mock<IAdminAuditWriter>().Object,
             TimeProvider.System,
             _loggerMock.Object
         );
@@ -74,7 +76,7 @@ public class DeleteCategoryTests
             .Returns(Task.CompletedTask);
 
         // Act
-        await _service.DeleteCategoryAsync(_existingCategoryId);
+        await _service.DeleteCategoryAsync(_adminId, _existingCategoryId);
 
         // Assert & Log
         PrintSuccess("TCID01", "Category deleted successfully");
@@ -96,7 +98,7 @@ public class DeleteCategoryTests
             .ReturnsAsync((Category?)null);
 
         // Act
-        var act = () => _service.DeleteCategoryAsync(_nonExistentCategoryId);
+        var act = () => _service.DeleteCategoryAsync(_adminId, _nonExistentCategoryId);
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -127,7 +129,7 @@ public class DeleteCategoryTests
             .ReturnsAsync(true);
 
         // Act
-        var act = () => _service.DeleteCategoryAsync(_existingCategoryId);
+        var act = () => _service.DeleteCategoryAsync(_adminId, _existingCategoryId);
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<AppException>();

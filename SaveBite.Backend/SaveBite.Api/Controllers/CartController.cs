@@ -25,13 +25,13 @@ public sealed class CartController : ControllerBase
 
     // Load the next cursor page of shop groups without splitting a shop across pages.
     [HttpGet("page")]
-    [CustomerAccess]
+    [CustomerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<CartPageResponse>>> Page([FromQuery] string? cursor, [FromQuery] int pageSize = 5, CancellationToken cancellationToken = default)
         => Ok(ApiResponse<CartPageResponse>.Ok(await _cartService.GetPageAsync(UserId(), cursor, pageSize, cancellationToken)));
 
     // Return whole-cart totals and the distinct Flash Deal count used by the cart badge.
     [HttpGet("summary")]
-    [CustomerAccess]
+    [CustomerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<CartSummaryResponse>>> Summary(CancellationToken cancellationToken)
         => Ok(ApiResponse<CartSummaryResponse>.Ok(await _cartService.GetSummaryAsync(UserId(), cancellationToken)));
 

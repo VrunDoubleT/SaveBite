@@ -17,6 +17,13 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
                 "(\"subtotal\" IS NULL OR \"subtotal\" >= 0)");
         });
 
+        builder.Property(x => x.ResaleDecisionStatus).HasColumnName("resale_decision_status").HasConversion<string>().HasMaxLength(30);
+        builder.Property(x => x.ResaleQuantity).HasColumnName("resale_quantity");
+        builder.Property(x => x.UnsellableQuantity).HasColumnName("unsellable_quantity");
+        builder.Property(x => x.ResaleDecidedAt).HasColumnName("resale_decided_at");
+        builder.Property(x => x.ResaleDecidedBy).HasColumnName("resale_decided_by");
+        builder.ToTable("order_items", t => t.HasCheckConstraint("ck_order_item_resale_quantities",
+            "resale_quantity >= 0 AND unsellable_quantity >= 0 AND resale_quantity + unsellable_quantity <= quantity"));
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

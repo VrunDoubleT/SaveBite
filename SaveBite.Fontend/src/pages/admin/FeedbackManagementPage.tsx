@@ -3,9 +3,12 @@ import { AlertCircle, ChevronDown, Inbox, RotateCw, SearchX, X } from "lucide-re
 import { feedbackApi } from "@/features/feedback/api/feedbackApi";
 import { FeedbackModerationDialog } from "@/features/feedback/components/FeedbackModerationDialog";
 import { FeedbackTable } from "@/features/feedback/components/FeedbackTable";
-import type { Feedback, FeedbackPage } from "@/features/feedback/types/feedback.types";
+import type { Feedback, FeedbackPage, FeedbackStatus } from "@/features/feedback/types/feedback.types";
 import { Pagination } from "@/shared/components/pagination";
 import { SearchInput } from "@/shared/components/modal/SearchInput";
+import { toast } from "@/shared/stores/toastStore";
+import { getApiErrorMessage } from "@/shared/api";
+import { emitFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -29,8 +32,6 @@ const getStatusCode = (status: Feedback["status"]): number => {
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700";
-
-/* ---------- Loading / state components (same pattern as ShopManagementPage) ---------- */
 
 function ListSkeleton() {
   return (
@@ -103,8 +104,6 @@ function StateMessage({
   );
 }
 
-/* ---------- Page ---------- */
-
 export function FeedbackManagementPage() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
@@ -172,8 +171,6 @@ export function FeedbackManagementPage() {
     setPage(1);
   };
 
-  /* ---------- Moderation ---------- */
-
   const moderationMode = selected && getStatusCode(selected.status) === 3 ? "restore" : "hide";
 
   function openModeration(item: Feedback) {
@@ -187,29 +184,57 @@ export function FeedbackManagementPage() {
   async function confirmModeration(reason: string) {
     if (!selected) return;
 
-    if (moderationMode === "restore") {
-      await feedbackApi.restore(selected.id, reason || undefined);
-    } else {
-      await feedbackApi.remove(selected.id, reason);
-    }
+    const targetFeedback = selected;
+    const isRestoring = moderationMode === "restore";
+    const nextStatus: FeedbackStatus = isRestoring ? "Visible" : "HiddenByAdmin";
 
-    setSelected(null);
-    retry();
+    try {
+      if (isRestoring) {
+        await feedbackApi.restore(targetFeedback.id, reason || undefined);
+        toast.success("Feedback restored successfully.");
+      } else {
+        await feedbackApi.remove(targetFeedback.id, reason);
+        toast.success("Feedback removed successfully.");
+      }
+
+      // Optimistically update status to 'Removed' (HiddenByAdmin: 3) or 'Visible' (1) immediately without reload
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.map((item) =>
+            item.id === targetFeedback.id
+              ? {
+                  ...item,
+                  status: nextStatus,
+                  currentReason: !isRestoring ? reason : item.currentReason,
+                }
+              : item,
+          ),
+        };
+      });
+
+      emitFeedbackSync(isRestoring ? "restore" : "hide", targetFeedback.id, {
+        shopId: targetFeedback.shopId,
+        productId: targetFeedback.productId,
+        rating: targetFeedback.rating,
+      });
+
+      setSelected(null);
+      retry();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error) || "Failed to update feedback.");
+    }
   }
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col justify-between gap-4 border-b border-border-default pb-5 lg:flex-row lg:items-end">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-text-primary">
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
               Feedback Moderation
             </h1>
-            {!isInitialLoading && !error && (
-              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-sm font-semibold tabular-nums text-text-secondary">
-                {totalItems.toLocaleString("vi-VN")}
-              </span>
-            )}
           </div>
           <p className="text-sm text-text-secondary">
             Review customer feedback, hide content that breaks the rules and restore it when needed.
@@ -293,20 +318,28 @@ export function FeedbackManagementPage() {
         )
       ) : (
         <div
-          className={`space-y-5 transition-opacity ${loading ? "opacity-60" : "opacity-100"}`}
+          className={`overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-sm transition-opacity ${
+            loading ? "opacity-60" : "opacity-100"
+          }`}
           aria-busy={loading}
         >
           <FeedbackTable items={items} onModerate={openModeration} />
 
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            totalItems={totalItems}
-            pageSize={PAGE_SIZE}
-            itemLabel="feedback"
-            showFirstLast
-          />
+          {totalItems > 0 && (
+            <div className="flex w-full items-center justify-around border-t border-border-default bg-neutral-50/30 px-6 py-5">
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                totalItems={totalItems}
+                pageSize={PAGE_SIZE}
+                itemLabel="feedback"
+                showTotalItems={true}
+                showFirstLast={true}
+                className="w-full"
+              />
+            </div>
+          )}
         </div>
       )}
 

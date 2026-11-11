@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Images, Info, Layers3, Trash2, Zap } from "lucide-react";
 import { productApi } from "../api/productApi";
 import { useProductResource } from "../hooks/useProductResource";
@@ -20,6 +20,7 @@ import { ProductDealsPanel } from "../components/ProductDealsPanel";
 import { dateTime, describeError } from "../utils/productForm";
 import type { Product } from "../types/product.types";
 import type { ProductWorkspaceContext } from "../hooks/useProductWorkspace";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 const tabs = [
   { id: "info", label: "Information", icon: Info },
@@ -42,7 +43,9 @@ function Detail({
   workspace: ProductWorkspaceContext;
 }) {
   const { shop, categories, productPath } = workspace;
+  const shopSuspended = useShopSuspended();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const load = useCallback((signal: AbortSignal) => productApi.get(productId, signal), [productId]);
   const {
@@ -52,7 +55,19 @@ function Detail({
     reload,
     setData,
   } = useProductResource(`${shop.id}:${productId}`, load);
-  const [tab, setTab] = useState<string>("info");
+  const requestedTab = searchParams.get("tab");
+  const tab =
+    requestedTab && tabs.some((item) => item.id === requestedTab) ? requestedTab : "info";
+  const selectTab = (nextTab: string) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    if (nextTab === "info") nextSearchParams.delete("tab");
+    else nextSearchParams.set("tab", nextTab);
+    const search = nextSearchParams.toString();
+    navigate(
+      { pathname: location.pathname, search: search ? `?${search}` : "" },
+      { replace: true, state: location.state },
+    );
+  };
   const [notice, setNotice] = useState<string>(
     typeof location.state?.message === "string" ? location.state.message : "",
   );
@@ -104,10 +119,10 @@ function Detail({
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || shopSuspended}
             className={secondaryButton}
             onClick={async () => {
-              if (busy) return;
+              if (busy || shopSuspended) return;
               const newStatus = product.status === 0 ? 1 : 0;
               setBusy(true);
               try {
@@ -125,7 +140,11 @@ function Detail({
           </button>
           <button
             type="button"
-            className={`${secondaryButton} border-red-200! text-red-600! hover:bg-red-50!`}
+            disabled={shopSuspended}
+            title={
+              shopSuspended ? "Editing is unavailable while your shop is suspended." : undefined
+            }
+            className={`${secondaryButton} border-red-200! text-red-600! hover:bg-red-50! disabled:cursor-not-allowed disabled:opacity-50`}
             onClick={() => {
               setDeleting(true);
               setDeleteError("");
@@ -182,7 +201,7 @@ function Detail({
             aria-controls={`panel-${item.id}`}
             aria-selected={tab === item.id}
             tabIndex={tab === item.id ? 0 : -1}
-            onClick={() => setTab(item.id)}
+            onClick={() => selectTab(item.id)}
             onKeyDown={(e) => {
               if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
               e.preventDefault();
@@ -192,7 +211,7 @@ function Detail({
                   : e.key === "End"
                     ? tabs.length - 1
                     : (index + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-              setTab(tabs[next].id);
+              selectTab(tabs[next].id);
               document.getElementById(`tab-${tabs[next].id}`)?.focus();
             }}
             className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium outline-none transition focus-visible:bg-primary-50 ${tab === item.id ? "border-primary-600 text-primary-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
@@ -210,10 +229,20 @@ function Detail({
         className="outline-none focus-visible:ring-2 focus-visible:ring-primary-200"
       >
         {tab === "info" && (
-          <ProductInfoEditor product={product} categories={categories} onSaved={saved} />
+          <fieldset disabled={shopSuspended} className="min-w-0 border-0 p-0 disabled:opacity-60">
+            <ProductInfoEditor product={product} categories={categories} onSaved={saved} />
+          </fieldset>
         )}
-        {tab === "images" && <ProductImagesPanel product={product} onSaved={saved} />}
-        {tab === "variants" && <ProductVariantsPanel product={product} onSaved={saved} />}
+        {tab === "images" && (
+          <fieldset disabled={shopSuspended} className="min-w-0 border-0 p-0 disabled:opacity-60">
+            <ProductImagesPanel product={product} onSaved={saved} />
+          </fieldset>
+        )}
+        {tab === "variants" && (
+          <fieldset disabled={shopSuspended} className="min-w-0 border-0 p-0 disabled:opacity-60">
+            <ProductVariantsPanel product={product} onSaved={saved} />
+          </fieldset>
+        )}
         {tab === "deals" && (
           <>
             <ProductDealsPanel productId={product.id} />
@@ -226,7 +255,7 @@ function Detail({
           </>
         )}
       </div>
-      {deleting && (
+      {deleting && !shopSuspended && (
         <Modal title="Delete product?" busy={busy} onClose={() => setDeleting(false)}>
           <p className="text-sm leading-6 text-neutral-600">
             Product <strong className="text-neutral-900">{product.name}</strong> will be removed

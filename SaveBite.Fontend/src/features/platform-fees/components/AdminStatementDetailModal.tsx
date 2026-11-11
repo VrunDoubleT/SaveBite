@@ -6,6 +6,8 @@ import {
   SlidersHorizontal,
   History,
   RefreshCw,
+  FileText,
+  Store,
 } from "lucide-react";
 import { platformFeeApi } from "../api/platformFeeApi";
 import type { PlatformFeeStatementDetail } from "../types/platformFee.types";
@@ -46,7 +48,9 @@ export function AdminStatementDetailModal({
 }: AdminStatementDetailModalProps) {
   const [statement, setStatement] = useState<PlatformFeeStatementDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"orders" | "adjustments" | "payments">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "adjustments" | "payments" | "histories">(
+    "orders",
+  );
 
   useEffect(() => {
     if (!isOpen || !statementId) {
@@ -91,13 +95,23 @@ export function AdminStatementDetailModal({
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-4">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-              <Receipt className="h-5 w-5" />
-            </span>
+            {statement?.shopLogoUrl ? (
+              <img
+                src={statement.shopLogoUrl}
+                alt={statement.shopName}
+                className="size-9 rounded-xl object-cover border border-slate-200 shadow-2xs"
+              />
+            ) : (
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                <Store className="h-5 w-5" />
+              </span>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900">
-                  {statement ? `${statement.shopName} — Kỳ ${statement.billingMonth}/${statement.billingYear}` : "Statement Detail"}
+                  {statement
+                    ? `${statement.shopName} — Period ${statement.billingMonth}/${statement.billingYear}`
+                    : "Statement Detail"}
                 </h3>
                 {statement && <StatusBadge status={statement.status} size="sm" />}
               </div>
@@ -204,6 +218,19 @@ export function AdminStatementDetailModal({
               >
                 <History className="h-3.5 w-3.5" />
                 Payments ({statement.payments?.length || 0})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("histories")}
+                className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition-colors ${
+                  activeTab === "histories"
+                    ? "border-emerald-600 text-emerald-700"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Statement History ({statement.histories?.length || 0})
               </button>
             </div>
 
@@ -320,9 +347,12 @@ export function AdminStatementDetailModal({
                       ) : (
                         statement.payments.map((p) => (
                           <tr key={p.id} className="hover:bg-slate-50/50 transition">
-                            <td className="px-4 py-3 font-mono text-slate-600 text-[11px]">{p.id}</td>
+                            <td className="px-4 py-3 font-mono text-slate-600 text-[11px]">
+                              {p.id}
+                            </td>
                             <td className="px-4 py-3 font-semibold text-slate-800">
-                              {p.paymentMethod === "OnlinePayment" || String(p.paymentMethod) === "0"
+                              {p.paymentMethod === "OnlinePayment" ||
+                              String(p.paymentMethod) === "0"
                                 ? "Online Payment (PayOS)"
                                 : p.paymentMethod === "PayAtShop" || String(p.paymentMethod) === "1"
                                   ? "Manual / Shop Payment"
@@ -335,7 +365,7 @@ export function AdminStatementDetailModal({
                               {p.gatewayTransactionId || "—"}
                             </td>
                             <td className="px-4 py-3">
-                               <span
+                              <span
                                 className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold border ${
                                   p.status === "Succeeded"
                                     ? "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -349,6 +379,67 @@ export function AdminStatementDetailModal({
                             </td>
                             <td className="px-4 py-3 text-slate-500">
                               {formatDateTime(p.paidAt || p.createdAt)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: Histories */}
+            {activeTab === "histories" && (
+              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100">
+                      <tr>
+                        <th className="px-4 py-3">Timestamp</th>
+                        <th className="px-4 py-3">Change Type</th>
+                        <th className="px-4 py-3">Previous</th>
+                        <th className="px-4 py-3">Adjustment</th>
+                        <th className="px-4 py-3">New Amount</th>
+                        <th className="px-4 py-3">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {!statement.histories || statement.histories.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400">
+                            No history records logged for this statement.
+                          </td>
+                        </tr>
+                      ) : (
+                        statement.histories.map((h) => (
+                          <tr key={h.id} className="hover:bg-slate-50/50 transition">
+                            <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                              {formatDateTime(h.createdAt)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                                {h.changeType}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">
+                              {formatVnd(h.previousAmount)}
+                            </td>
+                            <td
+                              className={`px-4 py-3 font-bold ${(h.adjustmentAmount ?? h.changeAmount) < 0 ? "text-rose-600" : "text-emerald-600"}`}
+                            >
+                              {(h.adjustmentAmount ?? h.changeAmount) > 0
+                                ? `+${formatVnd(h.adjustmentAmount ?? h.changeAmount)}`
+                                : formatVnd(h.adjustmentAmount ?? h.changeAmount)}
+                            </td>
+                            <td className="px-4 py-3 font-black text-slate-900">
+                              {formatVnd(h.newAmount)}
+                            </td>
+                            <td
+                              className="px-4 py-3 text-slate-700 max-w-xs truncate"
+                              title={h.reason}
+                            >
+                              {h.reason || "—"}
                             </td>
                           </tr>
                         ))

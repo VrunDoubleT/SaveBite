@@ -1,16 +1,19 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { feedbackApi } from "@/features/feedbacks/api/feedbackApi";
 import type { FeedbackItem } from "@/features/feedbacks/types/feedback.types";
 import { ReviewsPanel } from "@/features/feedbacks/components/ReviewsPanel";
-import { Pagination } from "@/shared/components/pagination";
+import { AccountPagination as Pagination } from "@/shared/components/pagination";
 import { toast } from "@/shared/stores/toastStore";
+import { ErrorState } from "@/shared/components/ui";
 import { getApiErrorMessage } from "@/shared/api";
+import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 
 export function ReviewsPage() {
   const [searchParams] = useSearchParams();
   const feedbackIdParam = searchParams.get("feedbackId");
 
+  const [loadError, setLoadError] = useState("");
   const [reviews, setReviews] = useState<FeedbackItem[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
@@ -22,25 +25,27 @@ export function ReviewsPage() {
   const lastFetchedPage = useRef<number | null>(null);
 
   const fetchReviews = useCallback(
-    async (targetPage = 1, targetFeedbackId?: string) => {
+    async (targetPage = 1, targetFeedbackId?: string, silent = false) => {
       try {
-        setIsLoading(true);
-        const data = await feedbackApi.getHistory(
-          targetPage,
-          pageSize,
-          targetFeedbackId,
-        );
+        if (!silent) {
+          setIsLoading(true);
+          setLoadError("");
+        }
+        const data = await feedbackApi.getHistory(targetPage, pageSize, targetFeedbackId);
         lastFetchedPage.current = data.page;
         setReviews(data.items);
         setPage(data.page);
         setTotalPages(data.totalPages);
         setTotalItems(data.totalItems);
       } catch (error) {
-        toast.error(
-          getApiErrorMessage(error) || "Failed to load your review history.",
-        );
+        if (!silent) {
+          setLoadError(getApiErrorMessage(error));
+          toast.error(getApiErrorMessage(error) || "Failed to load your review history.");
+        }
       } finally {
-        setIsLoading(false);
+        if (!silent) {
+          setIsLoading(false);
+        }
       }
     },
     [pageSize],
@@ -59,11 +64,23 @@ export function ReviewsPage() {
     void fetchReviews(page);
   }, [fetchReviews, page, feedbackIdParam]);
 
+  // Real-time synchronization when feedback is invalidated or user switches back to this tab
+  useEffect(() => {
+    return subscribeFeedbackSync((detail) => {
+      if (detail?.action === "hide" && detail.feedbackId) {
+        setReviews((prev) => prev.filter((item) => item.id !== detail.feedbackId));
+        setTotalItems((prev) => Math.max(0, prev - 1));
+      }
+      lastFetchedPage.current = null;
+      void fetchReviews(page, undefined, true);
+    });
+  }, [fetchReviews, page]);
+
   // Scroll and pulse highlight when target review appears on screen
   useEffect(() => {
     if (feedbackIdParam && reviews.some((r) => r.id === feedbackIdParam)) {
-      setHighlightedId(feedbackIdParam);
       const timer = setTimeout(() => {
+        setHighlightedId(feedbackIdParam);
         const el = document.getElementById(`feedback-${feedbackIdParam}`);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -81,26 +98,10 @@ export function ReviewsPage() {
     }
   }, [feedbackIdParam, reviews]);
 
-  const handleUpdate = async (
-    id: string,
-    rating: number,
-    comment?: string,
-    images?: string[],
-  ) => {
-    try {
-      const updated = await feedbackApi.editFeedback(id, {
-        rating,
-        comment,
-        images,
-      });
-      setReviews((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...updated } : item)),
-      );
-      toast.success("Review updated successfully.");
-    } catch (error) {
-      toast.error(getApiErrorMessage(error) || "Failed to update review.");
-      throw error;
-    }
+  const handleUpdated = (updated: FeedbackItem) => {
+    setReviews((prev) =>
+      prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
+    );
   };
 
   const handleDelete = async (id: string) => {
@@ -116,18 +117,28 @@ export function ReviewsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <ReviewsPanel
-        reviews={reviews}
-        isLoading={isLoading}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-        highlightedId={highlightedId}
-      />
+    <div className="min-w-0 space-y-4">
+      {loadError && (
+        <ErrorState
+          title="Couldn't load reviews"
+          description={loadError}
+          onRetry={() => void fetchReviews(page, feedbackIdParam ?? undefined)}
+        />
+      )}
+      {(!loadError || reviews.length > 0) && (
+        <ReviewsPanel
+          reviews={reviews}
+          isLoading={isLoading}
+          onUpdated={handleUpdated}
+          onDelete={handleDelete}
+          highlightedId={highlightedId}
+        />
+      )}
 
       {totalPages > 1 && (
-        <div className="flex justify-center pt-2">
+        <div className="pt-2">
           <Pagination
+            className="w-full"
             currentPage={page}
             totalPages={totalPages}
             totalItems={totalItems}

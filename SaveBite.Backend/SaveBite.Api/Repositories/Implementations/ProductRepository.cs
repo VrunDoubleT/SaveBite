@@ -1,4 +1,9 @@
+using System.Text.Json;
+using SaveBite.Backend.Messaging.Constants;
+using SaveBite.Backend.Messaging.Events;
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Audit;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -12,7 +17,13 @@ namespace SaveBite.Backend.Repositories.Implementations;
 public sealed class ProductRepository : IProductRepository
 {
     private readonly AppDbContext _db;
-    public ProductRepository(AppDbContext db) => _db = db;
+    private readonly IAuditWriter _audit;
+
+    public ProductRepository(AppDbContext db, IAuditWriter audit)
+    {
+        _db = db;
+        _audit = audit;
+    }
 
     public async Task<ProductOptionsResponse> GetOptionsAsync(Guid userId, CancellationToken ct)
     {
@@ -180,16 +191,37 @@ public sealed class ProductRepository : IProductRepository
             .SingleOrDefaultAsync(p => p.Id == productId && p.DeletedAt == null, ct);
     }
 
-    // Manage Products.
+      // Manage Products.
     public async Task<Product?> GetProductForViolationRemovalAsync(Guid productId, CancellationToken ct)
     {
-        return await _db.Products.FirstOrDefaultAsync(x => x.Id == productId, ct);
+        return await _db.Products.Include(p => p.Shop).FirstOrDefaultAsync(x => x.Id == productId, ct);
     }
 
     // Manage Products.
     public async Task RemoveProductForViolationAndCancelDealsAsync(Product product, CancellationToken ct)
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await using var transaction = _db.Database.CurrentTransaction == null ? await _db.Database.BeginTransactionAsync(ct) : null;
+
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE product_id = {product.Id} ORDER BY id FOR UPDATE", ct);
+        var affectedDeals = await _db.FlashDeals.Where(d => d.ProductId == product.Id
+            && d.Status != FlashDealStatus.Cancelled && d.Status != FlashDealStatus.Closed)
+            .Select(d => new { d.Id, d.Status }).ToListAsync(ct);
+        foreach (var deal in affectedDeals)
+        {
+            SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(_db, deal.Id, product.ShopId);
+            _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+            {
+                FlashDealId = deal.Id,
+                FromStatus = deal.Status,
+                ToStatus = FlashDealStatus.Cancelled,
+                ChangedByType = "System",
+                Note = "Automatically cancelled because the product was removed for a violation.",
+                CreatedAt = DateTime.UtcNow
+            });
+            _db.Add(new OrderEventOutbox { Id = Guid.NewGuid(), EventKey = $"product-removal:{product.Id}:deal:{deal.Id}",
+                RoutingKey = RabbitMqRoutingKeys.FlashDealClosed,
+                PayloadJson = JsonSerializer.Serialize(new FlashDealEvent { FlashDealId = deal.Id }), CreatedAt = DateTime.UtcNow });
+        }
 
         await _db.FlashDeals
             .Where(x =>
@@ -201,13 +233,22 @@ public sealed class ProductRepository : IProductRepository
                     .SetProperty(
                         x => x.Status,
                         FlashDealStatus.Cancelled)
+                    .SetProperty(x => x.LifecycleSyncedAt, (DateTime?)null)
                     .SetProperty(
                         x => x.UpdatedAt,
                         DateTime.UtcNow),
                 ct);
 
+        foreach (var deal in affectedDeals)
+        {
+            _audit.Record("FlashDeal", deal.Id, AuditActionTypes.Update,
+                new { Status = deal.Status },
+                new { Status = FlashDealStatus.Cancelled },
+                reason: "Product changed, deals cancelled");
+        }
+
         await _db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
     }
 
     // Manage Products.

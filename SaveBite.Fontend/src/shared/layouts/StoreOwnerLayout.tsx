@@ -1,17 +1,20 @@
+import { RestockWorkspaceProvider } from "@/features/restock/RestockWorkspaceProvider";
+import { RestockBadge } from "@/features/restock/RestockBadge";
 import { ShopRefundsBadge } from "@/features/refunds/components/ShopRefundsBadge";
 import { ShopOrderWorkspaceNotifications } from "@/features/shop-orders/components/ShopOrderWorkspaceNotifications";
 import {
   ClipboardList,
-  RotateCcw,
   CreditCard,
   Package,
+  PackagePlus,
+  Receipt,
+  RotateCcw,
   Settings2,
-  Star,
   ShieldAlert,
+  Star,
   Store,
   Users,
   Zap,
-  Receipt,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
@@ -30,6 +33,13 @@ const navigation = [
     icon: Zap,
   },
   {
+    to: APP_PATHS.STORE_OWNER_RESTOCK,
+    label: "Restock",
+    end: false,
+    icon: PackagePlus,
+    badge: <RestockBadge />,
+  },
+  {
     to: `${APP_PATHS.STORE_OWNER}/orders`,
     label: "Orders",
     end: false,
@@ -37,17 +47,11 @@ const navigation = [
     badge: <ShopOrderWorkspaceNotifications ordersPath={`${APP_PATHS.STORE_OWNER}/orders`} />,
   },
   {
-    to: `${APP_PATHS.STORE_OWNER}/refunds`,
-    label: "Refund payments",
+    to: APP_PATHS.STORE_OWNER_REFUNDS,
+    label: "Refunds",
     end: false,
     icon: RotateCcw,
     badge: <ShopRefundsBadge />,
-  },
-  {
-    to: APP_PATHS.STORE_OWNER_STAFF,
-    label: "Staff Management",
-    end: false,
-    icon: Users,
   },
   {
     to: APP_PATHS.STORE_OWNER_STAFF,
@@ -86,19 +90,22 @@ const navigation = [
     icon: Settings2,
   },
   {
-    to: "/store-owner/warnings",
+    to: APP_PATHS.STORE_OWNER_WARNINGS,
     label: "Warning History",
     end: false,
     icon: ShieldAlert,
   },
 ] as const;
+
 export function StoreOwnerLayout() {
   return (
-    <WorkspaceLayout
-      title="Store owner workspace"
-      subtitle="Store management"
-      navigationLabel="Store owner navigation"
-      navigation={navigation}
-    />
+    <RestockWorkspaceProvider>
+      <WorkspaceLayout
+        title="Store owner workspace"
+        subtitle="Store management"
+        navigationLabel="Store owner navigation"
+        navigation={navigation}
+      />
+    </RestockWorkspaceProvider>
   );
 }

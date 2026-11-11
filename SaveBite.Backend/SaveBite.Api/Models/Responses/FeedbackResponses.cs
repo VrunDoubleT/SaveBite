@@ -24,12 +24,15 @@ public static class FeedbackResponses
         IReadOnlyList<string>? Images = null,
         Guid? ShopId = null,
         string? CustomerName = null,
-        string? CustomerAvatarUrl = null);
+        string? CustomerAvatarUrl = null,
+        int EditCount = 0,
+        bool CanEdit = true);
 
     public sealed record FeedbackReplyResponse(
         Guid Id,
         string Content,
         DateTime CreatedAt,
         DateTime? UpdatedAt = null,
-        string? RepliedByName = null);
+        string? RepliedByName = null,
+        Guid? RepliedByUserId = null);
 }

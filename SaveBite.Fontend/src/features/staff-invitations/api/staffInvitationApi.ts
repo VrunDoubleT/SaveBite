@@ -6,36 +6,27 @@ import type { StaffInvitation } from "../types/staffInvitation.types";
 let invitationsRequest: Promise<StaffInvitation[]> | null = null;
 
 export const staffInvitationApi = {
-  async getMyInvitations(): Promise<StaffInvitation[]> {
-    if (invitationsRequest) {
+  async getMyInvitations(forceRefresh = false): Promise<StaffInvitation[]> {
+    if (invitationsRequest && !forceRefresh) {
       return invitationsRequest;
     }
 
-    invitationsRequest = httpClient
-      .get<ApiResponse<StaffInvitation[]>>(
-        API_ENDPOINTS.STAFF_INVITATIONS.ME,
-      )
+    const request = httpClient
+      .get<ApiResponse<StaffInvitation[]>>(API_ENDPOINTS.STAFF_INVITATIONS.ME)
       .then((response) => response.data.data)
       .finally(() => {
-        invitationsRequest = null;
+        if (invitationsRequest === request) invitationsRequest = null;
       });
 
-    return invitationsRequest;
+    invitationsRequest = request;
+    return request;
   },
 
-  async acceptInvitation(
-    invitationId: string,
-  ): Promise<void> {
-    await httpClient.post(
-      API_ENDPOINTS.STAFF_INVITATIONS.ACCEPT(invitationId),
-    );
+  async acceptInvitation(invitationId: string): Promise<void> {
+    await httpClient.post(API_ENDPOINTS.STAFF_INVITATIONS.ACCEPT(invitationId));
   },
 
-  async declineInvitation(
-    invitationId: string,
-  ): Promise<void> {
-    await httpClient.post(
-      API_ENDPOINTS.STAFF_INVITATIONS.DECLINE(invitationId),
-    );
+  async declineInvitation(invitationId: string): Promise<void> {
+    await httpClient.post(API_ENDPOINTS.STAFF_INVITATIONS.DECLINE(invitationId));
   },
 };

@@ -41,7 +41,7 @@ public sealed class ShopApplicationRepository : IShopApplicationRepository
     public Task<bool> HasActiveApplicationAsync(Guid applicantUserId, CancellationToken cancellationToken = default)
         => _dbContext.ShopApplications.AnyAsync(x =>
             x.ApplicantUserId == applicantUserId &&
-            (x.Status == ShopApplicationStatus.Pending
+            (x.Status == ShopApplicationStatus.Pending || x.Status == ShopApplicationStatus.NeedsRevision
              || x.Status == ShopApplicationStatus.Approved),
             cancellationToken);
 
@@ -98,9 +98,6 @@ public sealed class ShopApplicationRepository : IShopApplicationRepository
         shop.PaymentConfig = new ShopPaymentConfig
         {
             ShopId = shop.Id,
-            BankName = application.BankName,
-            BankAccountNumber = application.BankAccountNumber,
-            BankAccountHolder = application.BankAccountHolder,
             PayosClientId = application.PayosClientId,
             PayosApiKey = application.PayosApiKey,
             PayosChecksumKey = application.PayosChecksumKey,

@@ -1,3 +1,5 @@
+using SaveBite.Backend.Audit;
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.Caching.Interfaces;
@@ -15,11 +17,14 @@ namespace SaveBite.Backend.Services.Implementations;
 // Reconcile provider payments, order submission, cancellation and reservation expiry.
 public sealed class CheckoutPaymentService : ICheckoutPaymentService
 {
+    private readonly IAuditWriter _audit;
+    private readonly OrderResaleService _resale;
     private readonly ICheckoutRepository _checkoutRepository;
+    private readonly INotificationQueue _notifications;
     private readonly ICheckoutPaymentGateway _paymentGateway;
-    private readonly ICheckoutStockCache _stockCache;
+    private readonly IOrderInventorySynchronizer _inventorySync;
     private readonly TimeProvider _clock;
-    private readonly IOrderEventPublisher _orderEvents;
+    private readonly OrderConfirmationScheduling _confirmation;
     private readonly ICheckoutPaymentExpirationScheduler _paymentExpirationScheduler;
     private readonly IShopOrderEventService _shopOrderEvents;
     private readonly ILogger<CheckoutPaymentService> _logger;
@@ -27,18 +32,22 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     public CheckoutPaymentService(
         ICheckoutRepository repository,
         ICheckoutPaymentGateway gateway,
-        ICheckoutStockCache stockCache,
+        IOrderInventorySynchronizer inventorySync,
         TimeProvider clock,
         ICheckoutPaymentExpirationScheduler paymentExpirationScheduler,
         ILogger<CheckoutPaymentService> logger,
-        IOrderEventPublisher orderEvents,
-        IShopOrderEventService shopOrderEvents)
+        OrderConfirmationScheduling confirmation,
+        IShopOrderEventService shopOrderEvents,
+        INotificationQueue notifications, OrderResaleService resale, IAuditWriter audit)
     {
+        _audit = audit;
+        _resale = resale;
         _checkoutRepository = repository;
+        _notifications = notifications;
         _paymentGateway = gateway;
-        _stockCache = stockCache;
+        _inventorySync = inventorySync;
         _clock = clock;
-        _orderEvents = orderEvents;
+        _confirmation = confirmation;
         _paymentExpirationScheduler = paymentExpirationScheduler;
         _shopOrderEvents = shopOrderEvents;
         _logger = logger;
@@ -233,8 +242,8 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                 _logger.LogWarning(ex, "Could not delete payment expiration job {JobId} for order {OrderId}.", expirationJobId, orderId);
             }
         }
-        // Refresh Redis stock only after the payment transaction has committed.
-        await _stockCache.SyncAsync(orderId, ct);
+        // Reconcile deal status only after the payment transaction has committed.
+        await _inventorySync.SyncAsync(orderId, ct);
         return result;
     }
 
@@ -243,6 +252,8 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     {
         // Duplicate notifications must not settle the same reserved inventory twice.
         if (payment.Status == PaymentStatus.Succeeded) return false;
+        var previousPaymentStatus = payment.Status;
+        var previousCollectedAmount = payment.CollectedAmount;
         var previous = order.Status;
         var late = order.HardDeadlineAt <= Now || order.Status is OrderStatus.Cancelled or OrderStatus.Expired or OrderStatus.Rejected or OrderStatus.NoShow || !order.InventoryReservationActive;
         payment.CollectedAmount = Math.Max(payment.CollectedAmount, status.AmountPaid);
@@ -263,18 +274,40 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             // Only a verified full payment or deposit submits the order to the shop.
             if (order.Status == OrderStatus.AwaitingPayment) order.Status = OrderStatus.Pending;
         }
+        _audit.Record("Payment", payment.Id, order.PaymentReviewRequired ? "VERIFIED_REVIEW_REQUIRED" : "VERIFIED",
+            new { Status = previousPaymentStatus.ToString(), CollectedAmount = previousCollectedAmount },
+            new
+            {
+                Status = payment.Status.ToString(),
+                payment.OrderId,
+                payment.Amount,
+                payment.CollectedAmount,
+                payment.GatewayOrderCode,
+                payment.GatewayTransactionId,
+                payment.PaidAt,
+                LatePayment = late,
+                ExcessPayment = status.AmountPaid > payment.Amount,
+                order.PaymentReviewRequired
+            },
+            order.PaymentReviewRequired ? "Verified payment requires manual review due to late or excess funds." : "Payment verified with the payment provider.");
         _checkoutRepository.AddHistory(new OrderStatusHistory
         {
-            Id = Guid.NewGuid(), OrderId = order.Id, FromStatus = previous, ToStatus = order.Status,
+            Id = Guid.NewGuid(),
+            OrderId = order.Id,
+            FromStatus = previous,
+            ToStatus = order.Status,
             Note = late ? "Payment arrived after pickup/order expiry; manual payment review required. Inventory was not sold." : "Required online payment verified with the payment provider.",
             CreatedAt = Now
         });
         var becamePending = previous == OrderStatus.AwaitingPayment && order.Status == OrderStatus.Pending;
         if (becamePending)
-            await _orderEvents.QueuePendingAsync(order, ct);
+        {
+            _confirmation.Register(order);
+            await _checkoutRepository.SaveAsync(ct);
+        }
         return becamePending;
     }
-    
+
     // Expire an unpaid order after provider closure is confirmed or when link creation was never attempted.
     private async Task CloseAsync(Order order, Payment payment, OrderStatus status, CancellationToken ct)
     {
@@ -300,7 +333,10 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     {
         CheckoutRules.ValidateCustomerCancellation(order, Now);
         var previous = order.Status;
-        await _checkoutRepository.ReleaseCancelledInventoryAsync(order, ct);
+        if (order.Status == OrderStatus.AwaitingPayment && order.InventoryReservationActive)
+            await _checkoutRepository.ReleaseCancelledInventoryAsync(order, ct);
+        else
+            await _resale.BeginAsync(order, ct);
         order.Status = OrderStatus.Cancelled;
         order.CancelledAt = Now; order.UpdatedAt = Now;
         order.CancelledBy = order.CustomerId;
@@ -314,8 +350,12 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         }
         _checkoutRepository.AddHistory(new OrderStatusHistory
         {
-            Id = Guid.NewGuid(), OrderId = order.Id, FromStatus = previous, ToStatus = OrderStatus.Cancelled,
-            Note = CheckoutRules.CustomerCancellationPolicy + " Applicable inventory released.", CreatedAt = Now
+            Id = Guid.NewGuid(),
+            OrderId = order.Id,
+            FromStatus = previous,
+            ToStatus = OrderStatus.Cancelled,
+            Note = CheckoutRules.CustomerCancellationPolicy + " Inventory released for an unpaid reservation or held pending a five-minute shop resale decision.",
+            CreatedAt = Now
         });
     }
 

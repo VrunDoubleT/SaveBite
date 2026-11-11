@@ -212,7 +212,7 @@ public class AdminFeedbackModerationIntegrationTests : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await response.Content.ReadFromJsonAsync<ApiResponse<ModerationActionResponse>>();
         body.Should().NotBeNull();
-        body!.Data!.Action.Should().Be("FEEDBACK_REMOVED_VIOLATION");
+        body!.Data!.Action.Should().Be("FEEDBACK_HIDDEN");
 
         // Verify Database
         DbContext.ChangeTracker.Clear();

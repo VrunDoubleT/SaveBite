@@ -149,25 +149,196 @@ export const levelRequirementSchema = z.object({
 
 export type LevelRequirementFormData = z.infer<typeof levelRequirementSchema>;
 
-export const penaltyRuleSchema = z.object({
-  minimumOccurrence: wholeNumber("Occurrence")
-    .min(1, "Must be at least 1")
-    .max(100, "Must be at most 100"),
-  scoreDeduction: wholeNumber("Score deduction")
-    .min(1, "Must be at least 1")
-    .max(MAX_POINTS, `Must be at most ${MAX_POINTS}`),
-  requiredOnlineOrders: wholeNumber("Required online orders")
-    .min(0, "Cannot be negative")
-    .max(MAX_COUNT, "Too large"),
-  requiredOnlineOrderValue: z
-    .number({ error: "Required order value is required" })
-    .min(0, "Cannot be negative")
-    .max(MAX_VALUE, "Too large"),
-  permanentOfflineLock: z.boolean(),
-  isActive: z.boolean(),
-  /** datetime-local value; empty means "start now". */
-  effectiveFrom: z.string(),
+export const levelInfoSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Level name is required")
+    .max(100, "Level name must not exceed 100 characters"),
 });
+
+export type LevelInfoFormData = z.infer<typeof levelInfoSchema>;
+
+export const createLevelSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, "Level name is required")
+      .max(100, "Level name must not exceed 100 characters"),
+    minScore: wholeNumber("Minimum score").min(0, "Cannot be negative").max(MAX_COUNT, "Too large"),
+    minCompletedOrders: wholeNumber("Minimum completed orders")
+      .min(0, "Cannot be negative")
+      .max(MAX_COUNT, "Too large"),
+    minTotalOrderValue: z
+      .number({ error: "Minimum order value is required" })
+      .min(0, "Cannot be negative")
+      .max(MAX_VALUE, "Too large"),
+    description: z.string().max(2000, "Keep the benefits under 2000 characters"),
+    requireFullOnlinePayment: z.boolean(),
+    depositFreeOrderAmount: z.number().nullable().optional(),
+    maxDepositOrderAmount: z.number().nullable().optional(),
+    ranges: z.array(depositRangeItemSchema),
+  })
+  .superRefine((data, ctx) => {
+    if (data.requireFullOnlinePayment) {
+      return;
+    }
+
+    const freeAmount = data.depositFreeOrderAmount;
+    const maxAmount = data.maxDepositOrderAmount;
+
+    if (freeAmount === null || freeAmount === undefined || Number.isNaN(freeAmount)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["depositFreeOrderAmount"],
+        message: "Deposit-free order amount is required",
+      });
+    } else if (!Number.isInteger(freeAmount) || freeAmount <= 0 || freeAmount > MAX_VALUE) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["depositFreeOrderAmount"],
+        message: "Must be a positive whole VND amount",
+      });
+    }
+
+    if (maxAmount === null || maxAmount === undefined || Number.isNaN(maxAmount)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["maxDepositOrderAmount"],
+        message: "Maximum deposit order amount is required",
+      });
+    } else if (!Number.isInteger(maxAmount) || maxAmount <= 0 || maxAmount > MAX_VALUE) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["maxDepositOrderAmount"],
+        message: "Must be a positive whole VND amount",
+      });
+    } else if (
+      typeof freeAmount === "number" &&
+      !Number.isNaN(freeAmount) &&
+      maxAmount <= freeAmount
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["maxDepositOrderAmount"],
+        message: "Must be greater than the deposit-free order amount",
+      });
+    }
+
+    if (data.ranges.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["ranges"],
+        message: "Add at least one deposit range when Pay at shop is enabled",
+      });
+      return;
+    }
+
+    for (let i = 0; i < data.ranges.length; i++) {
+      const range = data.ranges[i];
+
+      if (range.toOrderAmount <= range.fromOrderAmount) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["ranges", i, "toOrderAmount"],
+          message: "Must be greater than the range start amount",
+        });
+      }
+
+      if (range.depositAmount > range.fromOrderAmount) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["ranges", i, "depositAmount"],
+          message: "Cannot exceed the range start amount",
+        });
+      }
+
+      if (i === 0 && typeof freeAmount === "number" && !Number.isNaN(freeAmount)) {
+        if (range.fromOrderAmount !== freeAmount) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["ranges", i, "fromOrderAmount"],
+            message: `First range must start at ${freeAmount.toLocaleString("vi-VN")} VND`,
+          });
+        }
+      }
+
+      if (i > 0 && range.fromOrderAmount !== data.ranges[i - 1].toOrderAmount) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["ranges", i, "fromOrderAmount"],
+          message: `Must equal previous range end (${data.ranges[i - 1].toOrderAmount.toLocaleString("vi-VN")} VND)`,
+        });
+      }
+    }
+
+    const lastIdx = data.ranges.length - 1;
+    if (
+      typeof maxAmount === "number" &&
+      !Number.isNaN(maxAmount) &&
+      data.ranges[lastIdx].toOrderAmount !== maxAmount
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["ranges", lastIdx, "toOrderAmount"],
+        message: `Last range must end at ${maxAmount.toLocaleString("vi-VN")} VND`,
+      });
+    }
+  });
+
+export type CreateLevelFormData = z.infer<typeof createLevelSchema>;
+
+export const penaltyRuleSchema = z
+  .object({
+    minimumOccurrence: wholeNumber("Occurrence")
+      .min(1, "Must be at least 1")
+      .max(100, "Must be at most 100"),
+    scoreDeduction: wholeNumber("Score deduction")
+      .min(1, "Must be at least 1")
+      .max(MAX_POINTS, `Must be at most ${MAX_POINTS}`),
+    requiredOnlineOrders: wholeNumber("Required online orders")
+      .min(0, "Cannot be negative")
+      .max(MAX_COUNT, "Too large"),
+    requiredOnlineOrderValue: z
+      .number({ error: "Required order value is required" })
+      .min(0, "Cannot be negative")
+      .max(MAX_VALUE, "Too large"),
+    permanentOfflineLock: z.boolean(),
+    isActive: z.boolean(),
+    /** datetime-local value; empty in Create mode means "start now". */
+    effectiveFrom: z.string(),
+    /** datetime-local value; empty means "no end date (indefinite)". */
+    effectiveTo: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    const fromTime = data.effectiveFrom ? new Date(data.effectiveFrom).getTime() : Date.now();
+    if (data.effectiveFrom && Number.isNaN(fromTime)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["effectiveFrom"],
+        message: "Invalid start date/time",
+      });
+      return;
+    }
+
+    if (data.effectiveTo) {
+      const toTime = new Date(data.effectiveTo).getTime();
+      if (Number.isNaN(toTime)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["effectiveTo"],
+          message: "Invalid end date/time",
+        });
+      } else if (toTime <= fromTime) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["effectiveTo"],
+          message: "'Until' date/time must be strictly after 'From' date/time",
+        });
+      }
+    }
+  });
 
 export type PenaltyRuleFormData = z.infer<typeof penaltyRuleSchema>;
 
@@ -193,4 +364,13 @@ export function toIsoOrUndefined(value: string): string | undefined {
   if (!value) return undefined;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+/** Converts an ISO date string into `YYYY-MM-DDTHH:mm` in local time for `<input type="datetime-local">`. */
+export function toDateTimeLocalValue(iso?: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }

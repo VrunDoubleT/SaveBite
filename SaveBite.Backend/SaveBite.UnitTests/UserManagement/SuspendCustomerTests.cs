@@ -25,6 +25,7 @@ public class SuspendCustomerTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly Mock<IRefreshTokenService> _refreshTokenServiceMock = new();
     private readonly Mock<ILogger<UserService>> _loggerMock = new();
     private readonly Mock<ICloudinaryService> _cloudinaryServiceMock = new();
@@ -38,13 +39,7 @@ public class SuspendCustomerTests
     public SuspendCustomerTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new UserService(
-            _userRepoMock.Object,
-            _refreshTokenServiceMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _cloudinaryServiceMock.Object
-        );
+        _service = new UserService(_userRepoMock.Object, _refreshTokenServiceMock.Object, TimeProvider.System, _loggerMock.Object, _cloudinaryServiceMock.Object, new Mock<IRealtimePublisher>().Object, new Mock<INotificationQueue>().Object, _auditMock.Object, TestDbContextFactory.Create());
     }
 
     private User CreateSampleUser(UserRole role = UserRole.User, CustomerStatus customerStatus = CustomerStatus.Active)
@@ -89,16 +84,16 @@ public class SuspendCustomerTests
         user.CustomerStatus.Should().Be(CustomerStatus.Suspended);
         user.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
 
-        _userRepoMock.Verify(r => r.AddAuditLog(It.Is<AuditLog>(l =>
+        _auditMock.Verify(r => r.Record(It.Is<AuditLog>(l =>
             l.ActorUserId == _adminId &&
             l.TargetId == _existingUserId &&
-            l.Action == "SuspendCustomer" &&
+            l.Action == AuditActionTypes.SuspendCustomerFeatures &&
             l.Reason == request.Reason)), Times.Once);
 
         _refreshTokenServiceMock.Verify(r => r.RevokeAllAsync(
-            _existingUserId,
-            "Customer profile suspended by Administrator.",
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<Guid>(),
+            It.IsAny<string>(),
+            It.IsAny<CancellationToken>()), Times.Never);
 
         _userRepoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -192,7 +187,7 @@ public class SuspendCustomerTests
         var ex = await act.Should().ThrowAsync<AppException>();
         PrintException("TCID04", ex.Which);
         ex.Which.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        ex.Which.Message.Should().Be("Customer profile is already suspended.");
+        ex.Which.Message.Should().Be("Customer features are already suspended.");
 
         _refreshTokenServiceMock.Verify(r => r.RevokeAllAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _userRepoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);

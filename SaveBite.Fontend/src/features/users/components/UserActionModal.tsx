@@ -62,8 +62,9 @@ function UserActionForm({ target, onClose, onConfirm }: UserActionFormProps) {
           )}
         </div>
         <h3 className="text-xl font-bold text-center text-text-primary mb-1">
-          {isSuspended ? "Suspend" : "Reactivate"}{" "}
-          {isCustomerProfile ? "Customer Profile" : "Account"}
+          {isCustomerProfile
+            ? (isSuspended ? "Suspend Customer Account" : "Activate Customer Account")
+            : (isSuspended ? "Suspend Account" : "Reactivate Account")}
         </h3>
         <p className="mb-6 text-sm text-center text-text-secondary">
           Target user: <span className="font-semibold text-text-primary">{user.email}</span>

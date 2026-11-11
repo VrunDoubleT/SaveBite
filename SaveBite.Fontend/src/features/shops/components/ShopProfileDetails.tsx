@@ -116,8 +116,10 @@ function Hours({ open, close }: { open: string | null; close: string | null }) {
     return <Empty />;
   }
 
-  const segments =
-    start <= end
+  const isFullDay = (start === 0 && end === 0) || start === end;
+  const segments = isFullDay
+    ? [{ from: 0, to: DAY }]
+    : start <= end
       ? [{ from: start, to: end }]
       : [
           { from: start, to: DAY },
@@ -133,6 +135,11 @@ function Hours({ open, close }: { open: string | null; close: string | null }) {
             to
           </span>
           <span>{close}</span>
+          {isFullDay && (
+            <span className="text-xs font-normal text-primary-700">
+              (Open 24/7)
+            </span>
+          )}
         </p>
 
         <OpenStateBadge open={open} close={close} />
@@ -226,7 +233,7 @@ export function ShopProfileDetails({ shop }: { shop: OwnerShop }) {
 
   return (
     <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(19rem,1fr)]">
-      <section className="min-w-0 rounded-3xl border border-border-default bg-bg-surface p-5 shadow-sm sm:p-7 lg:p-8">
+      <section className="min-w-0 rounded-xl border border-neutral-200 bg-white p-5 shadow-2xs sm:p-7">
         <SectionTitle
           icon={Building2}
           title="Business information"
@@ -270,7 +277,7 @@ export function ShopProfileDetails({ shop }: { shop: OwnerShop }) {
         </dl>
       </section>
 
-      <section className="min-w-0 rounded-3xl border border-border-default bg-bg-surface p-5 shadow-sm sm:p-7 lg:p-8">
+      <section className="min-w-0 rounded-xl border border-neutral-200 bg-white p-5 shadow-2xs sm:p-7">
         <SectionTitle
           icon={ScrollText}
           title="Shop documents"

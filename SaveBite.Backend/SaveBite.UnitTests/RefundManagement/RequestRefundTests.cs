@@ -43,6 +43,7 @@ public class RequestRefundTests
     public static readonly Guid NonExistentOrderId = Guid.Parse("99999999-9999-9999-9999-999999999999");
     public static readonly Guid ValidShopId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     public static readonly Guid ExistingRefundId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    public static readonly Guid ValidOrderItemId = Guid.Parse("55555555-5555-5555-5555-555555555555");
 
     public RequestRefundTests(ITestOutputHelper output)
     {
@@ -56,8 +57,13 @@ public class RequestRefundTests
             TimeProvider.System,
             _configMock.Object,
             _deadlinesMock.Object,
-            _loggerMock.Object
+            _loggerMock.Object,
+            new Mock<INotificationQueue>().Object,
+            new Mock<ITrustNotificationService>().Object,
+            TestDbContextFactory.Create()
         );
+        _shopRepoMock.Setup(s => s.OwnerShopAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(ValidShopId);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
 
         // Passthrough order lock for unit testing
         _orderRepoMock
@@ -107,7 +113,18 @@ public class RequestRefundTests
                     CreatedAt = DateTime.UtcNow.AddHours(-3)
                 }
             } : new List<Payment>(),
-            Refunds = refunds ?? new List<Refund>()
+            Refunds = refunds ?? new List<Refund>(),
+            Items = new List<OrderItem>
+            {
+                new()
+                {
+                    Id = ValidOrderItemId,
+                    OrderId = orderId,
+                    Quantity = 1,
+                    UnitPrice = amount,
+                    ProductNameSnapshot = "Test Product"
+                }
+            }
         };
     }
 
@@ -117,8 +134,16 @@ public class RequestRefundTests
     {
         return new CreateRefundRequest
         {
-            Reason = reason,
-            EvidenceUrls = evidenceUrls ?? new List<string> { "https://savebite.com/evidence1.png" }
+            Items = new List<RefundItemRequest>
+            {
+                new()
+                {
+                    OrderItemId = ValidOrderItemId,
+                    Quantity = 1,
+                    Reason = reason,
+                    EvidenceUrls = evidenceUrls ?? new List<string> { "https://savebite.com/evidence1.png" }
+                }
+            }
         };
     }
 
@@ -150,8 +175,8 @@ public class RequestRefundTests
         result.Type.Should().Be("CustomerRequest");
         result.Status.Should().Be("AwaitingCustomerDetails");
         result.Amount.Should().Be(150000m);
-        result.Reason.Should().Be("Food was spoiled upon opening");
-        result.EvidenceUrls.Should().ContainSingle().Which.Should().Be("https://savebite.com/evidence1.png");
+        result.Items[0].Reason.Should().Be("Food was spoiled upon opening");
+        result.Items[0].EvidenceUrls.Should().ContainSingle().Which.Should().Be("https://savebite.com/evidence1.png");
 
         _refundRepoMock.Verify(r => r.Add(It.IsAny<Refund>()), Times.Once);
         _orderRepoMock.Verify(o => o.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -268,7 +293,7 @@ public class RequestRefundTests
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
         ex.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        ex.Which.Message.Should().Be("A refund reason is required.");
+        ex.Which.Message.Should().Contain("refund reason");
 
         _output.WriteLine("[PASS] TCID05: Correctly rejected empty reason with 400 Bad Request.");
     }
@@ -297,7 +322,7 @@ public class RequestRefundTests
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
         ex.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        ex.Which.Message.Should().Be("Supply between one and ten evidence images.");
+        ex.Which.Message.Should().Contain("different evidence images");
 
         _output.WriteLine("[PASS] TCID06: Correctly rejected empty evidence with 400 Bad Request.");
     }
@@ -314,7 +339,8 @@ public class RequestRefundTests
         {
             Id = ExistingRefundId,
             OrderId = ValidOrderId,
-            Status = RefundStatus.PendingVerification
+            Status = RefundStatus.PendingVerification,
+            RefundType = RefundType.ShopCancellation
         };
         var order = CreateOrder(ValidOrderId, ValidUserId, refunds: new List<Refund> { existingActiveRefund });
         var request = CreateRequest();
@@ -351,6 +377,7 @@ public class RequestRefundTests
             Id = ExistingRefundId,
             OrderId = ValidOrderId,
             Status = RefundStatus.Completed,
+            RefundType = RefundType.ShopCancellation,
             RequestedAmount = 150000m,
             TransferredAmount = 150000m
         };
@@ -371,7 +398,7 @@ public class RequestRefundTests
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
         ex.Which.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        ex.Which.Message.Should().Be("This order has no refundable paid balance.");
+        ex.Which.Message.Should().Be("The selected amount exceeds the refundable paid balance.");
 
         _output.WriteLine("[PASS] TCID08: Correctly rejected refund when order has no remaining balance with 409 Conflict (BR-037).");
     }

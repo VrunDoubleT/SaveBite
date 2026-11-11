@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent } from "react";
-import { AlertCircle, ArrowRight, Ban, CheckCircle2, Loader2, PauseCircle } from "lucide-react";
+import { AlertCircle, ArrowRight, Ban, CheckCircle2, Loader2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { shopApi } from "../api/shopApi";
@@ -34,18 +34,6 @@ const STATUSES: StatusOption[] = [
     submit: "bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-500",
   },
   {
-    value: "Paused",
-    label: "Paused",
-    icon: PauseCircle,
-    summary: "Operations stop temporarily. Can be reversed.",
-    pill: "bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200",
-    text: "text-amber-700",
-    iconBox: "bg-amber-100 text-amber-700",
-    checkedTile:
-      "peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:ring-1 peer-checked:ring-amber-500",
-    submit: "bg-amber-400 text-amber-950 hover:bg-amber-500 focus-visible:ring-amber-500",
-  },
-  {
     value: "Suspended",
     label: "Suspended",
     icon: Ban,
@@ -72,10 +60,7 @@ interface ShopModerationActionsProps {
 function getAllowedStatuses(currentStatus: ShopStatus): ShopStatus[] {
   switch (currentStatus) {
     case "Active":
-      return ["Paused", "Suspended"];
-
-    case "Paused":
-      return ["Active", "Suspended"];
+      return ["Suspended"];
 
     case "Suspended":
       return ["Active"];

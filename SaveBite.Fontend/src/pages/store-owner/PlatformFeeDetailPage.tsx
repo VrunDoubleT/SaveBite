@@ -8,6 +8,7 @@ import {
   SlidersHorizontal,
   History,
   RefreshCw,
+  FileText,
 } from "lucide-react";
 import { ownerShopApi, type OwnerShop } from "@/features/shops/api/ownerShopApi";
 import { platformFeeApi } from "@/features/platform-fees/api/platformFeeApi";
@@ -29,7 +30,9 @@ export function PlatformFeeDetailPage() {
   const [loading, setLoading] = useState(true);
 
   // Active tab state
-  const [activeTab, setActiveTab] = useState<"orders" | "adjustments" | "payments">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "adjustments" | "payments" | "histories">(
+    "orders",
+  );
 
   // Payment modal state
   const [paymentData, setPaymentData] = useState<PlatformFeePaymentLinkResponse | null>(null);
@@ -87,7 +90,7 @@ export function PlatformFeeDetailPage() {
 
   if (!statement) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+      <div className="rounded-xl border border-neutral-200 bg-white p-12 text-center">
         <Receipt className="mx-auto h-12 w-12 text-slate-300 mb-3" />
         <h3 className="text-base font-bold text-slate-900">Fee Statement Not Found</h3>
         <p className="mt-1 text-xs text-slate-500">
@@ -119,7 +122,7 @@ export function PlatformFeeDetailPage() {
       </div>
 
       {/* Statement Header Card */}
-      <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-xs">
+      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 sm:p-8 text-white">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
@@ -137,7 +140,7 @@ export function PlatformFeeDetailPage() {
                 type="button"
                 onClick={() => void handleOpenPayment()}
                 disabled={isCreatingLink}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-98 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-98 disabled:opacity-50"
               >
                 {isCreatingLink ? (
                   <>
@@ -232,6 +235,19 @@ export function PlatformFeeDetailPage() {
         >
           <History className="h-4 w-4" />
           Payment Transactions ({statement.payments?.length || 0})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("histories")}
+          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-xs font-bold transition-colors ${
+            activeTab === "histories"
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <FileText className="h-4 w-4" />
+          Statement History ({statement.histories?.length || 0})
         </button>
       </div>
 
@@ -381,6 +397,62 @@ export function PlatformFeeDetailPage() {
                       </td>
                       <td className="px-5 py-3.5 text-slate-500">
                         {new Date(pmt.paidAt || pmt.createdAt).toLocaleString("en-US")}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Statement History */}
+      {activeTab === "histories" && (
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100">
+                <tr>
+                  <th className="px-5 py-3.5">Timestamp</th>
+                  <th className="px-5 py-3.5">Change Type</th>
+                  <th className="px-5 py-3.5">Previous Total</th>
+                  <th className="px-5 py-3.5">Change</th>
+                  <th className="px-5 py-3.5">New Total</th>
+                  <th className="px-5 py-3.5">Reason</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {!statement.histories || statement.histories.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-slate-400">
+                      No statement history adjustments recorded for this period.
+                    </td>
+                  </tr>
+                ) : (
+                  statement.histories.map((h) => (
+                    <tr key={h.id} className="hover:bg-slate-50/50 transition">
+                      <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap">
+                        {new Date(h.createdAt).toLocaleString("en-US")}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                          {h.changeType}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-600">{formatVnd(h.previousAmount)}</td>
+                      <td
+                        className={`px-5 py-3.5 font-bold ${(h.adjustmentAmount ?? h.changeAmount) < 0 ? "text-rose-600" : "text-emerald-600"}`}
+                      >
+                        {(h.adjustmentAmount ?? h.changeAmount) > 0
+                          ? `+${formatVnd(h.adjustmentAmount ?? h.changeAmount)}`
+                          : formatVnd(h.adjustmentAmount ?? h.changeAmount)}
+                      </td>
+                      <td className="px-5 py-3.5 font-bold text-slate-900">
+                        {formatVnd(h.newAmount)}
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-700 max-w-sm truncate" title={h.reason}>
+                        {h.reason || "—"}
                       </td>
                     </tr>
                   ))

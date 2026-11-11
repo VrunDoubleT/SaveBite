@@ -20,34 +20,54 @@ public sealed class ShopOrderRepository : IShopOrderRepository
     }
 
     // Allow only this shop's active owner or active staff and indicate whether the actor is the owner.
-    public async Task<bool> RequireAccessAsync(Guid userId, Guid shopId, CancellationToken ct)
+    public async Task<bool> RequireAccessAsync(Guid userId, Guid shopId, CancellationToken ct, bool allowSuspended = false)
     {
         var user = await _db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, ct);
         if (user == null || user.Status != UserStatus.Active || user.Role == UserRole.Admin)
             throw AppException.Forbidden("Active shop access is required.");
         var shop = await _db.Shops.AsNoTracking().SingleOrDefaultAsync(x => x.Id == shopId, ct);
-        if (shop == null || shop.Status != ShopStatus.Active) throw AppException.Forbidden("This shop is not active.");
+        if (shop == null || (shop.Status != ShopStatus.Active && !(allowSuspended && shop.Status == ShopStatus.Suspended)))
+            throw AppException.Forbidden("This shop is not active.");
         if (shop.OwnerUserId == userId && user.ShopStatus == ShopAccessStatus.Active) return true;
         if (await _db.ShopStaffMembers.AsNoTracking().AnyAsync(x => x.ShopId == shopId && x.UserId == userId && x.Status == ShopStaffStatus.Active, ct))
             return false;
         throw AppException.Forbidden("Only the shop owner or an active staff member may access these orders.");
     }
-    // Resolve the operator's ID, shop role and display name for historical audit snapshots.
-    public async Task<SaveBite.Backend.Models.DTOs.ShopOrderActor> ActorAsync(Guid userId, Guid shopId, CancellationToken ct)
+    // Allow an active account with a current owner/staff relationship to read historical shop records,
+    // even when the shop itself is suspended. This method must never be used for mutations.
+    public async Task<bool> RequireViewAccessAsync(Guid userId, Guid shopId, CancellationToken ct)
     {
-        var owner = await RequireAccessAsync(userId, shopId, ct);
+        var user = await _db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, ct);
+        if (user == null || user.Status != UserStatus.Active || user.Role == UserRole.Admin)
+            throw AppException.Forbidden("Active account access is required to view shop records.");
+
+        var shop = await _db.Shops.AsNoTracking().SingleOrDefaultAsync(x => x.Id == shopId, ct);
+        if (shop == null) throw AppException.NotFound("Shop not found.");
+        if (shop.OwnerUserId == userId) return true;
+
+        var isActiveStaff = await _db.ShopStaffMembers.AsNoTracking().AnyAsync(
+            x => x.ShopId == shopId && x.UserId == userId && x.Status == ShopStaffStatus.Active, ct);
+        if (isActiveStaff) return false;
+
+        throw AppException.Forbidden("Only the shop owner or an active staff member may view these records.");
+    }
+
+    // Resolve the operator's ID, shop role and display name for historical audit snapshots.
+    public async Task<SaveBite.Backend.Models.DTOs.ShopOrderActor> ActorAsync(Guid userId, Guid shopId, CancellationToken ct, bool allowSuspended = false)
+    {
+        var owner = await RequireAccessAsync(userId, shopId, ct, allowSuspended);
         var user = await _db.Users.AsNoTracking().SingleAsync(x => x.Id == userId, ct);
         var name = owner ? user.FullName : await _db.ShopStaffMembers.AsNoTracking()
             .Where(x => x.ShopId == shopId && x.UserId == userId && x.Status == ShopStaffStatus.Active)
             .Select(x => x.DisplayName).SingleAsync(ct);
         return new(userId, owner ? "StoreOwner" : "Staff", string.IsNullOrWhiteSpace(name) ? user.FullName : name.Trim());
     }
-    // Find the active shop owned by the authenticated account.
+    // Find the shop owned by the authenticated account, including when it is suspended.
     public async Task<Guid> OwnerShopAsync(Guid userId, CancellationToken ct)
     {
         var id = await _db.Shops.AsNoTracking().Where(x => x.OwnerUserId == userId).Select(x => (Guid?)x.Id).SingleOrDefaultAsync(ct)
             ?? throw AppException.NotFound("Your shop was not found.");
-        if (!await RequireAccessAsync(userId, id, ct)) throw AppException.Forbidden();
+        if (!await RequireViewAccessAsync(userId, id, ct)) throw AppException.Forbidden();
         return id;
     }
     // Count submitted Pending orders without loading items, payments or history.
@@ -95,12 +115,12 @@ public sealed class ShopOrderRepository : IShopOrderRepository
             && x.Customer.Role != UserRole.Admin)
             .Select(x => (Guid?)x.CustomerId).SingleOrDefaultAsync(ct);
 
-    // Find the shop's active owner and staff accounts eligible for private realtime events.
+    // Keep workspace badges and order views current for authorized operators, including suspended shops.
     public async Task<IReadOnlyList<Guid>> RealtimeRecipientsAsync(Guid shopId, CancellationToken ct)
         => await _db.Users.AsNoTracking().Where(user => user.Status == UserStatus.Active && user.Role != UserRole.Admin
-            && (_db.Shops.Any(shop => shop.Id == shopId && shop.Status == ShopStatus.Active && shop.OwnerUserId == user.Id && user.ShopStatus == ShopAccessStatus.Active)
-                || _db.ShopStaffMembers.Any(staff => staff.ShopId == shopId && staff.UserId == user.Id && staff.Status == ShopStaffStatus.Active
-                    && staff.Shop.Status == ShopStatus.Active)))
+            && (_db.Shops.Any(shop => shop.Id == shopId && shop.OwnerUserId == user.Id)
+                || _db.ShopStaffMembers.Any(staff =>
+                    staff.ShopId == shopId && staff.UserId == user.Id && staff.Status == ShopStaffStatus.Active)))
             .Select(user => user.Id).ToListAsync(ct);
 
     // Track a new payment receipt for the current order transaction.
@@ -108,12 +128,18 @@ public sealed class ShopOrderRepository : IShopOrderRepository
     // Track a refund request without initiating a money transfer.
     public Task<OrderPlatformFee?> FeeAsync(Guid orderId, CancellationToken ct)
         => _db.Set<OrderPlatformFee>().Include(x => x.Adjustments).SingleOrDefaultAsync(x => x.OrderId == orderId, ct);
-    public void AddFeeAdjustment(PlatformFeeAdjustment adjustment) => _db.Set<PlatformFeeAdjustment>().Add(adjustment);
     public void AddRefundHistory(RefundStatusHistory history) => _db.Set<RefundStatusHistory>().Add(history);
     public void AddRefund(Refund refund) => _db.Set<Refund>().Add(refund);
     // Track a staff action with the operator identity captured at execution time.
     public void AddActivity(StaffActivityLog activity) => _db.Set<StaffActivityLog>().Add(activity);
     // Find accrued platform fee for an order.
     public async Task<OrderPlatformFee?> GetOrderPlatformFeeAsync(Guid orderId, CancellationToken ct)
-        => await _db.Set<OrderPlatformFee>().FirstOrDefaultAsync(x => x.OrderId == orderId, ct);
+        => await _db.Set<OrderPlatformFee>()
+            .Include(x => x.Statement)
+            .FirstOrDefaultAsync(x => x.OrderId == orderId, ct);
+    // Track a platform fee adjustment for a refund.
+    public void AddFeeAdjustment(PlatformFeeAdjustment adjustment) => _db.Set<PlatformFeeAdjustment>().Add(adjustment);
+    public void AddStatementHistory(PlatformFeeStatementHistory history)
+        => _db.Set<PlatformFeeStatementHistory>().Add(history);
 }
+

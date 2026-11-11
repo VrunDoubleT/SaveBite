@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,8 @@ public class UpdateLevelBenefitsTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<ITrustConfigRepository> _repositoryMock = new();
+
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly Mock<ILogger<TrustConfigService>> _loggerMock = new();
     private readonly TrustConfigService _service;
     private readonly UpdateTrustLevelBenefitsRequestValidator _validator = new();
@@ -35,11 +38,7 @@ public class UpdateLevelBenefitsTests
     public UpdateLevelBenefitsTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new TrustConfigService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object
-        );
+        _service = new TrustConfigService(_repositoryMock.Object, _auditMock.Object, TimeProvider.System, _loggerMock.Object, new Mock<INotificationQueue>().Object);
     }
 
     private TrustLevel CreateSampleLevel(string? description = "Old benefit text: 5% discount on flash deals.", bool requireFullOnline = true)
@@ -113,9 +112,9 @@ public class UpdateLevelBenefitsTests
         result.Description.Should().Be("Updated benefit text: 10% discount on rescue packs, 3 concurrent orders.");
         result.UserCount.Should().Be(25);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.Is<AuditLog>(log =>
+        _auditMock.Verify(r => r.Record(It.Is<AuditLog>(log =>
             log.ActorUserId == _adminId &&
-            log.Action == "UpdateTrustLevelBenefits" &&
+            log.Action == AuditActionTypes.UpdateTrustLevelBenefits &&
             log.TargetId == _levelId
         )), Times.Once);
 
@@ -157,9 +156,9 @@ public class UpdateLevelBenefitsTests
         result.Should().NotBeNull();
         result.Description.Should().BeNull();
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.Is<AuditLog>(log =>
+        _auditMock.Verify(r => r.Record(It.Is<AuditLog>(log =>
             log.ActorUserId == _adminId &&
-            log.Action == "UpdateTrustLevelBenefits" &&
+            log.Action == AuditActionTypes.UpdateTrustLevelBenefits &&
             log.TargetId == _levelId
         )), Times.Once);
 
@@ -198,7 +197,7 @@ public class UpdateLevelBenefitsTests
         result.Should().NotBeNull();
         result.Description.Should().Be(currentDescription);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.IsAny<AuditLog>()), Times.Never);
+        _auditMock.Verify(r => r.Record(It.IsAny<AuditLog>()), Times.Never);
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -228,7 +227,7 @@ public class UpdateLevelBenefitsTests
         exception.Which.Message.Should().Be("Trust level not found.");
         PrintError("UTCID04", (int)exception.Which.StatusCode, exception.Which.Message);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.IsAny<AuditLog>()), Times.Never);
+        _auditMock.Verify(r => r.Record(It.IsAny<AuditLog>()), Times.Never);
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 

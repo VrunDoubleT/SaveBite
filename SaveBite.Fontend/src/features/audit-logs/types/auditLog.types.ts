@@ -29,6 +29,9 @@ export interface AuditLogQueryParams {
   action?: string;
   fromDate?: string;
   toDate?: string;
+  actorUserId?: string;
+  targetId?: string;
+  correlationId?: string;
 }
 
 export interface AuditLogPageResult {
@@ -39,3 +42,5 @@ export interface AuditLogPageResult {
   totalPages: number;
   filterOptions: AuditLogFilterOptions;
 }
+
+export type AuditLogIdentifiers = { actorUserId: string; targetId: string; correlationId: string };

@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Moq;
@@ -34,7 +35,7 @@ public class ViewStaffActivityLogTests
     public ViewStaffActivityLogTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopStaffService(_staffRepoMock.Object);
+        _service = new ShopStaffService(_staffRepoMock.Object, new Mock<IUserRepository>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IRealtimePublisher>().Object);
     }
 
     // =========================================================================
@@ -52,7 +53,7 @@ public class ViewStaffActivityLogTests
                 Id = Guid.NewGuid(),
                 ShopId = _shopId,
                 ActionBy = _staffUserId,
-                Action = OrderStatus.Completed,
+                Action = StaffActivityAction.Completed,
                 Note = "Completed order",
                 OrderId = Guid.NewGuid(),
                 CreatedAt = DateTime.UtcNow
@@ -63,16 +64,16 @@ public class ViewStaffActivityLogTests
             .ReturnsAsync(shop);
         _staffRepoMock.Setup(r => r.GetStaffByIdAsync(_staffId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(staff);
-        _staffRepoMock.Setup(r => r.GetStaffActivityLogsPagedAsync(_shopId, _staffUserId, 1, 10, It.IsAny<CancellationToken>()))
+        _staffRepoMock.Setup(r => r.GetStaffActivityLogsPagedAsync(_shopId, _staffUserId, 1, 10, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync((logs, 1));
 
-        var result = await _service.GetStaffActivityLogsAsync(_ownerId, _staffId, page: 1, pageSize: 10);
+        var result = await _service.GetStaffActivityLogsAsync(_ownerId, _staffId, page: 1, pageSize: 10, fromDate: null, toDate: null);
 
         PrintSuccess("UTCID01", $"Retrieved {result.Items.Count()} activity logs successfully.");
         result.Should().NotBeNull();
         result.TotalItems.Should().Be(1);
         result.Items.Should().HaveCount(1);
-        result.Items.First().Action.Should().Be(OrderStatus.Completed.ToString());
+        result.Items.First().Action.Should().Be(StaffActivityAction.Completed.ToString());
         result.Items.First().Description.Should().Be("Completed order");
     }
 
@@ -89,10 +90,10 @@ public class ViewStaffActivityLogTests
             .ReturnsAsync(shop);
         _staffRepoMock.Setup(r => r.GetStaffByIdAsync(_staffId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(staff);
-        _staffRepoMock.Setup(r => r.GetStaffActivityLogsPagedAsync(_shopId, _staffUserId, 1, 10, It.IsAny<CancellationToken>()))
+        _staffRepoMock.Setup(r => r.GetStaffActivityLogsPagedAsync(_shopId, _staffUserId, 1, 10, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<StaffActivityLog>(), 0));
 
-        var result = await _service.GetStaffActivityLogsAsync(_ownerId, _staffId, page: 1, pageSize: 10);
+        var result = await _service.GetStaffActivityLogsAsync(_ownerId, _staffId, page: 1, pageSize: 10, fromDate: null, toDate: null);
 
         PrintSuccess("UTCID02", "Retrieved empty activity logs list successfully.");
         result.Should().NotBeNull();
@@ -115,7 +116,7 @@ public class ViewStaffActivityLogTests
         _staffRepoMock.Setup(r => r.GetStaffByIdAsync(_staffId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ShopStaffEntity?)null);
 
-        var act = () => _service.GetStaffActivityLogsAsync(_ownerId, _staffId, page: 1, pageSize: 10);
+        var act = () => _service.GetStaffActivityLogsAsync(_ownerId, _staffId, page: 1, pageSize: 10, fromDate: null, toDate: null);
         var ex = await act.Should().ThrowAsync<AppException>();
 
         PrintException("UTCID04", ex.Which);
@@ -138,7 +139,7 @@ public class ViewStaffActivityLogTests
         _staffRepoMock.Setup(r => r.GetStaffByIdAsync(_staffId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(staff);
 
-        var act = () => _service.GetStaffActivityLogsAsync(_ownerId, _staffId, page: 1, pageSize: 10);
+        var act = () => _service.GetStaffActivityLogsAsync(_ownerId, _staffId, page: 1, pageSize: 10, fromDate: null, toDate: null);
         var ex = await act.Should().ThrowAsync<AppException>();
 
         PrintException("UTCID05", ex.Which);

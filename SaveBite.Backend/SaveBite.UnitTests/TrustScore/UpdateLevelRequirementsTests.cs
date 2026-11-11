@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,8 @@ public class UpdateLevelRequirementsTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<ITrustConfigRepository> _repositoryMock = new();
+
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly Mock<ILogger<TrustConfigService>> _loggerMock = new();
     private readonly TrustConfigService _service;
     private readonly UpdateTrustLevelRequirementRequestValidator _validator = new();
@@ -37,11 +40,7 @@ public class UpdateLevelRequirementsTests
     public UpdateLevelRequirementsTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new TrustConfigService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object
-        );
+        _service = new TrustConfigService(_repositoryMock.Object, _auditMock.Object, TimeProvider.System, _loggerMock.Object, new Mock<INotificationQueue>().Object);
     }
 
     private (TrustLevel Level1, TrustLevel Level2) CreateSampleLevels()
@@ -130,9 +129,9 @@ public class UpdateLevelRequirementsTests
         result.Requirement.MinTotalOrderValue.Should().Be(300000m);
         result.UserCount.Should().Be(12);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.Is<AuditLog>(log =>
+        _auditMock.Verify(r => r.Record(It.Is<AuditLog>(log =>
             log.ActorUserId == _adminId &&
-            log.Action == "UpdateTrustLevelRequirement" &&
+            log.Action == AuditActionTypes.UpdateTrustLevelRequirement &&
             log.TargetId == _level2Id
         )), Times.Once);
 
@@ -172,7 +171,7 @@ public class UpdateLevelRequirementsTests
         exception.Which.Message.Should().Contain("must not have any minimum requirement");
         PrintError("UTCID02", (int)exception.Which.StatusCode, exception.Which.Message);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.IsAny<AuditLog>()), Times.Never);
+        _auditMock.Verify(r => r.Record(It.IsAny<AuditLog>()), Times.Never);
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -210,7 +209,7 @@ public class UpdateLevelRequirementsTests
         exception.Which.Message.Should().Contain("Requirements must increase with the level rank");
         PrintError("UTCID03", (int)exception.Which.StatusCode, exception.Which.Message);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.IsAny<AuditLog>()), Times.Never);
+        _auditMock.Verify(r => r.Record(It.IsAny<AuditLog>()), Times.Never);
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -242,7 +241,7 @@ public class UpdateLevelRequirementsTests
         exception.Which.Message.Should().Be("Trust level not found.");
         PrintError("UTCID04", (int)exception.Which.StatusCode, exception.Which.Message);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.IsAny<AuditLog>()), Times.Never);
+        _auditMock.Verify(r => r.Record(It.IsAny<AuditLog>()), Times.Never);
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -284,7 +283,7 @@ public class UpdateLevelRequirementsTests
         result.Requirement.Should().NotBeNull();
         result.Requirement!.MinScore.Should().Be(100);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.IsAny<AuditLog>()), Times.Never);
+        _auditMock.Verify(r => r.Record(It.IsAny<AuditLog>()), Times.Never);
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 

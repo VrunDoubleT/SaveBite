@@ -45,9 +45,6 @@ public class PaymentIntegrationTests : BaseIntegrationTest
         var paymentConfig = new ShopPaymentConfig
         {
             ShopId = shop.Id,
-            BankName = "Vietcombank",
-            BankAccountNumber = "0123456789",
-            BankAccountHolder = "Payment Shop Owner",
             PayosClientId = "payos-test-client-id",
             PayosApiKey = "payos-test-api-key",
             PayosChecksumKey = "payos-test-checksum-key",

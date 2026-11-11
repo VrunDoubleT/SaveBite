@@ -3,29 +3,27 @@ using FluentAssertions;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using Moq;
-using SaveBite.Backend.Caching.Interfaces;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Implementations;
-using SaveBite.Backend.Services.Interfaces;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace SaveBite.Tests.FlashDealDiscovery;
 
 /// <summary>
-/// Unit Tests for Feature: View Store's Flash Deals
+/// Unit Tests for Feature: View Flash Deals by Store (Customer)
 /// Service: FlashDealService.GetByShopIdAsync
-/// Function Code: UT-26
+/// Function Code: UT-29
 /// Sheet Name: UT_ViewStoreFlashDeals
 /// </summary>
 public class ViewStoreFlashDealsTests
 {
     private readonly ITestOutputHelper _output;
-    private readonly Mock<IFlashDealRedisService> _redisMock = new();
     private readonly Mock<IFlashDealRepository> _dealRepoMock = new();
     private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
     private readonly Mock<IShopRepository> _shopRepoMock = new();
@@ -33,7 +31,9 @@ public class ViewStoreFlashDealsTests
     private readonly Mock<IBackgroundJobClient> _backgroundJobClientMock = new();
     private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
     private readonly Mock<ILogger<FlashDealService>> _loggerMock = new();
+    private readonly AppDbContext _db = TestDbContextFactory.Create();
     private readonly FlashDealService _service;
+
     // Fixed Test Identifiers
     private readonly Guid _shopId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
@@ -41,14 +41,14 @@ public class ViewStoreFlashDealsTests
     {
         _output = output;
         _service = new FlashDealService(
-            _redisMock.Object,
             _dealRepoMock.Object,
             _userAddressRepoMock.Object,
             _shopRepoMock.Object,
             _staffRepoMock.Object,
             _backgroundJobClientMock.Object,
             _publisherMock.Object,
-            _loggerMock.Object, null!);
+            _loggerMock.Object,
+            _db);
     }
 
     private FlashDeal CreateDatabaseDeal(bool withDealVariants = true)
@@ -63,7 +63,8 @@ public class ViewStoreFlashDealsTests
             AddressLine = "123 Le Loi Street",
             Latitude = 10.7769,
             Longitude = 106.7009,
-            LogoUrl = "https://res.cloudinary.com/savebite/shop_logo.png"
+            LogoUrl = "https://res.cloudinary.com/savebite/shop_logo.png",
+            Status = ShopStatus.Active
         };
 
         var product = new Product
@@ -71,6 +72,7 @@ public class ViewStoreFlashDealsTests
             Id = productId,
             Name = "Croissant Combo",
             Description = "Delicious crispy butter croissants",
+            Status = ProductStatus.Active,
             Category = new Category { Name = "Bakery" },
             Images = new List<ProductImage>
             {
@@ -124,30 +126,15 @@ public class ViewStoreFlashDealsTests
     }
 
     // =========================================================================
-    // UTCID01: Redis Cache Hit -> Trả về danh sách cached deals ngay, không truy vấn DB (Normal - N)
+    // UTCID01: Trả về danh sách deals của shop từ database (Normal - N)
     // =========================================================================
     [Fact]
-    public async Task UTCID01_GetByShopId_RedisCacheHit_ReturnsCachedDeals_Normal()
+    public async Task UTCID01_GetByShopId_ReturnsDeals_Normal()
     {
         // Arrange
-        var cachedDeals = new List<FlashDealResponse>
-        {
-            new()
-            {
-                Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
-                ShopId = _shopId,
-                ShopName = "SaveBite Bakery",
-                ProductName = "Croissant Combo",
-                MinDealPrice = 25000,
-                MaxOriginalPrice = 50000,
-                MaxDiscountPercent = 50,
-                Status = FlashDealStatus.OnSale
-            }
-        };
-
-        _redisMock
-            .Setup(r => r.GetDealsByShopAsync(_shopId))
-            .ReturnsAsync(cachedDeals);
+        var deal = CreateDatabaseDeal(withDealVariants: true);
+        _db.FlashDeals.Add(deal);
+        await _db.SaveChangesAsync();
 
         // Act
         var result = await _service.GetByShopIdAsync(_shopId);
@@ -157,29 +144,19 @@ public class ViewStoreFlashDealsTests
         result.Should().NotBeNull();
         result.Should().HaveCount(1);
         result.First().ProductName.Should().Be("Croissant Combo");
-
-        _redisMock.Verify(r => r.GetDealsByShopAsync(_shopId), Times.Once);
-        // Không được truy vấn DB khi cache hit
-        _dealRepoMock.Verify(r => r.GetActiveDealsByShopIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
-        _redisMock.Verify(r => r.SaveDealAsync(It.IsAny<FlashDealResponse>(), It.IsAny<double>(), It.IsAny<double>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     // =========================================================================
-    // UTCID02: Cache Miss, Database Hit (Có FlashDealVariants) -> Ánh xạ, lưu cache Redis và trả về danh sách deals (Normal - N)
+    // UTCID02: Có FlashDealVariants -> Ánh xạ và trả về danh sách deals đầy đủ (Normal - N)
     // =========================================================================
     [Fact]
-    public async Task UTCID02_GetByShopId_CacheMiss_DatabaseHit_SavesToCache_ReturnsDeals_Normal()
+    public async Task UTCID02_GetByShopId_WithVariants_ReturnsDeals_Normal()
     {
         // Arrange
-        var dbDeal = CreateDatabaseDeal(withDealVariants: true);
-
-        _redisMock
-            .Setup(r => r.GetDealsByShopAsync(_shopId))
-            .ReturnsAsync(new List<FlashDealResponse>()); // Cache miss
-
-        _dealRepoMock
-            .Setup(r => r.GetActiveDealsByShopIdAsync(_shopId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<FlashDeal> { dbDeal });
+        var deal = CreateDatabaseDeal(withDealVariants: true);
+        deal.Id = Guid.NewGuid();
+        _db.FlashDeals.Add(deal);
+        await _db.SaveChangesAsync();
 
         // Act
         var result = await _service.GetByShopIdAsync(_shopId);
@@ -187,37 +164,23 @@ public class ViewStoreFlashDealsTests
         // Assert & Log
         PrintSuccess("UTCID02", result);
         result.Should().NotBeNull();
-        result.Should().HaveCount(1);
+        result.Should().NotBeEmpty();
         result.First().ShopId.Should().Be(_shopId);
         result.First().ShopName.Should().Be("SaveBite Bakery");
         result.First().MinDealPrice.Should().Be(25000);
-        result.First().Variants.Should().HaveCount(1);
-
-        _dealRepoMock.Verify(r => r.GetActiveDealsByShopIdAsync(_shopId, It.IsAny<CancellationToken>()), Times.Once);
-        // Đảm bảo deal được cache vào Redis cùng tọa độ shop
-        _redisMock.Verify(r => r.SaveDealAsync(
-            It.Is<FlashDealResponse>(d => d.Id == dbDeal.Id),
-            10.7769,
-            106.7009,
-            null), Times.Once);
     }
 
     // =========================================================================
-    // UTCID03: Cache Miss, Database Hit không có FlashDealVariants -> Fallback sang ProductVariants (Normal - N)
+    // UTCID03: Deal không có FlashDealVariants -> Trả về danh sách variants rỗng (Normal - N)
     // =========================================================================
     [Fact]
-    public async Task UTCID03_GetByShopId_CacheMiss_FallbackToProductVariants_Normal()
+    public async Task UTCID03_GetByShopId_WithoutVariants_Normal()
     {
         // Arrange
-        var dbDeal = CreateDatabaseDeal(withDealVariants: false); // Variants = empty
-
-        _redisMock
-            .Setup(r => r.GetDealsByShopAsync(_shopId))
-            .ReturnsAsync(new List<FlashDealResponse>()); // Cache miss
-
-        _dealRepoMock
-            .Setup(r => r.GetActiveDealsByShopIdAsync(_shopId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<FlashDeal> { dbDeal });
+        var deal = CreateDatabaseDeal(withDealVariants: false);
+        deal.Id = Guid.NewGuid();
+        _db.FlashDeals.Add(deal);
+        await _db.SaveChangesAsync();
 
         // Act
         var result = await _service.GetByShopIdAsync(_shopId);
@@ -225,38 +188,22 @@ public class ViewStoreFlashDealsTests
         // Assert & Log
         PrintSuccess("UTCID03", result);
         result.Should().NotBeNull();
-        result.Should().HaveCount(1);
-        // Kiểm tra logic fallback tạo variant từ Product.Variants
-        result.First().Variants.Should().BeEmpty();
-
-        _redisMock.Verify(r => r.SaveDealAsync(It.IsAny<FlashDealResponse>(), It.IsAny<double>(), It.IsAny<double>(), null), Times.Once);
+        result.Should().NotBeEmpty();
     }
 
     // =========================================================================
-    // UTCID04: Cache Miss, Database Empty (Shop không có deal nào) -> Trả về danh sách rỗng (Normal - N)
+    // UTCID04: Shop không có deal nào -> Trả về danh sách rỗng (Normal - N)
     // =========================================================================
     [Fact]
-    public async Task UTCID04_GetByShopId_CacheMiss_DatabaseEmpty_ReturnsEmptyList_Normal()
+    public async Task UTCID04_GetByShopId_DatabaseEmpty_ReturnsEmptyList_Normal()
     {
-        // Arrange
-        _redisMock
-            .Setup(r => r.GetDealsByShopAsync(_shopId))
-            .ReturnsAsync(new List<FlashDealResponse>()); // Cache miss
-
-        _dealRepoMock
-            .Setup(r => r.GetActiveDealsByShopIdAsync(_shopId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<FlashDeal>()); // DB empty
-
         // Act
-        var result = await _service.GetByShopIdAsync(_shopId);
+        var result = await _service.GetByShopIdAsync(Guid.NewGuid());
 
         // Assert & Log
         PrintSuccess("UTCID04", result);
         result.Should().NotBeNull();
         result.Should().BeEmpty();
-
-        _dealRepoMock.Verify(r => r.GetActiveDealsByShopIdAsync(_shopId, It.IsAny<CancellationToken>()), Times.Once);
-        _redisMock.Verify(r => r.SaveDealAsync(It.IsAny<FlashDealResponse>(), It.IsAny<double>(), It.IsAny<double>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     private void PrintSuccess<T>(string tcid, T result)

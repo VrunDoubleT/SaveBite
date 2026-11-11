@@ -1,0 +1,56 @@
+namespace SaveBite.Backend.Constants;
+
+public static class NotificationTypes
+{
+    public const string ORDER_CREATED = "ORDER_CREATED";
+    public const string ORDER_ACCEPTED = "ORDER_ACCEPTED";
+    public const string ORDER_REJECTED = "ORDER_REJECTED";
+    public const string PICKUP_REMINDER = "PICKUP_REMINDER";
+    public const string ORDER_COMPLETED = "ORDER_COMPLETED";
+
+    public const string PAYMENT_SUCCEEDED = "PAYMENT_SUCCEEDED";
+    public const string PAYMENT_FAILED = "PAYMENT_FAILED";
+
+    public const string REFUND_REQUEST_CREATED = "REFUND_REQUEST_CREATED";
+    public const string REFUND_APPROVED = "REFUND_APPROVED";
+    public const string REFUND_REJECTED = "REFUND_REJECTED";
+    public const string REFUND_TRANSFERRED = "REFUND_TRANSFERRED";
+
+    public const string STAFF_INVITATION_RECEIVED = "STAFF_INVITATION_RECEIVED";
+    public const string STAFF_INVITATION_ACCEPTED = "STAFF_INVITATION_ACCEPTED";
+    public const string STAFF_INVITATION_DECLINED = "STAFF_INVITATION_DECLINED";
+    public const string STAFF_INVITATION_EXPIRED = "STAFF_INVITATION_EXPIRED";
+    public const string STAFF_JOINED_SHOP = "STAFF_JOINED_SHOP";
+    public const string STAFF_STATUS_CHANGED = "STAFF_STATUS_CHANGED";
+    public const string STAFF_LEFT_SHOP = "STAFF_LEFT_SHOP";
+
+    public const string SHOP_APPLICATION_SUBMITTED = "SHOP_APPLICATION_SUBMITTED";
+    public const string SHOP_APPLICATION_APPROVED = "SHOP_APPLICATION_APPROVED";
+    public const string SHOP_APPLICATION_REJECTED = "SHOP_APPLICATION_REJECTED";
+    public const string SHOP_APPLICATION_NEEDS_REVISION = "SHOP_APPLICATION_NEEDS_REVISION";
+    public const string SHOP_STATUS_CHANGED = "SHOP_STATUS_CHANGED";
+
+    public const string FLASH_DEAL_AVAILABLE = "FLASH_DEAL_AVAILABLE";
+    public const string PRODUCT_NEEDS_REVISION = "PRODUCT_NEEDS_REVISION";
+    public const string PRODUCT_CONTENT_APPROVED = "PRODUCT_CONTENT_APPROVED";
+    public const string PRODUCT_REMOVED = "PRODUCT_REMOVED";
+
+    public const string FEEDBACK_RECEIVED = "FEEDBACK_RECEIVED";
+    public const string FEEDBACK_REPLIED = "FEEDBACK_REPLIED";
+    public const string FEEDBACK_REMOVED_BY_ADMIN = "FEEDBACK_REMOVED_BY_ADMIN";
+
+    public const string TRUST_SCORE_CHANGED = "TRUST_SCORE_CHANGED";
+    public const string TRUST_LEVEL_CHANGED = "TRUST_LEVEL_CHANGED";
+    public const string NO_SHOW_PENALTY_CREATED = "NO_SHOW_PENALTY_CREATED";
+    public const string ACCOUNT_STATUS_CHANGED = "ACCOUNT_STATUS_CHANGED";
+
+    public const string PLATFORM_FEE_STATEMENT_ISSUED = "PLATFORM_FEE_STATEMENT_ISSUED";
+    public const string PLATFORM_FEE_DUE_SOON = "PLATFORM_FEE_DUE_SOON";
+    public const string PLATFORM_FEE_OVERDUE = "PLATFORM_FEE_OVERDUE";
+    public const string PLATFORM_FEE_PAID = "PLATFORM_FEE_PAID";
+
+    public const string ORDER_CANCELLED_BY_CUSTOMER = "ORDER_CANCELLED_BY_CUSTOMER";
+    public const string ORDER_PAYMENT_EXPIRED = "ORDER_PAYMENT_EXPIRED";
+    public const string ORDER_NO_SHOW = "ORDER_NO_SHOW";
+    public const string PICKUP_DEADLINE_APPROACHING = "PICKUP_DEADLINE_APPROACHING";
+}

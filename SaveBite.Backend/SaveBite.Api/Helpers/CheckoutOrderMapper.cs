@@ -58,6 +58,7 @@ public static class CheckoutOrderMapper
             Policy = policy,
             Items = order.Items.Select(x => new CheckoutOrderItemResponse
             {
+                OrderItemId = x.Id,
                 FlashDealVariantId = x.FlashDealVariantId,
                 ProductName = x.ProductNameSnapshot,
                 VariantName = x.VariantNameSnapshot,
@@ -66,7 +67,6 @@ public static class CheckoutOrderMapper
                 Subtotal = x.Subtotal ?? x.UnitPrice * x.Quantity,
                 ImageUrl = x.FlashDealVariant?.FlashDeal?.Product?.Images.OrderBy(image => image.Id).Select(image => image.ImageUrl).FirstOrDefault(),
                 FlashDealId = x.FlashDealVariant?.FlashDealId,
-                OrderItemId = x.Id,
                 FeedbackId = x.Feedback?.Status == FeedbackStatus.Visible ? x.Feedback.Id : null,
                 Rating = x.Feedback?.Status == FeedbackStatus.Visible ? x.Feedback.Rating : null,
                 // A deleted or hidden feedback still occupies the item, so it cannot be reviewed again.
@@ -82,7 +82,8 @@ public static class CheckoutOrderMapper
             CreatedAt = order.CreatedAt,
             CompletedAt = order.CompletedAt,
             PaidAmount = paidAmount,
-            OutstandingAmount = outstandingAmount
+            OutstandingAmount = outstandingAmount,
+            CancelReason = order.CancelReason
         };
     }
 }

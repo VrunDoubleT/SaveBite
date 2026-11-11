@@ -39,7 +39,8 @@ internal sealed class CheckoutTestContext
     public Mock<ITravelTimeService> Travel { get; } = new();
     public Mock<ICheckoutPaymentGateway> Gateway { get; } = new();
     public Mock<ICheckoutPaymentService> Payments { get; } = new();
-    public Mock<ICheckoutStockCache> Stock { get; } = new();
+    public Mock<IOrderInventorySynchronizer> Stock { get; } = new();
+    public Mock<IShopOrderConfirmationScheduler> ConfirmationScheduler { get; } = new();
     public Mock<ICheckoutQuoteStore> Quotes { get; } = new();
     public Mock<ICheckoutPaymentExpirationScheduler> Scheduler { get; } = new();
     public Mock<IOrderEventPublisher> Events { get; } = new();
@@ -71,7 +72,7 @@ internal sealed class CheckoutTestContext
         Scheduler.Setup(x => x.Schedule(It.IsAny<Guid>(), It.IsAny<DateTime>())).Returns("expiry-job");
         Codes.Setup(x => x.NextAsync(It.IsAny<Guid>(), It.IsAny<DateOnly>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync("000124");
         Service = new CheckoutService(Repo.Object, Travel.Object, Gateway.Object, Payments.Object, Stock.Object,
-            Clock, Quotes.Object, Scheduler.Object, Events.Object, Realtime.Object, Codes.Object);
+            Clock, Quotes.Object, Scheduler.Object, new OrderConfirmationScheduling(ConfirmationScheduler.Object), Realtime.Object, Codes.Object);
     }
     public async Task<PlaceCheckoutOrderRequest> Request(string method = "PayAtShop")
     {

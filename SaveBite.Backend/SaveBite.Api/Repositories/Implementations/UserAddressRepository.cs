@@ -1,3 +1,5 @@
+using SaveBite.Backend.Audit;
+using SaveBite.Backend.Exceptions;
 using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
@@ -10,7 +12,22 @@ public sealed class UserAddressRepository : IUserAddressRepository
 {
     private readonly AppDbContext _dbContext;
 
-    public UserAddressRepository(AppDbContext dbContext) => _dbContext = dbContext;
+    private readonly IAuditWriter _audit;
+    public UserAddressRepository(AppDbContext dbContext, IAuditWriter audit)
+    {
+        _dbContext = dbContext;
+        _audit = audit;
+    }
+
+    private Task<Guid[]> DefaultIdsAsync(Guid userId, CancellationToken ct) => _dbContext.UserAddresses
+        .AsNoTracking().Where(x => x.UserId == userId && x.IsDefault).Select(x => x.Id).ToArrayAsync(ct);
+
+    private void RecordDefault(Guid userId, Guid[] before, Guid[] after)
+    {
+        if (before.Order().SequenceEqual(after.Order())) return;
+        _audit.Record("UserAddressBook", userId, "DEFAULT_ADDRESS_CHANGED",
+            new { DefaultAddressIds = before }, new { DefaultAddressIds = after });
+    }
 
     // Retrieve all addresses for the current user.
     public async Task<IReadOnlyList<UserAddress>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -33,6 +50,7 @@ public sealed class UserAddressRepository : IUserAddressRepository
     public async Task<UserAddress> CreateAsync(UserAddress address, bool setAsDefault, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        var previousDefaults = await DefaultIdsAsync(address.UserId, cancellationToken);
         var hasExistingAddress = await _dbContext.UserAddresses.AnyAsync(item => item.UserId == address.UserId, cancellationToken);
 
         // The first address is always the default address.
@@ -42,6 +60,7 @@ public sealed class UserAddressRepository : IUserAddressRepository
 
         address.IsDefault = shouldBeDefault;
         _dbContext.UserAddresses.Add(address);
+        if (shouldBeDefault) RecordDefault(address.UserId, previousDefaults, [address.Id]);
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -56,9 +75,15 @@ public sealed class UserAddressRepository : IUserAddressRepository
     public async Task SetDefaultAsync(Guid userId, Guid addressId, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        if (!await _dbContext.UserAddresses.AnyAsync(x => x.Id == addressId && x.UserId == userId, cancellationToken))
+            throw AppException.NotFound("Address not found.");
+        var previousDefaults = await DefaultIdsAsync(userId, cancellationToken);
+        if (previousDefaults.Length == 1 && previousDefaults[0] == addressId) return;
         await _dbContext.UserAddresses.Where(address => address.UserId == userId && address.IsDefault).ExecuteUpdateAsync(setters => setters.SetProperty(address => address.IsDefault, false), cancellationToken);
         await _dbContext.UserAddresses.Where(address => address.UserId == userId && address.Id == addressId)
             .ExecuteUpdateAsync(setters => setters.SetProperty(address => address.IsDefault, true).SetProperty(address => address.UpdatedAt, DateTime.UtcNow), cancellationToken);
+        RecordDefault(userId, previousDefaults, [addressId]);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 
@@ -66,6 +91,7 @@ public sealed class UserAddressRepository : IUserAddressRepository
     public async Task UpdateAsync(UserAddress address, bool setAsDefault, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        var previousDefaults = await DefaultIdsAsync(address.UserId, cancellationToken);
         if (setAsDefault)
         {
             await _dbContext.UserAddresses.Where(item => item.UserId == address.UserId && item.Id != address.Id && item.IsDefault)
@@ -77,12 +103,13 @@ public sealed class UserAddressRepository : IUserAddressRepository
 
         _dbContext.UserAddresses.Update(address);
 
+        RecordDefault(address.UserId, previousDefaults, setAsDefault ? [address.Id] : previousDefaults.Where(id => id != address.Id).ToArray());
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 
     // Delete an address.
-    public async Task DeleteAsync( UserAddress address, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(UserAddress address, CancellationToken cancellationToken = default)
     {
         _dbContext.UserAddresses.Remove(address);
         await _dbContext.SaveChangesAsync(cancellationToken);

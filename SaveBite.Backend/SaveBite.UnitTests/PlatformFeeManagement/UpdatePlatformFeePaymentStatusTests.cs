@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
@@ -27,6 +28,7 @@ public class UpdatePlatformFeePaymentStatusTests
     private readonly Mock<ILogger<PlatformFeeStatementService>> _loggerMock = new();
     private readonly Mock<IConfiguration> _configurationMock = new();
     private readonly Mock<IHttpClientFactory> _httpClientFactoryMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly PlatformFeeStatementService _service;
 
     // Explicit GUIDs for test determinism and traceability
@@ -41,13 +43,8 @@ public class UpdatePlatformFeePaymentStatusTests
         _output = output;
         _configurationMock.Setup(c => c["Checkout:PaymentProvider"]).Returns("Simulated");
 
-        _service = new PlatformFeeStatementService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _configurationMock.Object,
-            _httpClientFactoryMock.Object
-        );
+        _repositoryMock.Setup(r => r.GetStatementDetailAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((Guid id, CancellationToken _) => { var s = CreateStatement(); s.Shop = CreateShop(); return s; });
+        _service = new PlatformFeeStatementService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _configurationMock.Object, _httpClientFactoryMock.Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), _auditMock.Object, new Mock<IPlatformPayOsConfigService>().Object, new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object);
     }
 
     private Shop CreateShop(ShopStatus status = ShopStatus.Suspended) => new()
@@ -55,7 +52,8 @@ public class UpdatePlatformFeePaymentStatusTests
         Id = ValidShopId,
         OwnerUserId = OwnerUserId,
         Name = "SaveBite Official Bakery",
-        Status = status
+        Status = status,
+        SuspendedForPlatformFees = status == ShopStatus.Suspended
     };
 
     private PlatformFeeStatement CreateStatement(PlatformFeeStatementStatus status = PlatformFeeStatementStatus.Issued) => new()

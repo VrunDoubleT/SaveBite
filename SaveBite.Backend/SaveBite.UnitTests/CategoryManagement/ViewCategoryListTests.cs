@@ -30,6 +30,7 @@ public class ViewCategoryListTests
         _output = output;
         _service = new CategoryService(
             _categoryRepoMock.Object,
+            new Mock<IAdminAuditWriter>().Object,
             TimeProvider.System,
             _loggerMock.Object
         );

@@ -51,10 +51,15 @@ public class RabbitMqPublisher : IRabbitMqPublisher
         await channel.BasicPublishAsync(
             exchange: _options.ExchangeName,
             routingKey: routingKey,
-            // Order lifecycle events must reach a durable consumer queue before their outbox is marked published.
+            // Durable lifecycle events must be routed before their outbox can be marked published.
             mandatory: routingKey.StartsWith("order.", StringComparison.Ordinal)
-                || routingKey == Constants.RabbitMqRoutingKeys.UserVerified
-                || routingKey == Constants.RabbitMqRoutingKeys.NotificationRequested,
+                       || routingKey == Constants.RabbitMqRoutingKeys.ShopDealOpened
+                       || routingKey.StartsWith("flashdeal.", StringComparison.Ordinal)
+                       || routingKey == Constants.RabbitMqRoutingKeys.EmailRoutingKey
+                       || routingKey == Constants.RabbitMqRoutingKeys.RefundTransferred
+                       || routingKey == Constants.RabbitMqRoutingKeys.InventoryChanged
+                       || routingKey == Constants.RabbitMqRoutingKeys.UserVerified
+                       || routingKey == Constants.RabbitMqRoutingKeys.NotificationRequested,
             basicProperties: properties,
             body: body,
             cancellationToken: cancellationToken);

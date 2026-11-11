@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +27,7 @@ public class PayPlatformFeeTests
     private readonly Mock<ILogger<PlatformFeeStatementService>> _loggerMock = new();
     private readonly Mock<IConfiguration> _configurationMock = new();
     private readonly Mock<IHttpClientFactory> _httpClientFactoryMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly PlatformFeeStatementService _service;
 
     // Explicit GUIDs for test determinism and traceability
@@ -43,13 +45,7 @@ public class PayPlatformFeeTests
         _output = output;
         _configurationMock.Setup(c => c["Checkout:PaymentProvider"]).Returns("Simulated");
 
-        _service = new PlatformFeeStatementService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _configurationMock.Object,
-            _httpClientFactoryMock.Object
-        );
+        _service = new PlatformFeeStatementService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _configurationMock.Object, _httpClientFactoryMock.Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), _auditMock.Object, new Mock<IPlatformPayOsConfigService>().Object, new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object);
     }
 
     private Shop CreateValidShop() => new()
@@ -116,8 +112,8 @@ public class PayPlatformFeeTests
         result.Should().NotBeNull();
         result.StatementId.Should().Be(IssuedStatementId);
         result.Amount.Should().Be(450000m);
-        result.CheckoutUrl.Should().NotBeNullOrWhiteSpace();
-        result.QrCode.Should().NotBeNullOrWhiteSpace();
+        result.CheckoutUrl.Should().BeEmpty();
+        result.QrCode.Should().BeEmpty();
         result.OrderCode.Should().BeGreaterThan(0);
 
         _repositoryMock.Verify(r => r.CancelPendingPaymentsForStatementAsync(IssuedStatementId, It.IsAny<CancellationToken>()), Times.Once);
@@ -168,7 +164,7 @@ public class PayPlatformFeeTests
         result.Should().NotBeNull();
         result.StatementId.Should().Be(OverdueStatementId);
         result.Amount.Should().Be(600000m);
-        result.CheckoutUrl.Should().NotBeNullOrWhiteSpace();
+        result.CheckoutUrl.Should().BeEmpty();
         result.ExpiredAt.Should().BeAfter(DateTime.UtcNow);
 
         _repositoryMock.Verify(r => r.AddPaymentAsync(It.Is<PlatformFeePayment>(p =>

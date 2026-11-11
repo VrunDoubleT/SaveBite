@@ -383,7 +383,7 @@ public class TrustScoreIntegrationTests : BaseIntegrationTest
         var (customer, _, _, _) = await SetupCustomerTrustScenarioAsync();
 
         var now = DateTime.UtcNow;
-        var history1 = new TrustScoreHistory
+        var history1 = new TrustProgressHistory
         {
             Id = Guid.NewGuid(),
             UserId = customer.Id,
@@ -394,7 +394,7 @@ public class TrustScoreIntegrationTests : BaseIntegrationTest
             Reason = "Completed online order",
             CreatedAt = now.AddDays(-1)
         };
-        var history2 = new TrustScoreHistory
+        var history2 = new TrustProgressHistory
         {
             Id = Guid.NewGuid(),
             UserId = customer.Id,
@@ -406,7 +406,7 @@ public class TrustScoreIntegrationTests : BaseIntegrationTest
             CreatedAt = now.AddDays(-5)
         };
 
-        DbContext.TrustScoreHistories.AddRange(history1, history2);
+        DbContext.TrustProgressHistories.AddRange(history1, history2);
         await DbContext.SaveChangesAsync();
 
         SetBearerToken(customer.Id, customer.Email, customer.Role);

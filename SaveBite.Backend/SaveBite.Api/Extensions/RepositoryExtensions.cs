@@ -26,24 +26,25 @@ public static class RepositoryExtensions
         services.AddScoped<IFlashDealRepository, FlashDealRepository>();
         services.AddScoped<ITrustScoreRepository, TrustScoreRepository>();
         services.AddScoped<ITrustOrderRepository, TrustOrderRepository>();
+        services.AddScoped<ITrustNotificationRepository, TrustNotificationRepository>();
         services.AddScoped<ITrustConfigRepository, TrustConfigRepository>();
+
         services.AddScoped<IFeedbackRepository, FeedbackRepository>();
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<ICheckoutRepository, CheckoutRepository>();
         services.AddScoped<IPaymentHistoryRepository, PaymentHistoryRepository>();
         services.AddScoped<IOrderEventRepository, OrderEventRepository>();
         services.AddScoped<IShopOrderRepository, ShopOrderRepository>();
-        services.AddScoped<IPlatformFeeConfigService, PlatformFeeConfigService>();
         services.AddScoped<IPlatformFeeStatementRepository, PlatformFeeStatementRepository>();
         services.AddScoped<IPlatformFeeConfigRepository, PlatformFeeConfigRepository>();
         services.AddScoped<IRefundRepository, RefundRepository>();
 
+        services.AddScoped<IWarningRepository, WarningRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<IStoreAnalyticsRepository, StoreAnalyticsRepository>();
         services.AddScoped<IPlatformAnalyticsRepository, PlatformAnalyticsRepository>();
-        services.AddScoped<INotificationRepository, NotificationRepository>();
-
-        services.AddScoped<IWarningRepository, WarningRepository>();
         return services;
     }
 }

@@ -9,6 +9,7 @@ using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Implementations;
+using SaveBite.Backend.Services.Interfaces;
 using SaveBite.Backend.Validators;
 using Xunit;
 using Xunit.Abstractions;
@@ -29,11 +30,14 @@ public class CreateCategoryTests
     private readonly CategoryService _service;
     private readonly CreateCategoryRequestValidator _validator = new();
 
+    private readonly Guid _adminId = Guid.NewGuid();
+
     public CreateCategoryTests(ITestOutputHelper output)
     {
         _output = output;
         _service = new CategoryService(
             _categoryRepoMock.Object,
+            new Mock<IAdminAuditWriter>().Object,
             TimeProvider.System,
             _loggerMock.Object
         );
@@ -66,7 +70,7 @@ public class CreateCategoryTests
             .Returns(Task.CompletedTask);
 
         // Act
-        var categoryId = await _service.CreateCategoryAsync(request);
+        var categoryId = await _service.CreateCategoryAsync(_adminId, request);
 
         // Assert & Log
         PrintSuccess("TCID01", new { CategoryId = categoryId, Name = request.Name });
@@ -102,7 +106,7 @@ public class CreateCategoryTests
             .ReturnsAsync(true);
 
         // Act
-        var act = () => _service.CreateCategoryAsync(request);
+        var act = () => _service.CreateCategoryAsync(_adminId, request);
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<AppException>();

@@ -6,17 +6,33 @@ namespace SaveBite.Backend.Services.Interfaces;
 
 public interface IShopService
 {
-    Task<PagedResult<NearbyShopResponse>> GetNearbyShopsAsync(NearbyShopsRequest request, Guid? userId = null, CancellationToken cancellationToken = default);
-    Task<ShopProfileResponse> GetShopProfileAsync(Guid shopId, CancellationToken cancellationToken = default);
-    Task<StoreReviewsSummaryResponse> GetStoreReviewsAsync(Guid shopId, StoreReviewsQueryRequest request, CancellationToken cancellationToken = default);
-    Task<ShopPaymentConfigResponse> GetOwnerPaymentConfigAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
-    Task<ShopPaymentConfigResponse> UpdateOwnerPaymentConfigAsync(Guid ownerUserId, UpdateShopPaymentConfigRequest request, CancellationToken cancellationToken = default);
+    Task<NearbyShopsPagedResult> GetNearbyShopsAsync(NearbyShopsRequest request, Guid? userId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<ShopProfileResponse> GetShopProfileAsync(Guid shopId, CancellationToken cancellationToken = default,
+        Guid? viewerId = null);
+
+    Task<StoreReviewsSummaryResponse> GetStoreReviewsAsync(Guid shopId, StoreReviewsQueryRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<ShopPaymentConfigResponse> GetOwnerPaymentConfigAsync(Guid ownerUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<ShopPaymentConfigResponse> UpdateOwnerPaymentConfigAsync(Guid ownerUserId,
+        UpdateShopPaymentConfigRequest request, CancellationToken cancellationToken = default);
+
     Task<ShopProfileResponse> GetOwnerShopProfileAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
-    Task<ShopProfileResponse> UpdateBusinessInfoAsync(Guid ownerUserId, UpdateBusinessInfoRequest request, CancellationToken cancellationToken = default);
-    Task<ShopProfileResponse> UpdateShopImagesAsync(Guid ownerUserId, UpdateShopImagesRequest request, CancellationToken cancellationToken = default);
+
+    Task<ShopProfileResponse> UpdateBusinessInfoAsync(Guid ownerUserId, UpdateBusinessInfoRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<ShopProfileResponse> UpdateShopImagesAsync(Guid ownerUserId, UpdateShopImagesRequest request,
+        CancellationToken cancellationToken = default);
 
     // Manage Shops.
     Task<PagedResult<ShopListResponse>> GetShopListAsync(string? keyword, int page, int pageSize, CancellationToken ct);
     Task<ShopContentResponse> GetShopContentAsync(Guid shopId, CancellationToken ct = default);
-    Task<ModerationActionResponse> UpdateShopStatusAsync(Guid adminId, Guid shopId, UpdateShopModerationStatusRequest request, CancellationToken ct);
+
+    Task<ModerationActionResponse> UpdateShopStatusAsync(Guid adminId, Guid shopId,
+        UpdateShopModerationStatusRequest request, CancellationToken ct);
 }

@@ -4,25 +4,27 @@ import { API_ENDPOINTS } from "@/shared/api/endpoints";
 import type { ApiResponse } from "@/shared/types";
 
 import type { AssociatedShop, StaffShopDetail } from "../types/staff.types";
+import { useAuthStore } from "@/shared/stores/authStore";
 
 let associatedShopsRequest: Promise<AssociatedShop[]> | null = null;
 
 const shopDetailRequests = new Map<string, Promise<AxiosResponse<ApiResponse<StaffShopDetail>>>>();
 
 export const staffApi = {
-  async getAssociatedShops(): Promise<AssociatedShop[]> {
-    if (associatedShopsRequest) {
+  async getAssociatedShops(forceRefresh = false): Promise<AssociatedShop[]> {
+    if (associatedShopsRequest && !forceRefresh) {
       return associatedShopsRequest;
     }
 
-    associatedShopsRequest = httpClient
+    const request = httpClient
       .get<ApiResponse<AssociatedShop[]>>(API_ENDPOINTS.STAFF_SHOPS.LIST)
       .then((response) => response.data.data)
       .finally(() => {
-        associatedShopsRequest = null;
+        if (associatedShopsRequest === request) associatedShopsRequest = null;
       });
 
-    return associatedShopsRequest;
+    associatedShopsRequest = request;
+    return request;
   },
 
   async getShopDetail(shopId: string): Promise<AxiosResponse<ApiResponse<StaffShopDetail>>> {
@@ -43,5 +45,6 @@ export const staffApi = {
 
   async leaveShop(shopId: string): Promise<void> {
     await httpClient.delete(API_ENDPOINTS.STAFF_SHOPS.DETAIL(shopId));
+    await useAuthStore.getState().refreshUser();
   },
 };

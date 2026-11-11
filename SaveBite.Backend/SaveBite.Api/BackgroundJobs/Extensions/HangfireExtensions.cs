@@ -6,6 +6,7 @@ using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.BackgroundJobs.Jobs;
 using SaveBite.Backend.BackgroundJobs.Scheduling;
 using SaveBite.Backend.BackgroundJobs.Service;
+using SaveBite.Backend.Uploads;
 
 namespace SaveBite.Backend.BackgroundJobs.Extensions;
 
@@ -15,11 +16,13 @@ public static class HangfireExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddScoped<IStaffInvitationScheduler, StaffInvitationScheduler>();
+        services.AddScoped<StaffInvitationJob>();
+        services.AddScoped<StaffInvitationRecoveryJob>();
         services.AddScoped<IRefundDeadlineScheduler, RefundDeadlineScheduler>();
         services.AddScoped<RefundDeadlineJob>();
         services.AddScoped<RefundDeadlineRecoveryJob>();
         services.AddScoped<ICheckoutPaymentExpirationScheduler, CheckoutPaymentExpirationScheduler>();
-        services.AddScoped<IOrderEventDispatchScheduler, OrderEventDispatchScheduler>();
         services.AddScoped<IShopOrderConfirmationScheduler, ShopOrderConfirmationScheduler>();
         services.AddScoped<IShopOrderNoShowScheduler, ShopOrderNoShowScheduler>();
         // Register scoped job classes here as they are added.
@@ -29,7 +32,17 @@ public static class HangfireExtensions
         services.AddScoped<OrderEventDispatchJob>();
         services.AddScoped<ShopOrderConfirmationJob>();
         services.AddScoped<ShopOrderNoShowJob>();
+        services.AddScoped<PickupDeadlineReminderJob>();
+        services.AddScoped<ResaleDecisionExpirationJob>();
+        services.AddScoped<OrderDeadlineRecoveryJob>();
+        services.AddScoped<OrderOutboxRecoveryJob>();
+        services.AddScoped<RabbitFailureRecoveryJob>();
+        services.AddScoped<CartAvailabilityRecoveryJob>();
+        services.AddScoped<FlashDealRecoveryJob>();
+        services.AddScoped<PlatformFeeRecoveryJob>();
         services.AddScoped<PlatformFeeOverdueJob>();
+        services.AddScoped<PlatformFeeMonthlyStatementJob>();
+        services.AddScoped<UploadCleanupJob>();
 
         services.AddOptions<HangfireOptions>()
             .Bind(configuration.GetSection(HangfireOptions.SectionName))
@@ -74,24 +87,40 @@ public static class HangfireExtensions
 
     public static WebApplication UseBackgroundJobs(this WebApplication app)
     {
-        app.Services.GetRequiredService<IBackgroundJobClient>().Enqueue<RefundDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None));
+        var recurring = app.Services.GetRequiredService<IRecurringJobManager>();
+        recurring.AddOrUpdate<OrderDeadlineRecoveryJob>("order-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<OrderOutboxRecoveryJob>("order-outbox-dispatch", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<RabbitFailureRecoveryJob>("rabbit-failure-recovery", job => job.ExecuteAsync(CancellationToken.None), "*/5 * * * *");
+        recurring.AddOrUpdate<CartAvailabilityRecoveryJob>("cart-availability-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<RefundDeadlineRecoveryJob>("refund-deadline-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<FlashDealRecoveryJob>("flash-deal-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<StaffInvitationRecoveryJob>("staff-invitation-recovery", job => job.ExecuteAsync(false, CancellationToken.None), Cron.Minutely());
+        recurring.AddOrUpdate<PlatformFeeRecoveryJob>("platform-fee-recovery", job => job.ExecuteAsync(CancellationToken.None), Cron.Hourly());
+        recurring.AddOrUpdate<UploadCleanupJob>("temporary-upload-cleanup", job => job.ExecuteAsync(CancellationToken.None), Cron.Minutely());
+        recurring.RemoveIfExists("pickup-deadline-reminder-recovery");
+        var jobs = app.Services.GetRequiredService<IBackgroundJobClient>();
+        var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("BackgroundJobStartup");
+        SafeSchedule.Try(() => jobs.Enqueue<RefundDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "refund-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<StaffInvitationRecoveryJob>(job => job.ExecuteAsync(true, CancellationToken.None)), logger, "invitation-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<OrderDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "order-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<FlashDealRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "flash-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<OrderOutboxRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "outbox-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<PlatformFeeRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "fee-startup", Guid.Empty);
         var options = app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value;
         if (app.Environment.IsDevelopment() && options.DashboardEnabled)
         {
             // Hangfire's default dashboard authorization only permits local requests.
             app.UseHangfireDashboard("/hangfire");
         }
-        using (var scope = app.Services.CreateScope())
-               {
-                   var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
-                   recurringJobs.AddOrUpdate<PlatformFeeOverdueJob>(
-                       "platform-fee-overdue-check",
-                       job => job.ExecuteAsync(CancellationToken.None),
-                       Cron.Daily);
-               }
+        var monthlyBillingCron = Cron.Monthly(1, 0); // 00:00 UTC = 07:00 Vietnam, day 1.
+        recurring.AddOrUpdate<PlatformFeeMonthlyStatementJob>("platform-fee-monthly-statement-generation",
+            job => job.ExecuteAsync(CancellationToken.None), monthlyBillingCron); // UTC: 07:00 Vietnam
+        recurring.AddOrUpdate<SaveBite.Backend.Audit.Archives.AuditArchiveService>("audit-log-monthly-archive",
+            job => job.ExecuteAsync(CancellationToken.None), monthlyBillingCron); // Same UTC schedule as platform fees.
+        recurring.AddOrUpdate<PlatformFeeOverdueJob>("platform-fee-overdue-check",
+            job => job.ExecuteAsync(CancellationToken.None), Cron.Hourly());
 
-
-        // Stop the legacy notification recovery schedule; notifications now publish directly to RabbitMQ.
+        // Shared event_outbox recovery now dispatches notifications as well.
         app.Services.GetRequiredService<IRecurringJobManager>().RemoveIfExists("notification-outbox-recovery");
         return app;
     }

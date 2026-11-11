@@ -84,6 +84,8 @@ public class ShopConfiguration : IEntityTypeConfiguration<Shop>
             .HasColumnName("closing_time")
             .HasColumnType("time without time zone");
 
+        builder.Property(x => x.SuspendedForPlatformFees).HasColumnName("suspended_for_platform_fees").HasDefaultValue(false);
+
         builder.Property(x => x.Status)
             .HasColumnName("status")
             .HasConversion<string>()

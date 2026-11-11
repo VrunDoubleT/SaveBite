@@ -5,7 +5,8 @@ import type { ApiResponse, PaginatedResponse } from "@/shared/types";
 
 import type {
   ShopStaff,
-  StaffActivityLog,
+  StaffActivityLogPage,
+  StaffActivityLogQuery,
   UpdateStaffInfoInput,
   InviteStaffInput,
   StaffInvitation,
@@ -20,15 +21,15 @@ let staffListRequest: Promise<ShopStaff[]> | null = null;
 
 let invitationListRequest: Promise<StaffInvitation[]> | null = null;
 
-const activityLogRequests = new Map<string, Promise<StaffActivityLog[]>>();
+const activityLogRequests = new Map<string, Promise<StaffActivityLogPage>>();
 
 export const shopStaffApi = {
-  async getStaffList(): Promise<ShopStaff[]> {
-    if (staffListRequest) {
+  async getStaffList(forceRefresh = false): Promise<ShopStaff[]> {
+    if (staffListRequest && !forceRefresh) {
       return staffListRequest;
     }
 
-    staffListRequest = (async () => {
+    const request = (async () => {
       const response = await httpClient.get<ApiResponse<PaginatedResponse<ShopStaff>>>(
         API_ENDPOINTS.SHOP_STAFFS.LIST,
         {
@@ -42,48 +43,55 @@ export const shopStaffApi = {
       return response.data.data.items;
     })();
 
+    staffListRequest = request;
     try {
-      return await staffListRequest;
+      return await request;
     } finally {
-      staffListRequest = null;
+      if (staffListRequest === request) staffListRequest = null;
     }
   },
 
-  async getStaffActivityLogs(staffId: string): Promise<StaffActivityLog[]> {
-    const existingRequest = activityLogRequests.get(staffId);
+  // Server-side paging + optional date range (fromDate / toDate are inclusive, yyyy-MM-dd).
+  async getStaffActivityLogs(
+    staffId: string,
+    query: StaffActivityLogQuery,
+  ): Promise<StaffActivityLogPage> {
+    // The same staff + same filters share one in-flight request.
+    const key = `${staffId}|${query.page}|${query.pageSize}|${query.fromDate ?? ""}|${query.toDate ?? ""}`;
+    const existingRequest = activityLogRequests.get(key);
 
     if (existingRequest) {
       return existingRequest;
     }
 
     const request = (async () => {
-      const response = await httpClient.get<ApiResponse<PaginatedResponse<StaffActivityLog>>>(
+      const response = await httpClient.get<ApiResponse<StaffActivityLogPage>>(
         API_ENDPOINTS.SHOP_STAFFS.ACTIVITY_LOGS(staffId),
         {
           params: {
-            page: 1,
-            pageSize: 50,
+            page: query.page,
+            pageSize: query.pageSize,
+            // Empty values are omitted so the backend applies no date filter.
+            fromDate: query.fromDate || undefined,
+            toDate: query.toDate || undefined,
           },
         },
       );
 
-      return response.data.data.items;
+      return response.data.data;
     })();
 
-    activityLogRequests.set(staffId, request);
+    activityLogRequests.set(key, request);
 
     try {
       return await request;
     } finally {
-      activityLogRequests.delete(staffId);
+      activityLogRequests.delete(key);
     }
   },
 
   async updateStaff(staffId: string, input: UpdateStaffInfoInput) {
-    return httpClient.put<ApiResponse<null>>(
-      API_ENDPOINTS.SHOP_STAFFS.DETAIL(staffId),
-      input,
-    );
+    return httpClient.put<ApiResponse<null>>(API_ENDPOINTS.SHOP_STAFFS.DETAIL(staffId), input);
   },
 
   async removeStaff(staffId: string) {
@@ -112,12 +120,12 @@ export const shopStaffApi = {
     return response.data.data.items;
   },
 
-  async getInvitations(): Promise<StaffInvitation[]> {
-    if (invitationListRequest) {
+  async getInvitations(forceRefresh = false): Promise<StaffInvitation[]> {
+    if (invitationListRequest && !forceRefresh) {
       return invitationListRequest;
     }
 
-    invitationListRequest = (async () => {
+    const request = (async () => {
       const response = await httpClient.get<ApiResponse<PaginatedResponse<StaffInvitation>>>(
         API_ENDPOINTS.STAFF_INVITATIONS.BY_SHOP,
         {
@@ -131,10 +139,11 @@ export const shopStaffApi = {
       return response.data.data.items;
     })();
 
+    invitationListRequest = request;
     try {
-      return await invitationListRequest;
+      return await request;
     } finally {
-      invitationListRequest = null;
+      if (invitationListRequest === request) invitationListRequest = null;
     }
   },
 

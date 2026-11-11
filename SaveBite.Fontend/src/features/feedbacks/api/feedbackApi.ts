@@ -61,7 +61,7 @@ export const feedbackApi = {
     await httpClient.delete(API_ENDPOINTS.FEEDBACKS.DETAIL(feedbackId));
   },
 
-  // Upload Feedback Image
+    // Upload Feedback Image
   async uploadImage(file: File): Promise<string> {
     const formData = new FormData();
     formData.append("file", file);
@@ -69,7 +69,7 @@ export const feedbackApi = {
       API_ENDPOINTS.FEEDBACKS.IMAGES,
       formData,
       {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: { "Content-Type": undefined },
       },
     );
     return response.data.data;

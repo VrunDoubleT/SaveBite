@@ -25,6 +25,7 @@ public class DeactivateCategoryTests
     private readonly Mock<ILogger<CategoryService>> _loggerMock = new();
     private readonly CategoryService _service;
 
+    private readonly Guid _adminId = Guid.NewGuid();
     private readonly Guid _existingCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly Guid _nonExistentCategoryId = Guid.Parse("99999999-9999-9999-9999-999999999999");
 
@@ -33,6 +34,7 @@ public class DeactivateCategoryTests
         _output = output;
         _service = new CategoryService(
             _categoryRepoMock.Object,
+            new Mock<IAdminAuditWriter>().Object,
             TimeProvider.System,
             _loggerMock.Object
         );
@@ -68,7 +70,7 @@ public class DeactivateCategoryTests
             .Returns(Task.CompletedTask);
 
         // Act
-        await _service.UpdateCategoryStatusAsync(_existingCategoryId, request);
+        await _service.UpdateCategoryStatusAsync(_adminId, _existingCategoryId, request);
 
         // Assert & Log
         PrintSuccess("TCID01", "Category deactivated successfully");
@@ -92,7 +94,7 @@ public class DeactivateCategoryTests
             .ReturnsAsync((Category?)null);
 
         // Act
-        var act = () => _service.UpdateCategoryStatusAsync(_nonExistentCategoryId, request);
+        var act = () => _service.UpdateCategoryStatusAsync(_adminId, _nonExistentCategoryId, request);
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -118,7 +120,7 @@ public class DeactivateCategoryTests
             .ReturnsAsync(category);
 
         // Act
-        await _service.UpdateCategoryStatusAsync(_existingCategoryId, request);
+        await _service.UpdateCategoryStatusAsync(_adminId, _existingCategoryId, request);
 
         // Assert & Log
         PrintSuccess("TCID03", "Already inactive - skipped update (no SaveChanges called)");

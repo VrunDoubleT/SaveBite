@@ -75,11 +75,74 @@ public sealed class PlatformAnalyticsService : IPlatformAnalyticsService
         return await BuildShopStatisticsAsync(period, nowUtc, ct);
     }
 
-    public async Task<PlatformRevenueAndOrderStatisticsResponse> GetRevenueAndOrderStatisticsAsync(
+     public async Task<PlatformRevenueAndOrderStatisticsResponse> GetRevenueAndOrderStatisticsAsync(
         AnalyticsPeriodRequest request, CancellationToken ct = default)
     {
         var (_, period) = Resolve(request);
         return await BuildRevenueAndOrderStatisticsAsync(period, ct);
+    }
+
+    // FIX-45: revenue per shop, built from the same Completed-order rows as the platform revenue figures,
+    // so the totals here always equal the platform dashboard for the same period.
+    public async Task<PlatformShopRevenueResponse> GetShopRevenueAsync(
+        AnalyticsPeriodRequest request, bool allTime = false, CancellationToken ct = default)
+    {
+        var (nowUtc, resolved) = Resolve(request);
+        // allTime mirrors the dashboard's "All time" switch, which has no preset of its own.
+        var period = allTime ? AnalyticsPeriodResolver.AllTime(nowUtc) : resolved;
+        var financials = await _repository.GetCompletedOrderFinancialsAsync(period, ct);
+
+        var grouped = financials
+            .GroupBy(r => r.ShopId)
+            .Select(g => new
+            {
+                ShopId = g.Key,
+                Orders = g.Count(),
+                Online = g.Sum(r => r.PaidOnlineAmount),
+                Cash = g.Sum(r => r.PaidCashAmount),
+                Refunded = g.Sum(r => r.RefundedAmount),
+                Fee = g.Sum(r => r.FeeAmount)
+            })
+            .ToList();
+
+        var identities = (await _repository.GetShopIdentitiesAsync(grouped.Select(g => g.ShopId).ToList(), ct))
+            .ToDictionary(s => s.Id);
+
+        var totalNet = grouped.Sum(g => g.Online + g.Cash - g.Refunded);
+
+        var items = grouped
+            .Select(g =>
+            {
+                var paid = g.Online + g.Cash;
+                var net = paid - g.Refunded;
+                identities.TryGetValue(g.ShopId, out var shop);
+                return new ShopRevenueItemResponse(
+                    g.ShopId,
+                    shop?.Name ?? "Unknown shop",
+                    shop?.LogoUrl,
+                    g.Orders,
+                    paid,
+                    g.Online,
+                    g.Cash,
+                    g.Refunded,
+                    net,
+                    g.Orders > 0 ? Math.Round(paid / g.Orders, 0) : 0m,
+                    g.Fee,
+                    totalNet > 0m ? AnalyticsCalculator.Percent(net, totalNet) : 0m);
+            })
+            .OrderByDescending(i => i.NetRevenue)
+            .ThenBy(i => i.ShopName)
+            .ToList();
+
+        return new PlatformShopRevenueResponse(
+            AnalyticsCalculator.DescribePeriod(period),
+            items.Count,
+            items.Sum(i => i.CompletedOrders),
+            items.Sum(i => i.PaidRevenue),
+            items.Sum(i => i.RefundedAmount),
+            items.Sum(i => i.NetRevenue),
+            items.Sum(i => i.PlatformFeeAmount),
+            items);
     }
 
     public async Task<PlatformFlashDealStatisticsResponse> GetFlashDealStatisticsAsync(

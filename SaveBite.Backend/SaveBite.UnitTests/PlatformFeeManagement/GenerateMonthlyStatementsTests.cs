@@ -29,6 +29,7 @@ public class GenerateMonthlyStatementsTests
     private readonly Mock<ILogger<PlatformFeeStatementService>> _loggerMock = new();
     private readonly Mock<IConfiguration> _configurationMock = new();
     private readonly Mock<IHttpClientFactory> _httpClientFactoryMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly PlatformFeeStatementService _service;
 
     // Explicit GUIDs for test determinism and traceability
@@ -49,13 +50,7 @@ public class GenerateMonthlyStatementsTests
         _output = output;
         _configurationMock.Setup(c => c["Checkout:PaymentProvider"]).Returns("Simulated");
 
-        _service = new PlatformFeeStatementService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _configurationMock.Object,
-            _httpClientFactoryMock.Object
-        );
+        _service = new PlatformFeeStatementService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _configurationMock.Object, _httpClientFactoryMock.Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), _auditMock.Object, new Mock<IPlatformPayOsConfigService>().Object, new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object);
     }
 
     private OrderPlatformFee CreateOrderPlatformFee(Guid shopId, decimal grossAmount = 1000000m, decimal feeAmount = 100000m) => new()

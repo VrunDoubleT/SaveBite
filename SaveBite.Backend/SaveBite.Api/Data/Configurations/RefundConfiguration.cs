@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SaveBite.Backend.Models.Entities;
@@ -33,7 +34,9 @@ public class RefundConfiguration : IEntityTypeConfiguration<Refund>
         builder.Property(x => x.ReviewDeadlineAt).HasColumnName("review_deadline_at");
         builder.Property(x => x.AccumulatedValueReclaimedAt).HasColumnName("accumulated_value_reclaimed_at");
         builder.HasIndex(x => x.OrderId, "ux_refunds_active_order_scope").IsUnique().HasDatabaseName("ux_refunds_active_order_scope")
-            .HasFilter("\"status\" IN ('AwaitingCustomerDetails', 'PendingVerification', 'AwaitingTransfer', 'Overdue')");
+            .HasFilter("\"status\" IN ('AwaitingCustomerDetails', 'PendingVerification', 'AwaitingTransfer')");
+        builder.Property(x => x.FeeAdjustedAt).HasColumnName("fee_adjusted_at");
+
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

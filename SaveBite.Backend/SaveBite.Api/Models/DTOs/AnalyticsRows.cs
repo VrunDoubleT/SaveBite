@@ -111,3 +111,6 @@ public sealed record ShopCountsRow(
     int ShopsWithCompletedOrders,
     IReadOnlyList<KeyValuePair<ShopStatus, int>> ShopStatuses,
     IReadOnlyList<KeyValuePair<ShopApplicationStatus, int>> ApplicationStatuses);
+
+/// <summary>Name and logo of a shop, used to label per-shop analytics rows (FIX-45).</summary>
+public sealed record ShopIdentityRow(Guid Id, string Name, string? LogoUrl);

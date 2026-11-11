@@ -4,13 +4,13 @@ import {
   LayoutDashboard,
   Package,
   ShieldCheck,
-  ShoppingBag,
   Star,
   Store,
   Users,
   Tags,
   Receipt,
   MessageSquare,
+  KeyRound,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
@@ -37,14 +37,19 @@ const navigation = [
     icon: Package,
   },
   {
-    to: APP_PATHS.ADMIN_ORDERS,
-    label: "Orders",
-    icon: ShoppingBag,
-  },
-  {
     to: APP_PATHS.ADMIN_STORES,
     label: "Stores",
     icon: Store,
+  },
+  {
+    to: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
+    label: "Store Applications",
+    icon: ClipboardCheck,
+  },
+  {
+    to: APP_PATHS.ADMIN_FEEDBACK,
+    label: "Feedback",
+    icon: MessageSquare,
   },
   {
     to: APP_PATHS.ADMIN_TRUST,
@@ -52,9 +57,19 @@ const navigation = [
     icon: ShieldCheck,
   },
   {
-    to: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
-    label: "Store Applications",
-    icon: ClipboardCheck,
+    to: APP_PATHS.ADMIN_PLATFORM_FEE,
+    label: "Platform Fees",
+    icon: Receipt,
+  },
+  {
+    to: APP_PATHS.ADMIN_PLATFORM_PAYOS_CONFIG,
+    label: "PayOS Settings",
+    icon: KeyRound,
+  },
+  {
+    to: APP_PATHS.ADMIN_AUDIT_LOGS,
+    label: "Audit Logs",
+    icon: FileSearch,
   },
   {
     to: APP_PATHS.ADMIN_PLATFORM_FEE,

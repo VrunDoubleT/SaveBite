@@ -144,7 +144,7 @@ public class CheckoutOrderTests
         result.Status.Should().Be("Pending"); result.RequiredOnlineAmount.Should().Be(0);
         result.RemainingAtShop.Should().Be(10000m);
         _context.Scheduler.Verify(r => r.Schedule(It.IsAny<Guid>(), It.IsAny<DateTime>()), Times.Never);
-        _context.Events.Verify(r => r.QueuePendingAsync(_context.CreatedOrder!, It.IsAny<CancellationToken>()), Times.Once);
+        _context.ConfirmationScheduler.Verify(r => r.Schedule(_context.CreatedOrder!.Id, It.IsAny<DateTime>()), Times.Once);
         _checkoutRepoMock.Verify(r => r.CompleteInventoryAsync(_context.CreatedOrder!, true, It.IsAny<CancellationToken>()), Times.Once);
         _output.WriteLine("TCID05 PASSED: CheckoutOrder_FreeDeposit_BecomesPendingWithoutExpiryJob (Boundary).");
     }
@@ -542,7 +542,7 @@ public class CheckoutOrderTests
             case "hidden-deal": v.FlashDeal.Status = FlashDealStatus.Hidden; break;
             case "hidden-variant": v.Status = FlashDealVariantStatus.Hide; break;
             case "inactive-variant": v.Variant.IsActive = false; break;
-            case "hidden-product": v.FlashDeal.Product.Status = ProductStatus.Hidden; break;
+            case "hidden-product": v.FlashDeal.Product.DeletedAt = DateTime.UtcNow; break;
             case "paused-shop": v.FlashDeal.Shop.Status = ShopStatus.Paused; break;
             case "negative-price": v.DealPrice = -1; break;
             case "zero-quantity": item.Quantity = 0; break;
@@ -630,7 +630,7 @@ public class CheckoutOrderTests
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>();
         _paymentMock.Verify(r => r.StartAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
-        _context.Events.Verify(r => r.QueuePendingAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _context.ConfirmationScheduler.Verify(r => r.Schedule(It.IsAny<Guid>(), It.IsAny<DateTime>()), Times.Never);
         _output.WriteLine("TCID29 PASSED: CheckoutOrder_ExpirySchedulingFails_DoesNotStartPaymentOrPublish (Abnormal).");
     }
 

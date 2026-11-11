@@ -170,7 +170,7 @@ public class AddFlashDealToCartTests
             case "future": variant.FlashDeal.SaleStartTime = DateTime.UtcNow.AddHours(1); break;
             case "expired": variant.FlashDeal.OrderEndTime = DateTime.UtcNow.AddSeconds(-1); break;
             case "inactive-variant": variant.Variant.IsActive = false; break;
-            case "inactive-product": variant.FlashDeal.Product.Status = ProductStatus.Hidden; break;
+            case "inactive-product": variant.FlashDeal.Product.DeletedAt = DateTime.UtcNow; break;
             case "inactive-shop": variant.FlashDeal.Shop.Status = ShopStatus.Paused; break;
             case "sold-out": variant.SoldQuantity = variant.TotalQuantity; break;
         }

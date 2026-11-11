@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import { FieldError } from "./FieldError";
 import type { Combination, PriceInput, PriceMap } from "../types/product.types";
 import { Alert, inputClass, secondaryButton } from "./ProductUi";
-import { validatePrices } from "../utils/productForm";
+import { validatePrices, PRODUCT_PRICE_STEP } from "../utils/productForm";
+import { MIN_AMOUNT_VND } from "@/shared/config/money";
 
 export function VariantPrices({
   rows,
   count,
   prices,
   onChange,
+  showErrors = false,
 }: {
   rows: Combination[];
   count: number;
   prices: PriceMap;
   onChange: (prices: PriceMap) => void;
+  showErrors?: boolean;
 }) {
   const [bulk, setBulk] = useState<PriceInput>({ originalPrice: "", dealPrice: "" });
   const [error, setError] = useState("");
@@ -37,8 +41,8 @@ export function VariantPrices({
           <input
             className={inputClass}
             type="number"
-            min="0.01"
-            step="0.01"
+            min={MIN_AMOUNT_VND}
+            step={PRODUCT_PRICE_STEP}
             placeholder="E.g. 50000"
             value={bulk.originalPrice}
             onChange={(e) => setBulk({ ...bulk, originalPrice: e.target.value })}
@@ -49,8 +53,8 @@ export function VariantPrices({
           <input
             className={inputClass}
             type="number"
-            min="0"
-            step="0.01"
+            min={MIN_AMOUNT_VND}
+            step={PRODUCT_PRICE_STEP}
             placeholder="E.g. 30000"
             value={bulk.dealPrice}
             onChange={(e) => setBulk({ ...bulk, dealPrice: e.target.value })}
@@ -71,7 +75,12 @@ export function VariantPrices({
       </div>
       {error && <Alert>{error}</Alert>}
       <div className="max-h-[32rem] overflow-auto rounded-lg border border-neutral-200">
-        <table className="w-full min-w-[480px] text-left text-sm">
+        <table className="w-full min-w-[480px] table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[40%]" />
+            <col className="w-[30%]" />
+            <col className="w-[30%]" />
+          </colgroup>
           <thead className="sticky top-0 bg-neutral-50 text-xs text-neutral-500">
             <tr>
               <th className="px-4 py-3 font-medium">Variants ({rows.length})</th>
@@ -80,39 +89,55 @@ export function VariantPrices({
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
-            {rows.map((row) => (
-              <tr key={row.key}>
-                <td className="px-4 py-3 font-medium">{row.label}</td>
-                {(["originalPrice", "dealPrice"] as const).map((field) => (
-                  <td key={field} className="w-40 px-3 py-2">
-                    <input
-                      aria-label={`${field === "originalPrice" ? "Original price" : "Deal price"} ${row.label}`}
-                      className={`${inputClass} mt-0! text-right`}
-                      type="number"
-                      step="0.01"
-                      min={field === "originalPrice" ? "0.01" : "0"}
-                      required
-                      value={prices[row.key]?.[field] ?? ""}
-                      onChange={(e) =>
-                        onChange({
-                          ...prices,
-                          [row.key]: {
-                            originalPrice: prices[row.key]?.originalPrice ?? "",
-                            dealPrice: prices[row.key]?.dealPrice ?? "",
-                            [field]: e.target.value,
-                          },
-                        })
-                      }
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const message = showErrors ? validatePrices([row], prices) : "";
+              const errorId = `variant-price-${row.key}-error`;
+              return (
+                <Fragment key={row.key}>
+                  <tr>
+                    <td className="break-words px-4 py-3 font-medium">{row.label}</td>
+                    {(["originalPrice", "dealPrice"] as const).map((field) => (
+                      <td key={field} className="px-3 py-2">
+                        <input
+                          aria-invalid={!!message}
+                          aria-describedby={message ? errorId : undefined}
+                          aria-label={`${field === "originalPrice" ? "Original price" : "Deal price"} ${row.label}`}
+                          className={`${inputClass} mt-0! min-w-0 text-right`}
+                          type="number"
+                          step={PRODUCT_PRICE_STEP}
+                          min={MIN_AMOUNT_VND}
+                          required
+                          value={prices[row.key]?.[field] ?? ""}
+                          onChange={(e) =>
+                            onChange({
+                              ...prices,
+                              [row.key]: {
+                                originalPrice: prices[row.key]?.originalPrice ?? "",
+                                dealPrice: prices[row.key]?.dealPrice ?? "",
+                                [field]: e.target.value,
+                              },
+                            })
+                          }
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                  {message && (
+                    <tr>
+                      <td colSpan={3} className="break-words border-t-0 px-4 pb-3">
+                        <FieldError id={errorId} message={message} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
       <p className="text-xs text-neutral-500">
-        Deal prices must be lower than original prices. SKUs are generated when you save.
+        Prices must be at least 2,000 VND and multiples of 1,000 VND. Deal prices must be lower than
+        original prices. SKUs are generated when you save.
       </p>
     </div>
   );

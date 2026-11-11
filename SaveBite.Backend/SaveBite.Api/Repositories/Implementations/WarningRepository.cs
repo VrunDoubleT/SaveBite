@@ -26,9 +26,8 @@ public sealed class WarningRepository : IWarningRepository
 
     public async Task<Product?> GetProductForWarningAsync(Guid productId, CancellationToken ct)
     {
-        return await _db.Products.AsNoTracking().Include(p => p.Attributes).ThenInclude(a => a.Values).FirstOrDefaultAsync(x => x.Id == productId, ct);
+        return await _db.Products.AsNoTracking().Include(p => p.Shop).Include(p => p.Attributes).ThenInclude(a => a.Values).FirstOrDefaultAsync(x => x.Id == productId, ct);
     }
-
     public async Task<Guid?> GetOwnedShopIdAsync(Guid ownerId, CancellationToken cancellationToken)
     {
         return await _db.Shops.AsNoTracking()

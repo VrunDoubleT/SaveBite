@@ -68,7 +68,7 @@ export function UserManagementPage() {
       {/* Header & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">User Management</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-neutral-900">User Management</h2>
           <p className="text-sm text-text-secondary">
             View and manage platform accounts and profiles.
           </p>

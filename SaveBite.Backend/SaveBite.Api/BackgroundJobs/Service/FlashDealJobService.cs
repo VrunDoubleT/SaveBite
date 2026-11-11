@@ -1,61 +1,34 @@
 using SaveBite.Backend.BackgroundJobs.Interfaces;
+using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Events;
 using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Repositories.Interfaces;
-
 namespace SaveBite.Backend.BackgroundJobs.Service;
 
-public class FlashDealJobService  : IFlashDealJobService 
+public sealed class FlashDealJobService(IFlashDealRepository deals, IRabbitMqPublisher publisher, TimeProvider clock) : IFlashDealJobService
 {
-    private readonly IFlashDealRepository _dealRepository;
-    private readonly IRabbitMqPublisher _publisher;
-    private readonly ILogger<FlashDealJobService> _logger;
-    
-    public FlashDealJobService(
-        IFlashDealRepository dealRepository,
-        IRabbitMqPublisher publisher,
-        ILogger<FlashDealJobService> logger)
+    // Keep these entry points for jobs persisted before deadline-aware scheduling.
+    public Task PublishDealOpenedAsync(Guid id) => PublishAsync(id, null, true);
+    public Task PublishDealExpiredAsync(Guid id) => PublishAsync(id, null, false);
+    public Task PublishDealOpenedAtAsync(Guid id, DateTime expectedDeadline) => PublishAsync(id, expectedDeadline, true);
+    public Task PublishDealExpiredAtAsync(Guid id, DateTime expectedDeadline) => PublishAsync(id, expectedDeadline, false);
+
+    private async Task PublishAsync(Guid id, DateTime? expected, bool opening)
     {
-        _dealRepository = dealRepository;
-        _publisher = publisher;
-        _logger = logger;
-    }
-    
-    // Hangfire executes this method when SaleStartTime is reached
-    public async Task PublishDealOpenedAsync(Guid dealId)
-    {
-        var deal = await _dealRepository.GetActiveDealByIdAsync(dealId);
+        var deal = await deals.GetActiveDealByIdAsync(id);
         if (deal == null) return;
-        if (deal.Status == FlashDealStatus.Pending)
+        var now = clock.GetUtcNow().UtcDateTime;
+        var deadline = opening ? deal.SaleStartTime : deal.OrderEndTime;
+        if (expected.HasValue && !RefundRules.SameDeadline(deadline, expected.Value)) return;
+        if (opening)
         {
-            _logger.LogInformation("Hangfire triggered Open for Deal: {DealId}", dealId);
-            await _publisher.PublishAsync(
-                RabbitMqRoutingKeys.FlashDealOpened,
-                new FlashDealEvent
-                {
-                    FlashDealId = deal.Id
-                });
+            if (now < deal.SaleStartTime || now >= deal.OrderEndTime
+                || deal.Status is not (FlashDealStatus.Pending or FlashDealStatus.OnSale or FlashDealStatus.SoldOut)) return;
         }
+        else if (now < deal.OrderEndTime || deal.Status == FlashDealStatus.Cancelled) return;
+        await publisher.PublishAsync(opening ? RabbitMqRoutingKeys.FlashDealOpened : RabbitMqRoutingKeys.FlashDealExpired,
+            new FlashDealEvent { FlashDealId = id, ExpectedDeadline = deadline });
     }
-    
-    // Hangfire executes this method when OrderEndTime is reached
-    public async Task PublishDealExpiredAsync(Guid dealId)
-    {
-        var deal = await _dealRepository.GetActiveDealByIdAsync(dealId);
-        if (deal == null) return;
-        // If the deal has not yet ended, publish as expired
-        if (deal.Status == FlashDealStatus.OnSale || deal.Status == FlashDealStatus.Hidden || deal.Status == FlashDealStatus.Pending)
-        {
-            _logger.LogInformation("Hangfire triggered Expired for Deal: {DealId}", dealId);
-            await _publisher.PublishAsync(
-                RabbitMqRoutingKeys.FlashDealExpired,
-                new FlashDealEvent
-                {
-                    FlashDealId = deal.Id
-                });
-        }
-    }
-    
 }

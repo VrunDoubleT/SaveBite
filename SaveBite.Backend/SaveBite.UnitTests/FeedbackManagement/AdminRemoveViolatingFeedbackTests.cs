@@ -1,3 +1,5 @@
+using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.Validators;
 using System.Net;
 using FluentAssertions;
 using Moq;
@@ -24,7 +26,7 @@ public class AdminRemoveViolatingFeedbackTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<IFeedbackRepository> _feedbackRepoMock = new();
-    private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly FeedbackService _service;
 
     private readonly Guid _adminId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -34,7 +36,11 @@ public class AdminRemoveViolatingFeedbackTests
         _output = output;
         _service = new FeedbackService(
             _feedbackRepoMock.Object,
-            _publisherMock.Object
+            new Mock<INotificationQueue>().Object,
+            TestDbContextFactory.Create(),
+            _auditMock.Object,
+            null,
+            null
         );
     }
 
@@ -56,7 +62,7 @@ public class AdminRemoveViolatingFeedbackTests
             Reason = "Violates community standards on hate speech"
         };
 
-        _feedbackRepoMock.Setup(r => r.GetForUpdateAsync(feedbackId, It.IsAny<CancellationToken>()))
+        _feedbackRepoMock.Setup(r => r.GetByIdAsync(feedbackId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(feedback);
 
         // Act
@@ -65,30 +71,18 @@ public class AdminRemoveViolatingFeedbackTests
         // Assert
         result.Should().NotBeNull();
         result.TargetId.Should().Be(feedbackId);
-        result.Action.Should().Be("FEEDBACK_REMOVED_VIOLATION");
+        result.Action.Should().Be("FEEDBACK_HIDDEN");
         result.Message.Should().Be("Feedback removed.");
 
         feedback.Status.Should().Be(FeedbackStatus.HiddenByAdmin);
         feedback.HiddenAt.Should().NotBeNull();
 
-        _feedbackRepoMock.Verify(r => r.SaveModerationAsync(
-            feedback,
-            It.Is<ProductFeedbackModerationLog>(l =>
-                l.ProductFeedbackId == feedbackId &&
-                l.AdminUserId == _adminId &&
-                l.Action == FeedbackModerationAction.Hide &&
-                l.PreviousStatus == FeedbackStatus.Visible &&
-                l.NewStatus == FeedbackStatus.HiddenByAdmin &&
-                l.Reason == request.Reason),
-            It.IsAny<CancellationToken>()), Times.Once);
+        _feedbackRepoMock.Verify(r => r.UpdateAsync(feedback, It.IsAny<CancellationToken>()), Times.Once);
 
-        _publisherMock.Verify(p => p.PublishAsync(
-            RabbitMqRoutingKeys.ModerationAudit,
-            It.Is<ModerationEvent>(e =>
-                e.ActorUserId == _adminId &&
-                e.Action == "FEEDBACK_REMOVED_VIOLATION" &&
-                e.TargetId == feedbackId),
-            It.IsAny<CancellationToken>()), Times.Once);
+        _auditMock.Verify(a => a.Record(It.Is<AuditLog>(log =>
+            log.ActorUserId == _adminId &&
+            log.Action == AuditActionTypes.FeedbackHidden &&
+            log.TargetId == feedbackId)), Times.Once);
 
         _output.WriteLine("UTCID01 passed: Successfully hid feedback and saved moderation log & published audit event.");
     }
@@ -103,7 +97,7 @@ public class AdminRemoveViolatingFeedbackTests
             Reason = "Violates guidelines"
         };
 
-        _feedbackRepoMock.Setup(r => r.GetForUpdateAsync(feedbackId, It.IsAny<CancellationToken>()))
+        _feedbackRepoMock.Setup(r => r.GetByIdAsync(feedbackId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductFeedback?)null);
 
         // Act
@@ -135,7 +129,7 @@ public class AdminRemoveViolatingFeedbackTests
             Reason = "Violates content policy"
         };
 
-        _feedbackRepoMock.Setup(r => r.GetForUpdateAsync(feedbackId, It.IsAny<CancellationToken>()))
+        _feedbackRepoMock.Setup(r => r.GetByIdAsync(feedbackId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(feedback);
 
         // Act
@@ -144,7 +138,7 @@ public class AdminRemoveViolatingFeedbackTests
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
         ex.Which.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        ex.Which.Message.Should().Contain("Only visible feedback can be hidden");
+        ex.Which.Message.Should().Contain("Only visible feedback can be");
         _output.WriteLine($"UTCID03 passed: Feedback with status {initialStatus} threw 409 Conflict.");
     }
 
@@ -153,22 +147,21 @@ public class AdminRemoveViolatingFeedbackTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("1234")] // 4 characters < 5
-    public async Task UTCID04_RemoveAsync_InvalidReason_ThrowsBadRequestException(string? invalidReason)
+    public void UTCID04_RemoveAsync_InvalidReason_ThrowsValidationException(string? invalidReason)
     {
         // Arrange
-        var feedbackId = Guid.NewGuid();
         var request = new HideViolatingFeedbackRequest
         {
             Reason = invalidReason!
         };
+        var validator = new HideViolatingFeedbackRequestValidator();
 
         // Act
-        var act = () => _service.RemoveAsync(_adminId, feedbackId, request, CancellationToken.None);
+        var result = validator.Validate(request);
 
         // Assert
-        var ex = await act.Should().ThrowAsync<AppException>();
-        ex.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        ex.Which.Message.Should().Contain("Removal reason must contain 5 to 1000 characters");
-        _output.WriteLine($"UTCID04 passed: Reason '{invalidReason}' threw 400 BadRequest.");
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "Reason");
+        _output.WriteLine($"UTCID04 passed: Reason '{invalidReason}' failed validation as expected.");
     }
 }

@@ -24,14 +24,18 @@ function clearStoredSession(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
+let authSessionVersion = 0;
+let refreshVersion = 0;
+
 let sessionInitialization: Promise<void> | null = null;
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isInitializing: Boolean(localStorage.getItem(TOKEN_KEY)),
   isLoggingOut: false,
   login: async (credentials) => {
+    authSessionVersion++;
     const tokens = await authApi.login(credentials);
     localStorage.setItem(TOKEN_KEY, tokens.accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
@@ -48,6 +52,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   logout: async () => {
+    authSessionVersion++;
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
     set({ isLoggingOut: true });
 
@@ -82,11 +87,23 @@ export const useAuthStore = create<AuthState>((set) => ({
     return sessionInitialization;
   },
   refreshUser: async () => {
+    const sessionVersion = authSessionVersion;
+    const requestVersion = ++refreshVersion;
+    const userId = get().user?.id;
     const user = await authApi.getMe();
-    set({ user, isAuthenticated: true, isInitializing: false });  
+    // A late response must not restore a logged-out session or overwrite a newer refresh.
+    if (
+      sessionVersion === authSessionVersion &&
+      requestVersion === refreshVersion &&
+      get().isAuthenticated &&
+      get().user?.id === userId
+    ) {
+      set({ user, isAuthenticated: true, isInitializing: false });
+    }
     return user;
   },
   clearSession: () => {
+    authSessionVersion++;
     clearStoredSession();
     set({ user: null, isAuthenticated: false, isInitializing: false, isLoggingOut: false });
   },

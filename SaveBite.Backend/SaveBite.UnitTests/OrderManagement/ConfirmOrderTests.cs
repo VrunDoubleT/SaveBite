@@ -64,7 +64,7 @@ public class ConfirmOrderTests
         result.History.Should().Contain(x => x.ToStatus == "Confirmed" && x.ActorId == _context.ActorId && x.ActorRole == (staff ? "Staff" : "StoreOwner"));
         _context.NoShow.Verify(r => r.Schedule(order.Id, order.HardDeadlineAt!.Value), Times.Once);
         _context.Confirmation.Verify(r => r.Delete("confirmation-job"), Times.Once);
-        _shopRepoMock.Verify(r => r.AddActivity(It.Is<StaffActivityLog>(x => x.ActionBy == _context.ActorId && x.Action == OrderStatus.Confirmed)), Times.Once);
+        _shopRepoMock.Verify(r => r.AddActivity(It.Is<StaffActivityLog>(x => x.ActionBy == _context.ActorId && x.Action == StaffActivityAction.Confirmed)), Times.Once);
         _realtimeMock.Verify(r => r.NotifyAsync(order.ShopId, order.Id, RealtimeEvents.OrderReasons.Confirm, It.IsAny<CancellationToken>()), Times.Once);
         _output.WriteLine("TCID01 PASSED: ConfirmOrder_PaidPending_RecordsActorAndSchedulesNoShow (Normal).");
     }
@@ -183,7 +183,7 @@ public class ConfirmOrderTests
     {
         // Arrange
 
-        _shopRepoMock.Setup(r => r.RequireAccessAsync(_context.ActorId, _context.Order.ShopId, It.IsAny<CancellationToken>())).ThrowsAsync(AppException.Forbidden());
+        _shopRepoMock.Setup(r => r.RequireAccessAsync(_context.ActorId, _context.Order.ShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>())).ThrowsAsync(AppException.Forbidden());
 
         // Act
         Func<Task> act = () => _service.ActionAsync(_context.ActorId, _context.Order.ShopId, _context.Order.Id, "confirm", "Closed");

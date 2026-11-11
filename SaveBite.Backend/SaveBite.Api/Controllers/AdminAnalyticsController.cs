@@ -70,6 +70,17 @@ public sealed class AdminAnalyticsController : ControllerBase
         return Ok(ApiResponse<PlatformRevenueAndOrderStatisticsResponse>.Ok(result));
     }
 
+    // FIX-45 (UC-142): revenue per shop for the selected period
+    [HttpGet("shop-revenue")]
+    public async Task<ActionResult<ApiResponse<PlatformShopRevenueResponse>>> GetShopRevenue(
+        [FromQuery] AnalyticsPeriodRequest request,
+        [FromQuery] bool allTime,
+        CancellationToken cancellationToken)
+    {
+        var result = await _analyticsService.GetShopRevenueAsync(request, allTime, cancellationToken);
+        return Ok(ApiResponse<PlatformShopRevenueResponse>.Ok(result));
+    }
+
     // UC-143: View Platform Flash Deal Statistics (BR-190)
     [HttpGet("flash-deals")]
     public async Task<ActionResult<ApiResponse<PlatformFlashDealStatisticsResponse>>> GetFlashDealStatistics(

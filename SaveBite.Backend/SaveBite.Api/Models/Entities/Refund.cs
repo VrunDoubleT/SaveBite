@@ -1,3 +1,4 @@
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Models.Enums;
 
 namespace SaveBite.Backend.Models.Entities;
@@ -10,6 +11,7 @@ public class Refund
     public RefundType RefundType { get; set; }
     public RefundStatus Status { get; set; }
 
+    public ICollection<RefundItem> Items { get; set; } = new List<RefundItem>();
     public Guid InitiatedBy { get; set; }
 
     public string? Reason { get; set; }
@@ -31,6 +33,7 @@ public class Refund
     public string? TransferReference { get; set; }
     public DateTime? TransferredAt { get; set; }
 
+    [AuditIgnore]
     public string? VerificationCodeHash { get; set; }
     public DateTime? VerificationExpiresAt { get; set; }
     public DateTime? DestinationConfirmedAt { get; set; }
@@ -42,6 +45,7 @@ public class Refund
     public DateTime? CustomerDetailsDeadlineAt { get; set; }
     public string? DeadlineJobId { get; set; }
     public DateTime? ReviewDeadlineAt { get; set; }
+    public DateTime? FeeAdjustedAt { get; set; }
     public DateTime? AccumulatedValueReclaimedAt { get; set; }
     public ICollection<RefundStatusHistory> History { get; set; } = new List<RefundStatusHistory>();
 
@@ -52,5 +56,5 @@ public class Refund
     public User InitiatedByUser { get; set; } = null!;
     public User? ReviewedByUser { get; set; }
     public ICollection<RefundEvidenceImage> EvidenceImages { get; set; } = new List<RefundEvidenceImage>();
-    public PlatformFeeAdjustment? PlatformFeeAdjustment { get; set; }
+    public ICollection<PlatformFeeAdjustment> PlatformFeeAdjustments { get; set; } = new List<PlatformFeeAdjustment>();
 }

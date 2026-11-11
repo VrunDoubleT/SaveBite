@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
@@ -31,7 +32,7 @@ public class ViewFeedbackHistoryTests
     public ViewFeedbackHistoryTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new FeedbackService(_feedbackRepoMock.Object, _publisherMock.Object);
+        _service = new FeedbackService(_feedbackRepoMock.Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IAdminAuditWriter>().Object, null, null);
     }
 
     private ProductFeedback CreateFeedback(Guid id, Guid userId, int rating, string comment)

@@ -43,11 +43,11 @@ public sealed class CheckoutSimulationController : ControllerBase
     public sealed record SimulationRequest(string Outcome, Guid? PaymentId = null);
     // Load the customer's simulated initial or remaining payment after checking Development mode and ownership.
     [HttpGet("{orderId:guid}")]
-    [CustomerAccess]
+    [CustomerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<CheckoutOrderResponse>>> Get(Guid orderId, CancellationToken ct, [FromQuery] Guid? paymentId = null)
     {
         EnsureEnabled();
-        var order = await _repository.GetOrderAsync(orderId, UserId(), ct) ?? throw AppException.NotFound();
+        var order = await _repository.GetOrderForHistoryAsync(orderId, UserId(), ct) ?? throw AppException.NotFound();
         // Use the selected Remaining payment when paymentId is supplied; otherwise use the initial payment.
         var selected = paymentId.HasValue ? order.Payments.SingleOrDefault(x => x.Id == paymentId && x.PaymentType == PaymentType.Remaining) : CheckoutOrderMapper.RequiredPayment(order);
         EnsureSimulated(selected?.GatewayTransactionId);

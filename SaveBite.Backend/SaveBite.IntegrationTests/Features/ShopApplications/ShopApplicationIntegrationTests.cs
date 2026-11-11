@@ -59,9 +59,6 @@ public class ShopApplicationIntegrationTests : BaseIntegrationTest
         form.Add(new StringContent("Hà Nội"), "City");
         form.Add(new StringContent("21.0285"), "Latitude");
         form.Add(new StringContent("105.8542"), "Longitude");
-        form.Add(new StringContent("Vietcombank"), "BankName");
-        form.Add(new StringContent("001100223344"), "BankAccountNumber");
-        form.Add(new StringContent(customer.FullName), "BankAccountHolder");
         form.Add(new StringContent("test-payos-client-id"), "PayosClientId");
         form.Add(new StringContent("test-payos-api-key"), "PayosApiKey");
         form.Add(new StringContent("test-payos-checksum"), "PayosChecksumKey");
@@ -101,9 +98,6 @@ public class ShopApplicationIntegrationTests : BaseIntegrationTest
             ApplicantUserId = customer.Id,
             Name = "Đơn Đang Chờ Duyệt",
             AddressLine = "123 Đang Chờ",
-            BankName = "Bank",
-            BankAccountNumber = "123",
-            BankAccountHolder = "Holder",
             PayosClientId = "cid",
             PayosApiKey = "key",
             PayosChecksumKey = "checksum",
@@ -117,9 +111,6 @@ public class ShopApplicationIntegrationTests : BaseIntegrationTest
         using var form = new MultipartFormDataContent();
         form.Add(new StringContent("Đơn Nộp Thêm Lần 2"), "Name");
         form.Add(new StringContent("123 Phố Huế"), "AddressLine");
-        form.Add(new StringContent("Bank"), "BankName");
-        form.Add(new StringContent("123"), "BankAccountNumber");
-        form.Add(new StringContent("Holder"), "BankAccountHolder");
         form.Add(new StringContent("cid"), "PayosClientId");
         form.Add(new StringContent("key"), "PayosApiKey");
         form.Add(new StringContent("checksum"), "PayosChecksumKey");
@@ -147,9 +138,6 @@ public class ShopApplicationIntegrationTests : BaseIntegrationTest
             ApplicantUserId = customer.Id,
             Name = "Đơn Muốn Hủy",
             AddressLine = "123 Hủy",
-            BankName = "Bank",
-            BankAccountNumber = "123",
-            BankAccountHolder = "Holder",
             PayosClientId = "cid",
             PayosApiKey = "key",
             PayosChecksumKey = "checksum",
@@ -229,9 +217,6 @@ public class ShopApplicationIntegrationTests : BaseIntegrationTest
             ApplicantUserId = customer.Id,
             Name = "Cửa Hàng Được Duyệt",
             AddressLine = "789 Phố Lớn",
-            BankName = "MBBank",
-            BankAccountNumber = "999888777",
-            BankAccountHolder = "Nguyen Applicant",
             PayosClientId = "payos_cid",
             PayosApiKey = "payos_key",
             PayosChecksumKey = "payos_checksum",
@@ -300,9 +285,6 @@ public class ShopApplicationIntegrationTests : BaseIntegrationTest
             ApplicantUserId = applicantId,
             Name = "Đơn Sắp Bị Từ Chối",
             AddressLine = "123 Test",
-            BankName = "Bank",
-            BankAccountNumber = "123",
-            BankAccountHolder = "Holder",
             PayosClientId = "cid",
             PayosApiKey = "key",
             PayosChecksumKey = "checksum",

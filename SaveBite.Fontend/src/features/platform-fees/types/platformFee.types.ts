@@ -10,6 +10,32 @@ export interface PlatformFeeConfigResponse {
   createdAt: string;
 }
 
+export interface PlatformPayOsConfigResponse {
+  maskedClientId: string | null;
+  hasClientId: boolean;
+  hasApiKey: boolean;
+  hasChecksumKey: boolean;
+  updatedAt: string | null;
+  updatedByUserId: string | null;
+  updatedByName: string | null;
+}
+
+export interface UpdatePlatformPayOsConfigRequest {
+  clientId?: string;
+  apiKey?: string;
+  checksumKey?: string;
+}
+
+export interface PlatformPayOsConfigHistoryItem {
+  id: string;
+  changedByUserId: string;
+  changedByName: string;
+  changedFields: string[];
+  previousMaskedClientId: string | null;
+  maskedClientId: string;
+  changedAt: string;
+}
+
 export interface GetAdminPlatformFeesParams {
   year?: number;
   month?: number;
@@ -29,6 +55,7 @@ export interface PlatformFeeStatementSummary {
   id: string;
   shopId: string;
   shopName?: string;
+  shopLogoUrl?: string | null;
   billingYear: number;
   billingMonth: number;
   status: PlatformFeeStatementStatus;
@@ -65,11 +92,25 @@ export interface PlatformFeePaymentItem {
   paidAt?: string;
   createdAt: string;
 }
+export interface PlatformFeeStatementHistoryItem {
+  id: string;
+  statementId: string;
+  changeType: string;
+  previousAmount: number;
+  changeAmount: number;
+  adjustmentAmount?: number;
+  newAmount: number;
+  reason: string;
+  relatedRefundId?: string | null;
+  relatedOrderId?: string | null;
+  createdAt: string;
+}
 
 export interface PlatformFeeStatementDetail {
   id: string;
   shopId: string;
   shopName: string;
+  shopLogoUrl?: string | null;
   billingYear: number;
   billingMonth: number;
   status: PlatformFeeStatementStatus;
@@ -81,10 +122,12 @@ export interface PlatformFeeStatementDetail {
   orders: OrderPlatformFeeItem[];
   adjustments: PlatformFeeAdjustmentItem[];
   payments: PlatformFeePaymentItem[];
+  histories?: PlatformFeeStatementHistoryItem[];
 }
 
 export interface PlatformFeePaymentLinkResponse {
   paymentId: string;
+  isSimulated?: boolean;
   statementId: string;
   amount: number;
   orderCode: number;

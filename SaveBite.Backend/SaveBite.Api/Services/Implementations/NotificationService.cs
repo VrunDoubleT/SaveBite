@@ -16,15 +16,17 @@ public sealed class NotificationService : INotificationService
     private readonly INotificationRepository _repository;
     private readonly IRealtimePublisher _realtime;
     private readonly TimeProvider _clock;
+    private readonly ILogger<NotificationService>? _logger;
 
     public NotificationService(
         INotificationRepository notificationRepository,
         IRealtimePublisher realtimePublisher,
-        TimeProvider clock)
+        TimeProvider clock, ILogger<NotificationService>? logger = null)
     {
         _repository = notificationRepository;
         _realtime = realtimePublisher;
         _clock = clock;
+        _logger = logger;
     }
 
     // Retrieve paginated notifications for the authenticated user.
@@ -100,7 +102,9 @@ public sealed class NotificationService : INotificationService
     public async Task SendAsync(
         NotificationTarget target, CreateNotificationCommand command, CancellationToken ct = default)
     {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
         var recipientIds = await _repository.ResolveRecipientUserIdsAsync(target, ct);
+        var resolveMs = timer.ElapsedMilliseconds;
         if (recipientIds.Count == 0) return;
 
         var now = _clock.GetUtcNow().UtcDateTime;
@@ -117,6 +121,7 @@ public sealed class NotificationService : INotificationService
         }).ToList();
 
         var persistedNotifications = await _repository.CreateManyAsync(notifications, ct);
+        var persistMs = timer.ElapsedMilliseconds - resolveMs;
 
         // A retry reuses persisted IDs; clients upsert by ID rather than incrementing duplicate entries.
         foreach (var item in persistedNotifications)
@@ -129,6 +134,9 @@ public sealed class NotificationService : INotificationService
                 RealtimeEvents.NotificationReceived,
                 payload);
         }
+        _logger?.LogInformation("Notification delivery {DeduplicationKey}: recipients={Recipients}, resolve={ResolveMs}ms, persist={PersistMs}ms, realtime={RealtimeMs}ms, total={TotalMs}ms.",
+            command.DeduplicationKey, recipientIds.Count, resolveMs, persistMs,
+            timer.ElapsedMilliseconds - resolveMs - persistMs, timer.ElapsedMilliseconds);
     }
 
     private static NotificationItemResponse MapToResponse(Notification n) =>

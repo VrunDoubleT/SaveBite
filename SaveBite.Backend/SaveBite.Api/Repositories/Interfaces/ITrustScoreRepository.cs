@@ -17,8 +17,12 @@ public interface ITrustScoreRepository
 
     Task<TrustLevel?> GetLevelWithRequirementAsync(Guid levelId, CancellationToken cancellationToken = default);
 
-    Task<PagedResult<TrustScoreHistory>> GetHistoryPagedAsync(
+    Task<PagedResult<TrustProgressHistory>> GetHistoryPagedAsync(
         Guid userId, GetTrustScoreHistoryRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>Level transitions (excluding the initial assignment) caused by the given orders.</summary>
+    Task<IReadOnlyList<UserTrustLevelHistory>> GetLevelChangesForOrdersAsync(
+        Guid userId, IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default);
 
     Task<PagedResult<NoShowPenalty>> GetPenaltiesPagedAsync(
         Guid userId, GetPenaltiesRequest request, CancellationToken cancellationToken = default);

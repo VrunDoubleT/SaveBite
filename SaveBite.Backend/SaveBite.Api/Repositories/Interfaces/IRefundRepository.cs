@@ -1,8 +1,10 @@
+using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Entities;
 namespace SaveBite.Backend.Repositories.Interfaces;
 
 public interface IRefundRepository
 {
+    Task<bool> HasCustomerRequestAsync(Guid orderId, CancellationToken ct);
     Task<int> ShopPendingCountAsync(Guid shopId, CancellationToken ct);
     Task<int> PendingDetailsCountAsync(Guid userId, CancellationToken ct);
     Task<Refund?> GetAsync(Guid id, bool tracked, CancellationToken ct);

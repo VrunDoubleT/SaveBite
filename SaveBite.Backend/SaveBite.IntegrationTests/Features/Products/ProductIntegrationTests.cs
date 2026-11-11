@@ -149,6 +149,10 @@ public class ProductIntegrationTests : BaseIntegrationTest
         form.Add(new StringContent("35000"), "Variants[0].OriginalPrice");
         form.Add(new StringContent("20000"), "Variants[0].DealPrice");
 
+        var imageContent = new ByteArrayContent(new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46 });
+        imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+        form.Add(imageContent, "Images", "product.jpg");
+
         // Act
         var response = await Client.PostAsync("/api/products", form);
 

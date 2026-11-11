@@ -17,11 +17,11 @@ namespace SaveBite.Tests.TrustScore;
 /// <summary>
 /// Unit Tests for Feature: View Trust Score History (UC-46)
 /// Service: TrustScoreService.GetHistoryAsync & GetTrustScoreHistoryRequestValidator
-/// Function Code: UT_ViewTrustScoreHistory
-/// Sheet Name: UT_ViewTrustScoreHistory
+/// Function Code: UT_ViewTrustProgressHistory
+/// Sheet Name: UT_ViewTrustProgressHistory
 /// Business Rules: BR-050, BR-052
 /// </summary>
-public class ViewTrustScoreHistoryTests
+public class ViewTrustProgressHistoryTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<ITrustScoreRepository> _repositoryMock = new();
@@ -31,9 +31,10 @@ public class ViewTrustScoreHistoryTests
 
     private readonly Guid _userId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-    public ViewTrustScoreHistoryTests(ITestOutputHelper output)
+    public ViewTrustProgressHistoryTests(ITestOutputHelper output)
     {
         _output = output;
+        _repositoryMock.Setup(r => r.GetLevelChangesForOrdersAsync(It.IsAny<Guid>(), It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<CancellationToken>())).ReturnsAsync(new List<UserTrustLevelHistory>());
         _service = new TrustScoreService(
             _repositoryMock.Object,
             TimeProvider.System,
@@ -57,7 +58,7 @@ public class ViewTrustScoreHistoryTests
         };
 
         var orderId = Guid.NewGuid();
-        var historyList = new List<TrustScoreHistory>
+        var historyList = new List<TrustProgressHistory>
         {
             new()
             {
@@ -87,7 +88,7 @@ public class ViewTrustScoreHistoryTests
             }
         };
 
-        var pagedResult = PagedResult<TrustScoreHistory>.Create(historyList, 1, 10, 2);
+        var pagedResult = PagedResult<TrustProgressHistory>.Create(historyList, 1, 10, 2);
 
         _repositoryMock
             .Setup(r => r.GetHistoryPagedAsync(_userId, request, It.IsAny<CancellationToken>()))
@@ -134,7 +135,7 @@ public class ViewTrustScoreHistoryTests
             EventType = TrustScoreEventType.OrderCompleted
         };
 
-        var historyList = new List<TrustScoreHistory>
+        var historyList = new List<TrustProgressHistory>
         {
             new()
             {
@@ -149,7 +150,7 @@ public class ViewTrustScoreHistoryTests
             }
         };
 
-        var pagedResult = PagedResult<TrustScoreHistory>.Create(historyList, 1, 10, 1);
+        var pagedResult = PagedResult<TrustProgressHistory>.Create(historyList, 1, 10, 1);
 
         _repositoryMock
             .Setup(r => r.GetHistoryPagedAsync(_userId, request, It.IsAny<CancellationToken>()))
@@ -181,7 +182,7 @@ public class ViewTrustScoreHistoryTests
             EventType = null
         };
 
-        var pagedResult = PagedResult<TrustScoreHistory>.Create(new List<TrustScoreHistory>(), 1, 10, 0);
+        var pagedResult = PagedResult<TrustProgressHistory>.Create(new List<TrustProgressHistory>(), 1, 10, 0);
 
         _repositoryMock
             .Setup(r => r.GetHistoryPagedAsync(_userId, request, It.IsAny<CancellationToken>()))

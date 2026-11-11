@@ -9,4 +9,6 @@ public static class NotificationActionUrls
     public static string ShopStaffOrder(Guid shopId, Guid orderId) => $"/staff/shops/{shopId}/orders/{orderId}";
 
     public static string FlashDeal(Guid dealId) => $"/flash-deals/{dealId}";
+
+    public static string AdminShopApplications() => "/admin/shop-applications";
 }

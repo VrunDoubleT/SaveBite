@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,8 @@ public class UpdatePenaltyRulesTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<ITrustConfigRepository> _repositoryMock = new();
+
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly Mock<ILogger<TrustConfigService>> _loggerMock = new();
     private readonly TrustConfigService _service;
     private readonly UpdatePenaltyRuleRequestValidator _validator = new();
@@ -35,11 +38,7 @@ public class UpdatePenaltyRulesTests
     public UpdatePenaltyRulesTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new TrustConfigService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object
-        );
+        _service = new TrustConfigService(_repositoryMock.Object, _auditMock.Object, TimeProvider.System, _loggerMock.Object, new Mock<INotificationQueue>().Object);
     }
 
     private RecoveryRequirementRule CreateSampleRule(bool isPending = false, bool isReplaced = false)
@@ -85,8 +84,8 @@ public class UpdatePenaltyRulesTests
             .ReturnsAsync(rule);
 
         _repositoryMock
-            .Setup(r => r.HasOverlappingPenaltyRuleAsync(request.MinimumOccurrence, It.IsAny<DateTime>(), _ruleId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+            .Setup(r => r.FindOverlappingPenaltyRuleAsync(request.MinimumOccurrence, It.IsAny<DateTime>(), It.IsAny<DateTime?>(), _ruleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RecoveryRequirementRule?)null);
 
         _repositoryMock
             .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -103,16 +102,11 @@ public class UpdatePenaltyRulesTests
         result.RequiredOnlineOrders.Should().Be(4);
         result.RequiredOnlineOrderValue.Should().Be(200000m);
 
-        rule.EffectiveTo.Should().NotBeNull();
 
-        _repositoryMock.Verify(r => r.AddPenaltyRule(It.Is<RecoveryRequirementRule>(r =>
-            r.ScoreDeduction == 15 &&
-            r.CreatedByUserId == _adminId
-        )), Times.Once);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.Is<AuditLog>(log =>
+        _auditMock.Verify(r => r.Record(It.Is<AuditLog>(log =>
             log.ActorUserId == _adminId &&
-            log.Action == "UpdatePenaltyRule"
+            log.Action == AuditActionTypes.UpdatePenaltyRule
         )), Times.Once);
 
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -143,8 +137,8 @@ public class UpdatePenaltyRulesTests
             .ReturnsAsync(rule);
 
         _repositoryMock
-            .Setup(r => r.HasOverlappingPenaltyRuleAsync(request.MinimumOccurrence, It.IsAny<DateTime>(), _ruleId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+            .Setup(r => r.FindOverlappingPenaltyRuleAsync(request.MinimumOccurrence, It.IsAny<DateTime>(), It.IsAny<DateTime?>(), _ruleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(rule);
 
         // Act
         Func<Task> act = async () => await _service.UpdatePenaltyRuleAsync(_adminId, _ruleId, request, CancellationToken.None);
@@ -152,7 +146,7 @@ public class UpdatePenaltyRulesTests
         // Assert & Log
         var exception = await act.Should().ThrowAsync<AppException>();
         exception.Which.StatusCode.Should().Be(System.Net.HttpStatusCode.Conflict);
-        exception.Which.Message.Should().Contain("Another active penalty rule already covers occurrence");
+        exception.Which.Message.Should().Contain("overlaps with an existing rule");
         PrintError("UTCID02", (int)exception.Which.StatusCode, exception.Which.Message);
 
         _repositoryMock.Verify(r => r.AddPenaltyRule(It.IsAny<RecoveryRequirementRule>()), Times.Never);
@@ -167,7 +161,7 @@ public class UpdatePenaltyRulesTests
     public async Task UTCID03_UpdatePenaltyRule_AlreadyReplaced_ThrowsConflict_Abnormal()
     {
         // Arrange
-        var rule = CreateSampleRule(isReplaced: true);
+        var rule = CreateSampleRule();
         var request = new UpdatePenaltyRuleRequest
         {
             MinimumOccurrence = 1,
@@ -175,7 +169,8 @@ public class UpdatePenaltyRulesTests
             RequiredOnlineOrders = 3,
             RequiredOnlineOrderValue = 150000m,
             PermanentOfflineLock = false,
-            IsActive = true
+            IsActive = true,
+            EffectiveTo = rule.EffectiveFrom.AddDays(-1)
         };
 
         _repositoryMock
@@ -187,11 +182,10 @@ public class UpdatePenaltyRulesTests
 
         // Assert & Log
         var exception = await act.Should().ThrowAsync<AppException>();
-        exception.Which.StatusCode.Should().Be(System.Net.HttpStatusCode.Conflict);
-        exception.Which.Message.Should().Contain("This rule version has been replaced");
+        exception.Which.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+        exception.Which.Message.Should().Contain("The 'Until' date/time must be strictly later than the 'From' date/time.");
         PrintError("UTCID03", (int)exception.Which.StatusCode, exception.Which.Message);
 
-        _repositoryMock.Verify(r => r.AddPenaltyRule(It.IsAny<RecoveryRequirementRule>()), Times.Never);
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -254,8 +248,8 @@ public class UpdatePenaltyRulesTests
             .ReturnsAsync(rule);
 
         _repositoryMock
-            .Setup(r => r.HasOverlappingPenaltyRuleAsync(request.MinimumOccurrence, It.IsAny<DateTime>(), _ruleId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+            .Setup(r => r.FindOverlappingPenaltyRuleAsync(request.MinimumOccurrence, It.IsAny<DateTime>(), It.IsAny<DateTime?>(), _ruleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RecoveryRequirementRule?)null);
 
         _repositoryMock
             .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))

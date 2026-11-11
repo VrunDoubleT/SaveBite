@@ -1,3 +1,5 @@
+using System.Text.Json;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -11,15 +13,18 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class CategoryService : ICategoryService
 {
     private readonly ICategoryRepository _repository;
+    private readonly IAdminAuditWriter _audit;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<CategoryService> _logger;
 
     public CategoryService(
         ICategoryRepository repository,
+        IAdminAuditWriter audit,
         TimeProvider timeProvider,
         ILogger<CategoryService> logger)
     {
         _repository = repository;
+        _audit = audit;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -56,7 +61,7 @@ public sealed class CategoryService : ICategoryService
         );
     }
 
-    public async Task<Guid> CreateCategoryAsync(CreateCategoryRequest request, CancellationToken cancellationToken = default)
+    public async Task<Guid> CreateCategoryAsync(Guid adminId, CreateCategoryRequest request, CancellationToken cancellationToken = default)
     {
         if (await _repository.CategoryNameExistsAsync(request.Name.Trim(), null, cancellationToken))
             throw AppException.Conflict("A category with this name already exists.");
@@ -74,43 +79,93 @@ public sealed class CategoryService : ICategoryService
         };
 
         _repository.AddCategory(category);
+        _audit.Record(new AuditLog
+        {
+            ActorUserId = adminId,
+            Action = AuditActionTypes.CategoryCreated,
+            TargetType = "Category",
+            TargetId = category.Id,
+            NewValuesJson = JsonSerializer.Serialize(new
+            {
+                category.Name,
+                category.Description,
+                category.ImageUrl,
+                category.IsActive
+            }),
+            CreatedAt = now
+        });
         await _repository.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Category created successfully. CategoryId: {CategoryId}", category.Id);
         return category.Id;
     }
 
-    public async Task UpdateCategoryAsync(Guid categoryId, UpdateCategoryRequest request, CancellationToken cancellationToken = default)
+    public async Task UpdateCategoryAsync(Guid adminId, Guid categoryId, UpdateCategoryRequest request, CancellationToken cancellationToken = default)
     {
         var category = await GetAndValidateCategoryAsync(categoryId, cancellationToken);
 
         if (await _repository.CategoryNameExistsAsync(request.Name.Trim(), categoryId, cancellationToken))
             throw AppException.Conflict("Another category with this name already exists.");
 
+        var oldValues = new
+        {
+            category.Name,
+            category.Description,
+            category.ImageUrl,
+            category.IsActive
+        };
         category.Name = request.Name.Trim();
         category.Description = request.Description?.Trim();
         category.ImageUrl = request.ImageUrl;
         category.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
 
+        _audit.Record(new AuditLog
+        {
+            ActorUserId = adminId,
+            Action = AuditActionTypes.CategoryUpdated,
+            TargetType = "Category",
+            TargetId = category.Id,
+            OldValuesJson = JsonSerializer.Serialize(oldValues),
+            NewValuesJson = JsonSerializer.Serialize(new
+            {
+                category.Name,
+                category.Description,
+                category.ImageUrl,
+                category.IsActive
+            }),
+            CreatedAt = category.UpdatedAt
+        });
         await _repository.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Category updated successfully. CategoryId: {CategoryId}", category.Id);
     }
 
-    public async Task UpdateCategoryStatusAsync(Guid categoryId, UpdateCategoryStatusRequest request, CancellationToken cancellationToken = default)
+    public async Task UpdateCategoryStatusAsync(Guid adminId, Guid categoryId, UpdateCategoryStatusRequest request, CancellationToken cancellationToken = default)
     {
         var category = await GetAndValidateCategoryAsync(categoryId, cancellationToken);
 
         if (category.IsActive == request.IsActive)
             return;
 
+        var oldIsActive = category.IsActive;
         category.IsActive = request.IsActive;
         category.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+
+        _audit.Record(new AuditLog
+        {
+            ActorUserId = adminId,
+            Action = request.IsActive ? AuditActionTypes.CategoryActivated : AuditActionTypes.CategoryDeactivated,
+            TargetType = "Category",
+            TargetId = category.Id,
+            OldValuesJson = JsonSerializer.Serialize(new { IsActive = oldIsActive }),
+            NewValuesJson = JsonSerializer.Serialize(new { category.IsActive }),
+            CreatedAt = category.UpdatedAt
+        });
 
         await _repository.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Category status updated. CategoryId: {CategoryId}, IsActive: {IsActive}", category.Id, request.IsActive);
     }
 
-    public async Task DeleteCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default)
+    public async Task DeleteCategoryAsync(Guid adminId, Guid categoryId, CancellationToken cancellationToken = default)
     {
         var category = await GetAndValidateCategoryAsync(categoryId, cancellationToken);
 
@@ -120,7 +175,24 @@ public sealed class CategoryService : ICategoryService
             throw AppException.Conflict("Cannot delete this category because it is currently linked to active products. Please update it to 'Inactive' instead.");
         }
 
+        var oldValues = new
+        {
+            category.Name,
+            category.Description,
+            category.ImageUrl,
+            category.IsActive
+        };
         _repository.DeleteCategory(category);
+        _audit.Record(new AuditLog
+        {
+            ActorUserId = adminId,
+            Action = AuditActionTypes.CategoryDeleted,
+            TargetType = "Category",
+            TargetId = category.Id,
+            OldValuesJson = JsonSerializer.Serialize(oldValues),
+            NewValuesJson = JsonSerializer.Serialize(new { Deleted = true }),
+            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
+        });
         await _repository.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Category deleted successfully. CategoryId: {CategoryId}", category.Id);
     }

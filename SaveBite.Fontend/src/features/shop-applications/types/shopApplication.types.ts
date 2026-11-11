@@ -1,9 +1,7 @@
-export type ShopApplicationStatus = "Pending" | "Approved" | "Rejected" | "Cancelled";
+export type ShopApplicationStatus =
+  "Pending" | "Approved" | "Rejected" | "Cancelled" | "NeedsRevision";
 
-export type ShopDocumentType =
-  | "BusinessLicense"
-  | "FoodSafetyCertificate"
-  | "Other";
+export type ShopDocumentType = "BusinessLicense" | "FoodSafetyCertificate" | "Other";
 
 export interface ShopApplicationDocument {
   id: string;
@@ -42,9 +40,6 @@ export interface ShopApplication {
   revisionNumber: number;
   createdAt: string;
   updatedAt: string;
-  bankName: string;
-  bankAccountNumber: string;
-  bankAccountHolder: string;
   hasPayosConfiguration: boolean;
   documents: ShopApplicationDocument[];
   reviewLogs: ShopApplicationReviewLog[];
@@ -62,9 +57,6 @@ export interface ShopApplicationForm {
   longitude: string;
   openingTime: string;
   closingTime: string;
-  bankName: string;
-  bankAccountNumber: string;
-  bankAccountHolder: string;
   payosClientId: string;
   payosApiKey: string;
   payosChecksumKey: string;

@@ -1,13 +1,49 @@
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Uploads;
 
 namespace SaveBite.Backend.Data;
 
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options)
+    private readonly SaveBite.Backend.Services.Implementations.NotificationOutboxDelivery? _notificationDelivery;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options,
+        SaveBite.Backend.Services.Implementations.NotificationOutboxDelivery? notificationDelivery = null,
+        IHttpContextAccessor? httpContextAccessor = null)
         : base(options)
     {
+        _notificationDelivery = notificationDelivery;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.AddInterceptors(new NotificationOutboxCommitInterceptor());
+        base.OnConfiguring(optionsBuilder);
+    }
+
+    public void TrackNotificationOutbox(Guid id) => _notificationDelivery?.Track(id);
+    public void ClearNotificationOutbox() => _notificationDelivery?.Clear();
+    public Task FlushNotificationOutboxAsync() => _notificationDelivery?.FlushAsync() ?? Task.CompletedTask;
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        var actorValue = _httpContextAccessor?.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? _httpContextAccessor?.HttpContext?.User.FindFirstValue("sub");
+        if (Guid.TryParse(actorValue, out var actorId))
+            await UploadAttachmentTracker.StageAsync(this, actorId, cancellationToken);
+
+        foreach (var entry in ChangeTracker.Entries<FlashDeal>().Where(e => e.State is EntityState.Added or EntityState.Modified).ToArray())
+            SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(this, entry.Entity.Id, entry.Entity.ShopId);
+        foreach (var entry in ChangeTracker.Entries<OrderEventOutbox>().Where(e => e.State == EntityState.Added))
+            TrackNotificationOutbox(entry.Entity.Id);
+        var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        // Single-command SaveChanges may not create an explicit/implicit transaction.
+        if (Database.CurrentTransaction == null) await FlushNotificationOutboxAsync();
+        return result;
     }
 
     // Users.
@@ -27,6 +63,7 @@ public class AppDbContext : DbContext
     // Flash deals.
     public DbSet<FlashDeal> FlashDeals => Set<FlashDeal>();
     public DbSet<FlashDealVariant> FlashDealVariants => Set<FlashDealVariant>();
+    public DbSet<FlashDealStatusHistory> FlashDealStatusHistories => Set<FlashDealStatusHistory>();
     // Cart & Orders.
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Payment> Payments => Set<Payment>();
@@ -41,13 +78,15 @@ public class AppDbContext : DbContext
     public DbSet<TrustLevelDepositPolicy> TrustLevelDepositPolicies => Set<TrustLevelDepositPolicy>();
     public DbSet<TrustLevelDepositRange> TrustLevelDepositRanges => Set<TrustLevelDepositRange>();
     public DbSet<TrustLevelRequirement> TrustLevelRequirements => Set<TrustLevelRequirement>();
-    public DbSet<TrustScoreHistory> TrustScoreHistories => Set<TrustScoreHistory>();
+    public DbSet<TrustProgressHistory> TrustProgressHistories => Set<TrustProgressHistory>();
     public DbSet<TrustScoreRule> TrustScoreRules => Set<TrustScoreRule>();
     public DbSet<UserLevelProgress> UserLevelProgresses => Set<UserLevelProgress>();
     public DbSet<UserTrustLevelHistory> UserTrustLevelHistories => Set<UserTrustLevelHistory>();
     public DbSet<UserTrustScore> UserTrustScores => Set<UserTrustScore>();
+    public DbSet<TrustLevelHistory> TrustLevelHistories => Set<TrustLevelHistory>();
     // Shops.
     public DbSet<Shop> Shops => Set<Shop>();
+    public DbSet<ShopFollow> ShopFollows => Set<ShopFollow>();
     public DbSet<ShopApplication> ShopApplications => Set<ShopApplication>();
     public DbSet<ShopApplicationDocument> ShopApplicationDocuments => Set<ShopApplicationDocument>();
     public DbSet<ShopApplicationReviewLog> ShopApplicationReviewLogs => Set<ShopApplicationReviewLog>();
@@ -64,6 +103,9 @@ public class AppDbContext : DbContext
     public DbSet<OrderPlatformFee> OrderPlatformFees => Set<OrderPlatformFee>();
     public DbSet<PlatformFeeAdjustment> PlatformFeeAdjustments => Set<PlatformFeeAdjustment>();
     public DbSet<PlatformFeePayment> PlatformFeePayments => Set<PlatformFeePayment>();
+    public DbSet<PlatformFeeStatementHistory> PlatformFeeStatementHistories => Set<PlatformFeeStatementHistory>();
+    public DbSet<PlatformPayOsConfig> PlatformPayOsConfigs => Set<PlatformPayOsConfig>();
+    public DbSet<PlatformPayOsConfigHistory> PlatformPayOsConfigHistories => Set<PlatformPayOsConfigHistory>();
     // Notifications.
     public DbSet<Notification> Notifications => Set<Notification>();
     // Feedbacks.
@@ -77,6 +119,8 @@ public class AppDbContext : DbContext
     public DbSet<ProductFeedbackModerationLog> ProductFeedbackModerationLogs => Set<ProductFeedbackModerationLog>();
     // Audit Logs.
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<UploadSession> UploadSessions => Set<UploadSession>();
+    public DbSet<UploadAsset> UploadAssets => Set<UploadAsset>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -86,3 +130,4 @@ public class AppDbContext : DbContext
             typeof(AppDbContext).Assembly);
     }
 }
+

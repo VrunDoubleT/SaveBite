@@ -74,7 +74,7 @@ public class ViewOrderDetailsForShopTests
     {
         // Arrange
         var otherShop = Guid.NewGuid();
-        _shopRepoMock.Setup(r => r.RequireAccessAsync(_context.ActorId, otherShop, It.IsAny<CancellationToken>())).ThrowsAsync(AppException.Forbidden());
+        _shopRepoMock.Setup(r => r.RequireViewAccessAsync(_context.ActorId, otherShop, It.IsAny<CancellationToken>())).ThrowsAsync(AppException.Forbidden());
 
         // Act
         Func<Task> act = () => _service.GetAsync(_context.ActorId, otherShop, _context.Order.Id);

@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Audit;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Entities;
@@ -12,15 +14,18 @@ namespace SaveBite.Backend.Repositories.Implementations;
 public sealed class FlashDealRepository : IFlashDealRepository
 {
     private readonly AppDbContext _context;
+    private readonly IAuditWriter _audit;
 
-    public FlashDealRepository(AppDbContext context)
+    public FlashDealRepository(AppDbContext context, IAuditWriter audit)
     {
         _context = context;
+        _audit = audit;
     }
 
     public async Task<FlashDeal?> GetActiveDealByIdAsync(Guid dealId, CancellationToken cancellationToken = default)
     {
         return await _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .AsNoTrackingWithIdentityResolution()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
@@ -34,6 +39,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
     {
         var now = DateTime.UtcNow;
         return await _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .AsNoTrackingWithIdentityResolution()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
@@ -49,6 +55,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
     {
         var now = DateTime.UtcNow;
         return await _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .AsNoTrackingWithIdentityResolution()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
@@ -68,6 +75,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
         CancellationToken cancellationToken = default)
     {
         var query = _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .AsNoTracking()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
@@ -86,6 +94,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
 
         var items = await query
             .OrderByDescending(d => d.CreatedAt)
+            .ThenBy(d => d.Id)
             .Take(limit)
             .ToListAsync(cancellationToken);
 
@@ -104,6 +113,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
         CancellationToken cancellationToken = default)
     {
         var query = _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .AsNoTracking()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
@@ -129,6 +139,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
         var pageSize = request.PageSize > 0 ? request.PageSize : 10;
         var items = await query
             .OrderByDescending(d => d.CreatedAt)
+            .ThenBy(d => d.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
@@ -147,11 +158,13 @@ public sealed class FlashDealRepository : IFlashDealRepository
         CancellationToken cancellationToken = default)
     {
         return await _context.Set<FlashDeal>()
+            .AsSplitQuery()
             .Include(d => d.Shop)
             .Include(d => d.Product).ThenInclude(p => p.Images)
             .Include(d => d.Product).ThenInclude(p => p.Category)
             .Include(d => d.Product).ThenInclude(p => p.Attributes).ThenInclude(a => a.Values)
             .Include(d => d.Variants).ThenInclude(v => v.Variant).ThenInclude(pv => pv.VariantValues).ThenInclude(vv => vv.AttributeValue).ThenInclude(av => av.Attribute)
+            .Include(d => d.StatusHistory)
             .FirstOrDefaultAsync(d => d.Id == dealId && d.ShopId == shopId, cancellationToken);
     }
     // Check if there is an existing overlapping deal for the same product in this shop.
@@ -192,13 +205,19 @@ public sealed class FlashDealRepository : IFlashDealRepository
         Guid shopId,
         CancellationToken cancellationToken = default)
     {
+        // Compose the reusable predicate before the outer expression tree. Calling its
+        // factory inside Where leaves a method call where EF expects a quoted lambda.
+        var blockedProductIds = _context.ProductWarnings
+            .Where(WarningDealPolicy.BlockedAt(DateTime.UtcNow))
+            .Select(w => w.ProductId);
         return await _context.Set<Product>()
+            .AsSplitQuery()
             .AsNoTracking()
             .Include(p => p.Category)
             .Include(p => p.Images)
             .Include(p => p.Variants).ThenInclude(v => v.VariantValues).ThenInclude(vv => vv.AttributeValue)
             .Where(p => p.ShopId == shopId && p.Status == ProductStatus.Active && p.Variants.Any(v => v.IsActive))
-            .Where(p => !_context.ProductWarnings.Where(WarningDealPolicy.BlockedAt(DateTime.UtcNow)).Any(w => w.ProductId == p.Id))
+            .Where(p => !blockedProductIds.Contains(p.Id))
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
     }
@@ -224,10 +243,19 @@ public sealed class FlashDealRepository : IFlashDealRepository
     // Direct atomic status update avoiding change tracking graph conflicts
     public async Task UpdateStatusAsync(Guid dealId, FlashDealStatus status, CancellationToken cancellationToken = default)
     {
+        var oldStatus = await _context.Set<FlashDeal>()
+            .Where(d => d.Id == dealId).Select(d => (FlashDealStatus?)d.Status)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (oldStatus is null || oldStatus == status) return;
+
         await _context.Set<FlashDeal>()
             .Where(d => d.Id == dealId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(d => d.Status, status)
                 .SetProperty(d => d.UpdatedAt, DateTime.UtcNow), cancellationToken);
+
+        _audit.Record("FlashDeal", dealId, AuditActionTypes.Update,
+            new { Status = oldStatus }, new { Status = status });
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

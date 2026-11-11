@@ -10,6 +10,7 @@ export interface ShopOwnerManagement {
 export interface ShopListManagement {
   id: string;
   name: string;
+  logoUrl: string | null;
   description: string | null;
   status: ShopStatus;
   city: string | null;
@@ -44,7 +45,6 @@ export interface ShopContentManagement extends ShopListManagement {
   district: string | null;
   latitude: number;
   longitude: number;
-  logoUrl: string | null;
   coverImageUrl: string | null;
   openingTime: string | null;
   closingTime: string | null;

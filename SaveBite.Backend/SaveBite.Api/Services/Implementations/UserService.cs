@@ -1,3 +1,5 @@
+using SaveBite.Backend.Models.DTOs;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -6,6 +8,7 @@ using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Text.Json;
 
@@ -13,19 +16,29 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class UserService : IUserService
 {
+    private readonly SaveBite.Backend.Data.AppDbContext _db;
+    private readonly IAdminAuditWriter _audit;
+    private readonly INotificationQueue _notifications;
     private readonly IUserRepository _repository;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<UserService> _logger;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IRealtimePublisher _realtime;
 
     public UserService(
         IUserRepository repository,
         IRefreshTokenService refreshTokenService,
         TimeProvider timeProvider,
         ILogger<UserService> logger,
-        ICloudinaryService cloudinaryService)
+        ICloudinaryService cloudinaryService,
+        IRealtimePublisher realtime,
+        INotificationQueue notifications, IAdminAuditWriter audit, SaveBite.Backend.Data.AppDbContext db)
     {
+        _realtime = realtime;
+        _audit = audit;
+        _notifications = notifications;
+        _db = db;
         _repository = repository;
         _refreshTokenService = refreshTokenService;
         _timeProvider = timeProvider;
@@ -58,6 +71,50 @@ public sealed class UserService : IUserService
                 defaultAddress.IsDefault)
             : null;
 
+        var shopsQuery = _db.Shops.AsNoTracking();
+        if (user.Role == UserRole.StoreOwner)
+        {
+            shopsQuery = shopsQuery.Where(shop => shop.OwnerUserId == userId);
+        }
+        else if (user.Role == UserRole.Staff)
+        {
+            shopsQuery = shopsQuery.Where(shop =>
+                shop.StaffMembers.Any(member =>
+                    member.UserId == userId && member.Status == ShopStaffStatus.Active));
+        }
+        else
+        {
+            shopsQuery = shopsQuery.Where(_ => false);
+        }
+
+        var shop = await shopsQuery
+            .Select(shop => new
+            {
+                shop.Id,
+                shop.Status,
+                shop.SuspendedForPlatformFees,
+                SuspensionReason = shop.Status == ShopStatus.Suspended && !shop.SuspendedForPlatformFees
+                    ? _db.AuditLogs
+                        .Where(log =>
+                            log.TargetType == "Shop" &&
+                            log.TargetId == shop.Id &&
+                            log.Action == AuditActionTypes.ShopStatusUpdated)
+                        .OrderByDescending(log => log.CreatedAt)
+                        .ThenByDescending(log => log.Id)
+                        .Select(log => log.Reason)
+                        .FirstOrDefault()
+                    : null
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var shopResponse = shop is null
+            ? null
+            : new CurrentUserShopResponse(
+                shop.Id,
+                shop.Status.ToString(),
+                shop.SuspendedForPlatformFees,
+                shop.SuspensionReason);
+
         return new CurrentUserResponse(
             user.Id,
             user.Email,
@@ -66,7 +123,8 @@ public sealed class UserService : IUserService
             user.AvatarUrl,
             user.Role.ToString(),
             user.CustomerStatus.ToString(),
-            addressResponse);
+            addressResponse,
+            shopResponse);
     }
 
     public async Task<PagedResult<UserSummaryResponse>> GetUsersAsync(GetUsersRequest request, CancellationToken cancellationToken = default)
@@ -77,6 +135,7 @@ public sealed class UserService : IUserService
             u.Id,
             u.Email,
             u.FullName,
+            u.AvatarUrl,
             u.Role.ToString(),
             u.Status.ToString(),
             u.CustomerStatus.ToString(),
@@ -132,50 +191,77 @@ public sealed class UserService : IUserService
 
     public async Task UpdateStatusAsync(Guid adminId, Guid targetUserId, UpdateUserStatusRequest request, CancellationToken cancellationToken = default)
     {
-        var user = await GetAndValidateUserAsync(targetUserId, cancellationToken);
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        await NotificationTransaction.RunAsync(_db, async () =>
+        {
+            var user = await GetAndValidateUserAsync(targetUserId, cancellationToken);
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
 
+            if (request.IsCustomerProfile)
+            {
+                var newCustomerStatus = request.IsSuspended ? CustomerStatus.Suspended : CustomerStatus.Active;
+                if (user.CustomerStatus == newCustomerStatus)
+                    throw AppException.Conflict($"Customer features are already {newCustomerStatus.ToString().ToLower()}.");
+
+                user.CustomerStatus = newCustomerStatus;
+                LogAccountStatusChange(adminId, targetUserId,
+                    request.IsSuspended ? UserStatus.Suspended : UserStatus.Active,
+                    AccountStatusLogTarget.Customer, request.Reason, now);
+                LogAudit(adminId, targetUserId,
+                    request.IsSuspended ? AuditActionTypes.SuspendCustomerFeatures : AuditActionTypes.ReactivateCustomerFeatures,
+                    request.Reason,
+                    JsonSerializer.Serialize(new { CustomerStatus = newCustomerStatus.ToString() }),
+                    now);
+
+                _logger.LogInformation("Admin {AdminId} {Action} customer features for {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
+            }
+            else
+            {
+                var newAccountStatus = request.IsSuspended ? UserStatus.Suspended : UserStatus.Active;
+                if (user.Status == newAccountStatus)
+                    throw AppException.Conflict($"User account is already {newAccountStatus.ToString().ToLower()}.");
+
+                user.Status = newAccountStatus;
+                LogAccountStatusChange(adminId, targetUserId, newAccountStatus, AccountStatusLogTarget.Account, request.Reason, now);
+                LogAudit(adminId, targetUserId,
+                    request.IsSuspended ? AuditActionTypes.SuspendAccount : AuditActionTypes.ReactivateAccount,
+                    request.Reason,
+                    JsonSerializer.Serialize(new { Status = newAccountStatus.ToString() }),
+                    now);
+                if (request.IsSuspended)
+                {
+                    await _refreshTokenService.RevokeAllAsync(targetUserId, "Account suspended by Administrator.", cancellationToken);
+                }
+
+                _logger.LogInformation("Admin {AdminId} {Action} account {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
+            }
+
+            user.UpdatedAt = now;
+            await _repository.SaveChangesAsync(cancellationToken);
+
+            await _notifications.EnqueueAsync(NotificationTarget.AccountStatusSubject(targetUserId), new CreateNotificationCommand(
+                NotificationType.AccountStatusChanged,
+                request.IsCustomerProfile
+                    ? NotificationMessages.Accounts.CustomerAccessUpdatedTitle
+                    : NotificationMessages.Accounts.AccountAccessUpdatedTitle,
+                request.IsCustomerProfile
+                    ? NotificationMessages.Accounts.CustomerAccessUpdatedBody(request.IsSuspended, request.Reason)
+                    : NotificationMessages.Accounts.AccountAccessUpdatedBody(request.IsSuspended, request.Reason),
+                "/account/profile", $"account-status:{targetUserId}:{now.Ticks}"), cancellationToken);
+
+        }, cancellationToken);
+
+        // The client reloads /me; publish only after the updated status is committed.
         if (request.IsCustomerProfile)
-        {
-            var newCustomerStatus = request.IsSuspended ? CustomerStatus.Suspended : CustomerStatus.Active;
-            if (user.CustomerStatus == newCustomerStatus)
-                throw AppException.Conflict($"Customer profile is already {newCustomerStatus.ToString().ToLower()}.");
-
-            user.CustomerStatus = newCustomerStatus;
-            LogAccountStatusChange(adminId, targetUserId,
-                request.IsSuspended ? UserStatus.Suspended : UserStatus.Active,
-                AccountStatusLogTarget.Customer, request.Reason, now);
-            LogAudit(adminId, targetUserId,
-                request.IsSuspended ? "SuspendCustomer" : "ReactivateCustomer",
-                request.Reason,
-                JsonSerializer.Serialize(new { CustomerStatus = newCustomerStatus.ToString() }),
-                now);
-            if (request.IsSuspended)
-                await _refreshTokenService.RevokeAllAsync(targetUserId, "Customer profile suspended by Administrator.", cancellationToken);
-
-            _logger.LogInformation("Admin {AdminId} {Action} customer profile for {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
-        }
-        else
-        {
-            var newAccountStatus = request.IsSuspended ? UserStatus.Suspended : UserStatus.Active;
-            if (user.Status == newAccountStatus)
-                throw AppException.Conflict($"User account is already {newAccountStatus.ToString().ToLower()}.");
-
-            user.Status = newAccountStatus;
-            LogAccountStatusChange(adminId, targetUserId, newAccountStatus, AccountStatusLogTarget.Account, request.Reason, now);
-            LogAudit(adminId, targetUserId,
-                request.IsSuspended ? "SuspendAccount" : "ReactivateAccount",
-                request.Reason,
-                JsonSerializer.Serialize(new { Status = newAccountStatus.ToString() }),
-                now);
-            if (request.IsSuspended)
-                await _refreshTokenService.RevokeAllAsync(targetUserId, "Account suspended by Administrator.", cancellationToken);
-
-            _logger.LogInformation("Admin {AdminId} {Action} account {UserId}.", adminId, request.IsSuspended ? "suspended" : "reactivated", targetUserId);
-        }
-
-        user.UpdatedAt = now;
-        await _repository.SaveChangesAsync(cancellationToken);
+            await _realtime.SendToUserAsync(targetUserId, RealtimeEvents.CustomerStatusChanged, new
+            {
+                userId = targetUserId,
+                customerStatus = request.IsSuspended ? "suspended" : "active"
+            });
+        else if (request.IsSuspended)
+            await _realtime.SendToUserAsync(targetUserId, "account.locked", new
+            {
+                userId = targetUserId, isCustomerProfile = false, reason = request.Reason
+            });
     }
 
     private async Task<User> GetAndValidateUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -205,7 +291,7 @@ public sealed class UserService : IUserService
 
     private void LogAudit(Guid adminId, Guid targetId, string action, string reason, string newValues, DateTime now)
     {
-        _repository.AddAuditLog(new AuditLog
+        _audit.Record(new AuditLog
         {
             Id = Guid.NewGuid(),
             ActorUserId = adminId,
@@ -299,5 +385,6 @@ public sealed class UserService : IUserService
             user.FullName,
             user.AvatarUrl,
             user.Role.ToString(),
-            user.CustomerStatus.ToString());
+            user.CustomerStatus.ToString(),
+            Shop: null);
 }

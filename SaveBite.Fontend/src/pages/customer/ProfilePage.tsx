@@ -3,7 +3,7 @@ import { UserProfileCard } from "@/features/profiles/components/UserProfileCard"
 
 export function ProfilePage() {
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       <UserProfileCard />
       <AddressSection />
     </div>

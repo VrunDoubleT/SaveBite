@@ -1,3 +1,5 @@
+using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.BackgroundJobs.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Moq;
@@ -26,11 +28,14 @@ public class DeclineStaffInvitationTests
     // Fixed Identifiers
     private readonly Guid _userId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly Guid _invitationId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    private readonly Guid _shopId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private readonly Guid _ownerId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
     public DeclineStaffInvitationTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object);
+        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object, new Mock<IStaffInvitationScheduler>().Object, new StaffInvitationNotificationService(_invitationRepoMock.Object, new Mock<INotificationQueue>().Object), TestDbContextFactory.Create(), new Mock<IRealtimePublisher>().Object);
+        _invitationRepoMock.Setup(r => r.TryTransitionPendingAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
     }
 
     // =========================================================================
@@ -43,6 +48,8 @@ public class DeclineStaffInvitationTests
         {
             Id = _invitationId,
             InvitedUserId = _userId,
+            ShopId = _shopId,
+            Shop = new Shop { Id = _shopId, OwnerUserId = _ownerId },
             Status = nameof(StaffInvitationStatus.Pending),
             InvitedAt = DateTime.UtcNow.AddDays(-1) // Còn hạn (1 ngày trước)
         };
@@ -53,10 +60,7 @@ public class DeclineStaffInvitationTests
         await _service.DeclineInvitationAsync(_userId, _invitationId);
 
         PrintSuccess("UTCID01", "Invitation declined successfully.");
-        invitation.Status.Should().Be(nameof(StaffInvitationStatus.Declined));
-        invitation.RespondedAt.Should().NotBeNull();
-        _invitationRepoMock.Verify(r => r.UpdateInvitationAsync(invitation, It.IsAny<CancellationToken>()), Times.Once);
-        _invitationRepoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _invitationRepoMock.Verify(r => r.TryTransitionPendingAsync(_invitationId, nameof(StaffInvitationStatus.Declined), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // =========================================================================
@@ -86,6 +90,8 @@ public class DeclineStaffInvitationTests
         {
             Id = _invitationId,
             InvitedUserId = _userId,
+            ShopId = _shopId,
+            Shop = new Shop { Id = _shopId, OwnerUserId = _ownerId },
             Status = nameof(StaffInvitationStatus.Pending),
             InvitedAt = DateTime.UtcNow.AddDays(-5) // Đã quá hạn 5 ngày
         };
@@ -99,10 +105,7 @@ public class DeclineStaffInvitationTests
         PrintException("UTCID03", ex.Which);
         ex.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         ex.Which.ErrorCode.Should().Be(ErrorCodes.InvitationInvalidOrExpired);
-        invitation.Status.Should().Be(nameof(StaffInvitationStatus.Cancelled));
-        invitation.RespondedAt.Should().NotBeNull();
-        _invitationRepoMock.Verify(r => r.UpdateInvitationAsync(invitation, It.IsAny<CancellationToken>()), Times.Once);
-        _invitationRepoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _invitationRepoMock.Verify(r => r.TryTransitionPendingAsync(_invitationId, nameof(StaffInvitationStatus.Expired), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // =========================================================================

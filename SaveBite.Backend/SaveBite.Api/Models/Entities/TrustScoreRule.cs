@@ -17,5 +17,5 @@ public class TrustScoreRule
     public DateTime CreatedAt { get; set; }
 
     public User CreatedByUser { get; set; } = null!;
-    public ICollection<TrustScoreHistory> Histories { get; set; } = new List<TrustScoreHistory>();
+    public ICollection<TrustProgressHistory> Histories { get; set; } = new List<TrustProgressHistory>();
 }

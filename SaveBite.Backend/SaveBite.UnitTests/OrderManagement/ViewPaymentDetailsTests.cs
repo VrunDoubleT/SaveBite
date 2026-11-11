@@ -57,7 +57,7 @@ public class ViewPaymentDetailsTests
         result.Order.OrderCode.Should().Be("000123");
         result.Order.Items[0].ProductName.Should().Be("Purchased Product");
         result.Order.PaidAmount.Should().Be(5000m);
-        _orderRepoMock.Verify(r => r.GetOrderAsync(order.Id, order.CustomerId, It.IsAny<CancellationToken>()), Times.Once);
+        _orderRepoMock.Verify(r => r.GetOrderForHistoryAsync(order.Id, order.CustomerId, It.IsAny<CancellationToken>()), Times.Once);
         _output.WriteLine("TCID01 PASSED: ViewPaymentDetails_OwnPayment_IncludesHistoricalOrder (Normal).");
     }
 
@@ -75,7 +75,7 @@ public class ViewPaymentDetailsTests
 
         // Assert
         (await act.Should().ThrowAsync<AppException>()).Which.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        _orderRepoMock.Verify(r => r.GetOrderAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _orderRepoMock.Verify(r => r.GetOrderForHistoryAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _output.WriteLine("TCID02 PASSED: ViewPaymentDetails_ForeignOrMissingPayment_ThrowsNotFound (Abnormal).");
     }
 
@@ -85,7 +85,7 @@ public class ViewPaymentDetailsTests
     public async Task TCID03_ViewPaymentDetails_OrderOwnershipRecheckFails_ThrowsNotFound_Abnormal()
     {
         // Arrange
-        _orderRepoMock.Setup(r => r.GetOrderAsync(_context.Order.Id, _context.Order.CustomerId, It.IsAny<CancellationToken>())).ReturnsAsync((Order?)null);
+        _orderRepoMock.Setup(r => r.GetOrderForHistoryAsync(_context.Order.Id, _context.Order.CustomerId, It.IsAny<CancellationToken>())).ReturnsAsync((Order?)null);
 
         // Act
         Func<Task> act = () => _service.GetAsync(_context.Order.CustomerId, _context.Order.Payments.First().Id);

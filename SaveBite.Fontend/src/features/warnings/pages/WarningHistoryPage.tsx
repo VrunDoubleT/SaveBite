@@ -203,3 +203,5 @@ export function WarningHistoryPage() {
     </div>
   );
 }
+
+export default WarningHistoryPage;

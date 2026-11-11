@@ -25,6 +25,7 @@ public class ViewProfileTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly Mock<IRefreshTokenService> _refreshTokenServiceMock = new();
     private readonly Mock<ILogger<UserService>> _loggerMock = new();
     private readonly Mock<ICloudinaryService> _cloudinaryServiceMock = new();
@@ -36,13 +37,7 @@ public class ViewProfileTests
     public ViewProfileTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new UserService(
-            _userRepoMock.Object,
-            _refreshTokenServiceMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _cloudinaryServiceMock.Object
-        );
+        _service = new UserService(_userRepoMock.Object, _refreshTokenServiceMock.Object, TimeProvider.System, _loggerMock.Object, _cloudinaryServiceMock.Object, new Mock<IRealtimePublisher>().Object, new Mock<INotificationQueue>().Object, _auditMock.Object, TestDbContextFactory.Create());
     }
 
     private User CreateValidUser(string? phone = "0987654321", string? avatarUrl = "https://res.cloudinary.com/savebite/image/upload/v1/avatars/user1.png")

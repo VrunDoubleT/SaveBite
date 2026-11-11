@@ -19,6 +19,7 @@ public record UserSummaryResponse(
     Guid Id,
     string Email,
     string FullName,
+    string? AvatarUrl,
     string Role,
     string Status,
     string CustomerStatus,

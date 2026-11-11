@@ -26,10 +26,10 @@ public sealed class CheckoutService : ICheckoutService
     private readonly ITravelTimeService _travelTimeService;
     private readonly ICheckoutPaymentGateway _paymentGateway;
     private readonly ICheckoutPaymentService _paymentService;
-    private readonly ICheckoutStockCache _stockCache;
+    private readonly IOrderInventorySynchronizer _inventorySync;
     private readonly TimeProvider _clock;
     private readonly ICheckoutQuoteStore _quoteStore;
-    private readonly IOrderEventPublisher _orderEvents;
+    private readonly OrderConfirmationScheduling _confirmation;
     private readonly ICheckoutPaymentExpirationScheduler _paymentExpirationScheduler;
     private readonly IShopOrderEventService _shopOrderEvents;
 
@@ -38,11 +38,11 @@ public sealed class CheckoutService : ICheckoutService
         ITravelTimeService travel,
         ICheckoutPaymentGateway gateway,
         ICheckoutPaymentService payments,
-        ICheckoutStockCache stockCache,
+        IOrderInventorySynchronizer inventorySync,
         TimeProvider clock,
         ICheckoutQuoteStore quotes,
         ICheckoutPaymentExpirationScheduler paymentExpirationScheduler,
-        IOrderEventPublisher orderEvents,
+        OrderConfirmationScheduling confirmation,
         IShopOrderEventService shopOrderEvents,
         IOrderCodeCache orderCodes)
     {
@@ -51,10 +51,10 @@ public sealed class CheckoutService : ICheckoutService
         _travelTimeService = travel;
         _paymentGateway = gateway;
         _paymentService = payments;
-        _stockCache = stockCache;
+        _inventorySync = inventorySync;
         _clock = clock;
         _quoteStore = quotes;
-        _orderEvents = orderEvents;
+        _confirmation = confirmation;
         _paymentExpirationScheduler = paymentExpirationScheduler;
         _shopOrderEvents = shopOrderEvents;
     }
@@ -195,6 +195,8 @@ public sealed class CheckoutService : ICheckoutService
             notifyShopPending = online == 0;
             if (total < 0 || total > 9999999999.99m || online < 0 || decimal.Truncate(online) != online)
                 throw AppException.Conflict("This order does not have valid VND payment amounts.");
+            if (total < MoneyLimits.MinAmountVnd || (online > 0 && online < MoneyLimits.MinAmountVnd))
+                throw AppException.Conflict($"Order and payment amounts must be at least {MoneyLimits.MinAmountVnd:N0} VND.");
             if (online > 0 && !_paymentGateway.IsConfigured(state.PaymentConfig))
                 throw AppException.ServiceUnavailable("This shop has not configured online payments yet. No order was created.");
             // Persist the agreed amounts and absolute pickup deadlines; payment expires within 120 seconds or the hard deadline.
@@ -242,20 +244,23 @@ public sealed class CheckoutService : ICheckoutService
             // Remove only this shop from the cart and commit its order, payment and inventory changes together.
             await _checkoutRepository.RemoveShopCartAsync(userId, quote.ShopId, ct);
             await _checkoutRepository.SaveAsync(ct);
-            // Persist the expiry job before commit; scheduling failure rolls back the order and its reservation.
+            // Persist the job metadata; scheduling failure leaves the durable deadline for Order recovery.
             if (order.PaymentExpiresAt.HasValue)
             {
                 order.PaymentExpirationJobId = _paymentExpirationScheduler.Schedule(order.Id, order.PaymentExpiresAt.Value);
                 await _checkoutRepository.SaveAsync(ct);
             }
             if (order.Status == OrderStatus.Pending)
-                await _orderEvents.QueuePendingAsync(order, ct);
+            {
+                _confirmation.Register(order);
+                await _checkoutRepository.SaveAsync(ct);
+            }
             return order.Id;
         }, ct), ct);
         if (notifyShopPending)
             await _shopOrderEvents.NotifyAsync(shopId, orderId, RealtimeEvents.OrderReasons.Pending, ct);
-        // After the transaction commits, refresh Redis stock and create or reuse the payment link.
-        await _stockCache.SyncAsync(orderId, ct);
+        // After commit, reconcile deal status and create or reuse the payment link.
+        await _inventorySync.SyncAsync(orderId, ct);
         var result = await _paymentService.StartAsync(userId, orderId, ct);
         return result;
     }

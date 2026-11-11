@@ -22,7 +22,7 @@ public sealed class ShopsController : ControllerBase
 
     [HttpGet]
     [GuestAccess]
-    public async Task<ActionResult<ApiResponse<PagedResult<NearbyShopResponse>>>> GetNearby(
+    public async Task<ActionResult<ApiResponse<NearbyShopsPagedResult>>> GetNearby(
         [FromQuery] NearbyShopsRequest request,
         CancellationToken cancellationToken)
     {
@@ -32,7 +32,7 @@ public sealed class ShopsController : ControllerBase
             ? null
             : $"No shops found within a {request.RadiusInKm} km radius of your location.";
 
-        return Ok(ApiResponse<PagedResult<NearbyShopResponse>>.Ok(result, message));
+        return Ok(ApiResponse<NearbyShopsPagedResult>.Ok(result, message));
     }
 
     [HttpGet("{id:guid}")]
@@ -46,7 +46,7 @@ public sealed class ShopsController : ControllerBase
             throw AppException.BadRequest("Shop ID is invalid.");
         }
 
-        var profile = await _shopService.GetShopProfileAsync(id, cancellationToken);
+        var profile = await _shopService.GetShopProfileAsync(id, cancellationToken, TryGetCurrentUserId());
         return Ok(ApiResponse<ShopProfileResponse>.Ok(profile));
     }
 
@@ -73,29 +73,36 @@ public sealed class ShopsController : ControllerBase
     private Guid? TryGetCurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+                    ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
         return Guid.TryParse(value, out var id) ? id : null;
     }
 
     [HttpGet("me/payment-config")]
-    public async Task<ActionResult<ApiResponse<ShopPaymentConfigResponse>>> GetMyPaymentConfig(CancellationToken cancellationToken)
+    [StoreOwnerAnyStatusAccess]
+    public async Task<ActionResult<ApiResponse<ShopPaymentConfigResponse>>> GetMyPaymentConfig(
+        CancellationToken cancellationToken)
     {
         var ownerUserId = GetRequiredCurrentUserId();
         var result = await _shopService.GetOwnerPaymentConfigAsync(ownerUserId, cancellationToken);
-        return Ok(ApiResponse<ShopPaymentConfigResponse>.Ok(result, "Shop payment configuration retrieved successfully. "));
+        return Ok(ApiResponse<ShopPaymentConfigResponse>.Ok(result,
+            "Shop payment configuration retrieved successfully. "));
     }
 
     [HttpPut("me/payment-config")]
-    public async Task<ActionResult<ApiResponse<ShopPaymentConfigResponse>>> UpdateMyPaymentConfig([FromBody] UpdateShopPaymentConfigRequest request, CancellationToken cancellationToken)
+    [StoreOwnerActiveAccess]
+    public async Task<ActionResult<ApiResponse<ShopPaymentConfigResponse>>> UpdateMyPaymentConfig(
+        [FromBody] UpdateShopPaymentConfigRequest request, CancellationToken cancellationToken)
     {
         var ownerUserId = GetRequiredCurrentUserId();
         var result = await _shopService.UpdateOwnerPaymentConfigAsync(ownerUserId, request, cancellationToken);
-        return Ok(ApiResponse<ShopPaymentConfigResponse>.Ok(result, "Shop payment configuration updated successfully."));
+        return Ok(ApiResponse<ShopPaymentConfigResponse>.Ok(result,
+            "Shop payment configuration updated successfully."));
     }
 
     [HttpGet("me")]
     [StoreOwnerAnyStatusAccess]
-    public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> GetOwnerProfile(CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> GetOwnerProfile(
+        CancellationToken cancellationToken)
     {
         var ownerUserId = GetRequiredCurrentUserId();
         var profile = await _shopService.GetOwnerShopProfileAsync(ownerUserId, cancellationToken);
@@ -104,16 +111,19 @@ public sealed class ShopsController : ControllerBase
 
     [HttpPut("me/business-info")]
     [StoreOwnerAnyStatusAccess]
-    public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> UpdateBusinessInfo([FromBody] UpdateBusinessInfoRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> UpdateBusinessInfo(
+        [FromBody] UpdateBusinessInfoRequest request, CancellationToken cancellationToken)
     {
-        var response = await _shopService.UpdateBusinessInfoAsync(GetRequiredCurrentUserId(), request, cancellationToken);
+        var response =
+            await _shopService.UpdateBusinessInfoAsync(GetRequiredCurrentUserId(), request, cancellationToken);
         return Ok(ApiResponse<ShopProfileResponse>.Ok(response, "Shop business information updated successfully."));
     }
 
     [HttpPut("me/images")]
     [StoreOwnerAnyStatusAccess]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> UpdateShopImages([FromForm] UpdateShopImagesRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<ShopProfileResponse>>> UpdateShopImages(
+        [FromForm] UpdateShopImagesRequest request, CancellationToken cancellationToken)
     {
         var response = await _shopService.UpdateShopImagesAsync(GetRequiredCurrentUserId(), request, cancellationToken);
         return Ok(ApiResponse<ShopProfileResponse>.Ok(response, "Shop images updated successfully."));
@@ -127,7 +137,7 @@ public sealed class ShopsController : ControllerBase
 
         return id.Value;
     }
-    
+
     // Manage Shops.
     [HttpGet("admin")]
     [AdminAccess]
@@ -140,11 +150,12 @@ public sealed class ShopsController : ControllerBase
         var result = await _shopService.GetShopListAsync(keyword, page, pageSize, cancellationToken);
         return Ok(ApiResponse<PagedResult<ShopListResponse>>.Ok(result, "Shop list retrieved successfully."));
     }
-    
+
     // Manage Shops.
     [HttpGet("admin/{shopId:guid}")]
     [AdminAccess]
-    public async Task<ActionResult<ApiResponse<ShopContentResponse>>> ViewShopContentForAdmin(Guid shopId, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<ShopContentResponse>>> ViewShopContentForAdmin(Guid shopId,
+        CancellationToken cancellationToken)
     {
         if (shopId == Guid.Empty)
             throw AppException.BadRequest("Shop ID is invalid.");
@@ -152,16 +163,18 @@ public sealed class ShopsController : ControllerBase
         var result = await _shopService.GetShopContentAsync(shopId, cancellationToken);
         return Ok(ApiResponse<ShopContentResponse>.Ok(result, "Shop content retrieved successfully."));
     }
-    
+
     // Manage Shops.
     [HttpPatch("admin/{shopId:guid}/status")]
     [AdminAccess]
-    public async Task<ActionResult<ApiResponse<ModerationActionResponse>>> UpdateModerationStatus(Guid shopId, [FromBody] UpdateShopModerationStatusRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<ModerationActionResponse>>> UpdateModerationStatus(Guid shopId,
+        [FromBody] UpdateShopModerationStatusRequest request, CancellationToken cancellationToken)
     {
         if (shopId == Guid.Empty)
             throw AppException.BadRequest("Shop ID is invalid.");
 
-        var result = await _shopService.UpdateShopStatusAsync(GetRequiredCurrentUserId(), shopId, request, cancellationToken);
+        var result =
+            await _shopService.UpdateShopStatusAsync(GetRequiredCurrentUserId(), shopId, request, cancellationToken);
         return Ok(ApiResponse<ModerationActionResponse>.Ok(result, "Shop status updated successfully."));
     }
 }

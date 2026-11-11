@@ -183,7 +183,6 @@ export function ProductContentManagementPage() {
             to={APP_PATHS.ADMIN_PRODUCTS}
             className="inline-flex items-center gap-1.5 rounded-md font-medium transition-colors hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
           >
-            <ArrowLeft className="size-4" aria-hidden="true" />
             Product Management
           </Link>
           <ChevronRight className="size-4 text-text-muted" aria-hidden="true" />
@@ -194,7 +193,7 @@ export function ProductContentManagementPage() {
 
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0 space-y-1.5">
-            <h1 className="truncate text-3xl font-bold tracking-tight text-text-primary">
+            <h1 className="truncate text-2xl font-bold tracking-tight text-text-primary">
               {product ? product.name : "Product content management"}
             </h1>
             <p className="text-sm text-text-secondary">

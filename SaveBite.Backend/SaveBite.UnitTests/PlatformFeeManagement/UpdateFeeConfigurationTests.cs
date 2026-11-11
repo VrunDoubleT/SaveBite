@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,7 @@ public class UpdateFeeConfigurationTests
     private readonly ITestOutputHelper _output;
     private readonly Mock<IPlatformFeeConfigRepository> _repositoryMock = new();
     private readonly Mock<ILogger<PlatformFeeConfigService>> _loggerMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly PlatformFeeConfigService _service;
 
     private readonly Guid _adminId = Guid.NewGuid();
@@ -32,11 +34,7 @@ public class UpdateFeeConfigurationTests
     public UpdateFeeConfigurationTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new PlatformFeeConfigService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object
-        );
+        _service = new PlatformFeeConfigService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _auditMock.Object);
     }
 
     private PlatformFeeConfig CreateActiveConfig(decimal feeRate = 0.05m) => new()
@@ -75,10 +73,6 @@ public class UpdateFeeConfigurationTests
         _repositoryMock
             .Setup(r => r.AddConfigAsync(It.IsAny<PlatformFeeConfig>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-
-        _repositoryMock
-            .Setup(r => r.AddAuditLog(It.IsAny<AuditLog>()));
-
         _repositoryMock
             .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -97,8 +91,8 @@ public class UpdateFeeConfigurationTests
             It.Is<PlatformFeeConfig>(c => c.FeeRate == 0.085m && c.CreatedBy == _adminId),
             It.IsAny<CancellationToken>()), Times.Once);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(
-            It.Is<AuditLog>(a => a.Action == "CreateScheduledFeeConfiguration" && a.ActorUserId == _adminId)),
+        _auditMock.Verify(r => r.Record(
+            It.Is<AuditLog>(a => a.Action == AuditActionTypes.CreateScheduledFeeConfiguration && a.ActorUserId == _adminId)),
             Times.Once);
 
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -239,10 +233,6 @@ public class UpdateFeeConfigurationTests
         _repositoryMock
             .Setup(r => r.AddConfigAsync(It.IsAny<PlatformFeeConfig>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-
-        _repositoryMock
-            .Setup(r => r.AddAuditLog(It.IsAny<AuditLog>()));
-
         _repositoryMock
             .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -291,10 +281,6 @@ public class UpdateFeeConfigurationTests
         _repositoryMock
             .Setup(r => r.AddConfigAsync(It.IsAny<PlatformFeeConfig>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-
-        _repositoryMock
-            .Setup(r => r.AddAuditLog(It.IsAny<AuditLog>()));
-
         _repositoryMock
             .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -343,10 +329,6 @@ public class UpdateFeeConfigurationTests
         _repositoryMock
             .Setup(r => r.AddConfigAsync(It.IsAny<PlatformFeeConfig>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-
-        _repositoryMock
-            .Setup(r => r.AddAuditLog(It.IsAny<AuditLog>()));
-
         _repositoryMock
             .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -367,8 +349,8 @@ public class UpdateFeeConfigurationTests
             It.Is<PlatformFeeConfig>(c => c.FeeRate == 0.075m),
             It.IsAny<CancellationToken>()), Times.Once);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(
-            It.Is<AuditLog>(a => a.Action == "UpdateFeeConfiguration" && a.ActorUserId == _adminId)),
+        _auditMock.Verify(r => r.Record(
+            It.Is<AuditLog>(a => a.Action == AuditActionTypes.UpdateFeeConfiguration && a.ActorUserId == _adminId)),
             Times.Once);
 
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);

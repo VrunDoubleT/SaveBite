@@ -4,6 +4,8 @@ export interface AssociatedShop {
   id: string;
   shopId: string;
   shopName: string;
+  shopLogoUrl?: string | null;
+  shopCoverImageUrl?: string | null;
   status: ShopStaffStatus;
   joinedAt: string;
 }

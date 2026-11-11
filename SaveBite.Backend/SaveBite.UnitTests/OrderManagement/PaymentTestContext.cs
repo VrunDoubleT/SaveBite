@@ -5,6 +5,9 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.Caching.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Data;
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Helpers;
@@ -29,7 +32,8 @@ internal sealed class PaymentTestContext
     public Order Order { get; set; }
     public Mock<ICheckoutRepository> Repo { get; } = new();
     public Mock<ICheckoutPaymentGateway> Gateway { get; } = new();
-    public Mock<ICheckoutStockCache> Stock { get; } = new();
+    public Mock<IOrderInventorySynchronizer> Stock { get; } = new();
+    public Mock<IShopOrderConfirmationScheduler> ConfirmationScheduler { get; } = new();
     public Mock<ICheckoutPaymentExpirationScheduler> Scheduler { get; } = new();
     public Mock<IOrderEventPublisher> Events { get; } = new();
     public Mock<IShopOrderEventService> Realtime { get; } = new();
@@ -55,8 +59,12 @@ internal sealed class PaymentTestContext
         Gateway.Setup(x => x.CancelAsync(It.IsAny<Payment>(), It.IsAny<ShopPaymentConfig>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Payment p, ShopPaymentConfig _, CancellationToken _) => Result(p));
         Scheduler.Setup(x => x.Delete(It.IsAny<string>())).Returns(true);
+        var db = TestDbContextFactory.Create();
+        var resale = new OrderResaleService(db, Repo.Object, new Mock<IShopOrderRepository>().Object, new Mock<Hangfire.IBackgroundJobClient>().Object, Clock, new Mock<ILogger<OrderResaleService>>().Object);
+        var confirmation = new OrderConfirmationScheduling(ConfirmationScheduler.Object);
         Service = new CheckoutPaymentService(Repo.Object, Gateway.Object, Stock.Object, Clock, Scheduler.Object,
-            new Mock<ILogger<CheckoutPaymentService>>().Object, Events.Object, Realtime.Object);
+            new Mock<ILogger<CheckoutPaymentService>>().Object, confirmation, Realtime.Object,
+            new Mock<INotificationQueue>().Object, resale, new Mock<IAuditWriter>().Object);
         OrderService = new OrderService(Repo.Object, Service, Clock);
     }
     public Payment Initial => Order.Payments.First(x => x.PaymentType != PaymentType.Remaining);

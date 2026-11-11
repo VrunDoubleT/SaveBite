@@ -1,19 +1,39 @@
+import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
+import { ShopFollowControls } from "@/features/shop-follows/components/ShopFollowControls";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
-  Clock,
+  Clock3,
   Store,
-  Star,
   ShoppingBag,
   CheckCircle2,
   ArrowLeft,
   ChevronRight,
+  MapPin,
+  Flame,
+  Minus,
+  Plus,
+  Package,
+  Leaf,
+  Star,
 } from "lucide-react";
+import {
+  Badge,
+  Button,
+  ButtonLink,
+  Card,
+  EmptyState,
+  ErrorState,
+  IconButton,
+  MediaImage,
+  PageHeader,
+  Skeleton,
+} from "@/shared/components/ui";
+import { isAxiosError } from "axios";
+import type { StoreReviewsSummary } from "@/features/shops/types/shop.types";
+import { DealStoreReviews } from "@/features/shops/components/DealStoreReviews";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
-import type {
-  FlashDeal,
-  FlashDealVariant,
-} from "@/features/flash-deals/types/flashDeal.types";
+import type { FlashDeal, FlashDealVariant } from "@/features/flash-deals/types/flashDeal.types";
 
 import { useCartStore } from "@/features/cart/stores/cartStore";
 import { useAuthStore } from "@/shared/stores/authStore";
@@ -21,65 +41,113 @@ import { getApiErrorMessage } from "@/shared/api";
 import { toast } from "@/shared/stores/toastStore";
 import { APP_PATHS } from "@/app/router/paths";
 
-const fallbackImg =
-  "https://images.unsplash.com/photo-1509722747041-616f39b57569?w=800&auto=format&fit=crop&q=80";
-
 const formatVnd = (value: number) => {
-  return Number.isFinite(value)
-    ? `${Math.round(value).toLocaleString("vi-VN")}đ`
-    : "—";
+  return Number.isFinite(value) ? `${Math.round(value).toLocaleString("en-US")} VND` : "—";
 };
 
 const formatTime = (iso?: string) => {
-  if (!iso) return "21:00";
-  const date = new Date(iso);
-  if (isNaN(date.getTime())) return "21:00";
-  const h = String(date.getHours()).padStart(2, "0");
-  const m = String(date.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+  if (!iso || Number.isNaN(new Date(iso).getTime())) return "Not provided";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
 };
 
 export function CustomerDealDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [attempt, setAttempt] = useState(0);
+  return (
+    <DealDetailContent
+      key={`${id}:${attempt}`}
+      id={id}
+      onRetry={() => setAttempt((value) => value + 1)}
+    />
+  );
+}
+
+function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }) {
   const navigate = useNavigate();
+  const [revision, setRevision] = useState(0);
   const [deal, setDeal] = useState<FlashDeal | null>(null);
-  const [selectedVariant, setSelectedVariant] =
-    useState<FlashDealVariant | null>(null);
-  const [selectedAttributes, setSelectedAttributes] = useState<
-    Record<string, string>
-  >({});
+  const [reviewSummary, setReviewSummary] = useState<StoreReviewsSummary | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<FlashDealVariant | null>(null);
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
   const [activeImgUrl, setActiveImgUrl] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
+  const [quantityInput, setQuantityInput] = useState<string>("1");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [addedSuccess, setAddedSuccess] = useState<boolean>(false);
+  const customerSuspended = useAuthStore((state) => state.user?.customerStatus === "suspended");
   const addCartItem = useCartStore((state) => state.addItem);
   const isAdding = useCartStore((state) => state.isMutating);
+  useFlashDealRealtime("deal", id, () => {
+    setIsLoading(true);
+    setRevision((value) => value + 1);
+  });
+
+  // Real-time synchronization when admin blocks the shop of this deal
+  useEffect(() => {
+    const handleShopStatus = (e: Event) => {
+      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>)
+        .detail;
+      const rawShopId = detail?.shopId || (detail as any)?.ShopId;
+      const rawStatus = detail?.status || (detail as any)?.Status;
+      const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
+      const targetShopId = rawShopId?.toLowerCase();
+      const currentDealShopId = (deal?.shopId || (deal as any)?.ShopId)?.toLowerCase();
+
+      if (targetShopId && currentDealShopId && targetShopId === currentDealShopId) {
+        const isInactive = !rawStatus || rawStatus.toLowerCase() !== "active" || Boolean(isBlocked);
+        if (isInactive) {
+          setDeal(null);
+          setError(
+            "This flash deal is unavailable because the store has been suspended or is currently inactive.",
+          );
+        } else {
+          setRevision((v) => v + 1);
+        }
+      }
+    };
+    window.addEventListener("shop:status-changed", handleShopStatus);
+    return () => window.removeEventListener("shop:status-changed", handleShopStatus);
+  }, [deal?.shopId]);
 
   useEffect(() => {
     if (!id) return;
     let isMounted = true;
-    setIsLoading(true);
 
     flashDealApi
       .getDealById(id)
       .then((data) => {
         if (isMounted) {
-          setDeal(data);
+          setDeal(data ?? null);
           setError(null);
+          if (!data) return;
           if (data.variants && data.variants.length > 0) {
             // Find default variant preference: Regular & Non-spicy (or lowest deal price)
             const defaultVar =
               data.variants.find((v) => {
                 const attrs = v.attributes || {};
                 const sizeVal = (attrs["Size"] || attrs["size"] || "").toLowerCase();
-                const spiceVal = (attrs["Spice Level"] || attrs["Độ cay"] || attrs["spice"] || "").toLowerCase();
+                const spiceVal = (
+                  attrs["Spice Level"] ||
+                  attrs["Độ cay"] ||
+                  attrs["spice"] ||
+                  ""
+                ).toLowerCase();
                 return (
-                  (sizeVal.includes("regular") || sizeVal.includes("small") || sizeVal.includes("thường") || sizeVal.includes("nhỏ")) &&
-                  (spiceVal.includes("none") || spiceVal.includes("mild") || spiceVal.includes("không"))
+                  (sizeVal.includes("regular") ||
+                    sizeVal.includes("small") ||
+                    sizeVal.includes("thường") ||
+                    sizeVal.includes("nhỏ")) &&
+                  (spiceVal.includes("none") ||
+                    spiceVal.includes("mild") ||
+                    spiceVal.includes("không"))
                 );
-              }) ||
-              [...data.variants].sort((a, b) => a.dealPrice - b.dealPrice)[0];
+              }) || [...data.variants].sort((a, b) => a.dealPrice - b.dealPrice)[0];
 
             setSelectedVariant(defaultVar);
             if (defaultVar.imageUrl) {
@@ -98,7 +166,12 @@ export function CustomerDealDetailPage() {
                 const preferred =
                   g.values.find((val) => {
                     const vLow = val.toLowerCase();
-                    return vLow.includes("regular") || vLow.includes("none") || vLow.includes("thường") || vLow.includes("không");
+                    return (
+                      vLow.includes("regular") ||
+                      vLow.includes("none") ||
+                      vLow.includes("thường") ||
+                      vLow.includes("không")
+                    );
                   }) || g.values[0];
                 initialAttrs[g.name] = preferred;
               }
@@ -107,9 +180,10 @@ export function CustomerDealDetailPage() {
           }
         }
       })
-      .catch(() => {
+      .catch((cause: unknown) => {
         if (isMounted) {
-          setError("Flash Deal does not exist or has expired.");
+          if (isAxiosError(cause) && cause.response?.status === 404) setDeal(null);
+          else setError("We couldn't load this deal. Please try again in a moment.");
         }
       })
       .finally(() => {
@@ -121,36 +195,21 @@ export function CustomerDealDetailPage() {
     return () => {
       isMounted = false;
     };
-  }, [id]);
+  }, [id, revision]);
 
-  // Countdown timer: HH:mm:ss
-  const [timeLeft, setTimeLeft] = useState<string>("");
-  const [isEnded, setIsEnded] = useState<boolean>(false);
-
+  const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
-    if (!deal?.orderEndTime) return;
-
-    const calcTime = () => {
-      const diff = new Date(deal.orderEndTime).getTime() - Date.now();
-      if (diff <= 0) {
-        setIsEnded(true);
-        return "Ended";
-      }
-      setIsEnded(false);
-      const totalSec = Math.floor(diff / 1000);
-      const h = String(Math.floor(totalSec / 3600)).padStart(2, "0");
-      const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
-      const s = String(totalSec % 60).padStart(2, "0");
-      return `${h}:${m}:${s}`;
-    };
-
-    setTimeLeft(calcTime());
-    const interval = setInterval(() => {
-      setTimeLeft(calcTime());
-    }, 1000);
-
+    const interval = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [deal?.orderEndTime]);
+  }, []);
+  const secondsLeft = deal
+    ? Math.max(0, Math.floor((new Date(deal.orderEndTime).getTime() - nowMs) / 1000))
+    : 0;
+  const timeLeft = Number.isFinite(secondsLeft)
+    ? [Math.floor(secondsLeft / 3600), Math.floor((secondsLeft % 3600) / 60), secondsLeft % 60]
+        .map((value) => String(value).padStart(2, "0"))
+        .join(":")
+    : "—";
 
   // Gallery thumbnails list
   const galleryImages = useMemo(() => {
@@ -167,11 +226,11 @@ export function CustomerDealDetailPage() {
         list.push(v.imageUrl);
       }
     });
-    return list.length > 0 ? list : [fallbackImg];
+    return list;
   }, [deal]);
 
   // Main active image
-  const mainImage = activeImgUrl || galleryImages[0] || fallbackImg;
+  const mainImage = activeImgUrl || galleryImages[0];
 
   // Retrieve sorted attribute groups (Size, Spice Level, etc.)
   const attributeGroups = useMemo(() => {
@@ -217,8 +276,20 @@ export function CustomerDealDetailPage() {
       g.values.sort((a, b) => {
         const aLow = a.toLowerCase();
         const bLow = b.toLowerCase();
-        if (aLow.includes("regular") || aLow.includes("none") || aLow.includes("thường") || aLow.includes("không")) return -1;
-        if (bLow.includes("regular") || bLow.includes("none") || bLow.includes("thường") || bLow.includes("không")) return 1;
+        if (
+          aLow.includes("regular") ||
+          aLow.includes("none") ||
+          aLow.includes("thường") ||
+          aLow.includes("không")
+        )
+          return -1;
+        if (
+          bLow.includes("regular") ||
+          bLow.includes("none") ||
+          bLow.includes("thường") ||
+          bLow.includes("không")
+        )
+          return 1;
         return a.localeCompare(b, "en");
       });
     });
@@ -237,9 +308,7 @@ export function CustomerDealDetailPage() {
     const matched =
       deal.variants.find((v) => {
         if (!v.attributes) return false;
-        return Object.entries(updatedAttrs).every(
-          ([k, val]) => v.attributes?.[k] === val,
-        );
+        return Object.entries(updatedAttrs).every(([k, val]) => v.attributes?.[k] === val);
       }) ||
       deal.variants.find((v) => {
         return v.attributes?.[groupName] === value;
@@ -249,6 +318,7 @@ export function CustomerDealDetailPage() {
     if (matched) {
       setSelectedVariant(matched);
       setQuantity(1);
+      setQuantityInput("1");
       // Switch active image immediately if variant has specific image
       if (matched.imageUrl) {
         setActiveImgUrl(matched.imageUrl);
@@ -259,6 +329,7 @@ export function CustomerDealDetailPage() {
   const handleSelectVariantDirect = (v: FlashDealVariant) => {
     setSelectedVariant(v);
     setQuantity(1);
+    setQuantityInput("1");
     if (v.attributes) {
       setSelectedAttributes({ ...v.attributes });
     }
@@ -268,8 +339,14 @@ export function CustomerDealDetailPage() {
   };
 
   const handleAddToCart = async () => {
+    if (useAuthStore.getState().user?.customerStatus === "suspended") return;
     if (!useAuthStore.getState().isAuthenticated) {
-      navigate(APP_PATHS.LOGIN, { state: { message: "Sign in to add items to your cart.", from: { pathname: `/flash-deals/${id}` } } });
+      navigate(APP_PATHS.LOGIN, {
+        state: {
+          message: "Sign in to add items to your cart.",
+          from: { pathname: `/flash-deals/${id}` },
+        },
+      });
       return;
     }
     const variant = selectedVariant || deal?.variants[0];
@@ -279,49 +356,53 @@ export function CustomerDealDetailPage() {
       await addCartItem(variant.id, quantity);
       setAddedSuccess(true);
       toast.success("Added to your cart.");
-    } catch (error) { toast.error(getApiErrorMessage(error)); }
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
   };
 
-  if (isLoading) {
+  if (isLoading && id) {
     return (
-      <div className="min-h-screen bg-neutral-50/50 py-12">
-        <div className="mx-auto max-w-5xl px-4 animate-pulse">
-          <div className="mb-6 h-6 w-32 rounded bg-neutral-200" />
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-            <div className="aspect-square rounded-2xl bg-neutral-200" />
-            <div className="space-y-4">
-              <div className="h-8 w-3/4 rounded bg-neutral-200" />
-              <div className="h-6 w-1/2 rounded bg-neutral-200" />
-              <div className="h-24 rounded bg-neutral-200" />
-              <div className="h-12 rounded bg-neutral-200" />
-            </div>
+      <div role="status" aria-label="Loading flash deal" className="space-y-6 py-6 sm:py-8">
+        <span className="sr-only">Loading flash deal</span>
+        <Skeleton className="h-5 w-48" />
+        <div className="grid items-start gap-6 lg:grid-cols-2">
+          <div className="space-y-4">
+            <Skeleton className="aspect-[4/3] w-full rounded-lg" />
+            <Skeleton className="h-32" />
           </div>
+          <Card className="space-y-5">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-8 w-4/5" />
+            <Skeleton className="h-16" />
+            <Skeleton className="h-10 w-1/2" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-12" />
+          </Card>
         </div>
       </div>
     );
   }
-
   if (error || !deal) {
     return (
-      <div className="min-h-screen bg-neutral-50/50 py-16">
-        <div className="mx-auto max-w-md px-4 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600">
-            <Store size={32} />
-          </div>
-          <h2 className="mt-4 text-xl font-bold text-neutral-900">
-            Deal Not Found
-          </h2>
-          <p className="mt-2 text-sm text-neutral-600">
-            {error ?? "This Flash Deal item does not exist or has ended."}
-          </p>
-          <Link
-            to="/"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-700"
-          >
-            <ArrowLeft size={16} />
-            Back to Home
-          </Link>
-        </div>
+      <div className="space-y-6 py-8">
+        <PageHeader title="Flash deal" />
+        {error ? (
+          <ErrorState title="Couldn't load this deal" description={error} onRetry={onRetry} />
+        ) : (
+          <EmptyState
+            title="This deal is no longer available"
+            description="It may have ended or been removed. Discover another bite nearby."
+            icon={ShoppingBag}
+            action={<ButtonLink to="/">Browse nearby deals</ButtonLink>}
+          />
+        )}
+        {error && (
+          <ButtonLink to="/" variant="secondary">
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Back to deals
+          </ButtonLink>
+        )}
       </div>
     );
   }
@@ -330,18 +411,24 @@ export function CustomerDealDetailPage() {
 
   // Business Rule: A Flash Deal variant is purchasable only while the Deal is OnSale,
   // the current time is between SaleStartTime and OrderEndTime, the variant is Active, and its available stock is greater than zero.
-  const now = new Date();
+  const now = new Date(nowMs);
   const saleStart = new Date(deal.saleStartTime);
   const orderEnd = new Date(deal.orderEndTime);
   const isBeforeSale = now < saleStart;
   const isAfterSale = now >= orderEnd || now >= new Date(deal.shopClosingTime);
   const isTimeValid = !isBeforeSale && !isAfterSale;
   const isDealOnSale = deal.status === 1; // 1 = OnSale
-  const isVariantActive = activeVariant ? (activeVariant.status === 0 || String(activeVariant.status) === "Active") : false;
+  const isVariantActive = activeVariant
+    ? activeVariant.status === 0 || String(activeVariant.status) === "Active"
+    : false;
   const isSoldOut = !activeVariant || activeVariant.availableQuantity <= 0;
 
   const isPurchasable = Boolean(
-    activeVariant?.isPurchasable !== false && isDealOnSale && isTimeValid && isVariantActive && !isSoldOut
+    activeVariant?.isPurchasable !== false &&
+    isDealOnSale &&
+    isTimeValid &&
+    isVariantActive &&
+    !isSoldOut,
   );
 
   let unpurchasableReason = "Unavailable";
@@ -357,404 +444,463 @@ export function CustomerDealDetailPage() {
     unpurchasableReason = "Variant Inactive";
   }
 
+  const isOrderingWindowOpen = isDealOnSale && isTimeValid;
+  const timingLabel = !isDealOnSale
+    ? "Deal status"
+    : isBeforeSale
+      ? "Sale starts"
+      : isAfterSale
+        ? "Ordering has ended"
+        : "Time left to order";
+  const timingValue = !isDealOnSale
+    ? unpurchasableReason
+    : isBeforeSale
+      ? formatTime(deal.saleStartTime)
+      : isAfterSale
+        ? "Ended"
+        : timeLeft;
+
   const currentPrice = activeVariant ? activeVariant.dealPrice : deal.minDealPrice;
-  const originalPrice = activeVariant
-    ? activeVariant.originalPrice
-    : deal.maxOriginalPrice;
-  const discountPercent = activeVariant
-    ? activeVariant.discountPercent
-    : deal.maxDiscountPercent;
-  const totalQty = activeVariant?.totalQuantity || 100;
+  const originalPrice = activeVariant ? activeVariant.originalPrice : deal.maxOriginalPrice;
+  const discountPercent = activeVariant ? activeVariant.discountPercent : deal.maxDiscountPercent;
+  const totalQty = activeVariant?.totalQuantity ?? 0;
   const soldQty = activeVariant?.soldQuantity || 0;
   const remainingQty = activeVariant?.availableQuantity || 0;
-  const soldPercent = Math.min(100, Math.round((soldQty / totalQty) * 100));
+  const soldPercent = totalQty > 0 ? Math.min(100, Math.round((soldQty / totalQty) * 100)) : 0;
 
   return (
-    <div className="min-h-screen bg-neutral-50/40 pb-20 pt-6">
-      <main className="mx-auto max-w-6xl">
-        {/* Breadcrumb Navigation */}
-        <nav
-          aria-label="Breadcrumb"
-          className="mb-5 flex items-center gap-2 text-xs sm:text-sm text-neutral-500"
+    <div className="space-y-6 py-6 sm:py-8">
+      <nav
+        aria-label="Breadcrumb"
+        className="flex min-w-0 flex-wrap items-center gap-2 text-caption text-text-secondary"
+      >
+        <Link
+          to="/"
+          className="inline-flex min-h-8 items-center gap-1 font-medium hover:text-primary-700"
         >
-          <Link to="/" className="hover:text-emerald-700 transition font-medium">
-            Home
-          </Link>
-          <ChevronRight size={13} className="text-neutral-300 shrink-0" />
-          <Link
-            to={`/shops/${deal.shopId}`}
-            className="hover:text-emerald-700 transition font-medium"
-          >
-            {deal.shopName}
-          </Link>
-          <ChevronRight size={13} className="text-neutral-300 shrink-0" />
-          <span className="truncate max-w-[260px] sm:max-w-md font-semibold text-neutral-800">
-            {deal.productName}
-          </span>
-        </nav>
+          All deals
+        </Link>
+        <ChevronRight className="size-3 shrink-0 text-text-muted" aria-hidden="true" />
+        <Link
+          to={`/shops/${deal.shopId}`}
+          title={deal.shopName}
+          className="min-w-0 max-w-64 truncate hover:text-primary-700"
+        >
+          {deal.shopName}
+        </Link>
+        <ChevronRight className="size-3 shrink-0 text-text-muted" aria-hidden="true" />
+        <span
+          aria-current="page"
+          className="min-w-0 max-w-full truncate font-medium text-text-primary"
+          title={deal.productName}
+        >
+          {deal.productName}
+        </span>
+      </nav>
 
-        {/* Main 2-column layout (Image & Details) */}
-        <div className="grid items-start gap-8 lg:grid-cols-2">
-          {/* LEFT COLUMN: Image Gallery + Store Info + Product Description */}
-          <div>
-            {/* Main Product Image */}
-            <div className="rounded-2xl border border-neutral-200/90 bg-white p-4 shadow-2xs">
-              <div className="aspect-square w-full overflow-hidden rounded-xl bg-neutral-100">
-                <img
-                  src={mainImage}
-                  alt={deal.productName}
-                  className="h-full w-full object-cover transition-all duration-300 hover:scale-105"
-                  onError={(e) => {
-                    e.currentTarget.src = fallbackImg;
-                  }}
-                />
-              </div>
-
-              {/* Gallery Thumbnails */}
-              {galleryImages.length > 1 && (
-                <div className="mt-4 flex gap-2.5 overflow-x-auto pb-1">
-                  {galleryImages.map((img, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setActiveImgUrl(img);
-                        const matchedVar = deal.variants.find(
-                          (v) => v.imageUrl === img,
-                        );
-                        if (matchedVar) {
-                          setSelectedVariant(matchedVar);
-                          if (matchedVar.attributes) {
-                            setSelectedAttributes({ ...matchedVar.attributes });
-                          }
-                        }
-                      }}
-                      className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 p-0 transition-all cursor-pointer ${
-                        img === mainImage
-                          ? "border-emerald-600 ring-2 ring-emerald-500/25"
-                          : "border-transparent opacity-70 hover:opacity-100 hover:border-neutral-300"
-                      }`}
-                    >
-                      <img
-                        src={img}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = fallbackImg;
-                        }}
-                      />
-                    </button>
-                  ))}
-                </div>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <Card
+          aria-label="Product gallery"
+          className="min-w-0 !p-3 sm:!p-4 lg:col-start-1 lg:row-start-1"
+        >
+          <div className="relative overflow-hidden rounded-md">
+            <MediaImage
+              src={mainImage}
+              alt={deal.productName}
+              loading="eager"
+              className="aspect-[4/3] w-full"
+            />
+            <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-2">
+              <Badge tone="warning" className="bg-accent-100 font-semibold">
+                <Flame className="size-3" aria-hidden="true" />
+                Flash deal
+              </Badge>
+              {discountPercent > 0 && (
+                <Badge tone="primary" className="bg-bg-surface font-semibold">
+                  Save {Math.round(discountPercent)}%
+                </Badge>
               )}
-            </div>
-
-            {/* Store Information Card */}
-            <div className="mt-5 rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-2xs">
-              <div className="flex items-center gap-3.5">
-                <Link to={`/shops/${deal.shopId}`} className="shrink-0">
-                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-emerald-50 text-emerald-700">
-                    {deal.shopLogoUrl ? (
-                      <img
-                        src={deal.shopLogoUrl}
-                        alt={deal.shopName}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <Store size={22} />
-                    )}
-                  </div>
-                </Link>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Link
-                      to={`/shops/${deal.shopId}`}
-                      className="text-base font-bold text-neutral-900 hover:text-emerald-700 hover:underline"
-                    >
-                      {deal.shopName}
-                    </Link>
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
-                      Open
-                    </span>
-                  </div>
-
-                  <div className="mt-1 flex items-center gap-1.5 text-xs text-neutral-500">
-                    <span className="flex items-center gap-0.5 font-bold text-amber-500">
-                      <Star size={12} className="fill-amber-400 text-amber-400" />
-                      4.8
-                    </span>
-                    {deal.distanceInKm !== undefined && deal.distanceInKm !== null && (
-                      <>
-                        <span>·</span>
-                        <span>{deal.distanceInKm} km away</span>
-                      </>
-                    )}
-                    <span>·</span>
-                    <span>128 reviews</span>
-                  </div>
-                </div>
-
-                <Link
-                  to={`/shops/${deal.shopId}`}
-                  className="ml-auto shrink-0 whitespace-nowrap text-xs font-bold text-emerald-700 hover:underline"
-                >
-                  View Store
-                </Link>
-              </div>
-            </div>
-
-            {/* Product Description */}
-            <div className="mt-5 rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-2xs">
-              <h2 className="mb-3 text-base font-extrabold text-neutral-900">
-                Product Description
-              </h2>
-
-              {deal.categoryName && (
-                <span className="mb-3 inline-block rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                  {deal.categoryName}
-                </span>
-              )}
-
-              <p className="m-0 text-xs sm:text-sm leading-relaxed text-neutral-600">
-                {deal.description ||
-                  "Delicious, freshly prepared food every day. Save money and join hands to reduce food waste with SaveBite!"}
-              </p>
             </div>
           </div>
+          {galleryImages.length > 1 && (
+            <div role="group" aria-label="Product photos" className="mt-3 flex flex-wrap gap-2">
+              {galleryImages.map((img, idx) => (
+                <Button
+                  key={img}
+                  variant="secondary"
+                  aria-label={`View product photo ${idx + 1}`}
+                  aria-pressed={img === mainImage}
+                  onClick={() => {
+                    setActiveImgUrl(img);
+                    const matchedVar = deal.variants.find((v) => v.imageUrl === img);
+                    if (matchedVar) {
+                      setSelectedVariant(matchedVar);
+                      if (matchedVar.attributes)
+                        setSelectedAttributes({ ...matchedVar.attributes });
+                    }
+                  }}
+                  className="size-16 overflow-hidden !p-0 aria-pressed:border-primary-700 aria-pressed:ring-2 aria-pressed:ring-primary-200"
+                >
+                  <MediaImage
+                    src={img}
+                    alt=""
+                    showFallbackLabel={false}
+                    className="h-full w-full"
+                  />
+                </Button>
+              ))}
+            </div>
+          )}
+          <p className="mt-3 flex items-center gap-2 text-caption text-text-secondary">
+            <Leaf className="size-4 shrink-0 text-primary-700" aria-hidden="true" />
+            Discover more taste. Leave less waste.
+          </p>
+        </Card>
 
-          {/* RIGHT COLUMN: Sticky Buy Box & Attribute Selection */}
-          <aside className="sticky top-20 rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-xs">
-            {deal.categoryName && (
-              <span className="mb-2 inline-block rounded-md bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                {deal.categoryName}
-              </span>
-            )}
-
-            <h1 className="text-xl font-bold leading-snug text-neutral-900">
+        <Card
+          aria-label="Choose your deal"
+          className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1 lg:row-span-3"
+        >
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {deal.categoryName && (
+                <Badge tone="info" className="max-w-full bg-secondary-50 text-secondary-700">
+                  <span className="truncate" title={deal.categoryName}>
+                    {deal.categoryName}
+                  </span>
+                </Badge>
+              )}
+              <Badge tone={isPurchasable ? "primary" : "neutral"}>
+                {isPurchasable ? "Available now" : unpurchasableReason}
+              </Badge>
+            </div>
+            <h1 className="text-page font-semibold text-text-primary [overflow-wrap:anywhere]">
               {deal.productName}
             </h1>
+            <div className="flex min-w-0 flex-col items-start gap-1">
+              <Link
+                to={`/shops/${deal.shopId}`}
+                className="inline-flex min-h-8 max-w-full items-center gap-2 text-body font-medium text-text-secondary hover:text-primary-700 hover:underline"
+              >
+                <Store className="size-4 shrink-0 text-primary-700" aria-hidden="true" />
+                <span className="truncate" title={deal.shopName}>
+                  {deal.shopName}
+                </span>
+                <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+              </Link>
 
-            {/* Star rating */}
-            <div className="mt-1.5 mb-3.5 flex items-center gap-1.5 text-xs text-neutral-500">
-              <div className="flex items-center gap-0.5 text-amber-500">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    size={13}
-                    className="fill-amber-400 text-amber-400"
-                  />
-                ))}
-              </div>
-              <span className="font-bold text-neutral-800">4.7</span>
-              <a href="#reviews" className="hover:text-emerald-700 hover:underline">
-                (128 reviews)
+              <a
+                href="#reviews"
+                className="inline-flex min-h-8 max-w-full flex-wrap items-center gap-2 rounded-md border border-accent-100 bg-accent-50 px-2 py-1 text-caption text-text-secondary transition-colors hover:bg-accent-100 hover:text-text-primary"
+              >
+                <Star className="size-4 shrink-0 text-accent-700" aria-hidden="true" />
+                {reviewSummary && reviewSummary.totalReviews > 0 ? (
+                  <>
+                    <strong className="tabular-nums text-text-primary">
+                      {reviewSummary.averageRating.toFixed(1)}
+                    </strong>
+                    <span>Store rating · {reviewSummary.totalReviews} reviews</span>
+                  </>
+                ) : (
+                  <span>
+                    {reviewSummary ? "No reviews yet · View reviews" : "Read customer reviews"}
+                  </span>
+                )}
               </a>
             </div>
+          </div>
 
-            {/* Flash Deal countdown timer */}
-            <div
-              className={`mb-3.5 flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs ${
-                isEnded
-                  ? "border border-neutral-200 bg-neutral-100 text-neutral-700"
-                  : "border border-amber-200/80 bg-amber-50/70 text-amber-900"
-              }`}
+          <div
+            className={`flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 ${isOrderingWindowOpen ? "border-accent-100 bg-accent-50 text-accent-700" : "border-border-default bg-neutral-100 text-text-secondary"}`}
+          >
+            <span className="flex items-center gap-2 text-body font-medium">
+              <Clock3 className="size-4" aria-hidden="true" />
+              {timingLabel}
+            </span>
+            <span
+              className="text-section font-semibold tabular-nums"
+              aria-label={`${timingLabel}: ${timingValue}`}
             >
-              <span className="flex items-center gap-1.5 font-medium text-amber-800">
-                <Clock size={15} className="text-amber-600" />
-                Ends in
-              </span>
-              <span className="font-bold tabular-nums text-amber-700">
-                {timeLeft}
-              </span>
-            </div>
+              {timingValue}
+            </span>
+          </div>
 
-            {/* Pricing & Discount */}
-            <div className="mb-1 flex flex-wrap items-baseline gap-2.5">
-              <span className="text-2xl font-bold text-emerald-700">
-                {formatVnd(currentPrice)}
-              </span>
+          <div>
+            <div className="flex flex-wrap items-baseline gap-3 tabular-nums">
+              <span className="text-3xl font-bold text-primary-700">{formatVnd(currentPrice)}</span>
               {originalPrice > currentPrice && (
-                <span className="text-sm text-neutral-400 line-through">
-                  {formatVnd(originalPrice)}
-                </span>
+                <del className="text-body text-text-muted">{formatVnd(originalPrice)}</del>
               )}
               {discountPercent > 0 && (
-                <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold text-white shadow-2xs">
-                  -{Math.round(discountPercent)}%
-                </span>
+                <Badge tone="warning">Save {Math.round(discountPercent)}%</Badge>
               )}
             </div>
-
-            <p className="mb-4 text-xs text-neutral-400">
-              Includes Flash Deal discount, applicable for in-store pickup
+            <p className="mt-2 text-caption text-text-secondary">
+              Price per item · In-store pickup
             </p>
+          </div>
 
-            {/* Attribute Groups (Size, Spice Level...) */}
-            {attributeGroups.length > 0 ? (
-              <div className="mb-4 space-y-3">
-                {attributeGroups.map((group) => {
-                  const currentValue = selectedAttributes[group.name];
-                  return (
-                    <div key={group.name}>
-                      <label className="mb-1.5 block text-xs font-semibold text-neutral-700">
-                        {group.name}
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {group.values.map((val) => {
-                          const isSelected = currentValue === val;
-                          return (
-                            <button
-                              key={val}
-                              type="button"
-                              onClick={() =>
-                                handleSelectAttribute(group.name, val)
-                              }
-                              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition cursor-pointer ${
-                                isSelected
-                                    ? "border border-emerald-600 bg-emerald-50/80 text-emerald-800 shadow-2xs"
-                                  : "border border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50"
-                              }`}
-                            >
-                              {val}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : deal.variants.length > 1 ? (
-              /* Fallback if only generic variants are available */
-              <div className="mb-4">
-                <label className="mb-1.5 block text-xs font-semibold text-neutral-700">
-                  Options
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {deal.variants.map((v) => {
-                    const isSelected = activeVariant?.id === v.id;
-                    const vSoldOut = v.availableQuantity <= 0;
-                    return (
-                      <button
-                        key={v.id}
-                        type="button"
-                        disabled={vSoldOut}
-                        onClick={() => handleSelectVariantDirect(v)}
-                        className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition cursor-pointer ${
-                          isSelected
-                            ? "border border-emerald-600 bg-emerald-50/80 text-emerald-800 shadow-2xs"
-                            : vSoldOut
-                            ? "border border-neutral-200 bg-neutral-100 text-neutral-400 cursor-not-allowed"
-                            : "border border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50"
-                        }`}
+          {attributeGroups.length > 0 ? (
+            <div className="space-y-3 border-t border-border-default pt-4">
+              {attributeGroups.map((group) => (
+                <fieldset key={group.name} className="min-w-0">
+                  <legend className="mb-2 text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
+                    {group.name}
+                  </legend>
+                  <div className="flex flex-wrap gap-2">
+                    {group.values.map((val) => (
+                      <Button
+                        key={val}
+                        variant="secondary"
+                        aria-pressed={selectedAttributes[group.name] === val}
+                        onClick={() => handleSelectAttribute(group.name, val)}
+                        className="min-h-11 max-w-full whitespace-normal text-left aria-pressed:border-primary-700 aria-pressed:bg-primary-50 aria-pressed:text-primary-700 [overflow-wrap:anywhere]"
                       >
-                        {v.variantName || v.sku || "Default"}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-
-            {/* Sales Progress Bar */}
-            <div className="mb-4">
-              <div className="mb-1.5 flex items-center justify-between text-xs text-neutral-500">
-                <span>
-                  Sold {soldQty}/{totalQty}
-                </span>
-                <span className="font-semibold text-amber-600">
-                  {remainingQty <= 10
-                    ? `Only ${remainingQty} left`
-                    : `${remainingQty} left`}
-                </span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
-                <div
-                  className="h-full rounded-full bg-amber-500 transition-all duration-300"
-                  style={{ width: `${soldPercent}%` }}
-                />
-              </div>
+                        {val}
+                      </Button>
+                    ))}
+                  </div>
+                </fieldset>
+              ))}
             </div>
+          ) : deal.variants.length > 1 ? (
+            <fieldset className="min-w-0 border-t border-border-default pt-4">
+              <legend className="mb-2 text-body font-semibold text-text-primary">Options</legend>
+              <div className="flex flex-wrap gap-2">
+                {deal.variants.map((v) => (
+                  <Button
+                    key={v.id}
+                    variant="secondary"
+                    disabled={v.availableQuantity <= 0}
+                    aria-pressed={activeVariant?.id === v.id}
+                    onClick={() => handleSelectVariantDirect(v)}
+                    className="min-h-11 max-w-full whitespace-normal aria-pressed:border-primary-700 aria-pressed:bg-primary-50 aria-pressed:text-primary-700 [overflow-wrap:anywhere]"
+                  >
+                    {v.variantName || v.sku || "Default"}
+                  </Button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
 
-            {/* Quantity Selector */}
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-semibold text-neutral-800">
-                Quantity
+          <div className="space-y-2">
+            <p className="flex flex-wrap justify-between gap-2 text-caption text-text-secondary">
+              <span>
+                {soldQty} of {totalQty} sold
               </span>
-              <div className="flex items-center overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-2xs">
-                <button
-                  type="button"
+              <span
+                className={`font-semibold ${remainingQty > 0 ? "text-primary-700" : "text-text-secondary"}`}
+              >
+                {remainingQty > 0 && remainingQty <= 10
+                  ? `Only ${remainingQty} left`
+                  : `${remainingQty} left`}
+              </span>
+            </p>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-100">
+              <div
+                className="h-full rounded-full bg-primary-400"
+                style={{ width: `${soldPercent}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 border-t border-border-default pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-body font-semibold text-text-primary">Quantity</span>
+              <div
+                role="group"
+                aria-label="Quantity"
+                className="flex items-center gap-1 rounded-md border border-border-default bg-bg-surface p-1"
+              >
+                <IconButton
+                  aria-label="Decrease quantity"
+                  className="size-11"
                   disabled={quantity <= 1 || !isPurchasable}
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="flex h-8 w-8 items-center justify-center bg-white text-sm font-bold text-neutral-500 transition hover:bg-neutral-100 disabled:opacity-30 cursor-pointer"
+                  onClick={() => {
+                    const next = Math.max(1, quantity - 1);
+                    setQuantity(next);
+                    setQuantityInput(String(next));
+                  }}
                 >
-                  −
-                </button>
-                <span className="w-8 text-center text-xs font-bold text-neutral-800">
-                  {quantity}
-                </span>
-                <button
-                  type="button"
+                  <Minus className="size-4" aria-hidden="true" />
+                </IconButton>
+                <input
+                  type="number"
+                  min={1}
+                  max={activeVariant?.availableQuantity ?? 99}
+                  value={quantityInput}
+                  disabled={customerSuspended || !isPurchasable}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === "") {
+                      setQuantityInput("");
+                      setQuantity(1);
+                      return;
+                    }
+                    const val = parseInt(raw, 10);
+                    if (Number.isNaN(val)) return;
+                    const max = activeVariant?.availableQuantity ?? 99;
+                    if (val > max) {
+                      setQuantity(max);
+                      setQuantityInput(String(max));
+                    } else if (val < 1) {
+                      setQuantity(1);
+                      setQuantityInput(raw);
+                    } else {
+                      setQuantity(val);
+                      setQuantityInput(raw);
+                    }
+                  }}
+                  onBlur={() => {
+                    const max = activeVariant?.availableQuantity ?? 99;
+                    const val = parseInt(quantityInput, 10);
+                    const clamped = Number.isNaN(val) || val < 1 ? 1 : Math.min(val, max);
+                    setQuantity(clamped);
+                    setQuantityInput(String(clamped));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  aria-label="Selected quantity"
+                  className="w-14 rounded-md border border-border-default bg-white py-1 text-center font-semibold tabular-nums text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+                />
+                <IconButton
+                  aria-label="Increase quantity"
+                  className="size-11"
                   disabled={
                     !isPurchasable ||
-                    (activeVariant && quantity >= activeVariant.availableQuantity)
+                    Boolean(activeVariant && quantity >= activeVariant.availableQuantity)
                   }
-                  onClick={() => setQuantity((q) => q + 1)}
-                  className="flex h-8 w-8 items-center justify-center bg-white text-sm font-bold text-neutral-500 transition hover:bg-neutral-100 disabled:opacity-30 cursor-pointer"
+                  onClick={() => {
+                    const max = activeVariant?.availableQuantity ?? 99;
+                    const next = Math.min(quantity + 1, max);
+                    setQuantity(next);
+                    setQuantityInput(String(next));
+                  }}
                 >
-                  +
-                </button>
+                  <Plus className="size-4" aria-hidden="true" />
+                </IconButton>
               </div>
             </div>
-
-            {/* Success Toast */}
             {addedSuccess && (
-              <div className="mb-3 flex items-center gap-2 rounded-xl bg-emerald-50 p-2.5 text-xs font-semibold text-emerald-800 border border-emerald-200">
-                <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-                Added {quantity} item(s) to cart successfully!
-              </div>
+              <p
+                role="status"
+                className="flex items-center gap-2 rounded-md border border-primary-200 bg-primary-50 p-3 text-body font-medium text-primary-700"
+              >
+                <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+                Added to your cart.
+                <Link to="/cart" className="ml-auto shrink-0 underline">
+                  View cart
+                </Link>
+              </p>
             )}
-
-            {/* Add to Cart Button */}
-            <button
-              type="button"
-              disabled={!isPurchasable || isAdding}
+            <Button
+              size="lg"
+              className="w-full whitespace-normal"
+              loading={isAdding}
+              disabled={customerSuspended || !isPurchasable}
               onClick={() => void handleAddToCart()}
-              className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-center text-sm font-bold shadow-sm transition-all cursor-pointer ${
-                !isPurchasable
-                  ? "cursor-not-allowed bg-neutral-200 text-neutral-500 shadow-none"
-                  : "bg-emerald-600 text-white shadow-emerald-600/20 hover:bg-emerald-700 active:scale-[0.99]"
-              }`}
             >
-              <ShoppingBag size={17} />
+              <ShoppingBag className="size-5 shrink-0" aria-hidden="true" />
               <span>
-                {isAdding ? "Adding…" : !isPurchasable
-                  ? unpurchasableReason
-                  : `Add to Cart · ${formatVnd(currentPrice * quantity)}`}
+                {customerSuspended
+                  ? "Customer features suspended"
+                  : isAdding
+                    ? "Adding…"
+                    : !isPurchasable
+                      ? unpurchasableReason
+                      : `Add to cart · ${formatVnd(currentPrice * quantity)}`}
               </span>
-            </button>
-
-            {/* Closing time notice */}
-            <p className="mt-2.5 text-center text-[11px] text-neutral-400">
-              Store closes at {formatTime(deal.shopClosingTime)} — please pick up before closing
+            </Button>
+            {!isPurchasable && (
+              <p className="text-body text-text-secondary">
+                {deal.variants.length
+                  ? "This selection isn't available to order right now. You can explore other nearby deals."
+                  : "There are no portions available for this deal."}
+              </p>
+            )}
+            <p className="flex items-start justify-center gap-2 text-caption text-text-secondary">
+              <Package className="size-4 shrink-0 text-secondary-700" aria-hidden="true" />
+              Pick up before {formatTime(deal.shopClosingTime)}
             </p>
-          </aside>
-        </div>
-
-        {/* Customer Reviews Section */}
-        <section
-          id="reviews"
-          className="mt-8 rounded-2xl border border-neutral-200/90 bg-white p-6 shadow-2xs"
-        >
-          <h2 className="text-base font-extrabold text-neutral-900 mb-2">
-            Customer Reviews
-          </h2>
-          <div className="py-8 text-center text-sm text-neutral-500 border border-dashed border-neutral-200 rounded-xl">
-            No reviews for this item yet.
           </div>
-        </section>
-      </main>
+        </Card>
+
+        <Card className="min-w-0 space-y-3 lg:col-start-1 lg:row-start-2">
+          <h2 className="flex items-center gap-2 text-section font-semibold text-text-primary">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
+              <Leaf className="size-4" aria-hidden="true" />
+            </span>
+            About this bite
+          </h2>
+          <p className="whitespace-pre-line text-body leading-relaxed text-text-secondary [overflow-wrap:anywhere]">
+            {deal.description || "The store hasn't added a description for this item yet."}
+          </p>
+        </Card>
+
+        <Card className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-3">
+          <div className="grid grid-cols-[48px_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[56px_minmax(0,1fr)] sm:gap-4">
+            <MediaImage
+              src={deal.shopLogoUrl}
+              alt=""
+              fallbackIcon={Store}
+              showFallbackLabel={false}
+              className="size-12 rounded-lg border border-border-default sm:size-14"
+            />
+            <div className="min-w-0 space-y-3">
+              <div className="space-y-1">
+                <p className="text-caption text-text-secondary">Your pickup store</p>
+                <h2 className="text-section font-semibold leading-snug [overflow-wrap:anywhere]">
+                  <Link
+                    to={`/shops/${deal.shopId}`}
+                    className="rounded-sm text-primary-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
+                  >
+                    {deal.shopName}
+                  </Link>
+                </h2>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  to={`/shops/${deal.shopId}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 shadow-sm transition hover:bg-primary-50"
+                >
+                  <Store className="size-3.5" aria-hidden="true" />
+                  <span>Visit Store</span>
+                </Link>
+                <div className="w-full max-w-48 sm:w-auto">
+                  <ShopFollowControls compact shopId={deal.shopId} shopName={deal.shopName} />
+                </div>
+              </div>
+            </div>
+          </div>
+          <p className="flex items-start gap-2 text-body text-text-secondary">
+            <MapPin className="mt-1 size-4 shrink-0 text-secondary-700" aria-hidden="true" />
+            <span className="min-w-0 [overflow-wrap:anywhere]">
+              {deal.shopAddress || "Pickup address not provided."}
+              {deal.distanceInKm != null && (
+                <span className="mt-1 block text-caption">{deal.distanceInKm} km away</span>
+              )}
+            </span>
+          </p>
+          <dl className="space-y-3 rounded-md bg-secondary-50 p-4 text-body">
+            <div className="flex flex-wrap justify-between gap-2">
+              <dt className="text-secondary-700">Order before</dt>
+              <dd className="font-medium text-text-primary">{formatTime(deal.orderEndTime)}</dd>
+            </div>
+            <div className="flex flex-wrap justify-between gap-2">
+              <dt className="text-secondary-700">Store closes</dt>
+              <dd className="font-medium text-text-primary">{formatTime(deal.shopClosingTime)}</dd>
+            </div>
+          </dl>
+        </Card>
+      </div>
+      <DealStoreReviews
+        shopId={deal.shopId}
+        shopName={deal.shopName}
+        onSummary={setReviewSummary}
+      />
     </div>
   );
 }

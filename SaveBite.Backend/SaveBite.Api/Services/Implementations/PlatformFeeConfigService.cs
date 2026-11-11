@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SaveBite.Backend.Constants;
 using Microsoft.Extensions.Logging;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -12,6 +13,7 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
 {
+    private readonly IAdminAuditWriter _audit;
     private static readonly TimeSpan EffectiveFromTolerance = TimeSpan.FromMinutes(1);
 
     private readonly IPlatformFeeConfigRepository _repository;
@@ -21,8 +23,9 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
     public PlatformFeeConfigService(
         IPlatformFeeConfigRepository repository,
         TimeProvider timeProvider,
-        ILogger<PlatformFeeConfigService> logger)
+        ILogger<PlatformFeeConfigService> logger, IAdminAuditWriter audit)
     {
+        _audit = audit;
         _repository = repository;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -110,14 +113,14 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
                     Id = Guid.NewGuid(),
                     ActorUserId = adminId,
                     ActorType = AuditActorType.User,
-                    Action = "UpdateScheduledFeeConfiguration",
+                    Action = AuditActionTypes.UpdateScheduledFeeConfiguration,
                     TargetType = "PlatformFeeConfig",
                     TargetId = existingUpcoming.Id,
                     OldValuesJson = JsonSerializer.Serialize(new { FeeRate = oldRate, EffectiveFrom = oldEffective }),
                     NewValuesJson = JsonSerializer.Serialize(new { FeeRate = normalizedRate, EffectiveFrom = effectiveFrom }),
                     CreatedAt = now
                 };
-                _repository.AddAuditLog(audit);
+                _audit.Record(audit);
             }
             else
             {
@@ -144,14 +147,14 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
                     Id = Guid.NewGuid(),
                     ActorUserId = adminId,
                     ActorType = AuditActorType.User,
-                    Action = "CreateScheduledFeeConfiguration",
+                    Action = AuditActionTypes.CreateScheduledFeeConfiguration,
                     TargetType = "PlatformFeeConfig",
                     TargetId = resultConfig.Id,
                     OldValuesJson = null,
                     NewValuesJson = JsonSerializer.Serialize(new { FeeRate = normalizedRate, EffectiveFrom = effectiveFrom }),
                     CreatedAt = now
                 };
-                _repository.AddAuditLog(audit);
+                _audit.Record(audit);
             }
         }
         else
@@ -205,7 +208,7 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
                 Id = Guid.NewGuid(),
                 ActorUserId = adminId,
                 ActorType = AuditActorType.User,
-                Action = "UpdateFeeConfiguration",
+                Action = AuditActionTypes.UpdateFeeConfiguration,
                 TargetType = "PlatformFeeConfig",
                 TargetId = resultConfig.Id,
                 OldValuesJson = currentConfig == null
@@ -214,7 +217,7 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
                 NewValuesJson = JsonSerializer.Serialize(new { resultConfig.FeeRate, resultConfig.EffectiveFrom }),
                 CreatedAt = now
             };
-            _repository.AddAuditLog(audit);
+            _audit.Record(audit);
         }
 
         await _repository.SaveChangesAsync(ct);
@@ -263,13 +266,13 @@ public sealed class PlatformFeeConfigService : IPlatformFeeConfigService
             Id = Guid.NewGuid(),
             ActorUserId = adminId,
             ActorType = AuditActorType.User,
-            Action = "CancelScheduledFeeConfiguration",
+            Action = AuditActionTypes.CancelScheduledFeeConfiguration,
             TargetType = "PlatformFeeConfig",
             TargetId = config.Id,
             OldValuesJson = JsonSerializer.Serialize(new { config.FeeRate, config.EffectiveFrom }),
             CreatedAt = now
         };
-        _repository.AddAuditLog(audit);
+        _audit.Record(audit);
 
         await _repository.SaveChangesAsync(ct);
         _logger.LogInformation("Upcoming scheduled platform fee config {ConfigId} cancelled by Admin {AdminId}.", configId, adminId);

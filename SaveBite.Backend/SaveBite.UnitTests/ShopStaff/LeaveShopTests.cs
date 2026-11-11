@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Moq;
@@ -32,7 +33,7 @@ public class LeaveShopTests
     public LeaveShopTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopStaffService(_staffRepoMock.Object);
+        _service = new ShopStaffService(_staffRepoMock.Object, new Mock<IUserRepository>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IRealtimePublisher>().Object);
     }
 
     // =========================================================================
@@ -47,6 +48,7 @@ public class LeaveShopTests
             Id = _staffId,
             ShopId = _shopId,
             UserId = _userId,
+            Shop = new Shop { Id = _shopId, OwnerUserId = Guid.NewGuid(), Name = "Shop" },
             User = user,
             Status = ShopStaffStatus.Active
         };

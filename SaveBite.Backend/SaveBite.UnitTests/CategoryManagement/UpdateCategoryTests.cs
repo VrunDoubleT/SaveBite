@@ -28,6 +28,7 @@ public class UpdateCategoryTests
     private readonly CategoryService _service;
     private readonly UpdateCategoryRequestValidator _validator = new();
 
+    private readonly Guid _adminId = Guid.NewGuid();
     private readonly Guid _existingCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private readonly Guid _nonExistentCategoryId = Guid.Parse("99999999-9999-9999-9999-999999999999");
 
@@ -36,6 +37,7 @@ public class UpdateCategoryTests
         _output = output;
         _service = new CategoryService(
             _categoryRepoMock.Object,
+            new Mock<IAdminAuditWriter>().Object,
             TimeProvider.System,
             _loggerMock.Object
         );
@@ -80,7 +82,7 @@ public class UpdateCategoryTests
             .Returns(Task.CompletedTask);
 
         // Act
-        await _service.UpdateCategoryAsync(_existingCategoryId, request);
+        await _service.UpdateCategoryAsync(_adminId, _existingCategoryId, request);
 
         // Assert & Log
         PrintSuccess("TCID01", "Category updated successfully");
@@ -111,7 +113,7 @@ public class UpdateCategoryTests
             .ReturnsAsync((Category?)null);
 
         // Act
-        var act = () => _service.UpdateCategoryAsync(_nonExistentCategoryId, request);
+        var act = () => _service.UpdateCategoryAsync(_adminId, _nonExistentCategoryId, request);
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -146,7 +148,7 @@ public class UpdateCategoryTests
             .ReturnsAsync(true);
 
         // Act
-        var act = () => _service.UpdateCategoryAsync(_existingCategoryId, request);
+        var act = () => _service.UpdateCategoryAsync(_adminId, _existingCategoryId, request);
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<AppException>();

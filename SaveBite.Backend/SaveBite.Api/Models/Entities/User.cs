@@ -1,3 +1,4 @@
+using SaveBite.Backend.Audit;
 using SaveBite.Backend.Models.Enums;
 
 namespace SaveBite.Backend.Models.Entities;
@@ -7,6 +8,7 @@ public class User
     public Guid Id { get; set; }
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
+    [AuditIgnore]
     public string PasswordHash { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string? AvatarUrl { get; set; }
@@ -32,7 +34,7 @@ public class User
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public ICollection<NoShowPenalty> NoShowPenalties { get; set; } = new List<NoShowPenalty>();
-    public ICollection<TrustScoreHistory> TrustScoreHistories { get; set; } = new List<TrustScoreHistory>();
+    public ICollection<TrustProgressHistory> TrustProgressHistories { get; set; } = new List<TrustProgressHistory>();
     public ICollection<UserTrustLevelHistory> TrustLevelHistories { get; set; } = new List<UserTrustLevelHistory>();
     public ICollection<UserRoleChangeLog> RoleChangeLogs { get; set; } = new List<UserRoleChangeLog>();
     public Shop? OwnedShop { get; set; }
@@ -54,4 +56,5 @@ public class User
     public ICollection<ProductFeedback> ProductFeedbacks { get; set; } = new List<ProductFeedback>();
     public ICollection<ProductFeedbackReply> ProductFeedbackReplies { get; set; } = new List<ProductFeedbackReply>();
     public ICollection<ProductFeedbackModerationLog> ModeratedProductFeedbacks { get; set; } = new List<ProductFeedbackModerationLog>();
+    public ICollection<TrustLevelHistory> ChangedTrustLevelHistories { get; set; } = new List<TrustLevelHistory>();
 }

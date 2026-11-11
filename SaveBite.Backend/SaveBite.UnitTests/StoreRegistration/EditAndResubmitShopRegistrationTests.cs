@@ -44,7 +44,10 @@ public class EditAndResubmitShopRegistrationTests
             new CreateShopApplicationRequestValidator(),
             new ResubmitShopApplicationRequestValidator(),
             new ShopApplicationDocumentsValidator(),
-            new ShopApplicationLogoValidator()
+            new ShopApplicationLogoValidator(),
+            new Mock<INotificationQueue>().Object,
+            TestDbContextFactory.Create(),
+            new Mock<IAdminAuditWriter>().Object
         );
     }
 
@@ -73,9 +76,6 @@ public class EditAndResubmitShopRegistrationTests
         Longitude = 106.7025,
         OpeningTime = new TimeOnly(7, 30),
         ClosingTime = new TimeOnly(21, 30),
-        BankName = "Techcombank",
-        BankAccountNumber = "1234567890",
-        BankAccountHolder = "NGUYEN VAN A",
         PayosClientId = "new-client-id",
         PayosApiKey = "new-api-key",
         PayosChecksumKey = "new-checksum-key"
@@ -96,9 +96,6 @@ public class EditAndResubmitShopRegistrationTests
             Longitude = 106.7009,
             OpeningTime = new TimeOnly(8, 0),
             ClosingTime = new TimeOnly(22, 0),
-            BankName = "Vietcombank",
-            BankAccountNumber = "987654321",
-            BankAccountHolder = "NGUYEN VAN A",
             PayosClientId = "old-client-id",
             PayosApiKey = "old-api-key",
             PayosChecksumKey = "old-checksum-key",
@@ -378,8 +375,7 @@ public class EditAndResubmitShopRegistrationTests
     {
         // Arrange
         var request = CreateValidResubmitRequest();
-        request.OpeningTime = new TimeOnly(22, 0);
-        request.ClosingTime = new TimeOnly(8, 0); // Opening >= Closing
+        request.Name = ""; // Empty name
 
         // Act
         var act = () => _service.ResubmitAsync(_userId, request, null, null, Array.Empty<IFormFile>(), Array.Empty<string>());
@@ -387,7 +383,7 @@ public class EditAndResubmitShopRegistrationTests
         // Assert & Log
         var ex = await act.Should().ThrowAsync<ValidationException>();
         PrintException("UTCID09", ex.Which.Message);
-        ex.Which.Errors.Should().Contain(e => e.PropertyName == "OpeningTime" || e.PropertyName == "ClosingTime");
+        ex.Which.Errors.Should().Contain(e => e.PropertyName == "Name");
 
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }

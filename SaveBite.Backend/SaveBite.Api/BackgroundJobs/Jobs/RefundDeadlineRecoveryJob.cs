@@ -1,25 +1,32 @@
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
-using SaveBite.Backend.Models.Entities;
+using SaveBite.Backend.Helpers;
+using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Services.Interfaces;
 namespace SaveBite.Backend.BackgroundJobs.Jobs;
 
-public class RefundDeadlineRecoveryJob
+public sealed class RefundDeadlineRecoveryJob(IServiceScopeFactory scopes, TimeProvider clock, ILogger<RefundDeadlineRecoveryJob> logger)
 {
-    private readonly AppDbContext _db;
-    private readonly IRefundService _refunds;
-    public RefundDeadlineRecoveryJob(AppDbContext db, IRefundService refunds) { _db = db; _refunds = refunds; }
-    // Recover pre-existing confirmed requests in batches; each schedule is rechecked under the order lock.
-    public async Task ExecuteAsync(CancellationToken ct)
+    [DisableConcurrentExecution(600)]
+    public Task ExecuteAsync(CancellationToken ct)
     {
-        while (true)
+        var now = clock.GetUtcNow().UtcDateTime;
+        return RecoveryBatch.RunAsync(scopes, logger, "refund-deadline", db => db.Refunds.AsNoTracking()
+            .Where(f => (f.Status == RefundStatus.AwaitingCustomerDetails
+                         && (f.DeadlineJobId == null || (f.CustomerDetailsDeadlineAt ?? f.CreatedAt.AddHours(24)) <= now))
+                        || ((f.Status == RefundStatus.PendingVerification || f.Status == RefundStatus.AwaitingTransfer)
+                            && f.DestinationConfirmedAt != null
+                            && (f.DeadlineJobId == null || (f.ReviewDeadlineAt ?? f.DestinationConfirmedAt.Value.AddHours(24)) <= now)))
+            .Select(f => f.Id), async (sp, id) =>
         {
-            var ids = await _db.Refunds.AsNoTracking().Where(f => f.DeadlineJobId == null
-                && ((f.RefundType == RefundType.ShopCancellation && f.Status == RefundStatus.AwaitingCustomerDetails)
-                    || (f.DestinationConfirmedAt != null && (f.Status == RefundStatus.PendingVerification || f.Status == RefundStatus.AwaitingTransfer))))
-                .OrderBy(f => f.Id).Select(f => f.Id).Take(100).ToListAsync(ct);
-            if (ids.Count == 0) return;
-            foreach (var id in ids) await _refunds.EnsureDeadlineScheduledAsync(id, ct);
-        }
+            try { await sp.GetRequiredService<IRefundService>().EnsureDeadlineScheduledAsync(id, ct); }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            { logger.LogWarning(ex, "Refund {Id} schedule/notification repair failed; checking expiry independently.", id); }
+            var refund = await sp.GetRequiredService<AppDbContext>().Refunds.AsNoTracking().SingleOrDefaultAsync(f => f.Id == id, ct);
+            if (refund == null || !RefundRules.Active(refund.Status)) return;
+            if (RefundRules.Deadline(refund) is DateTime deadline && deadline <= clock.GetUtcNow().UtcDateTime)
+                await sp.GetRequiredService<RefundDeadlineJob>().ExecuteAsync(id, deadline, ct);
+        }, ct);
     }
 }

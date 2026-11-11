@@ -1,9 +1,15 @@
 using System.Text.Json;
-using SaveBite.Backend.Models.Common;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Constants;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Hubs;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Events;
 using SaveBite.Backend.Messaging.Interfaces;
+using SaveBite.Backend.Models.Common;
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
@@ -15,21 +21,36 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class ShopService : IShopService
 {
+    private readonly AppDbContext _db;
+    private readonly INotificationQueue _notifications;
     private readonly IShopRepository _shopRepository;
     private readonly IUserAddressRepository _userAddressRepository;
     private readonly ICloudinaryService _cloudinaryService;
-    private readonly IRabbitMqPublisher _publisher;
+    private readonly IAdminAuditWriter _audit;
+    private readonly IShopSuspensionCleanupService _suspensionCleanup;
+    private readonly IShopStatusEventService _shopStatusEvents;
+    private readonly IRealtimePublisher _realtime;
 
     public ShopService(
         IShopRepository shopRepository,
         IUserAddressRepository userAddressRepository,
         ICloudinaryService cloudinaryService,
-        IRabbitMqPublisher publisher)
+        IAdminAuditWriter audit,
+        INotificationQueue notifications,
+        AppDbContext db,
+        IShopSuspensionCleanupService suspensionCleanup,
+        IShopStatusEventService shopStatusEvents,
+        IRealtimePublisher realtime)
     {
+        _realtime = realtime;
+        _db = db;
+        _notifications = notifications;
         _shopRepository = shopRepository;
         _userAddressRepository = userAddressRepository;
         _cloudinaryService = cloudinaryService;
-        _publisher = publisher;
+        _audit = audit;
+        _suspensionCleanup = suspensionCleanup;
+        _shopStatusEvents = shopStatusEvents;
     }
 
     public async Task<ShopSummaryResponse> GetOwnerShopAsync(
@@ -42,13 +63,13 @@ public sealed class ShopService : IShopService
         return new ShopSummaryResponse(shop.Id, shop.Name);
     }
 
-    public async Task<PagedResult<NearbyShopResponse>> GetNearbyShopsAsync(
+    public async Task<NearbyShopsPagedResult> GetNearbyShopsAsync(
         NearbyShopsRequest request,
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
-        var page = request.Page <= 0 ? 1 : request.Page;
-        var pageSize = request.PageSize <= 0 ? 6 : request.PageSize;
+        var page = Math.Clamp(request.Page, 1, 100_000);
+        var pageSize = Math.Clamp(request.PageSize <= 0 ? 6 : request.PageSize, 1, 100);
 
         double userLat;
         double userLon;
@@ -68,17 +89,17 @@ public sealed class ShopService : IShopService
             }
             else
             {
-                return PagedResult<NearbyShopResponse>.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0);
+                return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
             }
         }
         else
         {
-            return PagedResult<NearbyShopResponse>.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0);
+            return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
         }
 
         var shops = await _shopRepository.GetActiveShopsAsync(request.Keyword, cancellationToken);
         if (!shops.Any())
-            return PagedResult<NearbyShopResponse>.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0);
+            return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
 
         var nowTime = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
 
@@ -95,23 +116,37 @@ public sealed class ShopService : IShopService
             matchingShops.Add((shop, distance, isOpen));
         }
 
+        if (!matchingShops.Any())
+            return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
+
+        var allMatchingShopIds = matchingShops.Select(x => x.Shop.Id).ToList();
+        var allDealCounts = await _shopRepository.GetActiveDealCountsForShopsAsync(allMatchingShopIds, cancellationToken);
+
+        var allStoresCount = matchingShops.Count;
+        var flashDealsStoresCount = matchingShops.Count(x => allDealCounts.TryGetValue(x.Shop.Id, out var count) && count > 0);
+
+        if (request.IsFlashDealsOnly)
+        {
+            matchingShops = matchingShops.Where(x => allDealCounts.TryGetValue(x.Shop.Id, out var count) && count > 0).ToList();
+        }
+
         var totalItems = matchingShops.Count;
         var pagedShops = matchingShops
             .OrderBy(x => x.Distance)
+            .ThenBy(x => x.Shop.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToList();
 
         var pagedShopIds = pagedShops.Select(x => x.Shop.Id).ToList();
         var reviewsStats = await _shopRepository.GetReviewsStatsForShopsAsync(pagedShopIds, cancellationToken);
-        var dealCounts = await _shopRepository.GetActiveDealCountsForShopsAsync(pagedShopIds, cancellationToken);
 
         var results = new List<NearbyShopResponse>();
         foreach (var item in pagedShops)
         {
             var shop = item.Shop;
             reviewsStats.TryGetValue(shop.Id, out var stat);
-            dealCounts.TryGetValue(shop.Id, out var dealCount);
+            allDealCounts.TryGetValue(shop.Id, out var dealCount);
 
             results.Add(new NearbyShopResponse
             {
@@ -133,12 +168,13 @@ public sealed class ShopService : IShopService
             });
         }
 
-        return PagedResult<NearbyShopResponse>.Create(results, page, pageSize, totalItems);
+        return NearbyShopsPagedResult.Create(results, page, pageSize, totalItems, allStoresCount, flashDealsStoresCount);
     }
 
     public async Task<ShopProfileResponse> GetShopProfileAsync(
         Guid shopId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? viewerId = null)
     {
         var shop = await _shopRepository.GetActiveShopByIdAsync(shopId, cancellationToken);
         if (shop == null)
@@ -149,6 +185,14 @@ public sealed class ShopService : IShopService
 
         return new ShopProfileResponse
         {
+            OwnerUserId = shop.OwnerUserId,
+            FollowerCount = await _db.Set<ShopFollow>().CountAsync(f => f.ShopId == shop.Id && f.CustomerId != shop.OwnerUserId, cancellationToken),
+            CurrentUserFollow = viewerId.HasValue && viewerId != shop.OwnerUserId
+                ? await _db.Set<ShopFollow>().AsNoTracking().Where(f => f.ShopId == shop.Id && f.CustomerId == viewerId.Value)
+                    .Select(f => new ShopFollowResponse(shop.Id, shop.Name, shop.LogoUrl, shop.AddressLine,
+                        shop.Status, f.NotificationStatus, f.FollowedAt)).SingleOrDefaultAsync(cancellationToken)
+                : null,
+            SuspendedForPlatformFees = shop.SuspendedForPlatformFees,
             Id = shop.Id,
             Name = shop.Name,
             Description = shop.Description,
@@ -180,10 +224,10 @@ public sealed class ShopService : IShopService
 
         var (avgRating, totalReviews, breakdown) = await _shopRepository.GetShopReviewStatsAsync(shopId, cancellationToken);
         var (items, totalItems) = await _shopRepository.GetPagedStoreReviewsAsync(
-            shopId, 
-            request.Rating, 
-            request.Page, 
-            request.PageSize, 
+            shopId,
+            request.Rating,
+            request.Page,
+            request.PageSize,
             cancellationToken);
 
         var reviewResponses = items.Select(f => new StoreReviewResponse
@@ -224,22 +268,26 @@ public sealed class ShopService : IShopService
         const double r = 6371.0;
         var dLat = (Math.PI / 180.0) * (lat2 - lat1);
         var dLon = (Math.PI / 180.0) * (lon2 - lon1);
+
         var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-                Math.Cos((Math.PI / 180.0) * lat1) * Math.Cos((Math.PI / 180.0) * lat2) *
+                Math.Cos((Math.PI / 180.0) * lat1) *
+                Math.Cos((Math.PI / 180.0) * lat2) *
                 Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
         var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+
         return Math.Round(r * c, 2);
     }
 
     private static bool CheckIsOpen(TimeOnly? opening, TimeOnly? closing, TimeOnly now)
     {
         if (!opening.HasValue || !closing.HasValue) return true;
+        if (opening.Value == closing.Value) return true; // 00:00 - 00:00 or same opening/closing means open 24/7 (full day)
         return opening.Value <= closing.Value
             ? now >= opening.Value && now <= closing.Value
             : now >= opening.Value || now <= closing.Value;
     }
-    // ===== iss-12: payment config =====
 
+    //  payment config =====
     public async Task<ShopPaymentConfigResponse> GetOwnerPaymentConfigAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
         var paymentConfig = await _shopRepository.GetPaymentConfigByOwnerUserIdAsync(ownerUserId, cancellationToken);
@@ -256,9 +304,10 @@ public sealed class ShopService : IShopService
         if (paymentConfig == null)
             throw AppException.NotFound("Shop payment configuration not found.");
 
-        paymentConfig.BankName = string.IsNullOrWhiteSpace(request.BankName) ? null : request.BankName.Trim();
-        paymentConfig.BankAccountNumber = string.IsNullOrWhiteSpace(request.BankAccountNumber) ? null : request.BankAccountNumber.Trim();
-        paymentConfig.BankAccountHolder = string.IsNullOrWhiteSpace(request.BankAccountHolder) ? null : request.BankAccountHolder.Trim();
+        var clientChanged = !string.IsNullOrWhiteSpace(request.PayosClientId) && paymentConfig.PayosClientId != request.PayosClientId.Trim();
+        var apiKeyChanged = !string.IsNullOrWhiteSpace(request.PayosApiKey) && paymentConfig.PayosApiKey != request.PayosApiKey.Trim();
+        var checksumChanged = !string.IsNullOrWhiteSpace(request.PayosChecksumKey) && paymentConfig.PayosChecksumKey != request.PayosChecksumKey.Trim();
+        if (!clientChanged && !apiKeyChanged && !checksumChanged) return MapPaymentConfigResponse(paymentConfig);
 
         if (!string.IsNullOrWhiteSpace(request.PayosClientId))
             paymentConfig.PayosClientId = request.PayosClientId.Trim();
@@ -269,6 +318,19 @@ public sealed class ShopService : IShopService
         if (!string.IsNullOrWhiteSpace(request.PayosChecksumKey))
             paymentConfig.PayosChecksumKey = request.PayosChecksumKey.Trim();
 
+        _audit.Record(new AuditLog
+        {
+            ActorUserId = ownerUserId,
+            TargetType = "ShopPaymentConfig",
+            TargetId = paymentConfig.ShopId,
+            Action = "SHOP_PAYMENT_CONFIG_UPDATED",
+            NewValuesJson = JsonSerializer.Serialize(new
+            {
+                MerchantSettingChanged = clientChanged,
+                AccessKeyChanged = apiKeyChanged,
+                SigningKeyChanged = checksumChanged
+            })
+        });
         paymentConfig.UpdatedAt = DateTime.UtcNow;
         await _shopRepository.SaveChangesAsync(cancellationToken);
         return MapPaymentConfigResponse(paymentConfig);
@@ -278,9 +340,6 @@ public sealed class ShopService : IShopService
     {
         return new ShopPaymentConfigResponse
         {
-            BankName = config.BankName,
-            BankAccountNumber = config.BankAccountNumber,
-            BankAccountHolder = config.BankAccountHolder,
             PayosClientId = config.PayosClientId,
             HasPayosApiKey = !string.IsNullOrWhiteSpace(config.PayosApiKey),
             HasPayosChecksumKey = !string.IsNullOrWhiteSpace(config.PayosChecksumKey),
@@ -288,8 +347,7 @@ public sealed class ShopService : IShopService
         };
     }
 
-    // ===== iss-13: store profile & operating management =====
-
+    //  store profile & operating management =====
     public Task<ShopProfileResponse> GetOwnerShopProfileAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
         return ToShopProfileResponseAsync(ownerUserId, cancellationToken);
@@ -299,6 +357,11 @@ public sealed class ShopService : IShopService
     {
         var shop = await _shopRepository.GetShopByOwnerUserIdAsync(ownerUserId, cancellationToken)
                    ?? throw AppException.NotFound("Shop not found.");
+
+        if (shop.OpeningTime != request.OpeningTime || shop.ClosingTime != request.ClosingTime)
+        {
+            await ValidateOperatingHoursChangeAsync(shop.Id, request.OpeningTime, request.ClosingTime, cancellationToken);
+        }
 
         shop.Name = request.Name.Trim();
         shop.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
@@ -352,6 +415,9 @@ public sealed class ShopService : IShopService
 
         return new ShopProfileResponse
         {
+            OwnerUserId = shop.OwnerUserId,
+            FollowerCount = await _db.Set<ShopFollow>().CountAsync(f => f.ShopId == shop.Id && f.CustomerId != shop.OwnerUserId, cancellationToken),
+            SuspendedForPlatformFees = shop.SuspendedForPlatformFees,
             Id = shop.Id,
             Name = shop.Name,
             Description = shop.Description,
@@ -385,7 +451,7 @@ public sealed class ShopService : IShopService
             RatingBreakdown = breakdown
         };
     }
-    
+
     // Manage Shops.
     public async Task<PagedResult<ShopListResponse>> GetShopListAsync(string? keyword, int page, int pageSize, CancellationToken ct)
     {
@@ -398,6 +464,7 @@ public sealed class ShopService : IShopService
         {
             Id = s.Id,
             Name = s.Name,
+            LogoUrl = s.LogoUrl,
             Description = s.Description,
             Status = s.Status.ToString(),
             City = s.City,
@@ -472,23 +539,26 @@ public sealed class ShopService : IShopService
             UpdatedAt = shop.UpdatedAt
         };
     }
-    
+
     // Manage Shops.
     public async Task<ModerationActionResponse> UpdateShopStatusAsync(Guid adminId, Guid shopId, UpdateShopModerationStatusRequest request, CancellationToken ct)
     {
+        await using var transaction = _db.Database.IsRelational() ? await _db.Database.BeginTransactionAsync(ct) : null;
+        if (_db.Database.IsRelational()) await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
         var targetStatus = Enum.Parse<ShopStatus>(request.Status.Trim(), ignoreCase: true);
-        
+
         var shop = await _shopRepository.GetShopForStatusUpdateAsync(shopId, ct);
 
         if (shop is null)
             throw AppException.NotFound("Shop not found.");
 
         var currentStatus = shop.Status;
-                  
-        if (currentStatus == targetStatus)
+
+        var statusChanged = currentStatus != targetStatus;
+        if (!statusChanged && targetStatus != ShopStatus.Suspended)
             throw AppException.Conflict("Shop already has this status.");
-        
-        var isAllowed = currentStatus switch
+
+        var isAllowed = !statusChanged || currentStatus switch
         {
             ShopStatus.Active => targetStatus is ShopStatus.Paused or ShopStatus.Suspended,
             ShopStatus.Paused => targetStatus is ShopStatus.Active or ShopStatus.Suspended,
@@ -503,43 +573,67 @@ public sealed class ShopService : IShopService
         var reason = request.Reason?.Trim();
 
         if (!requiresReason) reason = null;
-        
+
         var oldValues = new
         {
             Status = currentStatus.ToString()
         };
 
-        shop.Status = targetStatus;
-        shop.UpdatedAt = DateTime.UtcNow;
-        await _shopRepository.SaveChangesAsync(ct);
-
-        var moderationEvent = new ModerationEvent
+        if (statusChanged)
         {
-            Id = Guid.NewGuid(),
-            ActorUserId = adminId,
-            Action = "SHOP_STATUS_UPDATED",
-            TargetType = "Shop",
-            TargetId = shopId,
-            Reason = reason,
-            OldValuesJson = JsonSerializer.Serialize(oldValues),
-            NewValuesJson = JsonSerializer.Serialize(new { Status = targetStatus.ToString() }),
-            CreatedAt = DateTime.UtcNow
-        };
-        await _publisher.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, moderationEvent, ct);
+            shop.SuspendedForPlatformFees = false; // An administrator decision must never be undone by fee payment.
+            shop.Status = targetStatus;
+            shop.UpdatedAt = DateTime.UtcNow;
+            var auditEntry = _audit.Record(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                ActorUserId = adminId,
+                Action = AuditActionTypes.ShopStatusUpdated,
+                TargetType = "Shop",
+                TargetId = shopId,
+                Reason = reason,
+                OldValuesJson = JsonSerializer.Serialize(oldValues),
+                NewValuesJson = JsonSerializer.Serialize(new { Status = targetStatus.ToString() }),
+                CreatedAt = DateTime.UtcNow
+            });
+            await _shopRepository.SaveChangesAsync(ct);
+
+            await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
+                NotificationType.ShopStatusChanged, NotificationMessages.Shop.ShopStatusUpdatedTitle,
+                NotificationMessages.Shop.ShopStatusUpdatedBody(shop.Name, currentStatus, targetStatus, reason),
+                "/store-owner/profile", $"shop-status:{(auditEntry != null ? auditEntry.Id : Guid.NewGuid())}"), ct);
+        }
+        if (transaction != null) await transaction.CommitAsync(ct);
+
+        if (statusChanged || targetStatus == ShopStatus.Suspended)
+            await _shopStatusEvents.NotifyChangedAsync(shopId, targetStatus.ToString(), ct);
+        if (targetStatus == ShopStatus.Suspended)
+            await _suspensionCleanup.CleanupAsync(shopId, ct);
+        // Realtime: tell the shop owner's open tabs to reload the shop (status / reason) without a page refresh.
+        // Sent only after the commit so the client always reads the new status; failures are swallowed by the publisher.
+        await _realtime.SendToUserAsync(shop.OwnerUserId, "shop.status.changed", new
+        {
+            shopId,
+            previousStatus = currentStatus.ToString(),
+            status = targetStatus.ToString(),
+            reason
+        });
 
         return new ModerationActionResponse
         {
             TargetId = shopId,
-            Action = "SHOP_STATUS_UPDATED",
-            Message = $"Shop status changed from {currentStatus} to {targetStatus}."
+            Action = AuditActionTypes.ShopStatusUpdated,
+            Message = statusChanged
+                ? $"Shop status changed from {currentStatus} to {targetStatus}."
+                : "Shop suspension cleanup was retried."
         };
     }
-    
+
     // Manage Shops.
     private static string? ReadStatus(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return null;
-        
+
         using var document = JsonDocument.Parse(json);
         if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
         foreach (var property in document.RootElement.EnumerateObject())
@@ -548,5 +642,133 @@ public sealed class ShopService : IShopService
                 return property.Value.GetString();
         }
         return null;
+    }
+
+    private async Task ValidateOperatingHoursChangeAsync(
+        Guid shopId,
+        TimeOnly? newOpening,
+        TimeOnly? newClosing,
+        CancellationToken cancellationToken)
+    {
+        if (newOpening.HasValue && newClosing.HasValue && newOpening.Value == newClosing.Value)
+        {
+            // Equal times mean open 24 hours, so existing deals and pickups remain within hours.
+            return;
+        }
+
+        if (!newClosing.HasValue && !newOpening.HasValue)
+        {
+            return;
+        }
+
+        var nowUtc = DateTime.UtcNow;
+
+        // 1. Kiểm tra các Flash Deal đang mở bán (OnSale) hoặc đã lên lịch (Pending)
+        var activeDeals = await _db.FlashDeals
+            .AsNoTracking()
+            .Include(d => d.Product)
+            .Where(d => d.ShopId == shopId
+                && (d.Status == FlashDealStatus.Pending || d.Status == FlashDealStatus.OnSale)
+                && d.OrderEndTime > nowUtc)
+            .OrderBy(d => d.OrderEndTime)
+            .ToListAsync(cancellationToken);
+
+        if (activeDeals.Count > 0)
+        {
+            var conflictingDeals = activeDeals.Where(deal =>
+            {
+                var dealStartLocal = TimeOnly.FromDateTime(deal.SaleStartTime.AddHours(7));
+                var dealEndLocal = TimeOnly.FromDateTime(deal.OrderEndTime.AddHours(7));
+                var startMinute = new TimeOnly(dealStartLocal.Hour, dealStartLocal.Minute);
+                var endMinute = new TimeOnly(dealEndLocal.Hour, dealEndLocal.Minute);
+                return !IsTimeWithinWindow(newOpening, newClosing, startMinute) ||
+                       !IsTimeWithinWindow(newOpening, newClosing, endMinute);
+            }).ToList();
+
+            if (conflictingDeals.Count > 0)
+            {
+                var firstDeal = conflictingDeals[0];
+                var firstDealEndLocal = TimeOnly.FromDateTime(firstDeal.OrderEndTime.AddHours(7));
+                var statusText = firstDeal.Status == FlashDealStatus.OnSale ? "đang mở bán" : "đã lên lịch";
+                var productName = firstDeal.Product?.Name ?? "sản phẩm";
+
+                var hoursText = newOpening.HasValue && newClosing.HasValue
+                    ? $"{newOpening.Value:HH\\:mm} - {newClosing.Value:HH\\:mm}"
+                    : (newClosing.HasValue ? $"đóng cửa lúc {newClosing.Value:HH\\:mm}" : $"mở cửa lúc {newOpening!.Value:HH\\:mm}");
+
+                throw AppException.BadRequest(
+                    $"Không thể đổi giờ hoạt động sang ({hoursText}). " +
+                    $"Cửa hàng đang có {conflictingDeals.Count} Flash Deal ({statusText}: '{productName}') " +
+                    $"kết thúc lúc {firstDealEndLocal:HH\\:mm}, vượt quá khung giờ hoạt động mới. " +
+                    $"Vui lòng kết thúc hoặc hủy các Flash Deal này trước khi thay đổi giờ hoạt động.");
+            }
+        }
+
+        // 2. Kiểm tra các đơn hàng đang xử lý hoặc chờ nhận hàng có hạn chót nhận hàng (HardDeadlineAt)
+        var activeOrderStatuses = new[]
+        {
+            OrderStatus.AwaitingPayment,
+            OrderStatus.Pending,
+            OrderStatus.Confirmed,
+            OrderStatus.Preparing,
+            OrderStatus.ReadyForPickup
+        };
+
+        var activeOrders = await _db.Orders
+            .AsNoTracking()
+            .Where(o => o.ShopId == shopId
+                && activeOrderStatuses.Contains(o.Status)
+                && o.HardDeadlineAt.HasValue
+                && o.HardDeadlineAt.Value > nowUtc)
+            .OrderBy(o => o.HardDeadlineAt)
+            .ToListAsync(cancellationToken);
+
+        if (activeOrders.Count > 0)
+        {
+            var conflictingOrders = activeOrders.Where(o =>
+            {
+                var pickupLocal = TimeOnly.FromDateTime(o.HardDeadlineAt!.Value.AddHours(7));
+                var pickupMinute = new TimeOnly(pickupLocal.Hour, pickupLocal.Minute);
+                return !IsTimeWithinWindow(newOpening, newClosing, pickupMinute);
+            }).ToList();
+
+            if (conflictingOrders.Count > 0)
+            {
+                var firstOrder = conflictingOrders[0];
+                var pickupDeadlineLocal = TimeOnly.FromDateTime(firstOrder.HardDeadlineAt!.Value.AddHours(7));
+
+                var hoursText = newClosing.HasValue ? $"đóng cửa lúc {newClosing.Value:HH\\:mm}" : "mới";
+
+                throw AppException.BadRequest(
+                    $"Không thể đổi giờ hoạt động sang khung giờ {hoursText}. " +
+                    $"Cửa hàng đang có {conflictingOrders.Count} đơn hàng đang chờ khách nhận " +
+                    $"(Đơn #{firstOrder.OrderCode} có hạn chót nhận lúc {pickupDeadlineLocal:HH\\:mm}), " +
+                    $"nằm ngoài giờ mở cửa mới. Vui lòng hoàn tất hoặc xử lý các đơn hàng này trước khi đổi giờ.");
+            }
+        }
+    }
+
+    private static bool IsTimeWithinWindow(TimeOnly? opening, TimeOnly? closing, TimeOnly time)
+    {
+        if (opening.HasValue && closing.HasValue)
+        {
+            if (opening.Value == closing.Value) return true;
+
+            return opening.Value <= closing.Value
+                ? time >= opening.Value && time <= closing.Value
+                : time >= opening.Value || time <= closing.Value;
+        }
+
+        if (closing.HasValue)
+        {
+            return time <= closing.Value;
+        }
+
+        if (opening.HasValue)
+        {
+            return time >= opening.Value;
+        }
+
+        return true;
     }
 }

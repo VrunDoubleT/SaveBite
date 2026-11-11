@@ -1,13 +1,11 @@
 import { RefreshCw } from "lucide-react";
+import { AuditArchivePanel } from "@/features/audit-logs/components/AuditArchivePanel";
 import {
   AuditLogDetailModal,
   AuditLogFilterBar,
   AuditLogTable,
 } from "@/features/audit-logs/components";
-import {
-  AUDIT_LOG_PAGE_SIZE,
-  useAuditLogs,
-} from "@/features/audit-logs/hooks/useAuditLogs";
+import { AUDIT_LOG_PAGE_SIZE, useAuditLogs } from "@/features/audit-logs/hooks/useAuditLogs";
 import { ErrorModal } from "@/shared/components/modal/ErrorModal";
 import { Pagination } from "@/shared/components/pagination";
 
@@ -34,6 +32,8 @@ export function AdminAuditLogsPage() {
     updateFromDate,
     toDate,
     updateToDate,
+    identifiers,
+    updateIdentifiers,
     hasActiveFilters,
     resetFilters,
     selectedLog,
@@ -45,7 +45,7 @@ export function AdminAuditLogsPage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Audit log</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Audit Logs</h1>
           <p className="mt-1 text-sm text-neutral-500">
             Who did what, to which record, and when. Secrets are never shown.
           </p>
@@ -69,7 +69,10 @@ export function AdminAuditLogsPage() {
         </button>
       </header>
 
+      <AuditArchivePanel />
       <AuditLogFilterBar
+        identifiers={identifiers}
+        onIdentifiersChange={updateIdentifiers}
         search={search}
         onSearchChange={updateSearch}
         actorType={actorType}

@@ -4,8 +4,11 @@ import { ShopFeedbackManagementPanel } from "@/features/feedbacks/components/Sho
 import type { FeedbackItem } from "@/features/feedbacks/types/feedback.types";
 import { getApiErrorMessage } from "@/shared/api";
 import { toast } from "@/shared/stores/toastStore";
+import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 export function StoreOwnerReviewsPage() {
+  const shopSuspended = useShopSuspended();
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -16,29 +19,44 @@ export function StoreOwnerReviewsPage() {
   const [activeReplyFilter, setActiveReplyFilter] = useState<boolean | null>(null);
   const [isToday, setIsToday] = useState(false);
 
-  const fetchFeedbacks = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await feedbackApi.getShopFeedbacks({
-        page,
-        pageSize,
-        rating: activeRating ?? undefined,
-        hasReply: activeReplyFilter ?? undefined,
-        isToday: isToday || undefined,
-      });
+  const fetchFeedbacks = useCallback(
+    async (silent = false) => {
+      if (!silent) setIsLoading(true);
+      try {
+        const response = await feedbackApi.getShopFeedbacks({
+          page,
+          pageSize,
+          rating: activeRating ?? undefined,
+          hasReply: activeReplyFilter ?? undefined,
+          isToday: isToday || undefined,
+        });
 
-      setFeedbacks(response.items);
-      setTotalItems(response.totalItems);
-      setTotalPages(response.totalPages);
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [page, pageSize, activeRating, activeReplyFilter, isToday]);
+        setFeedbacks(response.items);
+        setTotalItems(response.totalItems);
+        setTotalPages(response.totalPages);
+      } catch (error) {
+        if (!silent) toast.error(getApiErrorMessage(error));
+      } finally {
+        if (!silent) setIsLoading(false);
+      }
+    },
+    [page, pageSize, activeRating, activeReplyFilter, isToday],
+  );
 
   useEffect(() => {
     void fetchFeedbacks();
+  }, [fetchFeedbacks]);
+
+  // Auto-refresh when feedback status changes or user focuses this tab
+  useEffect(() => {
+    return subscribeFeedbackSync((detail) => {
+      if (detail?.action === "hide" && detail.feedbackId) {
+        // Hide immediately like customer feedback
+        setFeedbacks((prev) => prev.filter((item) => item.id !== detail.feedbackId));
+        setTotalItems((prev) => Math.max(0, prev - 1));
+      }
+      void fetchFeedbacks(true);
+    });
   }, [fetchFeedbacks]);
 
   const handleRatingChange = (rating: number | null) => {
@@ -57,13 +75,14 @@ export function StoreOwnerReviewsPage() {
   const handleTodayToggle = () => {
     setIsToday((prev) => !prev);
     setPage(1);
-  };
+    };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
   };
 
   const handleReply = async (feedbackId: string, content: string) => {
+    if (shopSuspended) return;
     const reply = await feedbackApi.replyFeedback(feedbackId, { content });
     setFeedbacks((prev) =>
       prev.map((item) => (item.id === feedbackId ? { ...item, reply } : item)),
@@ -71,6 +90,7 @@ export function StoreOwnerReviewsPage() {
   };
 
   const handleEditReply = async (feedbackId: string, content: string) => {
+    if (shopSuspended) return;
     const reply = await feedbackApi.editReply(feedbackId, { content });
     setFeedbacks((prev) =>
       prev.map((item) => (item.id === feedbackId ? { ...item, reply } : item)),
@@ -78,16 +98,15 @@ export function StoreOwnerReviewsPage() {
   };
 
   const handleDeleteReply = async (feedbackId: string) => {
+    if (shopSuspended) return;
     await feedbackApi.deleteReply(feedbackId);
     setFeedbacks((prev) =>
-      prev.map((item) =>
-        item.id === feedbackId ? { ...item, reply: undefined } : item,
-      ),
+      prev.map((item) => (item.id === feedbackId ? { ...item, reply: undefined } : item)),
     );
   };
 
   return (
-    <div className="py-2">
+    <div className="space-y-6">
       <ShopFeedbackManagementPanel
         title="Customer Feedback & Reviews"
         subtitle="Manage product ratings, read customer feedback, and reply to reviews."
@@ -108,6 +127,7 @@ export function StoreOwnerReviewsPage() {
         onEditReply={handleEditReply}
         onDeleteReply={handleDeleteReply}
         showShopName={false}
+        mutationsDisabled={shopSuspended}
       />
     </div>
   );

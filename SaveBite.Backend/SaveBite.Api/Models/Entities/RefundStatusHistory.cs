@@ -1,3 +1,5 @@
+using SaveBite.Backend.Models.Enums;
+
 namespace SaveBite.Backend.Models.Entities;
 
 // Keep immutable snapshots for every refund decision, destination change and transfer.

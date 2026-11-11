@@ -3,6 +3,7 @@ export type FeedbackStatus = "Visible" | "HiddenByCustomer" | "HiddenByAdmin";
 export type Feedback = {
   id: string;
   productId: string;
+  shopId?: string;
   productName: string;
   shopName: string;
 
@@ -10,6 +11,7 @@ export type Feedback = {
   customerName: string;
   customerPhone: string | null;
   customerEmail: string;
+  avatarUrl: string | null;
 
   orderItemId: string;
   rating: number;

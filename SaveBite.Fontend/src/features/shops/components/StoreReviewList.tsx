@@ -1,7 +1,17 @@
 import { useState } from "react";
 import { Star, Image as ImageIcon, MessageSquare } from "lucide-react";
 import type { StoreReviewsSummary, StoreReview } from "@/features/shops/types/shop.types";
-import { Pagination } from "@/shared/components/pagination";
+import {
+  Avatar,
+  Badge,
+  Button,
+  ButtonLink,
+  EmptyState,
+  MediaImage,
+  Modal,
+  Pagination,
+  Skeleton,
+} from "@/shared/components/ui";
 
 interface StoreReviewListProps {
   summary: StoreReviewsSummary | null;
@@ -13,24 +23,29 @@ interface StoreReviewListProps {
   currentPage: number;
   onPageChange: (page: number) => void;
 }
-
-// Format relative date in English (e.g. "1mo ago", "2d ago", "Just now")
-const formatRelativeTime = (isoString?: string) => {
-  if (!isoString) return "Recently";
-  const date = new Date(isoString);
-  const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (diffSec < 60) return "Just now";
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return `${diffHour}h ago`;
-  const diffDay = Math.floor(diffHour / 24);
-  if (diffDay < 30) return `${diffDay}d ago`;
-  const diffMonth = Math.floor(diffDay / 30);
-  if (diffMonth < 12) return `${diffMonth}mo ago`;
-  const diffYear = Math.floor(diffMonth / 12);
-  return `${diffYear}y ago`;
-};
+const formatDate = (value: string) =>
+  Number.isNaN(new Date(value).getTime())
+    ? "Date unavailable"
+    : new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(
+        new Date(value),
+      );
+function Stars({ rating }: { rating: number }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1"
+      role="img"
+      aria-label={`${rating} out of 5 stars`}
+    >
+      {[1, 2, 3, 4, 5].map((value) => (
+        <Star
+          key={value}
+          className={`size-4 ${value <= Math.round(rating) ? "fill-accent-500 text-accent-700" : "text-neutral-300"}`}
+          aria-hidden="true"
+        />
+      ))}
+    </span>
+  );
+}
 
 export function StoreReviewList({
   summary,
@@ -43,181 +58,173 @@ export function StoreReviewList({
   onPageChange,
 }: StoreReviewListProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-
   const totalReviews = summary?.totalReviews ?? 0;
-  const breakdown = summary?.ratingBreakdown ?? {};
   const reviews = summary?.reviews?.items ?? [];
   const totalPages = summary?.reviews?.totalPages ?? 1;
-  const totalItems = summary?.reviews?.totalItems ?? 0;
-  const pageSize = summary?.reviews?.pageSize ?? 10;
+  const withPhotosCount = reviews.filter((review) => review.images?.length).length;
+  const visibleReviews = hasImagesOnly
+    ? reviews.filter((review) => review.images?.length)
+    : reviews;
+  const clearFilters = () => {
+    onRatingFilterChange(null);
+    onHasImagesFilterChange(false);
+  };
 
-  const withPhotosCount = reviews.filter(
-    (r) => r.images && r.images.length > 0,
-  ).length;
-
-  // Filter reviews client-side for image filter if needed
-  const filteredReviews = reviews.filter((r) => {
-    if (hasImagesOnly) {
-      return Boolean(r.images && r.images.length > 0);
-    }
-    return true;
-  });
+  if (isLoading && !summary)
+    return (
+      <div role="status" aria-label="Loading customer reviews" className="space-y-4">
+        <Skeleton className="h-32" />
+        {[0, 1].map((index) => (
+          <div key={index} className="space-y-3 rounded-lg border border-border-default p-4">
+            <div className="flex gap-3">
+              <Skeleton className="size-10 rounded-full" />
+              <Skeleton className="h-10 w-40" />
+            </div>
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        ))}
+      </div>
+    );
 
   return (
-    <div className="space-y-6">
-      {/* 1. RATING FILTER PILLS (Matching Mockup Image 2) */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200/80 pb-5">
-        {/* All (N) */}
-        <button
-          type="button"
-          onClick={() => {
-            onRatingFilterChange(null);
-            if (hasImagesOnly) onHasImagesFilterChange(false);
-          }}
-          className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all shadow-2xs ${
-            activeRatingFilter === null && !hasImagesOnly
-              ? "bg-emerald-600 text-white shadow-emerald-600/20"
-              : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
-          }`}
-        >
-          All ({totalReviews})
-        </button>
-
-        {/* 5 Stars down to 1 Star */}
-        {[5, 4, 3, 2, 1].map((star) => {
-          const count = breakdown[star] ?? 0;
-          const isActive = activeRatingFilter === star && !hasImagesOnly;
-          return (
-            <button
-              key={star}
-              type="button"
-              onClick={() => {
-                onRatingFilterChange(star);
-                if (hasImagesOnly) onHasImagesFilterChange(false);
-              }}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all shadow-2xs ${
-                isActive
-                  ? "bg-emerald-600 text-white shadow-emerald-600/20"
-                  : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
-              }`}
-            >
-              {star} {star === 1 ? "Star" : "Stars"} ({count})
-            </button>
-          );
-        })}
-
-        {/* With Photos (N) */}
-        <button
-          type="button"
-          onClick={() => {
-            onHasImagesFilterChange(!hasImagesOnly);
-            onRatingFilterChange(null);
-          }}
-          className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all shadow-2xs ${
-            hasImagesOnly
-              ? "bg-emerald-600 text-white shadow-emerald-600/20"
-              : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
-          }`}
-        >
-          <ImageIcon size={13} />
-          <span>With Photos ({withPhotosCount})</span>
-        </button>
-      </div>
-
-      {/* 2. LOADING STATE */}
-      {isLoading && (
-        <div className="space-y-4">
-          {[1, 2].map((i) => (
-            <div
-              key={i}
-              className="animate-pulse rounded-2xl border border-neutral-200 bg-white p-5"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-neutral-200" />
-                <div className="space-y-1.5">
-                  <div className="h-4 w-32 rounded bg-neutral-200" />
-                  <div className="h-3 w-20 rounded bg-neutral-200" />
-                </div>
-              </div>
-              <div className="mt-4 h-4 w-full rounded bg-neutral-200" />
-              <div className="mt-2 h-4 w-3/4 rounded bg-neutral-200" />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 3. EMPTY STATE */}
-      {!isLoading && filteredReviews.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-white p-12 text-center shadow-xs">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-500">
-            <Star size={28} className="fill-amber-400 text-amber-400" />
-          </div>
-          <h4 className="mt-4 text-base font-bold text-neutral-900">
-            No reviews found
-          </h4>
-          <p className="mt-1 text-xs text-neutral-500 max-w-sm">
-            There are no reviews matching this filter. Try selecting a different rating!
+    <div className="space-y-5">
+      <div className="grid gap-5 rounded-lg border border-accent-100 bg-accent-50 p-4 sm:grid-cols-[auto_1fr] sm:gap-8 sm:p-6">
+        <div className="space-y-2">
+          <p className="text-caption font-medium text-accent-700">Store rating</p>
+          <p className="text-3xl font-bold tabular-nums text-text-primary">
+            {totalReviews ? summary?.averageRating.toFixed(1) : "—"}
+            <span className="ml-1 text-body font-normal text-text-secondary">/ 5</span>
+          </p>
+          {totalReviews > 0 && <Stars rating={summary?.averageRating ?? 0} />}
+          <p className="text-caption text-text-secondary">
+            {totalReviews} customer review{totalReviews === 1 ? "" : "s"}
           </p>
         </div>
-      )}
-
-      {/* 4. REVIEWS LIST */}
-      {!isLoading && filteredReviews.length > 0 && (
-        <div className="space-y-4">
-          {filteredReviews.map((rev) => (
-            <ReviewItemCard
-              key={rev.id}
-              review={rev}
-              onSelectImage={setSelectedImage}
-            />
-          ))}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="pt-4">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={onPageChange}
-                totalItems={totalItems}
-                pageSize={pageSize}
-                itemLabel="reviews"
-                showTotalItems={true}
-              />
-            </div>
-          )}
+        <div className="space-y-2" aria-label="Rating breakdown">
+          {[5, 4, 3, 2, 1].map((star) => {
+            const count = summary?.ratingBreakdown[star] ?? 0;
+            return (
+              <div key={star} className="flex items-center gap-3 text-caption text-text-secondary">
+                <span className="flex w-8 shrink-0 items-center gap-1">
+                  {star}
+                  <Star className="size-3 text-accent-700" aria-hidden="true" />
+                </span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg-surface">
+                  <div
+                    className="h-full rounded-full bg-accent-500"
+                    style={{
+                      width: `${totalReviews ? Math.min(100, (count / totalReviews) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+                <span className="w-6 text-right tabular-nums">{count}</span>
+              </div>
+            );
+          })}
         </div>
-      )}
-
-      {/* Lightbox / Zoom Image Modal */}
-      {selectedImage && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setSelectedImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
-        >
-          <div className="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-2xl bg-neutral-900">
-            <img
-              src={selectedImage}
-              alt="Zoomed review"
-              className="max-h-[85vh] w-auto object-contain"
-            />
-            <button
-              type="button"
-              onClick={() => setSelectedImage(null)}
-              className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white transition hover:bg-black"
+      </div>
+      <div className="space-y-2">
+        <div role="group" aria-label="Filter customer reviews" className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            aria-pressed={activeRatingFilter === null && !hasImagesOnly}
+            className="min-h-11 aria-pressed:border-primary-700 aria-pressed:bg-primary-50 aria-pressed:text-primary-700"
+            onClick={clearFilters}
+          >
+            All ({totalReviews})
+          </Button>
+          {[5, 4, 3, 2, 1].map((star) => (
+            <Button
+              key={star}
+              variant="secondary"
+              aria-pressed={activeRatingFilter === star && !hasImagesOnly}
+              className="min-h-11 aria-pressed:border-primary-700 aria-pressed:bg-primary-50 aria-pressed:text-primary-700"
+              onClick={() => {
+                onRatingFilterChange(star);
+                onHasImagesFilterChange(false);
+              }}
             >
-              Close ✕
-            </button>
-          </div>
+              {star} {star === 1 ? "star" : "stars"} ({summary?.ratingBreakdown[star] ?? 0})
+            </Button>
+          ))}
+          <Button
+            variant="secondary"
+            aria-pressed={hasImagesOnly}
+            className="min-h-11 aria-pressed:border-secondary-700 aria-pressed:bg-secondary-50 aria-pressed:text-secondary-700"
+            onClick={() => {
+              onHasImagesFilterChange(!hasImagesOnly);
+              onRatingFilterChange(null);
+            }}
+          >
+            <ImageIcon className="size-4" aria-hidden="true" />
+            Photos on this page ({withPhotosCount})
+          </Button>
+        </div>
+        <p className="text-caption text-text-secondary">
+          The photo filter applies to the current page of reviews.
+        </p>
+      </div>
+      {isLoading ? (
+        <div role="status" aria-label="Loading customer reviews" className="space-y-4">
+          <Skeleton className="h-44" />
+          <Skeleton className="h-44" />
+        </div>
+      ) : !visibleReviews.length ? (
+        <EmptyState
+          title={totalReviews ? "No reviews match this selection" : "No reviews yet"}
+          description={
+            totalReviews
+              ? "Try another star rating, clear the photo filter, or browse another page."
+              : "Customer experiences will appear here once reviews are shared."
+          }
+          icon={MessageSquare}
+          action={
+            activeRatingFilter !== null || hasImagesOnly ? (
+              <Button variant="secondary" onClick={clearFilters}>
+                Clear review filters
+              </Button>
+            ) : (
+              <ButtonLink to="/">Browse deals</ButtonLink>
+            )
+          }
+        />
+      ) : (
+        <div className="space-y-4">
+          {visibleReviews.map((review) => (
+            <ReviewItemCard key={review.id} review={review} onSelectImage={setSelectedImage} />
+          ))}
         </div>
       )}
+      {totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          totalItems={summary?.reviews.totalItems}
+          pageSize={summary?.reviews.pageSize}
+          itemLabel="reviews"
+        />
+      )}
+      <Modal
+        isOpen={selectedImage !== null}
+        onClose={() => setSelectedImage(null)}
+        title="Review photo"
+        maxWidthClass="max-w-3xl"
+      >
+        {selectedImage && (
+          <MediaImage
+            src={selectedImage}
+            alt="Customer review photo"
+            className="h-96 max-h-[65dvh] w-full rounded-md [&>img]:object-contain"
+            loading="eager"
+          />
+        )}
+      </Modal>
     </div>
   );
 }
 
-// Subcomponent: Individual Review Card matching Image 2
 function ReviewItemCard({
   review,
   onSelectImage,
@@ -225,121 +232,84 @@ function ReviewItemCard({
   review: StoreReview;
   onSelectImage: (url: string) => void;
 }) {
-  const defaultAvatar =
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
-
   return (
-    <article className="rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-2xs transition-shadow hover:shadow-xs">
-      {/* Top Header: Avatar + Name + Tier + Time */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          {/* User Avatar */}
-          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-amber-300 bg-amber-50">
-            <img
-              src={review.userAvatarUrl || defaultAvatar}
-              alt={review.userFullName}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = defaultAvatar;
-              }}
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-neutral-900">
-                {review.userFullName || "SaveBite Customer"}
-              </span>
-
-              {/* Customer Tier Badge: Gold */}
-              <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
-                {review.userTier || "Gold"}
-              </span>
+    <article className="space-y-4 rounded-lg border border-border-default bg-bg-surface p-4 sm:p-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar
+            fullName={review.userFullName || "SaveBite customer"}
+            avatarUrl={review.userAvatarUrl}
+          />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold text-text-primary [overflow-wrap:anywhere]">
+                {review.userFullName || "SaveBite customer"}
+              </h3>
+              {review.userTier && <Badge tone="primary">{review.userTier}</Badge>}
             </div>
-
-            {/* Stars Row */}
-            <div className="mt-1 flex items-center gap-0.5">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  size={13}
-                  className={
-                    i < review.rating
-                      ? "fill-amber-400 text-amber-400"
-                      : "fill-neutral-200 text-neutral-200"
-                  }
-                />
-              ))}
+            <div className="mt-1 flex items-center gap-2">
+              <Stars rating={review.rating} />
+              <span className="text-caption text-text-secondary">{review.rating}/5</span>
             </div>
           </div>
         </div>
-
-        {/* Time ago */}
-        <span className="text-xs text-neutral-400">
-          {formatRelativeTime(review.createdAt)}
-        </span>
-      </div>
-
-      {/* Purchased product info tag */}
+        <time dateTime={review.createdAt} className="text-caption text-text-muted">
+          {formatDate(review.createdAt)}
+        </time>
+      </header>
       {review.productName && (
-        <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-neutral-100 bg-neutral-50/70 p-2 text-xs">
+        <div className="flex min-w-0 items-center gap-3 rounded-md bg-secondary-50 p-3">
           {review.productImageUrl && (
-            <img
+            <MediaImage
               src={review.productImageUrl}
-              alt={review.productName}
-              className="h-9 w-9 rounded-lg object-cover shrink-0 border border-neutral-200"
+              alt=""
+              showFallbackLabel={false}
+              className="size-10 shrink-0 rounded-md"
             />
           )}
           <div className="min-w-0">
-            <span className="block font-semibold text-neutral-800 truncate">
+            <p
+              className="truncate text-body font-medium text-secondary-700"
+              title={review.productName}
+            >
               {review.productName}
-            </span>
-            <span className="text-[11px] text-neutral-500">
-              {review.variantName || "Standard Size"}
-            </span>
+            </p>
+            {review.variantName && (
+              <p className="truncate text-caption text-text-secondary" title={review.variantName}>
+                {review.variantName}
+              </p>
+            )}
           </div>
         </div>
       )}
-
-      {/* Review Comment Text */}
-      {review.comment && (
-        <p className="mt-3 text-xs sm:text-sm leading-relaxed text-neutral-700">
-          {review.comment}
-        </p>
-      )}
-
-      {/* Attached Photos */}
-      {review.images && review.images.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {review.images.map((img, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => onSelectImage(img)}
-              className="group relative h-16 w-16 overflow-hidden rounded-xl border border-neutral-200 shadow-2xs transition hover:opacity-90"
+      <p className="whitespace-pre-line text-body leading-relaxed text-text-secondary [overflow-wrap:anywhere]">
+        {review.comment || "No written comment."}
+      </p>
+      {Boolean(review.images?.length) && (
+        <div className="flex flex-wrap gap-2">
+          {review.images?.map((src, index) => (
+            <Button
+              key={`${src}-${index}`}
+              variant="secondary"
+              aria-label={`View review photo ${index + 1} by ${review.userFullName || "customer"}`}
+              onClick={() => onSelectImage(src)}
+              className="size-16 overflow-hidden !p-0 hover:border-primary-700"
             >
-              <img
-                src={img}
-                alt={`Review photo ${idx + 1}`}
-                className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
-              />
-            </button>
+              <MediaImage src={src} alt="" showFallbackLabel={false} className="h-full w-full" />
+            </Button>
           ))}
         </div>
       )}
-
-      {/* Store Reply Box (Matching Image 2 light-green container) */}
       {review.reply && (
-        <div className="mt-3.5 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 text-xs animate-fade-in">
-          <div className="flex items-center gap-1.5 font-bold text-emerald-800">
-            <MessageSquare size={13} className="text-emerald-600 shrink-0" />
-            <span>Store Response</span>
-            <span className="text-neutral-400 font-normal">•</span>
-            <span className="text-neutral-500 font-normal text-[11px]">
-              {formatRelativeTime(review.reply.createdAt)}
-            </span>
+        <div className="space-y-2 rounded-md border border-primary-100 bg-primary-50 p-4">
+          <div className="flex flex-wrap items-center gap-2 text-caption text-primary-700">
+            <MessageSquare className="size-4" aria-hidden="true" />
+            <span className="font-semibold">Store response</span>
+            <time dateTime={review.reply.createdAt} className="text-text-secondary">
+              {formatDate(review.reply.createdAt)}
+            </time>
           </div>
-          <p className="mt-1 text-neutral-700 leading-relaxed">
+          <p className="text-body leading-relaxed text-text-secondary [overflow-wrap:anywhere]">
             {review.reply.content}
           </p>
         </div>

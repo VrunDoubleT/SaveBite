@@ -1,3 +1,5 @@
+using SaveBite.Backend.BackgroundJobs.Interfaces;
+using SaveBite.Backend.BackgroundJobs.Jobs;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.Common;
 using System.Net;
@@ -14,9 +16,34 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class StaffInvitationService(
     IStaffInvitationRepository invitationRepository,
-    IShopStaffRepository staffRepository
+    IShopStaffRepository staffRepository,
+    IStaffInvitationScheduler scheduler,
+    StaffInvitationNotificationService notifications,
+    SaveBite.Backend.Data.AppDbContext db,
+    IRealtimePublisher realtime
 ) : IStaffInvitationService
 {
+    private Task TryNotifyAsync(Guid invitationId, StaffInvitationStatus status, CancellationToken ct)
+        => notifications.NotifyAsync(invitationId, status, ct);
+
+    private async Task<bool> TransitionAndNotifyAsync(Guid id, string status, DateTime now, CancellationToken ct)
+    {
+        var hasOuterTransaction = db.Database.CurrentTransaction != null;
+        var changed = await NotificationTransaction.RunAsync(db, async () =>
+        {
+            var transitioned = await invitationRepository.TryTransitionPendingAsync(id, status, now, ct);
+            if (transitioned && status != StatusAccepted)
+                await notifications.NotifyAsync(id, Enum.Parse<StaffInvitationStatus>(status), ct);
+            return transitioned;
+        }, ct);
+        if (changed && !hasOuterTransaction)
+        {
+            var invitation = await invitationRepository.GetInvitationByIdAsync(id, ct);
+            if (invitation != null) await StaffRealtimeEvents.InvitationChangedAsync(realtime, invitation);
+        }
+        return changed;
+    }
+
     private const string StatusPending =
         nameof(StaffInvitationStatus.Pending);
 
@@ -29,9 +56,9 @@ public sealed class StaffInvitationService(
     private const string StatusCancelled =
         nameof(StaffInvitationStatus.Cancelled);
 
-    private const string StatusExpired = "Expired";
+    private const string StatusExpired = nameof(StaffInvitationStatus.Expired);
 
-    private const int InvitationLifetimeDays = 3;
+    private const int InvitationLifetimeDays = StaffInvitationJob.LifetimeDays;
     
 
     public async Task<PagedResult<StaffCandidateResponse>>
@@ -188,17 +215,8 @@ public sealed class StaffInvitationService(
                 );
             }
 
-            pendingInvitation.Status = StatusCancelled;
-            pendingInvitation.RespondedAt = DateTime.UtcNow;
-
-            await invitationRepository.UpdateInvitationAsync(
-                pendingInvitation,
-                cancellationToken
-            );
-
-            await invitationRepository.SaveChangesAsync(
-                cancellationToken
-            );
+            if (!await TransitionAndNotifyAsync(pendingInvitation.Id, StatusExpired, DateTime.UtcNow, cancellationToken))
+                throw AppException.Conflict("Invitation changed. Please refresh and try again.");
         }
 
         var invitation = new StaffInvitation
@@ -220,6 +238,7 @@ public sealed class StaffInvitationService(
             cancellationToken
         );
 
+        await notifications.NotifyAsync(invitation.Id, StaffInvitationStatus.Pending, cancellationToken);
         await transaction.CommitAsync(
             cancellationToken
         );
@@ -238,6 +257,9 @@ public sealed class StaffInvitationService(
                 HttpStatusCode.InternalServerError
             );
         }
+
+        await StaffRealtimeEvents.InvitationChangedAsync(realtime, created);
+        scheduler.ScheduleExpiration(created.Id, created.InvitedAt.AddDays(InvitationLifetimeDays));
 
         return MapToInvitationResponse(created);
     }
@@ -279,35 +301,12 @@ public sealed class StaffInvitationService(
 
         if (IsExpired(invitation))
         {
-            invitation.Status = StatusCancelled;
-            invitation.RespondedAt = DateTime.UtcNow;
-
-            await invitationRepository.UpdateInvitationAsync(
-                invitation,
-                cancellationToken
-            );
-
-            await invitationRepository.SaveChangesAsync(
-                cancellationToken
-            );
-
-            throw AppException.BadRequest(
-                "Invitation has already expired and has been cancelled",
-                ErrorCodes.InvitationInvalidOrExpired
-            );
+            await TransitionAndNotifyAsync(invitation.Id, StatusExpired, DateTime.UtcNow, cancellationToken);
+            throw AppException.BadRequest("Invitation has expired", ErrorCodes.InvitationInvalidOrExpired);
         }
 
-        invitation.Status = StatusCancelled;
-        invitation.RespondedAt = DateTime.UtcNow;
-
-        await invitationRepository.UpdateInvitationAsync(
-            invitation,
-            cancellationToken
-        );
-
-        await invitationRepository.SaveChangesAsync(
-            cancellationToken
-        );
+        if (!await TransitionAndNotifyAsync(invitation.Id, StatusCancelled, DateTime.UtcNow, cancellationToken))
+            throw AppException.Conflict("Invitation has already been answered or expired.");
     }
 
 
@@ -358,28 +357,6 @@ public sealed class StaffInvitationService(
             currentUserId,
             cancellationToken
         )).ToList();
-
-        var hasExpired = false;
-        foreach (var invitation in invitations)
-        {
-            if (invitation.Status == StatusPending && IsExpired(invitation))
-            {
-                invitation.Status = StatusCancelled;
-                invitation.RespondedAt = DateTime.UtcNow;
-                await invitationRepository.UpdateInvitationAsync(
-                    invitation,
-                    cancellationToken
-                );
-                hasExpired = true;
-            }
-        }
-
-        if (hasExpired)
-        {
-            await invitationRepository.SaveChangesAsync(
-                cancellationToken
-            );
-        }
 
         return invitations.Select(
             MapToInvitationResponse
@@ -435,22 +412,8 @@ public sealed class StaffInvitationService(
 
         if (IsExpired(invitation))
         {
-            invitation.Status = StatusCancelled;
-            invitation.RespondedAt = DateTime.UtcNow;
-
-            await invitationRepository.UpdateInvitationAsync(
-                invitation,
-                cancellationToken
-            );
-
-            await invitationRepository.SaveChangesAsync(
-                cancellationToken
-            );
-
-            throw AppException.BadRequest(
-                "Invitation has expired and has been cancelled",
-                ErrorCodes.InvitationInvalidOrExpired
-            );
+            await TransitionAndNotifyAsync(invitation.Id, StatusExpired, DateTime.UtcNow, cancellationToken);
+            throw AppException.BadRequest("Invitation has expired", ErrorCodes.InvitationInvalidOrExpired);
         }
 
         if (invitation.Status != StatusPending)
@@ -505,6 +468,8 @@ public sealed class StaffInvitationService(
                 cancellationToken
             );
 
+        if (!await TransitionAndNotifyAsync(invitation.Id, StatusAccepted, DateTime.UtcNow, cancellationToken))
+            throw AppException.Conflict("Invitation has already been answered or expired.");
         invitation.Status = StatusAccepted;
         invitation.RespondedAt = DateTime.UtcNow;
 
@@ -566,6 +531,15 @@ public sealed class StaffInvitationService(
 
             invitation.InvitedUser.UpdatedAt =
                 DateTime.UtcNow;
+            db.UserRoleChangeLogs.Add(new UserRoleChangeLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = currentUserId,
+                PreviousRole = UserRole.User,
+                NewRole = UserRole.Staff,
+                Reason = $"Accepted staff invitation {invitation.Id} for shop {invitation.ShopId}.",
+                CreatedAt = invitation.InvitedUser.UpdatedAt
+            });
         }
 
         await invitationRepository.UpdateInvitationAsync(
@@ -581,9 +555,17 @@ public sealed class StaffInvitationService(
             cancellationToken
         );
 
+        await TryNotifyAsync(invitation.Id, StaffInvitationStatus.Accepted, cancellationToken);
         await transaction.CommitAsync(
             cancellationToken
         );
+        await StaffRealtimeEvents.InvitationChangedAsync(realtime, invitation, staffJoined: true);
+        await realtime.SendToUserAsync(currentUserId, RealtimeEvents.UserRoleChanged, new
+        {
+            userId = currentUserId,
+            shopId = invitation.ShopId,
+            reason = "staff-invitation-accepted"
+        });
     }
 
 
@@ -610,22 +592,8 @@ public sealed class StaffInvitationService(
 
         if (IsExpired(invitation))
         {
-            invitation.Status = StatusCancelled;
-            invitation.RespondedAt = DateTime.UtcNow;
-
-            await invitationRepository.UpdateInvitationAsync(
-                invitation,
-                cancellationToken
-            );
-
-            await invitationRepository.SaveChangesAsync(
-                cancellationToken
-            );
-
-            throw AppException.BadRequest(
-                "Invitation has expired and has been cancelled",
-                ErrorCodes.InvitationInvalidOrExpired
-            );
+            await TransitionAndNotifyAsync(invitation.Id, StatusExpired, DateTime.UtcNow, cancellationToken);
+            throw AppException.BadRequest("Invitation has expired", ErrorCodes.InvitationInvalidOrExpired);
         }
 
         if (invitation.Status != StatusPending)
@@ -636,17 +604,8 @@ public sealed class StaffInvitationService(
             );
         }
 
-        invitation.Status = StatusDeclined;
-        invitation.RespondedAt = DateTime.UtcNow;
-
-        await invitationRepository.UpdateInvitationAsync(
-            invitation,
-            cancellationToken
-        );
-
-        await invitationRepository.SaveChangesAsync(
-            cancellationToken
-        );
+        if (!await TransitionAndNotifyAsync(invitation.Id, StatusDeclined, DateTime.UtcNow, cancellationToken))
+            throw AppException.Conflict("Invitation has already been answered or expired.");
     }
 
 
@@ -718,7 +677,11 @@ public sealed class StaffInvitationService(
 
             invitation.InvitedAt.AddDays(
                 InvitationLifetimeDays
-            )
+            ),
+            invitation.Shop.LogoUrl,
+            invitation.Shop.CoverImageUrl,
+            string.Join(", ", new[] { invitation.Shop.AddressLine, invitation.Shop.Ward, invitation.Shop.District, invitation.Shop.City }
+                .Where(value => !string.IsNullOrWhiteSpace(value)))
         );
     }
 }

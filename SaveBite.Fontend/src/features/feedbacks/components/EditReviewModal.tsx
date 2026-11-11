@@ -1,19 +1,24 @@
+import { isUploadCancelled } from "@/shared/uploads/uploadErrors";
+import { UploadDraftChoice } from "@/shared/uploads/UploadDraftChoice";
+import { UploadTaskGuard } from "@/shared/uploads/UploadTaskGuard";
 import { useEffect, useRef, useState } from "react";
-import {
-  Camera,
-  Loader2,
-  MessageSquareQuote,
-  Package,
-  Store,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Package } from "lucide-react";
+import { ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
+import { ReviewEditor } from "./ReviewEditor";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
-import { StarRatingInput } from "./StarRatingInput";
 import { feedbackApi } from "../api/feedbackApi";
 import type { FeedbackItem } from "../types/feedback.types";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api";
+import { useAuthStore } from "@/shared/stores/authStore";
+import {
+  getUploadDraft,
+  removeUploadDraft,
+  saveUploadDraft,
+} from "@/shared/uploads/uploadDraftStore";
+import { startOrResumeUploadDraft } from "@/shared/uploads/uploadDrafts";
+import { APP_PATHS } from "@/app/router/paths";
+import { useLocation } from "react-router-dom";
 
 export interface EditReviewModalProps {
   isOpen: boolean;
@@ -22,50 +27,139 @@ export interface EditReviewModalProps {
   initialProductName?: string;
   initialVariantName?: string;
   initialImageUrl?: string | null;
+  orderId?: string;
+  uploadDraftId?: string;
   onUpdated?: (updatedItem: FeedbackItem) => void;
 }
 
-export function EditReviewModal({
+interface SavedEditReviewForm {
+  kind: "edit-review";
+  feedbackId: string;
+  rating: number;
+  comment: string;
+  images: string[];
+  assetIds: string[];
+}
+
+export function EditReviewModal(props: EditReviewModalProps) {
+  return props.isOpen && props.feedbackId ? (
+    <UploadTaskGuard
+      key={`${props.feedbackId}:${props.uploadDraftId ?? ""}`}
+      scope={{ purpose: "feedback", targetIds: [props.feedbackId], operation: "edit-review" }}
+      onClose={props.onClose}
+    >
+      <UploadDraftChoice
+        scope={{ purpose: "feedback", targetIds: [props.feedbackId!], operation: "edit-review" }}
+        selectedDraftId={props.uploadDraftId}
+        onClose={props.onClose}
+      >
+        {(draftId) => (
+          <EditReviewContent key={draftId ?? "new"} {...props} uploadDraftId={draftId} />
+        )}
+      </UploadDraftChoice>
+    </UploadTaskGuard>
+  ) : null;
+}
+
+function EditReviewContent({
   isOpen,
   onClose,
   feedbackId,
   initialProductName,
   initialVariantName,
   initialImageUrl,
+  orderId,
+  uploadDraftId,
   onUpdated,
 }: EditReviewModalProps) {
+  const userId = useAuthStore((state) => state.user?.id);
+  const location = useLocation();
   const [feedback, setFeedback] = useState<FeedbackItem | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [pendingPhotos, setPendingPhotos] = useState<{ id: string; file: File; url: string }[]>([]);
+  const previews = useRef(new Set<string>());
+  const draftWrites = useRef<Promise<void>>(Promise.resolve());
+  useEffect(
+    () => () => {
+      for (const url of previews.current) URL.revokeObjectURL(url);
+    },
+    [],
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [saveError, setSaveError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const [activeDraftId, setActiveDraftId] = useState<string>();
 
   useEffect(() => {
-    if (!isOpen || !feedbackId) {
-      setFeedback(null);
-      setLoadError(null);
-      return;
-    }
-
+    if (!feedbackId) return;
     let active = true;
-    setIsLoading(true);
-    setLoadError(null);
-
     feedbackApi
       .getFeedback(feedbackId)
-      .then((data) => {
+      .then(async (data) => {
         if (!active) return;
         setFeedback(data);
-        setRating(data.rating);
-        setComment(data.comment ?? "");
-        setImages(data.images ?? []);
+        let nextRating = data.rating;
+        let nextComment = data.comment ?? "";
+        let nextImages = data.images ?? [];
+        if (uploadDraftId) {
+          const saved = await getUploadDraft(uploadDraftId);
+          if (!active) return;
+          const form = saved?.formData as Partial<SavedEditReviewForm> | undefined;
+          if (
+            saved &&
+            saved.userId === userId &&
+            saved.purpose === "feedback" &&
+            form?.kind === "edit-review" &&
+            form.feedbackId === feedbackId &&
+            typeof form.rating === "number" &&
+            typeof form.comment === "string" &&
+            Array.isArray(form.images) &&
+            form.images.every((url) => typeof url === "string")
+          ) {
+            nextRating = form.rating;
+            nextComment = form.comment;
+            // The draft selection is authoritative, including an empty retained-image list.
+            nextImages = [...new Set(form.images.filter((url) => !url.startsWith("blob:")))];
+            const selectedIds = new Set(form.assetIds ?? []);
+            const seen = new Set<string>();
+            const selected = saved.files.filter((file) => {
+              if (!selectedIds.has(file.id) || file.field !== "review-image") return false;
+              const key = `${file.file.name}:${file.file.size}:${file.file.lastModified}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+            for (const file of selected) {
+              if (file.url && !nextImages.includes(file.url)) nextImages.push(file.url);
+            }
+            nextImages = nextImages.slice(0, 5);
+            for (const url of previews.current) URL.revokeObjectURL(url);
+            previews.current.clear();
+            setPendingPhotos(
+              selected
+                .filter((file) => !file.url)
+                .slice(0, 5 - nextImages.length)
+                .map((file) => {
+                  const url = URL.createObjectURL(file.file);
+                  previews.current.add(url);
+                  return { id: file.id, file: file.file, url };
+                }),
+            );
+            setActiveDraftId(saved.id);
+          } else {
+            toast.error("This saved review is unavailable or has expired.");
+          }
+        }
+        if (!active) return;
+        setRating(nextRating);
+        setComment(nextComment);
+        setImages(nextImages.slice(0, 5));
       })
       .catch((err) => {
         if (!active) return;
@@ -80,62 +174,216 @@ export function EditReviewModal({
     return () => {
       active = false;
     };
-  }, [isOpen, feedbackId]);
+  }, [isOpen, feedbackId, attempt, uploadDraftId, userId]);
+
+  const persistForm = async (
+    nextRating: number,
+    nextComment: string,
+    nextImages: string[],
+    draftId = activeDraftId,
+  ) => {
+    if (!draftId || !feedbackId) return;
+    const write = draftWrites.current
+      .catch(() => {})
+      .then(async () => {
+        const saved = await getUploadDraft(draftId);
+        if (!saved) return;
+        const form = saved.formData as Partial<SavedEditReviewForm>;
+        saved.formData = {
+          kind: "edit-review",
+          feedbackId,
+          rating: nextRating,
+          comment: nextComment,
+          images: nextImages,
+          assetIds: form.assetIds ?? [],
+        } satisfies SavedEditReviewForm;
+        await saveUploadDraft(saved, false);
+      });
+    draftWrites.current = write;
+    await write;
+  };
+
+  const updateRating = (value: number) => {
+    setRating(value);
+    void persistForm(value, comment, images).catch((error) =>
+      toast.error(getApiErrorMessage(error)),
+    );
+  };
+
+  const updateComment = (value: string) => {
+    setComment(value);
+    void persistForm(rating, value, images).catch((error) =>
+      toast.error(getApiErrorMessage(error)),
+    );
+  };
 
   const handleImageUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const remainingSlots = 5 - images.length;
+    if (!files || files.length === 0 || !feedbackId) return;
+    const remainingSlots = 5 - images.length - pendingPhotos.length;
     if (remainingSlots <= 0) {
       toast.info("You can attach up to 5 images.");
       return;
     }
 
     const filesToUpload = Array.from(files).slice(0, remainingSlots);
-    try {
-      setIsUploading(true);
-      const uploadedUrls: string[] = [];
-      for (const file of filesToUpload) {
-        if (!file.type.startsWith("image/")) continue;
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error(`${file.name} exceeds 5MB size limit.`);
-          continue;
-        }
-        const url = await feedbackApi.uploadImage(file);
-        uploadedUrls.push(url);
+    const validFiles = filesToUpload.filter((file) => {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        toast.error(`${file.name} is not a supported image file.`);
+        return false;
       }
-      if (uploadedUrls.length > 0) {
-        setImages((prev) => [...prev, ...uploadedUrls].slice(0, 5));
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} exceeds 5MB size limit.`);
+        return false;
       }
-    } catch (error) {
-      toast.error(getApiErrorMessage(error) || "Failed to upload image.");
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+      return true;
+    });
+    if (!validFiles.length) return;
+    const selected = validFiles.map((file) => {
+      const url = URL.createObjectURL(file);
+      previews.current.add(url);
+      return { id: crypto.randomUUID(), file, url };
+    });
+    setPendingPhotos((current) => [...current, ...selected]);
   };
 
   const handleRemoveImage = (indexToRemove: number) => {
-    setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    if (indexToRemove >= images.length) {
+      const index = indexToRemove - images.length;
+      const photo = pendingPhotos[index];
+      if (photo) {
+        URL.revokeObjectURL(photo.url);
+        previews.current.delete(photo.url);
+      }
+      setPendingPhotos((current) => current.filter((_, i) => i !== index));
+      if (activeDraftId && photo) {
+        draftWrites.current = draftWrites.current
+          .catch(() => {})
+          .then(async () => {
+            const saved = await getUploadDraft(activeDraftId);
+            if (!saved) return;
+            const form = saved.formData as SavedEditReviewForm;
+            saved.formData = { ...form, assetIds: form.assetIds.filter((id) => id !== photo.id) };
+            await saveUploadDraft(saved, false);
+          });
+      }
+      return;
+    }
+    const removedUrl = images[indexToRemove];
+    const nextImages = images.filter((_, idx) => idx !== indexToRemove);
+    setImages(nextImages);
+    if (activeDraftId && removedUrl) {
+      const write = draftWrites.current
+        .catch(() => {})
+        .then(async () => {
+          const saved = await getUploadDraft(activeDraftId);
+          if (!saved) return;
+          const form = saved.formData as Partial<SavedEditReviewForm>;
+          saved.formData = {
+            kind: "edit-review",
+            feedbackId,
+            rating,
+            comment,
+            images: nextImages,
+            assetIds: (form.assetIds ?? []).filter(
+              (assetId) =>
+                !saved.files.some((file) => file.id === assetId && file.url === removedUrl),
+            ),
+          };
+          await saveUploadDraft(saved, false);
+        });
+      draftWrites.current = write;
+      void write.catch((error) => toast.error(getApiErrorMessage(error)));
+    }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feedbackId) return;
+  const handleSave = async () => {
+    if (!feedbackId || isSaving) return;
+    let submittedDraftId = activeDraftId;
+    let modalClosed = false;
 
     try {
+      setSaveError("");
       setIsSaving(true);
+      await draftWrites.current;
+      let finalImages = images;
+      const previous = activeDraftId ? await getUploadDraft(activeDraftId) : undefined;
+      if (activeDraftId && !previous)
+        throw new Error("This saved upload has expired. Please select the images again.");
+      const files = [
+        ...(previous?.files
+          .filter((file) => file.url && images.includes(file.url))
+          .map((file) => ({ id: file.id, field: file.field, file: file.file })) ?? []),
+        ...pendingPhotos.map((photo) => ({
+          id: photo.id,
+          field: "review-image",
+          file: photo.file,
+        })),
+      ];
+      if (files.length) {
+        if (!userId) throw new Error("Sign in before saving your review.");
+        const draftId = activeDraftId ?? crypto.randomUUID();
+        setActiveDraftId(draftId);
+        setIsUploading(true);
+        const saved = await startOrResumeUploadDraft(
+          {
+            draftId,
+            userId,
+            purpose: "feedback",
+            targetId: feedbackId,
+            title: `Edit review for ${feedback?.productName ?? "product"}`,
+            path:
+              orderId || feedback?.orderId
+                ? APP_PATHS.ORDER_DETAIL.replace(":orderId", orderId ?? feedback?.orderId ?? "")
+                : location.pathname,
+            formData: {
+              kind: "edit-review",
+              feedbackId,
+              rating,
+              comment,
+              images,
+              assetIds: files.map((file) => file.id),
+            } satisfies SavedEditReviewForm,
+            files,
+            onQueued: () => {
+              modalClosed = true;
+              onClose();
+            },
+          },
+          draftId,
+        );
+        finalImages = [...new Set([...images, ...saved.files.map((file) => file.url!)])].slice(
+          0,
+          5,
+        );
+        setImages(finalImages);
+        setPendingPhotos([]);
+        submittedDraftId = saved.id;
+      }
       const updated = await feedbackApi.editFeedback(feedbackId, {
         rating,
         comment: comment.trim() || undefined,
-        images,
+        images: finalImages,
       });
 
       toast.success("Review updated successfully.");
+      if (submittedDraftId) {
+        try {
+          await removeUploadDraft(submittedDraftId);
+          setActiveDraftId(undefined);
+        } catch (cleanupError) {
+          toast.error(
+            `Review updated, but saved upload cleanup failed: ${getApiErrorMessage(cleanupError)}`,
+          );
+        }
+      }
       onUpdated?.(updated);
-      onClose();
+      if (!modalClosed) onClose();
     } catch (error) {
-      toast.error(getApiErrorMessage(error) || "Failed to update review.");
+      if (isUploadCancelled(error))
+        toast.info("Upload stopped. Your draft is saved; edit it or submit again when ready.");
+      else setSaveError(getApiErrorMessage(error) || "Failed to update review.");
     } finally {
+      setIsUploading(false);
       setIsSaving(false);
     }
   };
@@ -143,231 +391,91 @@ export function EditReviewModal({
   const productName = feedback?.productName || initialProductName || "Product";
   const variantName = feedback?.variantName || initialVariantName;
   const imageUrl = feedback?.imageUrl || initialImageUrl;
-
+  const busy = isSaving || isUploading;
   return (
-    <>
-      <SharedModal
-        isOpen={isOpen}
-        onClose={onClose}
-        title="Edit your review"
-        maxWidthClass="max-w-xl"
-      >
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-12 text-neutral-500">
-            <Loader2 className="size-8 animate-spin text-emerald-600" />
-            <p className="mt-3 text-xs sm:text-sm">Loading review...</p>
-          </div>
-        ) : loadError ? (
-          <div className="py-8 text-center text-sm text-red-600">
-            <p>{loadError}</p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-4 rounded-xl border border-neutral-200 px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
-            >
-              Close
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSave} className="space-y-4">
-            {/* Store header if available */}
-            {feedback?.shopName && (
-              <div className="flex items-center gap-2.5 rounded-xl bg-neutral-50 px-3.5 py-2.5 text-xs text-neutral-600">
-                <Store className="size-4 shrink-0 text-emerald-700" />
-                <span className="font-semibold text-neutral-900">
-                  {feedback.shopName}
-                </span>
-                {feedback.orderCode && (
-                  <>
-                    <span>·</span>
-                    <span>Order #{feedback.orderCode}</span>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Product item info */}
-            <div className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-3.5 shadow-2xs">
-              <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-neutral-100 text-neutral-400">
-                <Package size={22} />
-                {imageUrl && (
-                  <img
-                    src={imageUrl}
-                    alt={productName}
-                    onError={(ev) => {
-                      ev.currentTarget.style.display = "none";
-                    }}
-                    className="absolute inset-0 size-full object-cover"
-                  />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-neutral-900">{productName}</p>
-                {variantName && (
-                  <p className="text-xs text-neutral-500">{variantName}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Star Rating */}
-            <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
-              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-2">
-                Your Rating
-              </label>
-              <StarRatingInput value={rating} onChange={setRating} size="lg" />
-            </div>
-
-            {/* Comment */}
-            <div>
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="edit-review-comment"
-                  className="block text-xs font-semibold text-neutral-700"
-                >
-                  Your feedback
-                </label>
-                <span className="text-[11px] text-neutral-400">
-                  {comment.length} / 1000
-                </span>
-              </div>
-              <textarea
-                id="edit-review-comment"
-                value={comment}
-                onChange={(e) => setComment(e.target.value.slice(0, 1000))}
-                rows={3}
-                placeholder="Share your thoughts about this product, freshness, flavor..."
-                className="mt-1.5 w-full rounded-xl border border-neutral-200 p-3 text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-
-            {/* Image Upload */}
-            <div>
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-semibold text-neutral-700">
-                  Attached Photos ({images.length}/5)
-                </label>
-                {images.length < 5 && (
-                  <button
-                    type="button"
-                    disabled={isUploading}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
-                  >
-                    {isUploading ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Camera className="size-3.5" />
-                    )}
-                    Upload photos
-                  </button>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => void handleImageUpload(e.target.files)}
-              />
-
-              {images.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {images.map((imgUrl, idx) => (
-                    <div
-                      key={imgUrl}
-                      className="group relative size-16 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setPreviewImage(imgUrl)}
-                        className="size-full cursor-pointer"
-                        title="View photo"
-                      >
-                        <img
-                          src={imgUrl}
-                          alt={`Review photo ${idx + 1}`}
-                          className="size-full object-cover transition group-hover:scale-105"
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(idx)}
-                        className="absolute right-1 top-1 rounded-full bg-neutral-900/70 p-1 text-white shadow-xs transition hover:bg-neutral-900"
-                        title="Remove photo"
-                      >
-                        <Trash2 className="size-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Store reply (read-only) */}
-            {feedback?.reply && (
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
-                  <MessageSquareQuote className="size-4 text-emerald-700" />
-                  <span>Store Response</span>
-                  {feedback.reply.repliedByName && (
-                    <span className="text-[11px] font-normal text-emerald-800">
-                      ({feedback.reply.repliedByName})
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1.5 whitespace-pre-wrap text-xs text-emerald-950">
-                  {feedback.reply.content}
-                </p>
-              </div>
-            )}
-
-            {/* Modal actions */}
-            <div className="flex items-center justify-end gap-2 border-t border-neutral-100 pt-3">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isSaving}
-                className="rounded-xl border border-neutral-200 px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSaving || isUploading}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {isSaving && <Loader2 className="size-3.5 animate-spin" />}
-                Save changes
-              </button>
-            </div>
-          </form>
-        )}
-      </SharedModal>
-
-      {/* Image zoom preview modal */}
-      {previewImage && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setPreviewImage(null)}
-        >
-          <button
-            type="button"
-            onClick={() => setPreviewImage(null)}
-            className="absolute right-4 top-4 rounded-full bg-white/20 p-2 text-white hover:bg-white/30"
-          >
-            <X className="size-5" />
-          </button>
-          <img
-            src={previewImage}
-            alt="Review enlarged view"
-            className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
+    <SharedModal
+      isOpen={isOpen}
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+      closeOnClickOutside={!busy}
+      title="Edit your review"
+      maxWidthClass="max-w-2xl"
+    >
+      {isLoading ? (
+        <div role="status" aria-label="Loading review" className="space-y-4">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-64" />
         </div>
+      ) : loadError ? (
+        <ErrorState
+          title="Couldn't load review"
+          description={loadError}
+          onRetry={() => {
+            setIsLoading(true);
+            setLoadError(null);
+            setAttempt((value) => value + 1);
+          }}
+        />
+      ) : (
+        feedback && (
+          <div className="space-y-5">
+            <div className="rounded-md bg-primary-50/50 p-3 text-caption text-text-secondary">
+              {feedback.shopName}
+              {feedback.orderCode && ` · Order ${feedback.orderCode}`}
+            </div>
+            <div className="flex items-start gap-3">
+              <MediaImage
+                src={imageUrl ?? undefined}
+                alt={productName}
+                fallbackIcon={Package}
+                showFallbackLabel={false}
+                className="size-16 shrink-0 rounded-md"
+              />
+              <div className="min-w-0">
+                <p className="text-body font-semibold text-text-primary [overflow-wrap:anywhere]">
+                  {productName}
+                </p>
+                {variantName && (
+                  <p className="mt-1 text-caption text-text-secondary [overflow-wrap:anywhere]">
+                    {variantName}
+                  </p>
+                )}
+              </div>
+            </div>
+            {/* Edit Count and 30-day notice (FIX-28) */}
+            <div className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 text-xs text-text-secondary">
+              <span>
+                Edits used: <strong>{feedback.editCount ?? 0}/3</strong>
+              </span>
+              <span>
+                {Math.max(0, 3 - (feedback.editCount ?? 0))} edit(s) remaining (within 30 days)
+              </span>
+            </div>
+
+            <ReviewEditor
+              rating={rating}
+              comment={comment}
+              images={[...images, ...pendingPhotos.map((photo) => photo.url)]}
+              saving={isSaving}
+              uploading={isUploading}
+              maxLength={1000}
+              error={saveError}
+              onRating={updateRating}
+              onComment={updateComment}
+              onRemove={handleRemoveImage}
+              onUpload={handleImageUpload}
+              onSave={async () => {
+                await handleSave();
+              }}
+              onCancel={onClose}
+              reply={feedback.reply}
+              editCount={feedback.editCount}
+              canEdit={feedback.canEdit}
+            />
+          </div>
+        )
       )}
-    </>
+    </SharedModal>
   );
 }

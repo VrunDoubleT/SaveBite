@@ -42,7 +42,7 @@ public sealed class AuditLogService : IAuditLogService
             : null;
 
         var paged = await _repository.GetPagedLogsAsync(request, fromUtc, toUtcExclusive, ct);
-        var (actions, targetTypes) = await _repository.GetDistinctFiltersAsync(ct);
+        var (actions, targetTypes) = await _repository.GetDistinctFiltersAsync(request.TargetType, ct);
 
         var items = paged.Items.Select(MapToResponse).ToList();
 

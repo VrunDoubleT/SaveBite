@@ -6,6 +6,5 @@ namespace SaveBite.Backend.Services.Interfaces;
 public interface IOrderEventPublisher
 {
     Task QueueCompletedAsync(Order order, CancellationToken ct = default);
-    Task QueuePendingAsync(Order order, CancellationToken ct = default);
     Task QueueNoShowAsync(Order order, CancellationToken ct = default);
 }

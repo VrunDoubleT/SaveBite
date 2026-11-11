@@ -8,7 +8,8 @@ namespace SaveBite.Backend.Repositories.Implementations;
 public sealed class TrustOrderRepository : ITrustOrderRepository
 {
     private readonly AppDbContext _db;
-    public TrustOrderRepository(AppDbContext db) { _db = db; }
+    private readonly SaveBite.Backend.Services.Interfaces.ITrustNotificationService _notifications;
+    public TrustOrderRepository(AppDbContext db, SaveBite.Backend.Services.Interfaces.ITrustNotificationService notifications) { _db = db; _notifications = notifications; }
 
     // Serialize terminal-order processing by customer, then commit progress, histories and receipt together.
     public async Task ExecuteAsync(Guid orderId, Func<Order, Task> handle, CancellationToken ct)
@@ -22,12 +23,13 @@ public sealed class TrustOrderRepository : ITrustOrderRepository
         var order = await _db.Orders.Include(x => x.StatusHistories).Include(x => x.Refunds).SingleAsync(x => x.Id == orderId, ct);
         await handle(order);
         await _db.SaveChangesAsync(ct);
+        await _notifications.PublishForOrderAsync(orderId, ct);
         await tx.CommitAsync(ct);
     }
     // Read the idempotency receipt independently of whether an earning or penalty rule existed.
     public async Task<bool> IsProcessedAsync(Guid orderId, CancellationToken ct)
         => await _db.Set<TrustOrderProcessing>().AnyAsync(x => x.OrderId == orderId, ct)
-            || await _db.TrustScoreHistories.AnyAsync(x => x.OrderId == orderId, ct)
+            || await _db.TrustProgressHistories.AnyAsync(x => x.OrderId == orderId, ct)
             || await _db.NoShowPenalties.AnyAsync(x => x.OrderId == orderId, ct);
     public Task<UserTrustScore?> ScoreAsync(Guid userId, CancellationToken ct)
         => _db.UserTrustScores.SingleOrDefaultAsync(x => x.UserId == userId, ct);
@@ -45,8 +47,8 @@ public sealed class TrustOrderRepository : ITrustOrderRepository
         => _db.RecoveryRequirementRules.Where(x => x.IsActive && x.MinimumOccurrence <= occurrence && x.EffectiveFrom <= at
             && (x.EffectiveTo == null || at < x.EffectiveTo)).OrderByDescending(x => x.MinimumOccurrence)
             .ThenByDescending(x => x.EffectiveFrom).FirstOrDefaultAsync(ct);
-    public Task<List<NoShowPenalty>> RecoveringAsync(Guid userId, CancellationToken ct)
-        => _db.NoShowPenalties.Where(x => x.UserId == userId && x.Status == NoShowPenaltyStatus.Recovering)
+    public Task<List<NoShowPenalty>> PenaltiesAsync(Guid userId, CancellationToken ct)
+        => _db.NoShowPenalties.Include(x => x.RecoveryOrders).Where(x => x.UserId == userId)
             .OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).ToListAsync(ct);
     // One full-online completed order can recover one penalty; recorded assignments prevent reuse.
     public Task<List<Order>> RecoveryCandidatesAsync(Guid userId, CancellationToken ct)

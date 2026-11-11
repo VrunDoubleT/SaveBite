@@ -1,3 +1,5 @@
+using SaveBite.Backend.Constants;
+using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Helpers;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -15,13 +17,17 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class WarningService : IWarningService
 {
+    private readonly INotificationQueue _notifications;
     private readonly IWarningRepository _warningRepository;
+    private readonly IAdminAuditWriter _audit;
     private readonly AppDbContext _db;
     private readonly TimeProvider _clock;
 
-    public WarningService(IWarningRepository warningRepository, AppDbContext db, TimeProvider clock)
+    public WarningService(IWarningRepository warningRepository, AppDbContext db, TimeProvider clock, INotificationQueue notifications, IAdminAuditWriter audit)
     {
+        _notifications = notifications;
         _warningRepository = warningRepository;
+        _audit = audit;
         _db = db;
         _clock = clock;
     }
@@ -66,54 +72,114 @@ public sealed class WarningService : IWarningService
     // Send Violation Warning.
     public async Task<ModerationActionResponse> IssueWarningAsync(Guid adminId, Guid productId, IssueViolationWarningRequest request, CancellationToken ct)
     {
-        var product = await _warningRepository.GetProductForWarningAsync(productId, ct);
-
-        if (product == null)
-            throw AppException.NotFound("Product not found.");
-
-        if (product.DeletedAt != null)
-            throw AppException.Conflict("Product has been removed.");
-
-        var reason = request.Reason.Trim();
-        var requiredCorrection = request.RequiredCorrection.Trim();
-
-        var revision = await _warningRepository.GetLatestRevisionForWarningAsync(productId, ct)
-            ?? throw AppException.Conflict("Product has no content revision to review.");
-        if (revision.Status == ProductReviewStatus.Suspended)
-            throw AppException.Conflict("The current revision is suspended.");
-        if (revision.Status == ProductReviewStatus.NeedsRevision)
-            throw AppException.Conflict("A correction has already been requested for this revision.");
-
-        if (await _db.ProductWarnings.AnyAsync(x => x.ProductId == productId && x.ResolvedAt == null, ct))
-            throw AppException.Conflict("This product already has an unresolved warning.");
-
-        var now = _clock.GetUtcNow().UtcDateTime;
-        revision.AttributeValuesJson ??= JsonSerializer.Serialize(ProductAttributeContentHelper.Capture(product));
-        revision.Status = ProductReviewStatus.NeedsRevision;
-        revision.ReviewedByUserId = adminId;
-        revision.ReviewedAt = now;
-        revision.ReviewNote = requiredCorrection;
-        _db.ProductWarnings.Add(new ProductWarning
+        return await NotificationTransaction.RunAsync(_db, async () =>
         {
-            Id = Guid.NewGuid(),
-            ProductId = productId,
-            ShopId = product.ShopId,
-            IssuedByUserId = adminId,
-            BaselineRevisionId = revision.Id,
-            ProductName = product.Name,
-            Reason = reason,
-            RequiredCorrection = requiredCorrection,
-            CreatedAt = now,
-            DueAt = now.AddDays(7)
-        });
-        await _db.SaveChangesAsync(ct);
+            var product = await _warningRepository.GetProductForWarningAsync(productId, ct);
 
-        return new ModerationActionResponse
-        {
-            TargetId = product.ShopId,
-            Action = "SHOP_WARNING_ISSUED",
-            Message = "Warning saved. The shop has seven days to submit corrections."
-        };
+            if (product == null)
+                throw AppException.NotFound("Product not found.");
+
+            if (product.DeletedAt != null)
+                throw AppException.Conflict("Product has been removed.");
+
+            var reason = request.Reason.Trim();
+            var requiredCorrection = request.RequiredCorrection.Trim();
+
+            var revision = await _warningRepository.GetLatestRevisionForWarningAsync(productId, ct)
+                ?? throw AppException.Conflict("Product has no content revision to review.");
+            if (revision.Status == ProductReviewStatus.Suspended)
+                throw AppException.Conflict("The current revision is suspended.");
+            if (revision.Status == ProductReviewStatus.NeedsRevision)
+                throw AppException.Conflict("A correction has already been requested for this revision.");
+
+            if (await _db.ProductWarnings.AnyAsync(x => x.ProductId == productId && x.ResolvedAt == null, ct))
+                throw AppException.Conflict("This product already has an unresolved warning.");
+
+            var now = _clock.GetUtcNow().UtcDateTime;
+            var oldValues = new
+            {
+                RevisionId = revision.Id,
+                Status = revision.Status.ToString(),
+                revision.ReviewedByUserId,
+                revision.ReviewedAt
+            };
+            revision.AttributeValuesJson ??= JsonSerializer.Serialize(ProductAttributeContentHelper.Capture(product));
+            revision.Status = ProductReviewStatus.NeedsRevision;
+            revision.ReviewedByUserId = adminId;
+            revision.ReviewedAt = now;
+            revision.ReviewNote = requiredCorrection;
+            var activeDeals = await _db.FlashDeals
+                .Where(x => x.ProductId == productId && (x.Status == FlashDealStatus.Pending || x.Status == FlashDealStatus.OnSale || x.Status == FlashDealStatus.Hidden))
+                .ToListAsync(ct);
+            foreach (var deal in activeDeals)
+            {
+                var previousStatus = deal.Status;
+                deal.Status = FlashDealStatus.Cancelled;
+                deal.UpdatedAt = now;
+                _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
+                {
+                    FlashDealId = deal.Id,
+                    FromStatus = previousStatus,
+                    ToStatus = FlashDealStatus.Cancelled,
+                    ChangedByType = "System",
+                    Note = $"Automatically cancelled after an administrator warning: {reason}",
+                    CreatedAt = now
+                });
+            }
+
+            var warningId = Guid.NewGuid();
+            _db.ProductWarnings.Add(new ProductWarning
+            {
+                Id = warningId,
+                ProductId = productId,
+                ShopId = product.ShopId,
+                IssuedByUserId = adminId,
+                BaselineRevisionId = revision.Id,
+                ProductName = product.Name,
+                Reason = reason,
+                RequiredCorrection = requiredCorrection,
+                CreatedAt = now,
+                DueAt = now.AddDays(7),
+                DealBlocked = true
+            });
+            _audit.Record(new AuditLog
+            {
+                ActorUserId = adminId,
+                Action = AuditActionTypes.ProductWarningIssued,
+                TargetType = "Product",
+                TargetId = productId,
+                Reason = reason,
+                OldValuesJson = JsonSerializer.Serialize(oldValues),
+                NewValuesJson = JsonSerializer.Serialize(new
+                {
+                    WarningId = warningId,
+                    ProductId = productId,
+                    revision.Id,
+                    Status = revision.Status.ToString(),
+                    RequiredCorrection = requiredCorrection,
+                    DueAt = now.AddDays(7),
+                    DealBlocked = true
+                }),
+                CreatedAt = now
+            });
+            await _db.SaveChangesAsync(ct);
+            var ownerId = product.Shop?.OwnerUserId ?? Guid.Empty;
+            if (ownerId != Guid.Empty)
+            {
+                await _notifications.EnqueueAsync(NotificationTarget.User(ownerId), new CreateNotificationCommand(
+                    NotificationType.ProductNeedsRevision, NotificationMessages.DealsAndProducts.ProductCorrectionRequestedTitle,
+                    NotificationMessages.DealsAndProducts.ProductCorrectionRequestedBody(product.Name, reason, requiredCorrection),
+                    "/store-owner/warnings", $"product-warning:{warningId}"), ct);
+            }
+
+            return new ModerationActionResponse
+            {
+                TargetId = product.ShopId,
+                Action = AuditActionTypes.ShopWarningIssued,
+                Message = "Warning saved. The shop has seven days to submit corrections."
+            };
+
+        }, ct);
     }
 
     // Map Responses.
@@ -126,7 +192,7 @@ public sealed class WarningService : IWarningService
             ProductName = warning.ProductName,
             RequiredCorrection = warning.RequiredCorrection,
             ShopId = warning.ShopId,
-            Action = "SHOP_WARNING_ISSUED",
+            Action = AuditActionTypes.ShopWarningIssued,
             Reason = warning.Reason,
             NewValuesJson = JsonSerializer.Serialize(new { warning.ProductId, warning.ProductName, warning.RequiredCorrection }),
             IssuedByUserId = warning.IssuedByUserId,

@@ -29,7 +29,7 @@ export function StarRatingInput({
     size === "sm" ? "size-5" : size === "lg" ? "size-7" : "size-6";
 
   return (
-    <div className="inline-flex items-center gap-2">
+    <div className="inline-flex max-w-full flex-wrap items-center gap-2">
       <div className="flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((star) => {
           const isFilled = star <= displayRating;
@@ -42,12 +42,13 @@ export function StarRatingInput({
               onMouseLeave={() => !disabled && setHoverRating(0)}
               onClick={() => !disabled && onChange(star)}
               aria-label={`Rate ${star} out of 5`}
-              className="rounded p-0.5 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:pointer-events-none disabled:opacity-50"
+              aria-pressed={value === star}
+              className="flex size-11 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent-50 focus-visible:outline-none focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-50"
             >
               <Star
                 className={`${sizeClass} ${
                   isFilled
-                    ? "fill-amber-400 text-amber-400"
+                    ? "fill-accent-300 text-accent-700"
                     : "text-neutral-300"
                 }`}
               />
@@ -56,7 +57,7 @@ export function StarRatingInput({
         })}
       </div>
       {displayRating > 0 && (
-        <span className="text-xs font-medium text-neutral-600">
+        <span className="text-xs font-medium text-text-secondary">
           {displayRating}/5 · {RATING_LABELS[displayRating]}
         </span>
       )}

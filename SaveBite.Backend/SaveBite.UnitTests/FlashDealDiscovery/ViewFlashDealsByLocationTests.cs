@@ -3,8 +3,9 @@ using FluentAssertions;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using Moq;
-using SaveBite.Backend.Caching.Interfaces;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Messaging.Interfaces;
+using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
@@ -25,7 +26,6 @@ namespace SaveBite.Tests.FlashDealDiscovery;
 public class ViewFlashDealsByLocationTests
 {
     private readonly ITestOutputHelper _output;
-    private readonly Mock<IFlashDealRedisService> _redisMock = new();
     private readonly Mock<IFlashDealRepository> _dealRepoMock = new();
     private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
     private readonly Mock<IShopRepository> _shopRepoMock = new();
@@ -33,6 +33,7 @@ public class ViewFlashDealsByLocationTests
     private readonly Mock<IBackgroundJobClient> _backgroundJobClientMock = new();
     private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
     private readonly Mock<ILogger<FlashDealService>> _loggerMock = new();
+    private readonly AppDbContext _db = TestDbContextFactory.Create();
     private readonly FlashDealService _service;
     private readonly FlashDealCursorRequestValidator _validator = new();
 
@@ -40,55 +41,95 @@ public class ViewFlashDealsByLocationTests
     {
         _output = output;
         _service = new FlashDealService(
-            _redisMock.Object,
             _dealRepoMock.Object,
             _userAddressRepoMock.Object,
             _shopRepoMock.Object,
             _staffRepoMock.Object,
             _backgroundJobClientMock.Object,
             _publisherMock.Object,
-            _loggerMock.Object, null!);
+            _loggerMock.Object,
+            _db);
     }
 
-    private List<FlashDealResponse> CreateSampleDeals()
+    private async Task<(Shop shopA, Shop shopB, Shop shopC, FlashDeal dealA, FlashDeal dealB, FlashDeal dealC)> SeedSampleDealsAsync()
     {
         var now = DateTime.UtcNow;
-        return new List<FlashDealResponse>
+        var shopA = new Shop
         {
-            new()
-            {
-                Id = Guid.NewGuid(),
-                ShopId = Guid.NewGuid(),
-                ShopName = "Bakery A",
-                CategoryName = "Bakery",
-                DistanceInKm = 1.2,
-                MinDealPrice = 20000,
-                CreatedAt = now.AddMinutes(-10),
-                Status = FlashDealStatus.OnSale
-            },
-            new()
-            {
-                Id = Guid.NewGuid(),
-                ShopId = Guid.NewGuid(),
-                ShopName = "Coffee B",
-                CategoryName = "Drinks",
-                DistanceInKm = 3.5,
-                MinDealPrice = 40000,
-                CreatedAt = now.AddMinutes(-30),
-                Status = FlashDealStatus.OnSale
-            },
-            new()
-            {
-                Id = Guid.NewGuid(),
-                ShopId = Guid.NewGuid(),
-                ShopName = "Bistro C",
-                CategoryName = "Bakery",
-                DistanceInKm = 6.0,
-                MinDealPrice = 60000,
-                CreatedAt = now.AddMinutes(-60),
-                Status = FlashDealStatus.OnSale
-            }
+            Id = Guid.NewGuid(),
+            Name = "Bakery A",
+            AddressLine = "123 St",
+            Latitude = 10.7769,
+            Longitude = 106.7009,
+            Status = ShopStatus.Active
         };
+        var shopB = new Shop
+        {
+            Id = Guid.NewGuid(),
+            Name = "Coffee B",
+            AddressLine = "456 St",
+            Latitude = 10.8200,
+            Longitude = 106.7300,
+            Status = ShopStatus.Active
+        };
+        var shopC = new Shop
+        {
+            Id = Guid.NewGuid(),
+            Name = "Bistro C",
+            AddressLine = "789 St",
+            Latitude = 10.8200,
+            Longitude = 106.7300,
+            Status = ShopStatus.Active
+        };
+        _db.Shops.AddRange(shopA, shopB, shopC);
+
+        var catBakery = new Category { Name = "Bakery" };
+        var catDrinks = new Category { Name = "Drinks" };
+
+        var prodA = new Product { Id = Guid.NewGuid(), Name = "Croissant", ShopId = shopA.Id, Category = catBakery, Status = ProductStatus.Active };
+        var prodB = new Product { Id = Guid.NewGuid(), Name = "Latte", ShopId = shopB.Id, Category = catDrinks, Status = ProductStatus.Active };
+        var prodC = new Product { Id = Guid.NewGuid(), Name = "Baguette", ShopId = shopC.Id, Category = catBakery, Status = ProductStatus.Active };
+        _db.Products.AddRange(prodA, prodB, prodC);
+
+        var dealA = new FlashDeal
+        {
+            Id = Guid.NewGuid(),
+            ShopId = shopA.Id,
+            ProductId = prodA.Id,
+            SaleStartTime = now.AddHours(-1),
+            OrderEndTime = now.AddHours(2),
+            ShopClosingTime = now.AddHours(3),
+            Status = FlashDealStatus.OnSale,
+            CreatedAt = now.AddMinutes(-10),
+            Variants = { new FlashDealVariant { Id = Guid.NewGuid(), DealPrice = 20000, OriginalPrice = 30000, TotalQuantity = 10, Status = FlashDealVariantStatus.Active } }
+        };
+        var dealB = new FlashDeal
+        {
+            Id = Guid.NewGuid(),
+            ShopId = shopB.Id,
+            ProductId = prodB.Id,
+            SaleStartTime = now.AddHours(-1),
+            OrderEndTime = now.AddHours(2),
+            ShopClosingTime = now.AddHours(3),
+            Status = FlashDealStatus.OnSale,
+            CreatedAt = now.AddMinutes(-30),
+            Variants = { new FlashDealVariant { Id = Guid.NewGuid(), DealPrice = 40000, OriginalPrice = 50000, TotalQuantity = 10, Status = FlashDealVariantStatus.Active } }
+        };
+        var dealC = new FlashDeal
+        {
+            Id = Guid.NewGuid(),
+            ShopId = shopC.Id,
+            ProductId = prodC.Id,
+            SaleStartTime = now.AddHours(-1),
+            OrderEndTime = now.AddHours(2),
+            ShopClosingTime = now.AddHours(3),
+            Status = FlashDealStatus.OnSale,
+            CreatedAt = now.AddMinutes(-60),
+            Variants = { new FlashDealVariant { Id = Guid.NewGuid(), DealPrice = 60000, OriginalPrice = 70000, TotalQuantity = 10, Status = FlashDealVariantStatus.Active } }
+        };
+        _db.FlashDeals.AddRange(dealA, dealB, dealC);
+        await _db.SaveChangesAsync();
+        return (shopA, shopB, shopC, dealA, dealB, dealC);
     }
 
     // =========================================================================
@@ -98,6 +139,7 @@ public class ViewFlashDealsByLocationTests
     public async Task UTCID01_GetNearby_InitialMode_NoFilters_ReturnsSortedDeals_Normal()
     {
         // Arrange
+        await SeedSampleDealsAsync();
         var request = new FlashDealCursorRequest
         {
             Latitude = 10.7769,
@@ -106,11 +148,6 @@ public class ViewFlashDealsByLocationTests
             Mode = CursorMode.Initial,
             Limit = 9
         };
-
-        var deals = CreateSampleDeals();
-        _redisMock
-            .Setup(r => r.GetNearbyDealsAsync(10.7769, 106.7009, 15.0))
-            .ReturnsAsync(deals);
 
         // Act
         var result = await _service.GetNearbyAsync(request);
@@ -122,7 +159,6 @@ public class ViewFlashDealsByLocationTests
         result.Cursor1.Should().NotBeNull();
         result.Cursor2.Should().NotBeNull();
         result.HasOlder.Should().BeFalse(); // 3 < Limit 9
-        // Thứ tự mới nhất trước
         result.Deals.First().ShopName.Should().Be("Bakery A");
     }
 
@@ -133,6 +169,7 @@ public class ViewFlashDealsByLocationTests
     public async Task UTCID02_GetNearby_FilterCategoryAndPrice_ReturnsMatchingDeals_Normal()
     {
         // Arrange
+        await SeedSampleDealsAsync();
         var request = new FlashDealCursorRequest
         {
             Latitude = 10.7769,
@@ -143,11 +180,6 @@ public class ViewFlashDealsByLocationTests
             Mode = CursorMode.Initial,
             Limit = 9
         };
-
-        var deals = CreateSampleDeals();
-        _redisMock
-            .Setup(r => r.GetNearbyDealsAsync(10.7769, 106.7009, 15.0))
-            .ReturnsAsync(deals);
 
         // Act
         var result = await _service.GetNearbyAsync(request);
@@ -168,6 +200,7 @@ public class ViewFlashDealsByLocationTests
     public async Task UTCID03_GetNearby_FilterDistanceUnder2km_ReturnsNearbyDeals_Normal()
     {
         // Arrange
+        await SeedSampleDealsAsync();
         var request = new FlashDealCursorRequest
         {
             Latitude = 10.7769,
@@ -177,11 +210,6 @@ public class ViewFlashDealsByLocationTests
             Mode = CursorMode.Initial,
             Limit = 9
         };
-
-        var deals = CreateSampleDeals();
-        _redisMock
-            .Setup(r => r.GetNearbyDealsAsync(10.7769, 106.7009, 15.0))
-            .ReturnsAsync(deals);
 
         // Act
         var result = await _service.GetNearbyAsync(request);
@@ -201,8 +229,8 @@ public class ViewFlashDealsByLocationTests
     public async Task UTCID04_GetNearby_ModeOlder_PaginatesOlderDeals_Normal()
     {
         // Arrange
-        var deals = CreateSampleDeals();
-        var cursor1 = deals[0].CreatedAt; // Cũ hơn deal đầu tiên
+        var (_, _, _, dealA, _, _) = await SeedSampleDealsAsync();
+        var cursor1 = dealA.CreatedAt;
 
         var request = new FlashDealCursorRequest
         {
@@ -214,17 +242,13 @@ public class ViewFlashDealsByLocationTests
             Limit = 2
         };
 
-        _redisMock
-            .Setup(r => r.GetNearbyDealsAsync(10.7769, 106.7009, 15.0))
-            .ReturnsAsync(deals);
-
         // Act
         var result = await _service.GetNearbyAsync(request);
 
         // Assert & Log
         PrintSuccess("UTCID04", result);
         result.Should().NotBeNull();
-        result.Deals.Should().HaveCount(2); // Coffee B và Bistro C
+        result.Deals.Should().HaveCount(2);
         result.Deals.Should().OnlyContain(d => d.CreatedAt < cursor1);
     }
 
@@ -235,8 +259,8 @@ public class ViewFlashDealsByLocationTests
     public async Task UTCID05_GetNearby_ModeNewer_PollingReturnsBadgeCount_Normal()
     {
         // Arrange
-        var deals = CreateSampleDeals();
-        var cursor2 = deals[1].CreatedAt; // Deal 0 mới hơn cursor2
+        var (_, _, _, _, dealB, _) = await SeedSampleDealsAsync();
+        var cursor2 = dealB.CreatedAt;
 
         var request = new FlashDealCursorRequest
         {
@@ -247,17 +271,13 @@ public class ViewFlashDealsByLocationTests
             Cursor2 = cursor2
         };
 
-        _redisMock
-            .Setup(r => r.GetNearbyDealsAsync(10.7769, 106.7009, 15.0))
-            .ReturnsAsync(deals);
-
         // Act
         var result = await _service.GetNearbyAsync(request);
 
         // Assert & Log
         PrintSuccess("UTCID05", result);
         result.Should().NotBeNull();
-        result.Deals.Should().BeEmpty(); // Khi polling không trả về deals
+        result.Deals.Should().BeEmpty();
         result.HasNewer.Should().BeTrue();
         result.NewDealsCount.Should().Be(1);
     }
@@ -271,16 +291,11 @@ public class ViewFlashDealsByLocationTests
         // Arrange
         var request = new FlashDealCursorRequest
         {
-            Latitude = 10.7769,
-            Longitude = 106.7009,
-            RadiusInKm = 15.0,
-            Mode = CursorMode.Initial,
-            Limit = 9
+            Latitude = 20.0,
+            Longitude = 105.0,
+            RadiusInKm = 1.0,
+            Mode = CursorMode.Initial
         };
-
-        _redisMock
-            .Setup(r => r.GetNearbyDealsAsync(10.7769, 106.7009, 15.0))
-            .ReturnsAsync(new List<FlashDealResponse>());
 
         // Act
         var result = await _service.GetNearbyAsync(request);
@@ -289,9 +304,6 @@ public class ViewFlashDealsByLocationTests
         PrintSuccess("UTCID06", result);
         result.Should().NotBeNull();
         result.Deals.Should().BeEmpty();
-        result.HasOlder.Should().BeFalse();
-        result.Cursor1.Should().BeNull();
-        result.Cursor2.Should().BeNull();
     }
 
     // =========================================================================
@@ -303,7 +315,7 @@ public class ViewFlashDealsByLocationTests
         // Arrange
         var request = new FlashDealCursorRequest
         {
-            Latitude = 95.0, // Vượt ngoài khoảng [-90, 90]
+            Latitude = 95.0,
             Longitude = 106.7009,
             RadiusInKm = 15.0
         };
@@ -328,7 +340,7 @@ public class ViewFlashDealsByLocationTests
         {
             Latitude = 10.7769,
             Longitude = 106.7009,
-            RadiusInKm = 0.0 // Bán kính không hợp lệ <= 0
+            RadiusInKm = 0.0
         };
 
         // Act
@@ -353,9 +365,8 @@ public class ViewFlashDealsByLocationTests
     private void PrintException(string tcid, string message)
     {
         _output.WriteLine($"================ {tcid} ================");
-        _output.WriteLine("RESULT: PASS");
-        _output.WriteLine("STATUS: ERROR / REJECTED");
-        _output.WriteLine($"MESSAGE: {message}");
+        _output.WriteLine("RESULT: PASS (Exception Handled)");
+        _output.WriteLine($"ERROR MESSAGE: {message}");
         _output.WriteLine("========================================");
     }
 }

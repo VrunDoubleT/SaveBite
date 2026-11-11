@@ -355,7 +355,7 @@ export function ShopContentManagementPage() {
             )}
           </div>
 
-          {/* Thanh quyết định nổi ở đáy màn hình */}
+          {/* Sticky action bar at the bottom */}
           <div className="pointer-events-none fixed inset-x-0 bottom-5 z-30 flex justify-center px-4">
             <div className="pointer-events-auto flex items-center gap-4 rounded-full border border-border-default bg-white/95 py-2 pl-5 pr-2 shadow-lg backdrop-blur">
               <p className="flex items-center gap-2 text-sm">
@@ -378,7 +378,7 @@ export function ShopContentManagementPage() {
             </div>
           </div>
 
-          {/* Ngăn kéo moderation */}
+          {/* Moderation drawer */}
           <dialog
             ref={drawerRef}
             aria-labelledby="moderation-title"

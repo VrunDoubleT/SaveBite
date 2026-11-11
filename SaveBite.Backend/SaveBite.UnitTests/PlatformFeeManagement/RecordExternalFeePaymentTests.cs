@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
@@ -27,6 +28,7 @@ public class RecordExternalFeePaymentTests
     private readonly Mock<ILogger<PlatformFeeStatementService>> _loggerMock = new();
     private readonly Mock<IConfiguration> _configurationMock = new();
     private readonly Mock<IHttpClientFactory> _httpClientFactoryMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly PlatformFeeStatementService _service;
 
     // Explicit GUIDs for test determinism and traceability
@@ -45,13 +47,7 @@ public class RecordExternalFeePaymentTests
         _output = output;
         _configurationMock.Setup(c => c["Checkout:PaymentProvider"]).Returns("Simulated");
 
-        _service = new PlatformFeeStatementService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _configurationMock.Object,
-            _httpClientFactoryMock.Object
-        );
+        _service = new PlatformFeeStatementService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _configurationMock.Object, _httpClientFactoryMock.Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), _auditMock.Object, new Mock<IPlatformPayOsConfigService>().Object, new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object);
     }
 
     private Shop CreateShop(ShopStatus status = ShopStatus.Suspended) => new()
@@ -59,7 +55,8 @@ public class RecordExternalFeePaymentTests
         Id = ValidShopId,
         OwnerUserId = OwnerUserId,
         Name = "SaveBite Official Bakery",
-        Status = status
+        Status = status,
+        SuspendedForPlatformFees = status == ShopStatus.Suspended
     };
 
     private PlatformFeeStatement CreateStatement(
@@ -117,10 +114,6 @@ public class RecordExternalFeePaymentTests
         _repositoryMock
             .Setup(r => r.HasOtherOverdueStatementsAsync(ValidShopId, StatementId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false); // No other overdue statements
-
-        _repositoryMock
-            .Setup(r => r.AddAuditLog(It.IsAny<AuditLog>()));
-
         _repositoryMock
             .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -140,9 +133,9 @@ public class RecordExternalFeePaymentTests
             p.GatewayTransactionId == ValidRefCode &&
             p.Status == PaymentStatus.Succeeded), It.IsAny<CancellationToken>()), Times.Once);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.Is<AuditLog>(a =>
+        _auditMock.Verify(r => r.Record(It.Is<AuditLog>(a =>
             a.ActorUserId == AdminId &&
-            a.Action == "RecordExternalPlatformFeePayment" &&
+            a.Action == AuditActionTypes.RecordExternalPlatformFeePayment &&
             a.TargetId == StatementId)), Times.Once);
 
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -185,10 +178,6 @@ public class RecordExternalFeePaymentTests
         _repositoryMock
             .Setup(r => r.HasOtherOverdueStatementsAsync(ValidShopId, StatementId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true); // Still has other overdue statements
-
-        _repositoryMock
-            .Setup(r => r.AddAuditLog(It.IsAny<AuditLog>()));
-
         _repositoryMock
             .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);

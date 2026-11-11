@@ -59,8 +59,13 @@ public class ViewRefundHistoryTests
             TimeProvider.System,
             _configMock.Object,
             _deadlinesMock.Object,
-            _loggerMock.Object
+            _loggerMock.Object,
+            new Mock<INotificationQueue>().Object,
+            new Mock<ITrustNotificationService>().Object,
+            TestDbContextFactory.Create()
         );
+        _shopRepoMock.Setup(s => s.OwnerShopAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(ValidShopId);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
     }
 
     private User CreateCustomerUser(Guid id, UserStatus status = UserStatus.Active, CustomerStatus custStatus = CustomerStatus.Active, UserRole role = UserRole.User)
@@ -139,7 +144,7 @@ public class ViewRefundHistoryTests
             .ReturnsAsync((refundList, 2));
 
         // Act
-        var result = await _service.PageAsync(ValidCustomerId, null, null, null, 1, 10, CancellationToken.None);
+        var result = await _service.PageAsync(ValidCustomerId, false, null, null, 1, 10, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
@@ -166,7 +171,7 @@ public class ViewRefundHistoryTests
         var filteredList = new List<Refund> { refund };
 
         _shopRepoMock
-            .Setup(s => s.RequireAccessAsync(ValidOwnerId, ValidShopId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.RequireAccessAsync(ValidOwnerId, ValidShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>()))
             .ReturnsAsync(true);
 
         _refundRepoMock
@@ -174,7 +179,7 @@ public class ViewRefundHistoryTests
             .ReturnsAsync((filteredList, 1));
 
         // Act
-        var result = await _service.PageAsync(ValidOwnerId, ValidShopId, "Completed", null, 1, 10, CancellationToken.None);
+        var result = await _service.PageAsync(ValidOwnerId, true, "Completed", null, 1, 10, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
@@ -204,7 +209,7 @@ public class ViewRefundHistoryTests
             .ReturnsAsync((new List<Refund>(), 0));
 
         // Act
-        var result = await _service.PageAsync(ValidCustomerId, null, null, null, 1, 10, CancellationToken.None);
+        var result = await _service.PageAsync(ValidCustomerId, false, null, null, 1, 10, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
@@ -228,7 +233,7 @@ public class ViewRefundHistoryTests
             .ReturnsAsync(inactiveCustomer);
 
         // Act
-        var act = async () => await _service.PageAsync(ValidCustomerId, null, null, null, 1, 10, CancellationToken.None);
+        var act = async () => await _service.PageAsync(ValidCustomerId, false, null, null, 1, 10, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -246,11 +251,11 @@ public class ViewRefundHistoryTests
     {
         // Arrange
         _shopRepoMock
-            .Setup(s => s.RequireAccessAsync(NonOwnerUserId, ValidShopId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.RequireAccessAsync(NonOwnerUserId, ValidShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>()))
             .ReturnsAsync(false);
 
         // Act
-        var act = async () => await _service.PageAsync(NonOwnerUserId, ValidShopId, null, null, 1, 10, CancellationToken.None);
+        var act = async () => await _service.PageAsync(NonOwnerUserId, true, null, null, 1, 10, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -274,7 +279,7 @@ public class ViewRefundHistoryTests
             .ReturnsAsync(customer);
 
         // Act
-        var act = async () => await _service.PageAsync(ValidCustomerId, null, "NonExistentStatus", null, 1, 10, CancellationToken.None);
+        var act = async () => await _service.PageAsync(ValidCustomerId, false, "NonExistentStatus", null, 1, 10, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();

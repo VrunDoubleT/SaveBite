@@ -35,9 +35,21 @@ public sealed class ProductVariantPriceRequestValidator : AbstractValidator<Prod
             .Must(x => x.Count <= ProductLimits.Attributes && x.Distinct().Count() == x.Count)
             .WithMessage("Variant value IDs must be unique and within the attribute limit.");
         RuleForEach(x => x.ValueIds).NotEmpty();
-        RuleFor(x => x.OriginalPrice).GreaterThan(0).PrecisionScale(12, 2, false);
-        RuleFor(x => x.DealPrice).GreaterThanOrEqualTo(0)
-            .LessThan(x => x.OriginalPrice).PrecisionScale(12, 2, false);
+        RuleFor(x => x.OriginalPrice)
+            .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
+            .WithMessage($"Original price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
+            .Must(MoneyLimits.IsWholeVnd).WithMessage("Original price must be a whole VND amount.")
+            .Must(value => value % ProductLimits.PriceStepVnd == 0)
+            .WithMessage("Original price must be a multiple of 1,000 VND.")
+            .PrecisionScale(12, 2, false);
+        RuleFor(x => x.DealPrice)
+            .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
+            .WithMessage($"Deal price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
+            .Must(MoneyLimits.IsWholeVnd).WithMessage("Deal price must be a whole VND amount.")
+            .Must(value => value % ProductLimits.PriceStepVnd == 0)
+            .WithMessage("Deal price must be a multiple of 1,000 VND.")
+            .LessThan(x => x.OriginalPrice).WithMessage("Deal price must be less than original price.")
+            .PrecisionScale(12, 2, false);
     }
 }
 
@@ -58,11 +70,11 @@ public sealed class CreateProductRequestValidator : AbstractValidator<CreateProd
     public CreateProductRequestValidator(ProductImageFileValidator images,
         CreateProductAttributeRequestValidator attributes, ProductVariantPriceRequestValidator variants)
     {
-        RuleFor(x => x.CategoryId).NotEmpty();
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.CategoryId).NotEmpty().WithMessage("Please select a category.");
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Please enter a product name.").MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(ProductLimits.DescriptionLength);
         RuleFor(x => x.Images).Cascade(CascadeMode.Stop).NotNull()
-            .Must(x => x.Count <= ProductLimits.Images).WithMessage("At most 10 gallery images are allowed.");
+            .Must(x => x.Count is >= 1 and <= ProductLimits.Images).WithMessage("Please provide between 1 and 10 gallery images.");
         RuleForEach(x => x.Images).NotNull().SetValidator(images);
         RuleFor(x => x.Attributes).Cascade(CascadeMode.Stop).NotNull()
             .Must(x => x.Count <= ProductLimits.Attributes).WithMessage("At most 3 attributes are allowed.");
@@ -78,8 +90,8 @@ public sealed class UpdateProductRequestValidator : AbstractValidator<UpdateProd
 {
     public UpdateProductRequestValidator()
     {
-        RuleFor(x => x.CategoryId).NotEmpty();
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.CategoryId).NotEmpty().WithMessage("Please select a category.");
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Please enter a product name.").MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(ProductLimits.DescriptionLength);
     }
 }
@@ -95,6 +107,9 @@ public sealed class UpdateProductImagesRequestValidator : AbstractValidator<Upda
         RuleFor(x => x.Images).Cascade(CascadeMode.Stop).NotNull()
             .Must(x => x.Count <= ProductLimits.Images).WithMessage("At most 10 gallery images are allowed.");
         RuleForEach(x => x.Images).NotNull().SetValidator(images);
+        RuleFor(x => x)
+            .Must(x => x.RetainedImageIds.Count + x.Images.Count is >= 1 and <= ProductLimits.Images)
+            .WithMessage("Product must have between 1 and 10 gallery images.");
     }
 }
 
@@ -157,11 +172,21 @@ public sealed class UpdateProductVariantRequestValidator : AbstractValidator<Upd
 {
     public UpdateProductVariantRequestValidator()
     {
-        RuleFor(x => x.OriginalPrice).GreaterThan(0).PrecisionScale(12, 2, false)
-            .WithMessage("Original price must be greater than 0.");
-        RuleFor(x => x.DealPrice).GreaterThanOrEqualTo(0)
-            .LessThan(x => x.OriginalPrice).PrecisionScale(12, 2, false)
-            .WithMessage("Deal price must be greater than or equal to 0 and less than original price.");
+        RuleFor(x => x.OriginalPrice)
+            .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
+            .WithMessage($"Original price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
+            .Must(MoneyLimits.IsWholeVnd).WithMessage("Original price must be a whole VND amount.")
+            .Must(value => value % ProductLimits.PriceStepVnd == 0)
+            .WithMessage("Original price must be a multiple of 1,000 VND.")
+            .PrecisionScale(12, 2, false);
+        RuleFor(x => x.DealPrice)
+            .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
+            .WithMessage($"Deal price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
+            .Must(MoneyLimits.IsWholeVnd).WithMessage("Deal price must be a whole VND amount.")
+            .Must(value => value % ProductLimits.PriceStepVnd == 0)
+            .WithMessage("Deal price must be a multiple of 1,000 VND.")
+            .LessThan(x => x.OriginalPrice).WithMessage("Deal price must be less than original price.")
+            .PrecisionScale(12, 2, false);
     }
 }
 public sealed class UpdateProductStatusRequestValidator : AbstractValidator<UpdateProductStatusRequest>

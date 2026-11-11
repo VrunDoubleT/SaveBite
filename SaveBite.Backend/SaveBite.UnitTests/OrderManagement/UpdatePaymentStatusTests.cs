@@ -64,7 +64,7 @@ public class UpdatePaymentStatusTests
         _context.Initial.Status.Should().Be(PaymentStatus.Succeeded);
         _context.Initial.CollectedAmount.Should().Be(5000m);
         _orderRepoMock.Verify(r => r.CompleteInventoryAsync(order, true, It.IsAny<CancellationToken>()), Times.Once);
-        _context.Events.Verify(r => r.QueuePendingAsync(order, It.IsAny<CancellationToken>()), Times.Once);
+        _context.ConfirmationScheduler.Verify(r => r.Schedule(order.Id, It.IsAny<DateTime>()), Times.Once);
         _context.Realtime.Verify(r => r.NotifyAsync(order.ShopId, order.Id, RealtimeEvents.OrderReasons.Pending, It.IsAny<CancellationToken>()), Times.Once);
         _context.Scheduler.Verify(r => r.Delete("expiry-job"), Times.Once);
         _output.WriteLine("TCID01 PASSED: UpdatePaymentStatus_VerifiedWebhook_SubmitsOrderAndSettlesReservation (Normal).");
@@ -88,7 +88,7 @@ public class UpdatePaymentStatusTests
 
         // Assert
         _orderRepoMock.Verify(r => r.CompleteInventoryAsync(order, true, It.IsAny<CancellationToken>()), Times.Once);
-        _context.Events.Verify(r => r.QueuePendingAsync(order, It.IsAny<CancellationToken>()), Times.Once);
+        _context.ConfirmationScheduler.Verify(r => r.Schedule(order.Id, It.IsAny<DateTime>()), Times.Once);
         _context.Realtime.Verify(r => r.NotifyAsync(order.ShopId, order.Id, RealtimeEvents.OrderReasons.Pending, It.IsAny<CancellationToken>()), Times.Once);
         _output.WriteLine("TCID02 PASSED: UpdatePaymentStatus_DuplicateWebhook_DoesNotSettleOrSubmitTwice (Boundary).");
     }
@@ -195,7 +195,7 @@ public class UpdatePaymentStatusTests
         _context.Initial.Status.Should().Be(PaymentStatus.Pending);
         _context.Initial.CollectedAmount.Should().Be(4999m);
         order.Status.Should().Be(OrderStatus.AwaitingPayment);
-        _context.Events.Verify(r => r.QueuePendingAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()), Times.Never);
+        _context.ConfirmationScheduler.Verify(r => r.Schedule(It.IsAny<Guid>(), It.IsAny<DateTime>()), Times.Never);
         _output.WriteLine("TCID07 PASSED: UpdatePaymentStatus_OneUnitUnderRequiredAmount_DoesNotSubmit (Boundary).");
     }
 

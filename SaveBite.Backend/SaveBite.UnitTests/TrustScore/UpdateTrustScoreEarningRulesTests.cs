@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,8 @@ public class UpdateTrustScoreEarningRulesTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<ITrustConfigRepository> _repositoryMock = new();
+
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly Mock<ILogger<TrustConfigService>> _loggerMock = new();
     private readonly TrustConfigService _service;
     private readonly UpdateTrustScoreRuleRequestValidator _validator = new();
@@ -36,11 +39,7 @@ public class UpdateTrustScoreEarningRulesTests
     public UpdateTrustScoreEarningRulesTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new TrustConfigService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object
-        );
+        _service = new TrustConfigService(_repositoryMock.Object, _auditMock.Object, TimeProvider.System, _loggerMock.Object, new Mock<INotificationQueue>().Object);
     }
 
     private TrustScoreRule CreateSampleEarningRule(int scoreDelta = 5, bool isPending = false, bool isReplaced = false)
@@ -100,9 +99,9 @@ public class UpdateTrustScoreEarningRulesTests
             r.CreatedBy == _adminId
         )), Times.Once);
 
-        _repositoryMock.Verify(r => r.AddAuditLog(It.Is<AuditLog>(log =>
+        _auditMock.Verify(r => r.Record(It.Is<AuditLog>(log =>
             log.ActorUserId == _adminId &&
-            log.Action == "UpdateTrustEarningRule"
+            log.Action == AuditActionTypes.UpdateTrustEarningRule
         )), Times.Once);
 
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);

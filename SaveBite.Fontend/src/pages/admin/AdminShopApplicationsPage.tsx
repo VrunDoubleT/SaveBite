@@ -46,6 +46,14 @@ export function AdminShopApplicationsPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      void load();
+    };
+    window.addEventListener("shop-application:updated", handleUpdate);
+    return () => window.removeEventListener("shop-application:updated", handleUpdate);
+  }, [load]);
+
   const sortedItems = useMemo(() => {
     const filtered = items.filter((item) => filter === "All" || item.status === filter);
 
@@ -100,11 +108,11 @@ export function AdminShopApplicationsPage() {
     }
   };
 
-  const review = async (decision: "Approved" | "Rejected") => {
+  const review = async (decision: "Approved" | "Rejected" | "NeedsRevision") => {
     if (!selected) return;
 
-    if (decision === "Rejected" && !note.trim()) {
-      setError("Please provide a reason before rejecting this application.");
+    if (decision !== "Approved" && !note.trim()) {
+      setError("Please provide a reason for rejection or requested changes.");
       return;
     }
 
@@ -125,6 +133,7 @@ export function AdminShopApplicationsPage() {
       );
       setSuccess(`Application ${decision.toLowerCase()} successfully.`);
       setNote("");
+      window.dispatchEvent(new CustomEvent("shop-application:updated"));
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
@@ -173,7 +182,9 @@ export function AdminShopApplicationsPage() {
             pageSize={pageSize}
             onPageChange={setCurrentPage}
             itemLabel="applications"
-            showFirstLast
+            showTotalItems={true}
+            showFirstLast={true}
+            className="w-full"
           />
         ) : null
       }

@@ -1,3 +1,4 @@
+using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Constants;
@@ -20,15 +21,16 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class ProductService : IProductService
 {
     private readonly AppDbContext _db;
+    private readonly INotificationQueue _notifications;
     private readonly IProductRepository _repository;
     private readonly ICloudinaryService _images;
     private readonly TimeProvider _clock;
     private readonly ILogger<ProductService> _logger;
-    private readonly IRabbitMqPublisher _publisher;
+    private readonly IAdminAuditWriter _audit;
 
     public ProductService(IProductRepository repository, ICloudinaryService images,
-        TimeProvider clock, ILogger<ProductService> logger, IRabbitMqPublisher publisher, AppDbContext db)
-        => (_repository, _images, _clock, _logger, _publisher, _db) = (repository, images, clock, logger, publisher, db);
+        TimeProvider clock, ILogger<ProductService> logger, IAdminAuditWriter audit, AppDbContext db, INotificationQueue notifications)
+        => (_repository, _images, _clock, _logger, _audit, _db, _notifications) = (repository, images, clock, logger, audit, db, notifications);
 
     public async Task<ProductSummaryResponse> GetSummaryAsync(Guid userId, CancellationToken ct)
         => await _repository.GetSummaryAsync(await RequireShopAsync(userId, ct), ct);
@@ -39,7 +41,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> CreateAsync(Guid userId,
         CreateProductRequest request, CancellationToken ct)
     {
-        var shopId = await RequireShopAsync(userId, ct);
+        var shopId = await RequireActiveShopAsync(userId, ct);
         await RequireCategoryAsync(request.CategoryId, ct);
         EnsureUniqueNames(request.Attributes.Select(x => x.Name), "Attribute names");
         var newValues = request.Attributes.SelectMany(x => x.Values).ToArray();
@@ -135,7 +137,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> UpdateAsync(Guid userId, Guid productId,
         UpdateProductRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, false, ct);
+        var product = await RequireProductAsync(userId, productId, false, ct, requireActiveShop: true);
         await RequireCategoryAsync(request.CategoryId, ct);
         product.Name = request.Name.Trim();
         product.Description = request.Description?.Trim();
@@ -148,7 +150,7 @@ public sealed class ProductService : IProductService
 
     public async Task DeleteAsync(Guid userId, Guid productId, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, true, ct);
+        var product = await RequireProductAsync(userId, productId, true, ct, requireActiveShop: true);
         if (product.DeletedAt.HasValue) return;
         product.DeletedAt = Now();
         product.Status = ProductStatus.Hidden;
@@ -160,9 +162,11 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> UpdateImagesAsync(Guid userId, Guid productId,
         UpdateProductImagesRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, false, ct);
+        var product = await RequireProductAsync(userId, productId, false, ct, requireActiveShop: true);
         if (request.RetainedImageIds.Count + request.Images.Count > ProductLimits.Images)
             throw AppException.BadRequest("At most 10 gallery images are allowed.");
+        if (request.RetainedImageIds.Count + request.Images.Count < 1)
+            throw AppException.BadRequest("Product must have at least 1 gallery image.");
         var existing = product.Images.ToDictionary(x => x.Id);
         if (request.RetainedImageIds.Any(id => !existing.ContainsKey(id)))
             throw AppException.BadRequest("Every retained image must belong to this product.");
@@ -188,7 +192,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> AddValuesAsync(Guid userId, Guid productId,
         AddProductValuesRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, false, ct);
+        var product = await RequireProductAsync(userId, productId, false, ct, requireActiveShop: true);
         if (request.Attributes.Select(x => x.AttributeId).Distinct().Count() != request.Attributes.Count)
             throw AppException.BadRequest("Each attribute may appear only once.");
         var newValues = request.Attributes.SelectMany(x => x.Values).ToArray();
@@ -231,7 +235,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> UpdateValueImageAsync(Guid userId, Guid productId,
         Guid valueId, UpdateProductValueImageRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, false, ct);
+        var product = await RequireProductAsync(userId, productId, false, ct, requireActiveShop: true);
         var value = product.Attributes.SelectMany(x => x.Values).SingleOrDefault(x => x.Id == valueId)
             ?? throw AppException.NotFound("Product value was not found.");
         var previousImage = value.ImageUrl;
@@ -265,14 +269,27 @@ public sealed class ProductService : IProductService
             request.Page, request.PageSize, total);
     }
 
+    // Read access remains available for a suspended shop so its existing catalog can be inspected.
     private async Task<Guid> RequireShopAsync(Guid userId, CancellationToken ct)
         => (await _repository.GetAvailableShopAsync(userId, ct))?.Id
             ?? throw AppException.NotFound("Shop was not found or is unavailable.");
 
-    private async Task<Product> RequireProductAsync(Guid userId, Guid productId,
-        bool includeDeleted, CancellationToken ct)
+    // Product mutations must recheck shop status in the service, not rely only on controller attributes.
+    private async Task<Guid> RequireActiveShopAsync(Guid userId, CancellationToken ct)
     {
-        var shopId = await RequireShopAsync(userId, ct);
+        var shop = await _db.Shops.AsNoTracking().SingleOrDefaultAsync(x => x.OwnerUserId == userId, ct)
+            ?? throw AppException.NotFound("Shop was not found.");
+        if (shop.Status != ShopStatus.Active)
+            throw AppException.Forbidden("This shop is not active. Product changes are unavailable.");
+        return shop.Id;
+    }
+
+    private async Task<Product> RequireProductAsync(Guid userId, Guid productId,
+        bool includeDeleted, CancellationToken ct, bool requireActiveShop = false)
+    {
+        var shopId = requireActiveShop
+            ? await RequireActiveShopAsync(userId, ct)
+            : await RequireShopAsync(userId, ct);
         return await _repository.GetOwnedAsync(userId, shopId, productId, includeDeleted, ct)
             ?? throw AppException.NotFound("Product was not found or is unavailable.");
     }
@@ -409,32 +426,66 @@ public sealed class ProductService : IProductService
 
     public async Task<ModerationActionResponse> ApproveContentAsync(Guid adminId, Guid productId, Guid revisionId, CancellationToken ct)
     {
-        var product = await _repository.GetProductForViolationRemovalAsync(productId, ct)
-            ?? throw AppException.NotFound("Product not found.");
-        if (product.DeletedAt != null)
-            throw AppException.Conflict("Product has been removed.");
-        var revision = await _repository.GetLatestRevisionForReviewAsync(productId, ct)
-            ?? throw AppException.NotFound("Product content revision not found.");
-        if (revision.Id != revisionId)
-            throw AppException.Conflict("A newer content revision exists. Reload the product.");
-        if (revision.Status == ProductReviewStatus.Approved)
-            throw AppException.Conflict("This revision has already been approved.");
-        if (revision.Status == ProductReviewStatus.Suspended)
-            throw AppException.Conflict("This revision is suspended.");
-        var warning = await _db.ProductWarnings.SingleOrDefaultAsync(w => w.ProductId == productId && w.ResolvedAt == null, ct);
-        if (warning != null)
+        return await NotificationTransaction.RunAsync(_db, async () =>
         {
-            if (warning.FirstEditedAt == null)
-                throw AppException.Conflict("The shop must submit corrections before this warning can be resolved.");
-            warning.ResolvedAt = Now();
-            warning.DealBlocked = false;
-        }
-        revision.Status = ProductReviewStatus.Approved;
-        revision.ReviewedByUserId = adminId;
-        revision.ReviewedAt = Now();
-        revision.ReviewNote = null;
-        await _repository.SaveChangesAsync(ct);
-        return new ModerationActionResponse { TargetId = productId, Action = "PRODUCT_CONTENT_APPROVED", Message = "Current content revision approved." };
+            var product = await _repository.GetProductForViolationRemovalAsync(productId, ct)
+                ?? throw AppException.NotFound("Product not found.");
+            if (product.DeletedAt != null)
+                throw AppException.Conflict("Product has been removed.");
+            var revision = await _repository.GetLatestRevisionForReviewAsync(productId, ct)
+                ?? throw AppException.NotFound("Product content revision not found.");
+            if (revision.Id != revisionId)
+                throw AppException.Conflict("A newer content revision exists. Reload the product.");
+            if (revision.Status == ProductReviewStatus.Approved)
+                throw AppException.Conflict("This revision has already been approved.");
+            if (revision.Status == ProductReviewStatus.Suspended)
+                throw AppException.Conflict("This revision is suspended.");
+            var oldValues = new
+            {
+                RevisionId = revision.Id,
+                Status = revision.Status.ToString(),
+                revision.ReviewedByUserId,
+                revision.ReviewedAt
+            };
+            var warning = await _db.ProductWarnings.SingleOrDefaultAsync(w => w.ProductId == productId && w.ResolvedAt == null, ct);
+            if (warning != null)
+            {
+                if (warning.FirstEditedAt == null)
+                    throw AppException.Conflict("The shop must submit corrections before this warning can be resolved.");
+                warning.ResolvedAt = Now();
+                warning.DealBlocked = false;
+            }
+            var now = Now();
+            revision.Status = ProductReviewStatus.Approved;
+            revision.ReviewedByUserId = adminId;
+            revision.ReviewedAt = now;
+            revision.ReviewNote = null;
+            _audit.Record(new AuditLog
+            {
+                ActorUserId = adminId,
+                Action = AuditActionTypes.ProductContentApproved,
+                TargetType = "ProductRevision",
+                TargetId = revision.Id,
+                OldValuesJson = JsonSerializer.Serialize(oldValues),
+                NewValuesJson = JsonSerializer.Serialize(new
+                {
+                    ProductId = product.Id,
+                    RevisionId = revision.Id,
+                    Status = revision.Status.ToString(),
+                    revision.ReviewedByUserId,
+                    revision.ReviewedAt,
+                    WarningResolved = warning is not null
+                }),
+                CreatedAt = now
+            });
+            await _repository.SaveChangesAsync(ct);
+            await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
+                NotificationType.ProductContentApproved, NotificationMessages.DealsAndProducts.ProductContentApprovedTitle,
+                NotificationMessages.DealsAndProducts.ProductContentApprovedBody(product.Name),
+                $"/store-owner/products/{productId}", $"product:{productId}:revision:{revisionId}:approved"), ct);
+            return new ModerationActionResponse { TargetId = productId, Action = "PRODUCT_CONTENT_APPROVED", Message = "Current content revision approved." };
+
+        }, ct);
     }
 
     private DateTime Now() => _clock.GetUtcNow().UtcDateTime;
@@ -475,7 +526,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> UpdateVariantAsync(Guid userId, Guid productId,
         Guid variantId, UpdateProductVariantRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, false, ct);
+        var product = await RequireProductAsync(userId, productId, false, ct, requireActiveShop: true);
         var variant = product.Variants.SingleOrDefault(v => v.Id == variantId)
                       ?? throw AppException.NotFound("Product variant was not found.");
         if (!request.IsActive && product.Status == ProductStatus.Active &&
@@ -487,7 +538,7 @@ public sealed class ProductService : IProductService
         if (maxDealPrice.HasValue && request.OriginalPrice <= maxDealPrice.Value)
         {
             throw AppException.BadRequest(
-                $"Original price cannot be less than or equal to the deal price ({maxDealPrice.Value:N0} đ) of an active or pending flash deal.");
+                $"Original price cannot be less than or equal to the deal price ({maxDealPrice.Value:N0} VND) of an active or pending flash deal.");
         }
         variant.OriginalPrice = request.OriginalPrice;
         variant.DealPrice = request.DealPrice;
@@ -500,7 +551,7 @@ public sealed class ProductService : IProductService
     public async Task<ProductResponse> UpdateStatusAsync(Guid userId, Guid productId,
         UpdateProductStatusRequest request, CancellationToken ct)
     {
-        var product = await RequireProductAsync(userId, productId, true, ct);
+        var product = await RequireProductAsync(userId, productId, true, ct, requireActiveShop: true);
         if (request.Status == ProductStatus.Active)
         {
             await RequireCategoryAsync(product.CategoryId, ct);
@@ -592,53 +643,60 @@ public sealed class ProductService : IProductService
     // Manage Products.
     public async Task<ModerationActionResponse> RemoveProductAsync(Guid adminId, Guid productId, RemoveViolatingProductRequest request, CancellationToken ct)
     {
-        var product = await _repository.GetProductForViolationRemovalAsync(productId, ct);
-        if (product == null)
-            throw AppException.NotFound("Product not found.");
-
-        if (product.DeletedAt != null)
-            throw AppException.Conflict("Product already removed.");
-
-        var reason = request.Reason.Trim();
-
-        var oldValues = new
+        return await NotificationTransaction.RunAsync(_db, async () =>
         {
-            Status = product.Status.ToString(),
-            product.DeletedAt
-        };
+            var product = await _repository.GetProductForViolationRemovalAsync(productId, ct);
+            if (product == null)
+                throw AppException.NotFound("Product not found.");
 
-        var now = DateTime.UtcNow;
+            if (product.DeletedAt != null)
+                throw AppException.Conflict("Product already removed.");
 
-        product.DeletedAt = now;
-        product.Status = ProductStatus.Hidden;
-        product.UpdatedAt = now;
+            var reason = request.Reason.Trim();
 
-        await _repository.RemoveProductForViolationAndCancelDealsAsync(product, ct);
-
-        var moderationEvent = new ModerationEvent
-        {
-            Id = Guid.NewGuid(),
-            ActorUserId = adminId,
-            Action = "PRODUCT_REMOVED_VIOLATION",
-            TargetType = "Product",
-            TargetId = productId,
-            Reason = reason,
-            OldValuesJson = JsonSerializer.Serialize(oldValues),
-            NewValuesJson = JsonSerializer.Serialize(new
+            var oldValues = new
             {
                 Status = product.Status.ToString(),
-                product.DeletedAt,
-                product.ShopId
-            }),
-            CreatedAt = DateTime.UtcNow
-        };
-        await _publisher.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, moderationEvent, ct);
+                product.DeletedAt
+            };
 
-        return new ModerationActionResponse
-        {
-            TargetId = productId,
-            Action = "PRODUCT_REMOVED_VIOLATION",
-            Message = "Product removed and associated flash deals cancelled."
-        };
+            var now = DateTime.UtcNow;
+
+            product.DeletedAt = now;
+            product.Status = ProductStatus.Hidden;
+            product.UpdatedAt = now;
+
+            var auditEntry = _audit.Record(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                ActorUserId = adminId,
+                Action = AuditActionTypes.ProductRemovedViolation,
+                TargetType = "Product",
+                TargetId = productId,
+                Reason = reason,
+                OldValuesJson = JsonSerializer.Serialize(oldValues),
+                NewValuesJson = JsonSerializer.Serialize(new
+                {
+                    Status = product.Status.ToString(),
+                    product.DeletedAt,
+                    product.ShopId
+                }),
+                CreatedAt = DateTime.UtcNow
+            });
+            await _repository.RemoveProductForViolationAndCancelDealsAsync(product, ct);
+
+            await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
+                NotificationType.ProductRemoved, NotificationMessages.DealsAndProducts.ProductRemovedViolationTitle,
+                NotificationMessages.DealsAndProducts.ProductRemovedViolationBody(product.Name, reason),
+                "/store-owner/products", $"product-removed:{auditEntry.Id}"), ct);
+
+            return new ModerationActionResponse
+            {
+                TargetId = productId,
+                Action = AuditActionTypes.ProductRemovedViolation,
+                Message = "Product removed and associated flash deals cancelled."
+            };
+
+        }, ct);
     }
 }

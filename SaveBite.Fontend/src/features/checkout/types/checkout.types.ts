@@ -82,11 +82,13 @@ export interface CheckoutOrder {
   paymentExpiresAt?: string;
   paymentReviewRequired: boolean;
   canCancel: boolean;
+  cancelReason?: string;
   cancellationUnavailableReason?: string;
   cancellationPolicy?: string;
   checkoutUrl?: string;
   policy?: CheckoutPolicy;
   items: {
+    orderItemId: string;
     flashDealVariantId: string;
     flashDealId?: string;
     imageUrl?: string;
@@ -95,7 +97,6 @@ export interface CheckoutOrder {
     unitPrice: number;
     quantity: number;
     subtotal: number;
-    orderItemId?: string;
     feedbackId?: string | null;
     rating?: number | null;
     canReview?: boolean;

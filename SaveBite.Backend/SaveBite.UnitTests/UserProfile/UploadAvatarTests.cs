@@ -26,6 +26,7 @@ public class UploadAvatarTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly Mock<IRefreshTokenService> _refreshTokenServiceMock = new();
     private readonly Mock<ILogger<UserService>> _loggerMock = new();
     private readonly Mock<ICloudinaryService> _cloudinaryServiceMock = new();
@@ -37,13 +38,7 @@ public class UploadAvatarTests
     public UploadAvatarTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new UserService(
-            _userRepoMock.Object,
-            _refreshTokenServiceMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _cloudinaryServiceMock.Object
-        );
+        _service = new UserService(_userRepoMock.Object, _refreshTokenServiceMock.Object, TimeProvider.System, _loggerMock.Object, _cloudinaryServiceMock.Object, new Mock<IRealtimePublisher>().Object, new Mock<INotificationQueue>().Object, _auditMock.Object, TestDbContextFactory.Create());
     }
 
     private User CreateValidUser(string? avatarUrl = "https://res.cloudinary.com/savebite/image/upload/v12345/avatars/old_avatar.png")

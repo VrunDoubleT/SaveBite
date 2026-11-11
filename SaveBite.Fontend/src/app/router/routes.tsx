@@ -1,3 +1,5 @@
+import { RestockPage } from "@/pages/shop/RestockPage";
+import { FollowedShopsPage } from "@/pages/customer/FollowedShopsPage";
 import { CustomerRefundDetailPage } from "@/pages/customer/RefundDetailPage";
 import { ShopRefundDetailPage } from "@/pages/store-owner/RefundDetailPage";
 import { ShopRefundsPage } from "@/pages/store-owner/RefundsPage";
@@ -39,6 +41,7 @@ import { ShopApplicationFormPage } from "@/pages/customer/ShopApplicationFormPag
 import ShopApplicationPage from "@/pages/customer/ShopApplicationPage";
 import { TrustScorePage } from "@/pages/customer/TrustScorePage";
 import { ReviewsPage } from "@/pages/customer/ReviewsPage";
+import { OrderRefundRequestPage } from "@/pages/customer/OrderRefundRequestPage";
 import { OrderDetailPage } from "@/pages/customer/OrderDetailPage";
 import { OrdersPage } from "@/pages/customer/OrdersPage";
 import { ProfilePage } from "@/pages/customer/ProfilePage";
@@ -73,6 +76,7 @@ import { AdminReviewsPage } from "@/pages/admin/AdminReviewsPage";
 import { ShopOrdersPage } from "@/pages/shop/ShopOrdersPage";
 import { ShopOrderDetailPage } from "@/pages/shop/ShopOrderDetailPage";
 import { PlatformFeeManagementPage } from "@/pages/admin/PlatformFeeManagementPage";
+import { AdminPlatformPayOsConfigPage } from "@/pages/admin/AdminPlatformPayOsConfigPage";
 import { PlatformFeesPage } from "@/pages/store-owner/PlatformFeesPage";
 import { PlatformFeeDetailPage } from "@/pages/store-owner/PlatformFeeDetailPage";
 import { ShopManagementPage } from "@/pages/admin/ShopManagementPage";
@@ -81,7 +85,24 @@ import { ProductManagementPage } from "@/pages/admin/ProductManagementPage";
 import { ProductContentManagementPage } from "@/pages/admin/ProductContentManagementPage";
 import { WarningHistoryPage } from "@/features/warnings/pages/WarningHistoryPage";
 import { FeedbackManagementPage } from "@/pages/admin/FeedbackManagementPage";
+import { ProductsWorkspace } from "@/features/products/pages/ProductsWorkspace";
+import { ProductListPage } from "@/features/products/pages/ProductListPage";
+import { CreateProductPage } from "@/features/products/pages/CreateProductPage";
+import { ProductDetailPage } from "@/features/products/pages/ProductDetailPage";
+import { ProductHistoryPage } from "@/features/products/pages/ProductHistoryPage";
+import { UiShowcasePage } from "@/pages/dev/UiShowcasePage";
+
 export const routes: RouteObject[] = [
+  ...(import.meta.env.DEV && import.meta.env.VITE_ENABLE_UI_SHOWCASE === "true"
+    ? [
+        {
+          path: APP_PATHS.UI_SHOWCASE,
+          element: <UiShowcasePage />,
+        },
+      ]
+    : []),
+
+  // Customer & public
   {
     element: <CustomerRoute />,
     children: [
@@ -105,9 +126,11 @@ export const routes: RouteObject[] = [
             element: <CustomerDealDetailPage />,
           },
           {
-            path: "/deals/:id",
+            path: APP_PATHS.DEAL_DETAIL_LEGACY,
             element: <CustomerDealDetailPage />,
           },
+
+          // Authentication
           {
             path: APP_PATHS.LOGIN,
             element: <LoginPage />,
@@ -128,6 +151,8 @@ export const routes: RouteObject[] = [
             path: APP_PATHS.RESET_PASSWORD_VERIFY,
             element: <OtpVerificationPage purpose="password-reset" />,
           },
+
+          // Customer Role
           {
             element: <ProtectedRoute allowedRoles={CUSTOMER_ROLES} />,
             children: [
@@ -140,8 +165,12 @@ export const routes: RouteObject[] = [
                 element: <CartPage />,
               },
               {
-                path: "/checkout/simulation",
+                path: APP_PATHS.CHECKOUT_SIMULATION,
                 element: <CheckoutSimulationPage />,
+              },
+              {
+                path: APP_PATHS.ORDER_REFUND_REQUEST,
+                element: <OrderRefundRequestPage />,
               },
               {
                 path: APP_PATHS.ORDER_DETAIL,
@@ -160,43 +189,59 @@ export const routes: RouteObject[] = [
                     element: <Navigate to={APP_PATHS.ACCOUNT_PROFILE} replace />,
                   },
                   {
-                    path: "profile",
+                    path: APP_PATHS.ACCOUNT_PROFILE,
                     element: <ProfilePage />,
                   },
                   {
-                    path: "orders",
+                    path: APP_PATHS.ACCOUNT_ORDERS,
                     element: <OrdersPage />,
                   },
-                  { path: "payments", element: <PaymentsPage /> },
-                  { path: "refunds", element: <RefundsPage /> },
-                  { path: "refunds/:refundId", element: <CustomerRefundDetailPage /> },
-                  { path: "payments/:paymentId", element: <PaymentDetailPage /> },
                   {
-                    path: "reviews",
+                    path: APP_PATHS.ACCOUNT_PAYMENTS,
+                    element: <PaymentsPage />,
+                  },
+                  {
+                    path: APP_PATHS.ACCOUNT_REFUNDS,
+                    element: <RefundsPage />,
+                  },
+                  {
+                    path: APP_PATHS.REFUND_DETAIL,
+                    element: <CustomerRefundDetailPage />,
+                  },
+                  {
+                    path: APP_PATHS.ACCOUNT_PAYMENT_DETAIL,
+                    element: <PaymentDetailPage />,
+                  },
+                  {
+                    path: APP_PATHS.ACCOUNT_FOLLOWED_SHOPS,
+                    element: <FollowedShopsPage />,
+                  },
+                  {
+                    path: APP_PATHS.ACCOUNT_REVIEWS,
                     element: <ReviewsPage />,
                   },
                   {
-                    path: "trust-score/:tab?",
+                    path: APP_PATHS.ACCOUNT_TRUST_SCORE_TAB,
                     element: <TrustScorePage />,
                   },
                   {
-                    path: "shop-application",
+                    path: APP_PATHS.ACCOUNT_SHOP_APPLICATION,
                     element: <ShopApplicationPage />,
                   },
                   {
-                    path: "shop-application/new",
+                    path: APP_PATHS.ACCOUNT_SHOP_APPLICATION_NEW,
                     element: <ShopApplicationFormPage />,
                   },
                   {
-                    path: "shop-application/edit/:applicationId",
+                    path: APP_PATHS.ACCOUNT_SHOP_APPLICATION_EDIT,
                     element: <ShopApplicationFormPage />,
                   },
                   {
-                    path: "workspace",
+                    path: APP_PATHS.ACCOUNT_WORKSPACE,
                     element: <WorkspacePage />,
                   },
                   {
-                    path: "staff-invitations",
+                    path: APP_PATHS.ACCOUNT_STAFF_INVITATIONS,
                     element: <CustomerStaffInvitationsPage />,
                   },
                 ],
@@ -208,6 +253,7 @@ export const routes: RouteObject[] = [
     ],
   },
 
+  // Admin
   {
     element: <ProtectedRoute allowedRoles={ADMIN_ROLES} />,
     children: [
@@ -217,10 +263,10 @@ export const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: <Navigate to={`${APP_PATHS.ADMIN_ANALYTICS}/overview`} replace />,
+            element: <Navigate to={APP_PATHS.ADMIN_ANALYTICS_OVERVIEW} replace />,
           },
           {
-            path: `${APP_PATHS.ADMIN_ANALYTICS}/:tab?`,
+            path: APP_PATHS.ADMIN_ANALYTICS_TAB,
             element: <AdminDashboardPage />,
           },
           {
@@ -232,7 +278,7 @@ export const routes: RouteObject[] = [
             element: <CategoryManagementPage />,
           },
           {
-            path: `${APP_PATHS.ADMIN_TRUST}/:tab?`,
+            path: APP_PATHS.ADMIN_TRUST_TAB,
             element: <TrustConfigurationPage />,
           },
           {
@@ -270,21 +316,27 @@ export const routes: RouteObject[] = [
             element: <PlatformFeeManagementPage />,
           },
           {
-            path: APP_PATHS.ADMIN_AUDIT_LOGS,
-            element: <AdminAuditLogsPage />,
+            path: APP_PATHS.ADMIN_PLATFORM_PAYOS_CONFIG,
+            element: <AdminPlatformPayOsConfigPage />,
+          },
+          {
+            path: APP_PATHS.ADMIN_FEEDBACK,
+            element: <FeedbackManagementPage />,
           },
           {
             path: APP_PATHS.ADMIN_REVIEWS,
             element: <AdminReviewsPage />,
           },
           {
-            path: APP_PATHS.ADMIN_FEEDBACK,
-            element: <FeedbackManagementPage />,
+            path: APP_PATHS.ADMIN_AUDIT_LOGS,
+            element: <AdminAuditLogsPage />,
           },
         ],
       },
     ],
   },
+
+  // Staff
   {
     element: <ProtectedRoute allowedRoles={STAFF_ROLES} />,
     children: [
@@ -293,25 +345,39 @@ export const routes: RouteObject[] = [
         element: <Navigate to={APP_PATHS.HOME} replace />,
       },
       {
-        path: `${APP_PATHS.STAFF}/shops/:shopId`,
+        path: APP_PATHS.STAFF_SHOP,
         element: <StaffLayout />,
         children: [
           {
             index: true,
-            element: <Navigate to="flash-deals" replace />,
+            element: <Navigate to={APP_PATHS.STAFF_SHOP_INDEX_REDIRECT} replace />,
           },
           {
-            path: "flash-deals",
+            path: APP_PATHS.STAFF_FLASH_DEALS,
             element: <StaffFlashDealsPage />,
           },
           {
-            path: "flash-deals/:id",
+            path: APP_PATHS.STAFF_FLASH_DEAL_DETAIL,
             element: <StaffFlashDealDetailPage />,
           },
-          { path: "orders", element: <ShopOrdersPage /> },
-          { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
           {
-            path: "info",
+            path: APP_PATHS.STAFF_REVIEWS,
+            element: <StoreOwnerReviewsPage />,
+          },
+          {
+            path: APP_PATHS.STAFF_RESTOCK,
+            element: <RestockPage />,
+          },
+          {
+            path: APP_PATHS.STAFF_ORDERS,
+            element: <ShopOrdersPage />,
+          },
+          {
+            path: APP_PATHS.STAFF_ORDER_DETAIL,
+            element: <ShopOrderDetailPage />,
+          },
+          {
+            path: APP_PATHS.STAFF_SHOP_INFO,
             element: <StaffShopDetailPage />,
           },
         ],
@@ -319,6 +385,7 @@ export const routes: RouteObject[] = [
     ],
   },
 
+  // Store owner
   {
     element: <ProtectedRoute allowedRoles={STORE_OWNER_ROLES} />,
     children: [
@@ -331,64 +398,65 @@ export const routes: RouteObject[] = [
             element: <StoreOwnerDashboardPage />,
           },
           {
-            path: "products",
-            lazy: async () => ({
-              Component: (await import("@/features/products/pages/ProductsWorkspace"))
-                .ProductsWorkspace,
-            }),
+            path: APP_PATHS.STORE_OWNER_PRODUCTS,
+            element: <ProductsWorkspace />,
             children: [
               {
                 index: true,
-                lazy: async () => ({
-                  Component: (await import("@/features/products/pages/ProductListPage"))
-                    .ProductListPage,
-                }),
+                element: <ProductListPage />,
               },
               {
-                path: "new",
-                lazy: async () => ({
-                  Component: (await import("@/features/products/pages/CreateProductPage"))
-                    .CreateProductPage,
-                }),
+                path: APP_PATHS.STORE_OWNER_PRODUCT_CREATE,
+                element: <CreateProductPage />,
               },
               {
-                path: ":productId",
-                lazy: async () => ({
-                  Component: (await import("@/features/products/pages/ProductDetailPage"))
-                    .ProductDetailPage,
-                }),
+                path: APP_PATHS.STORE_OWNER_PRODUCT_DETAIL,
+                element: <ProductDetailPage />,
               },
               {
-                path: ":productId/flash-deals",
-                lazy: async () => ({
-                  Component: (await import("@/features/products/pages/ProductHistoryPage"))
-                    .ProductHistoryPage,
-                }),
+                path: APP_PATHS.STORE_OWNER_PRODUCT_FLASH_DEALS,
+                element: <ProductHistoryPage />,
               },
             ],
           },
-          { path: "orders", element: <ShopOrdersPage /> },
-          { path: "orders/:orderId", element: <ShopOrderDetailPage /> },
-          { path: "refunds", element: <ShopRefundsPage /> },
-          { path: "refunds/:refundId", element: <ShopRefundDetailPage /> },
           {
-            path: "flash-deals",
+            path: APP_PATHS.STORE_OWNER_RESTOCK,
+            element: <RestockPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_ORDERS,
+            element: <ShopOrdersPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_ORDER_DETAIL,
+            element: <ShopOrderDetailPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_REFUNDS,
+            element: <ShopRefundsPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_REFUND_DETAIL,
+            element: <ShopRefundDetailPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_FLASH_DEALS,
             element: <StoreOwnerFlashDealsPage />,
           },
           {
-            path: "flash-deals/create",
+            path: APP_PATHS.STORE_OWNER_FLASH_DEAL_CREATE,
             element: <StoreOwnerFlashDealFormPage />,
           },
           {
-            path: "flash-deals/:id",
+            path: APP_PATHS.STORE_OWNER_FLASH_DEAL_DETAIL,
             element: <StoreOwnerFlashDealDetailPage />,
           },
           {
-            path: "flash-deals/:id/edit",
+            path: APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT,
             element: <StoreOwnerFlashDealFormPage />,
           },
           {
-            path: "staff",
+            path: APP_PATHS.STORE_OWNER_STAFF,
             element: <StaffManagementPage />,
           },
           {
@@ -416,17 +484,19 @@ export const routes: RouteObject[] = [
             element: <ShopProfilePage />,
           },
           {
-            path: APP_PATHS.STORE_OWNER_REVIEWS,
-            element: <StoreOwnerReviewsPage />,
-          },
-          {
             path: APP_PATHS.STORE_OWNER_WARNINGS,
             element: <WarningHistoryPage />,
+          },
+          {
+            path: APP_PATHS.STORE_OWNER_REVIEWS,
+            element: <StoreOwnerReviewsPage />,
           },
         ],
       },
     ],
   },
+
+  // Fallback
   {
     path: APP_PATHS.NOT_FOUND,
     element: <NotFoundPage />,

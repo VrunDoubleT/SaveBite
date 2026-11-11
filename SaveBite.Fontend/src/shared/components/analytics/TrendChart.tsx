@@ -94,8 +94,8 @@ export function AreaTrend({
   if (!hasData) return <EmptyChart onDark={onDark} height={height} />;
 
   const stroke = onDark ? CHART.lineOnDark : CHART.line;
-  const tick = { fontSize: 12, fill: onDark ? "rgba(255,255,255,0.65)" : CHART.tick };
-  const grid = onDark ? "rgba(255,255,255,0.12)" : CHART.grid;
+  const tick = { fontSize: 12, fill: onDark ? "color-mix(in srgb, var(--color-text-inverse) 65%, transparent)" : CHART.tick };
+  const grid = onDark ? "color-mix(in srgb, var(--color-text-inverse) 12%, transparent)" : CHART.grid;
 
   return (
     <div role="img" aria-label="Trend chart" style={{ height }}>
@@ -224,9 +224,8 @@ export function StackedBarTrend({
   const reduced = usePrefersReducedMotion();
   const colors = onDark ? STACK_COLORS.dark : STACK_COLORS.light;
   const hasData = data.some((d) => d.online + d.cash > 0);
-  const tick = { fontSize: 12, fill: onDark ? "rgba(255,255,255,0.65)" : CHART.tick };
-  const grid = onDark ? "rgba(255,255,255,0.12)" : CHART.grid;
-
+  const tick = { fontSize: 12, fill: onDark ? "color-mix(in srgb, var(--color-text-inverse) 65%, transparent)" : CHART.tick };
+  const grid = onDark ? "color-mix(in srgb, var(--color-text-inverse) 12%, transparent)" : CHART.grid;
   return (
     <div>
       <ul

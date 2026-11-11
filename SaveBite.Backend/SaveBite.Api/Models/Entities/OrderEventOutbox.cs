@@ -1,10 +1,14 @@
+using SaveBite.Backend.Audit;
+
 namespace SaveBite.Backend.Models.Entities;
 
 // Persist an order event and its delivery progress alongside the order transaction.
+[NoAudit]
 public sealed class OrderEventOutbox
 {
     public Guid Id { get; set; }
-    public Guid OrderId { get; set; }
+    public Guid? OrderId { get; set; }
+    public string EventKey { get; set; } = Guid.NewGuid().ToString("N");
     public string RoutingKey { get; set; } = string.Empty;
     public string PayloadJson { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }

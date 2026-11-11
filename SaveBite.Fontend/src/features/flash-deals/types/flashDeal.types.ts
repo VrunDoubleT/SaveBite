@@ -15,6 +15,7 @@ export interface FlashDealVariant {
   discountPercent: number;
   totalQuantity: number;
   soldQuantity: number;
+  unsellableQuantity: number;
   availableQuantity: number;
   status: number;
   isPurchasable?: boolean;
@@ -24,6 +25,7 @@ export interface FlashDeal {
   id: string;
   shopId: string;
   shopName: string;
+  shopOwnerUserId?: string;
   shopLogoUrl?: string;
   shopAddress: string;
   distanceInKm?: number;
@@ -100,7 +102,8 @@ export const FlashDealVariantStatusEnum = {
   Hide: 1,
 } as const;
 
-export type FlashDealVariantStatusEnum = (typeof FlashDealVariantStatusEnum)[keyof typeof FlashDealVariantStatusEnum];
+export type FlashDealVariantStatusEnum =
+  (typeof FlashDealVariantStatusEnum)[keyof typeof FlashDealVariantStatusEnum];
 
 export interface ShopFlashDealListItem {
   id: string;
@@ -118,6 +121,7 @@ export interface ShopFlashDealListItem {
   totalQuantity: number;
   reservedQuantity: number;
   soldQuantity: number;
+  unsellableQuantity: number;
   availableQuantity: number;
   createdAt: string;
 }
@@ -135,6 +139,7 @@ export interface ShopFlashDealVariantDetail {
   totalQuantity: number;
   reservedQuantity: number;
   soldQuantity: number;
+  unsellableQuantity: number;
   availableQuantity: number;
   status: number;
 }
@@ -154,7 +159,17 @@ export interface ShopFlashDealDetail {
   status: FlashDealStatusEnum | number;
   createdAt: string;
   updatedAt: string;
+  statusHistory: ShopFlashDealStatusHistory[];
   variants: ShopFlashDealVariantDetail[];
+}
+
+export interface ShopFlashDealStatusHistory {
+  fromStatus?: FlashDealStatusEnum | number | null;
+  toStatus: FlashDealStatusEnum | number;
+  changedByType: "Shop" | "System" | string;
+  changedByUserId?: string | null;
+  note?: string | null;
+  createdAt: string;
 }
 
 export interface ShopEligibleProductVariant {
@@ -171,6 +186,7 @@ export interface ShopEligibleProduct {
   description?: string;
   categoryName?: string;
   imageUrl?: string;
+  hasActiveDeal?: boolean;
   variants: ShopEligibleProductVariant[];
 }
 

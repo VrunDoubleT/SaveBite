@@ -1,9 +1,11 @@
-import type { AuditLogFilterOptions } from "../types/auditLog.types";
+import type { AuditLogFilterOptions, AuditLogIdentifiers } from "../types/auditLog.types";
 import { SearchInput } from "@/shared/components/modal/SearchInput";
 import { formatAuditAction } from "../utils/formatAuditLog";
 import { todayInVietnam } from "@/features/store-analytics/utils/formatAnalytics";
 
 interface AuditLogFilterBarProps {
+  identifiers: AuditLogIdentifiers;
+  onIdentifiersChange: (values: AuditLogIdentifiers) => void;
   search: string;
   onSearchChange: (value: string) => void;
   actorType: "" | "User" | "System";
@@ -25,6 +27,8 @@ const CONTROL =
   "rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 transition-colors focus-visible:border-primary-400 focus-visible:outline-none focus-visible:shadow-focus";
 
 export function AuditLogFilterBar({
+  identifiers,
+  onIdentifiersChange,
   search,
   onSearchChange,
   actorType,
@@ -50,7 +54,7 @@ export function AuditLogFilterBar({
         <SearchInput
           value={search}
           onChange={onSearchChange}
-          placeholder="Search by person, action, record ID or reason"
+          placeholder="Search by person, action, audit ID, target ID or reason"
           className="w-full lg:max-w-md lg:flex-1"
         />
         {hasActiveFilters && (
@@ -72,7 +76,7 @@ export function AuditLogFilterBar({
           className={CONTROL}
         >
           <option value="">Anyone</option>
-          <option value="User">Administrators</option>
+          <option value="User">Users</option>
           <option value="System">System</option>
         </select>
 
@@ -133,6 +137,59 @@ export function AuditLogFilterBar({
           />
         </div>
       </div>
+
+      <details
+        className="rounded-md border border-neutral-200 p-3"
+        open={Object.values(identifiers).some(Boolean) || undefined}
+      >
+        <summary className="cursor-pointer text-sm font-medium text-neutral-700">
+          Filter by identifiers
+        </summary>
+        <form
+          key={`${identifiers.actorUserId}:${identifiers.targetId}:${identifiers.correlationId}`}
+          className="mt-3 space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            onIdentifiersChange({
+              actorUserId: String(data.get("actorUserId") ?? "").trim(),
+              targetId: String(data.get("targetId") ?? "").trim(),
+              correlationId: String(data.get("correlationId") ?? "").trim(),
+            });
+          }}
+        >
+          <p className="text-xs text-neutral-500">
+            Use UUIDs to match an actor, a specific record, or all actions in the same request.
+          </p>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            {(
+              [
+                ["actorUserId", "Actor user ID"],
+                ["targetId", "Target ID"],
+                ["correlationId", "Correlation ID"],
+              ] as const
+            ).map(([name, label]) => (
+              <label key={name} className="space-y-1 text-sm text-neutral-700">
+                <span>{label}</span>
+                <input
+                  name={name}
+                  defaultValue={identifiers[name]}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+                  title="Enter a valid UUID"
+                  className={`${CONTROL} w-full`}
+                />
+              </label>
+            ))}
+          </div>
+          <button
+            type="submit"
+            className="rounded-md bg-primary-700 px-3 py-2 text-sm font-medium text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+          >
+            Apply identifiers
+          </button>
+        </form>
+      </details>
 
       {rangeInvalid && (
         <p role="alert" className="text-sm text-danger">

@@ -32,6 +32,7 @@ public class AddAttributesValuesTests
     private readonly Mock<IProductRepository> _repositoryMock = new();
     private readonly Mock<ICloudinaryService> _cloudinaryMock = new();
     private readonly Mock<ILogger<ProductService>> _loggerMock = new();
+    private readonly AppDbContext _db;
     private readonly ProductService _service;
     private readonly AddProductValuesRequestValidator _validator;
     private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
@@ -48,7 +49,10 @@ public class AddAttributesValuesTests
     public AddAttributesValuesTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, _publisherMock.Object, TestDbContextFactory.Create());
+        _db = TestDbContextFactory.Create();
+        _db.Shops.Add(new Shop { Id = _shopId, OwnerUserId = _userId, Status = ShopStatus.Active, Name = "Shop" });
+        _db.SaveChanges();
+        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, new Mock<IAdminAuditWriter>().Object, _db, new Mock<INotificationQueue>().Object);
 
 
         var cloudinaryOptions = Options.Create(new CloudinarySettings

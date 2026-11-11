@@ -4,8 +4,9 @@ using FluentAssertions;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using Moq;
-using SaveBite.Backend.Caching.Interfaces;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
+using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Models.Responses;
@@ -13,8 +14,9 @@ using SaveBite.Backend.Repositories.Interfaces;
 using SaveBite.Backend.Services.Implementations;
 using Xunit;
 using Xunit.Abstractions;
-using SaveBite.Backend.Messaging.Interfaces;
+
 namespace SaveBite.Tests.FlashDealDiscovery;
+
 /// <summary>
 /// Unit Tests for Feature: View Flash Deal Details
 /// Service: FlashDealService.GetByIdAsync
@@ -24,7 +26,6 @@ namespace SaveBite.Tests.FlashDealDiscovery;
 public class ViewFlashDealDetailsTests
 {
     private readonly ITestOutputHelper _output;
-    private readonly Mock<IFlashDealRedisService> _redisMock = new();
     private readonly Mock<IFlashDealRepository> _dealRepoMock = new();
     private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
     private readonly Mock<IShopRepository> _shopRepoMock = new();
@@ -32,44 +33,49 @@ public class ViewFlashDealDetailsTests
     private readonly Mock<IBackgroundJobClient> _backgroundJobClientMock = new();
     private readonly Mock<IRabbitMqPublisher> _publisherMock = new();
     private readonly Mock<ILogger<FlashDealService>> _loggerMock = new();
+    private readonly AppDbContext _db = TestDbContextFactory.Create();
     private readonly FlashDealService _service;
+
     // Fixed Test Identifiers
     private readonly Guid _existingDealId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private readonly Guid _nonExistentDealId = Guid.Parse("99999999-9999-9999-9999-999999999999");
     private readonly Guid _shopId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     public ViewFlashDealDetailsTests(ITestOutputHelper output)
     {
         _output = output;
         _service = new FlashDealService(
-            _redisMock.Object,
             _dealRepoMock.Object,
             _userAddressRepoMock.Object,
             _shopRepoMock.Object,
             _staffRepo.Object,
             _backgroundJobClientMock.Object,
             _publisherMock.Object,
-            _loggerMock.Object, null!);
+            _loggerMock.Object,
+            _db);
     }
 
     private FlashDeal CreateDatabaseDeal(bool withDealVariants = true, bool withShop = true)
     {
         var productId = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
-        Shop? shop = withShop ? new Shop
+        Shop shop = withShop ? new Shop
         {
             Id = _shopId,
             Name = "SaveBite Bakery",
             AddressLine = "123 Le Loi Street",
             Latitude = 10.7769,
             Longitude = 106.7009,
-            LogoUrl = "https://res.cloudinary.com/savebite/shop_logo.png"
-        } : null;
+            LogoUrl = "https://res.cloudinary.com/savebite/shop_logo.png",
+            Status = ShopStatus.Active
+        } : new Shop { Id = _shopId, Name = string.Empty, AddressLine = "", Status = ShopStatus.Active };
 
         var product = new Product
         {
             Id = productId,
             Name = "Croissant Combo",
             Description = "Delicious crispy butter croissants",
+            Status = ProductStatus.Active,
             Category = new Category { Name = "Bakery" },
             Images = new List<ProductImage>
             {
@@ -130,10 +136,15 @@ public class ViewFlashDealDetailsTests
     {
         // Arrange
         var deal = CreateDatabaseDeal(withDealVariants: true, withShop: true);
-
-        _dealRepoMock
-            .Setup(r => r.GetActiveDealByIdAsync(_existingDealId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(deal);
+        _db.FlashDeals.Add(deal);
+        await _db.SaveChangesAsync();
+        var now = DateTime.UtcNow;
+        var visibleDeals = await SaveBite.Backend.Services.Implementations.FlashDealReadQuery.Visible(_db, now).ToListAsync();
+        _output.WriteLine($"Visible deals count: {visibleDeals.Count}");
+        var withDetails = await SaveBite.Backend.Services.Implementations.FlashDealReadQuery.WithDetails(SaveBite.Backend.Services.Implementations.FlashDealReadQuery.Visible(_db, now)).ToListAsync();
+        _output.WriteLine($"WithDetails count: {withDetails.Count}");
+        var single = await SaveBite.Backend.Services.Implementations.FlashDealReadQuery.WithDetails(SaveBite.Backend.Services.Implementations.FlashDealReadQuery.Visible(_db, now)).SingleOrDefaultAsync(d => d.Id == _existingDealId);
+        _output.WriteLine($"Single is null: {single == null}");
 
         // Act
         var result = await _service.GetByIdAsync(_existingDealId);
@@ -147,8 +158,6 @@ public class ViewFlashDealDetailsTests
         result.MinDealPrice.Should().Be(25000);
         result.Variants.Should().HaveCount(1);
         result.Status.Should().Be(FlashDealStatus.OnSale);
-
-        _dealRepoMock.Verify(r => r.GetActiveDealByIdAsync(_existingDealId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // =========================================================================
@@ -159,46 +168,40 @@ public class ViewFlashDealDetailsTests
     {
         // Arrange
         var deal = CreateDatabaseDeal(withDealVariants: false, withShop: true);
-
-        _dealRepoMock
-            .Setup(r => r.GetActiveDealByIdAsync(_existingDealId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(deal);
+        deal.Id = Guid.NewGuid();
+        _db.FlashDeals.Add(deal);
+        await _db.SaveChangesAsync();
 
         // Act
-        var result = await _service.GetByIdAsync(_existingDealId);
+        var result = await _service.GetByIdAsync(deal.Id);
 
         // Assert & Log
         PrintSuccess("UTCID02", result);
         result.Should().NotBeNull();
-        result.Id.Should().Be(_existingDealId);
+        result.Id.Should().Be(deal.Id);
         result.Variants.Should().BeEmpty();
-
-        _dealRepoMock.Verify(r => r.GetActiveDealByIdAsync(_existingDealId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // =========================================================================
-    // UTCID03: Xem chi tiết deal khi thông tin Shop là null -> Vẫn trả về thông tin deal hợp lệ (Normal - N)
+    // UTCID03: Xem chi tiết deal khi thông tin Shop là rỗng -> Vẫn trả về thông tin deal hợp lệ (Normal - N)
     // =========================================================================
     [Fact]
     public async Task UTCID03_GetById_DealWithoutShopInfo_ReturnsDealDetails_Normal()
     {
         // Arrange
         var deal = CreateDatabaseDeal(withDealVariants: true, withShop: false);
-
-        _dealRepoMock
-            .Setup(r => r.GetActiveDealByIdAsync(_existingDealId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(deal);
+        deal.Id = Guid.NewGuid();
+        _db.FlashDeals.Add(deal);
+        await _db.SaveChangesAsync();
 
         // Act
-        var result = await _service.GetByIdAsync(_existingDealId);
+        var result = await _service.GetByIdAsync(deal.Id);
 
         // Assert & Log
         PrintSuccess("UTCID03", result);
         result.Should().NotBeNull();
-        result.Id.Should().Be(_existingDealId);
+        result.Id.Should().Be(deal.Id);
         result.ShopName.Should().BeEmpty();
-
-        _dealRepoMock.Verify(r => r.GetActiveDealByIdAsync(_existingDealId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // =========================================================================
@@ -207,11 +210,6 @@ public class ViewFlashDealDetailsTests
     [Fact]
     public async Task UTCID04_GetById_DealNotFound_ThrowsNotFound_Abnormal()
     {
-        // Arrange
-        _dealRepoMock
-            .Setup(r => r.GetActiveDealByIdAsync(_nonExistentDealId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((FlashDeal?)null);
-
         // Act
         var act = () => _service.GetByIdAsync(_nonExistentDealId);
 
@@ -219,9 +217,7 @@ public class ViewFlashDealDetailsTests
         var ex = await act.Should().ThrowAsync<AppException>();
         PrintException("UTCID04", ex.Which.Message);
         ex.Which.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        ex.Which.Message.Should().Contain($"Flash deal with ID '{_nonExistentDealId}' was not found.");
-
-        _dealRepoMock.Verify(r => r.GetActiveDealByIdAsync(_nonExistentDealId, It.IsAny<CancellationToken>()), Times.Once);
+        ex.Which.Message.Should().Contain($"Flash deal with ID '{_nonExistentDealId}' is unavailable.");
     }
 
     private void PrintSuccess<T>(string tcid, T result)
@@ -237,9 +233,8 @@ public class ViewFlashDealDetailsTests
     private void PrintException(string tcid, string message)
     {
         _output.WriteLine($"================ {tcid} ================");
-        _output.WriteLine("RESULT: PASS");
-        _output.WriteLine("STATUS: ERROR / REJECTED");
-        _output.WriteLine($"MESSAGE: {message}");
+        _output.WriteLine("RESULT: PASS (Exception Handled)");
+        _output.WriteLine($"ERROR MESSAGE: {message}");
         _output.WriteLine("========================================");
     }
 }

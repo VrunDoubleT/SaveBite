@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { auditLogApi } from "../api/auditLogApi";
-import type { AuditLogFilterOptions, AuditLogItem } from "../types/auditLog.types";
+import type {
+  AuditLogFilterOptions,
+  AuditLogItem,
+  AuditLogIdentifiers,
+} from "../types/auditLog.types";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 
@@ -16,6 +20,7 @@ const P_TARGET = "type";
 const P_ACTION = "action";
 const P_FROM = "from";
 const P_TO = "to";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 type ActorType = "" | "User" | "System";
@@ -31,6 +36,9 @@ export function useAuditLogs() {
   const actorType: ActorType = rawActor === "User" || rawActor === "System" ? rawActor : "";
   const targetType = searchParams.get(P_TARGET) ?? "";
   const action = searchParams.get(P_ACTION) ?? "";
+  const actorUserId = searchParams.get("actorUserId") ?? "";
+  const targetId = searchParams.get("targetId") ?? "";
+  const correlationId = searchParams.get("correlationId") ?? "";
   const rawFrom = searchParams.get(P_FROM);
   const rawTo = searchParams.get(P_TO);
   const fromDate = rawFrom && DATE_PATTERN.test(rawFrom) ? rawFrom : "";
@@ -50,7 +58,10 @@ export function useAuditLogs() {
 
   /** Writes filters to the URL. Any change except the page itself sends the list back to page 1. */
   const updateParams = useCallback(
-    (changes: Record<string, string | null>, options?: { keepPage?: boolean; replace?: boolean }) => {
+    (
+      changes: Record<string, string | null>,
+      options?: { keepPage?: boolean; replace?: boolean },
+    ) => {
       setSearchParams(
         (previous) => {
           const next = new URLSearchParams(previous);
@@ -85,12 +96,17 @@ export function useAuditLogs() {
     setSearchInput(urlSearch);
   }, [urlSearch]);
 
-  // A reversed date range is reported here instead of round-tripping to the API.
-  const rangeError =
-    fromDate && toDate && fromDate > toDate ? "From date must not be later than To date." : null;
+  // Reject invalid URL filters before sending the request.
+  const filterError = [actorUserId, targetId, correlationId].some(
+    (value) => value && !UUID_PATTERN.test(value),
+  )
+    ? "Actor user ID, target ID and correlation ID must be valid UUIDs."
+    : fromDate && toDate && fromDate > toDate
+      ? "From date must not be later than To date."
+      : null;
 
   useEffect(() => {
-    if (rangeError) return;
+    if (filterError) return;
     let ignore = false;
     async function load() {
       try {
@@ -104,6 +120,9 @@ export function useAuditLogs() {
           action: action || undefined,
           fromDate: fromDate || undefined,
           toDate: toDate || undefined,
+          actorUserId: actorUserId || undefined,
+          targetId: targetId || undefined,
+          correlationId: correlationId || undefined,
         });
         if (ignore) return;
 
@@ -131,35 +150,58 @@ export function useAuditLogs() {
     return () => {
       ignore = true;
     };
-  }, [page, urlSearch, actorType, targetType, action, fromDate, toDate, reloadKey, rangeError, updateParams]);
+  }, [
+    page,
+    urlSearch,
+    actorType,
+    targetType,
+    action,
+    fromDate,
+    toDate,
+    reloadKey,
+    filterError,
+    updateParams,
+    actorUserId,
+    targetId,
+    correlationId,
+  ]);
 
   const setPage = (next: number) => updateParams({ [P_PAGE]: String(next) }, { keepPage: true });
-  const updateSearch = (value: string) => setSearchInput(value);
   const updateActorType = (value: ActorType) => updateParams({ [P_ACTOR]: value || null });
-  const updateTargetType = (value: string) => updateParams({ [P_TARGET]: value || null });
+  const updateTargetType = (value: string) =>
+    updateParams({ [P_TARGET]: value || null, [P_ACTION]: null });
   const updateAction = (value: string) => updateParams({ [P_ACTION]: value || null });
   const updateFromDate = (value: string) => updateParams({ [P_FROM]: value || null });
   const updateToDate = (value: string) => updateParams({ [P_TO]: value || null });
+  const updateIdentifiers = (values: AuditLogIdentifiers) => updateParams(values);
   const resetFilters = () => {
     setSearchParams(new URLSearchParams());
   };
 
   const hasActiveFilters = Boolean(
-    searchInput || actorType || targetType || action || fromDate || toDate,
+    searchInput ||
+    actorType ||
+    targetType ||
+    action ||
+    fromDate ||
+    toDate ||
+    actorUserId ||
+    targetId ||
+    correlationId,
   );
 
   return {
     logs,
     filterOptions,
     loading,
-    errorMessage: rangeError ?? errorMessage,
+    errorMessage: filterError ?? errorMessage,
     clearError: () => setErrorMessage(null),
     page,
     setPage,
     totalItems,
     totalPages,
     search: searchInput,
-    updateSearch,
+    updateSearch: setSearchInput,
     actorType,
     updateActorType,
     targetType,
@@ -170,6 +212,8 @@ export function useAuditLogs() {
     updateFromDate,
     toDate,
     updateToDate,
+    identifiers: { actorUserId, targetId, correlationId },
+    updateIdentifiers,
     hasActiveFilters,
     resetFilters,
     selectedLog,

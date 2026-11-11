@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Moq;
@@ -31,7 +32,11 @@ public class AdminViewCustomerFeedbackTests
         _output = output;
         _service = new FeedbackService(
             _feedbackRepoMock.Object,
-            _publisherMock.Object
+            new Mock<INotificationQueue>().Object,
+            TestDbContextFactory.Create(),
+            new Mock<IAdminAuditWriter>().Object,
+            null,
+            null
         );
     }
 
@@ -60,10 +65,7 @@ public class AdminViewCustomerFeedbackTests
 
         var items = new List<ProductFeedback> { feedback };
         _feedbackRepoMock.Setup(r => r.ListAsync(page, pageSize, null, null, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((items, 1));
-        _feedbackRepoMock.Setup(r => r.GetCurrentReasonsAsync(It.IsAny<Guid[]>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<Guid, string?>());
-
+            .ReturnsAsync(PagedResult<ProductFeedback>.Create(items, page, pageSize, 1));
         // Act
         var result = await _service.ListAsync(page, pageSize, null, null, CancellationToken.None);
 
@@ -103,10 +105,7 @@ public class AdminViewCustomerFeedbackTests
         var search = "Croissant";
 
         _feedbackRepoMock.Setup(r => r.ListAsync(page, pageSize, status, search, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((new List<ProductFeedback>(), 0));
-        _feedbackRepoMock.Setup(r => r.GetCurrentReasonsAsync(It.IsAny<Guid[]>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<Guid, string?>());
-
+            .ReturnsAsync(PagedResult<ProductFeedback>.Create(new List<ProductFeedback>(), page, pageSize, 0));
         // Act
         var result = await _service.ListAsync(page, pageSize, status, search, CancellationToken.None);
 

@@ -1,3 +1,4 @@
+using SaveBite.Backend.Constants;
 using FluentValidation;
 using SaveBite.Backend.Models.Requests;
 
@@ -50,8 +51,8 @@ public sealed class TrustLevelDepositRangeRequestValidator : AbstractValidator<T
             .WithMessage("Range end amount must be a whole VND amount.");
 
         RuleFor(x => x.DepositAmount)
-            .GreaterThan(0)
-            .WithMessage("Deposit amount must be greater than 0.")
+            .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd)
+            .WithMessage($"Deposit amount must be at least {MoneyLimits.MinAmountVnd:N0} VND.")
             .LessThanOrEqualTo(x => x.FromOrderAmount)
             .WithMessage("Deposit amount cannot exceed the range start amount.")
             .PrecisionScale(12, 2, false)
@@ -128,6 +129,60 @@ public sealed class UpdateTrustLevelRequirementRequestValidator : AbstractValida
     }
 }
 
+public sealed class CreateTrustLevelRequestValidator : AbstractValidator<CreateTrustLevelRequest>
+{
+    public CreateTrustLevelRequestValidator()
+    {
+        RuleFor(x => x.Name)
+            .Cascade(CascadeMode.Stop)
+            .NotEmpty()
+            .WithMessage("Level name is required.")
+            .Must(name => name.Trim().Length is >= 1 and <= 100)
+            .WithMessage("Level name must be between 1 and 100 characters.");
+
+        RuleFor(x => x.Requirement)
+            .NotNull()
+            .SetValidator(new UpdateTrustLevelRequirementRequestValidator());
+
+        RuleFor(x => x.Benefits)
+            .NotNull()
+            .SetValidator(new UpdateTrustLevelBenefitsRequestValidator());
+    }
+}
+
+public sealed class UpdateTrustLevelInfoRequestValidator : AbstractValidator<UpdateTrustLevelInfoRequest>
+{
+    public UpdateTrustLevelInfoRequestValidator()
+    {
+        RuleFor(x => x.Name)
+            .Cascade(CascadeMode.Stop)
+            .NotEmpty()
+            .WithMessage("Level name is required.")
+            .Must(name => name.Trim().Length is >= 1 and <= 100)
+            .WithMessage("Level name must be between 1 and 100 characters.");
+    }
+}
+
+public sealed class CreatePenaltyRuleRequestValidator : AbstractValidator<CreatePenaltyRuleRequest>
+{
+    public CreatePenaltyRuleRequestValidator()
+    {
+        RuleFor(x => x.MinimumOccurrence).InclusiveBetween(1, 100);
+        RuleFor(x => x.ScoreDeduction).InclusiveBetween(1, TrustValidationRules.MaxScoreDelta);
+        RuleFor(x => x.RequiredOnlineOrders).InclusiveBetween(0, TrustValidationRules.MaxCount);
+        RuleFor(x => x.RequiredOnlineOrderValue)
+            .GreaterThanOrEqualTo(0)
+            .PrecisionScale(12, 2, false);
+
+        RuleFor(x => x.EffectiveTo)
+            .Must((req, effectiveTo) =>
+                !effectiveTo.HasValue ||
+                !req.EffectiveFrom.HasValue ||
+                effectiveTo.Value.ToUniversalTime() > req.EffectiveFrom.Value.ToUniversalTime())
+            .WithMessage("The 'Until' date/time must be later than the 'From' date/time.");
+    }
+}
+
 public sealed class UpdatePenaltyRuleRequestValidator : AbstractValidator<UpdatePenaltyRuleRequest>
 {
     public UpdatePenaltyRuleRequestValidator()
@@ -138,6 +193,13 @@ public sealed class UpdatePenaltyRuleRequestValidator : AbstractValidator<Update
         RuleFor(x => x.RequiredOnlineOrderValue)
             .GreaterThanOrEqualTo(0)
             .PrecisionScale(12, 2, false);
+
+        RuleFor(x => x.EffectiveTo)
+            .Must((req, effectiveTo) =>
+                !effectiveTo.HasValue ||
+                !req.EffectiveFrom.HasValue ||
+                effectiveTo.Value.ToUniversalTime() > req.EffectiveFrom.Value.ToUniversalTime())
+            .WithMessage("The 'Until' date/time must be later than the 'From' date/time.");
     }
 }
 

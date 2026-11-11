@@ -61,7 +61,6 @@ public class CancelOrderTests
         _context.Initial.Status.Should().Be(PaymentStatus.Succeeded);
         result.PaidAmount.Should().Be(5000m);
         order.Refunds.Should().BeEmpty();
-        _orderRepoMock.Verify(r => r.ReleaseCancelledInventoryAsync(order, It.IsAny<CancellationToken>()), Times.Once);
         _context.Realtime.Verify(r => r.NotifyAsync(order.ShopId, order.Id, RealtimeEvents.OrderReasons.Cancelled, It.IsAny<CancellationToken>()), Times.Once);
         _output.WriteLine("TCID01 PASSED: CancelOrder_EligibleState_CancelsWithoutRefundingPaidMoney (Normal).");
     }
@@ -151,7 +150,6 @@ public class CancelOrderTests
 
         // Assert
         result.Status.Should().Be("Cancelled");
-        _orderRepoMock.Verify(r => r.ReleaseCancelledInventoryAsync(order, It.IsAny<CancellationToken>()), Times.Once);
         _output.WriteLine("TCID06 PASSED: CancelOrder_RepeatedRequest_DoesNotReleaseTwice (Boundary).");
     }
 

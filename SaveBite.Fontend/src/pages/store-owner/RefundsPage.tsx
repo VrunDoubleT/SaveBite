@@ -2,7 +2,6 @@ import { RefundCustomerInfo } from "@/features/refunds/components/RefundCustomer
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { RotateCcw, CircleAlert, Clock3 } from "lucide-react";
-import { shopOrderApi } from "@/features/shop-orders/api/shopOrderApi";
 import { refundApi } from "@/features/refunds/api/refundApi";
 import type { RefundPage } from "@/features/refunds/types/refund.types";
 import { RefundStatusBadge } from "@/features/refunds/components/RefundStatusBadge";
@@ -14,18 +13,16 @@ import { Pagination } from "@/shared/components/pagination";
 import { getApiErrorMessage } from "@/shared/api";
 const statuses: Record<string, string> = {
   All: "All refunds",
-  Overdue: "Processing deadline passed",
+
   PendingVerification: "Needs review",
   AwaitingCustomerDetails: "Waiting for customer",
   AwaitingTransfer: "Ready to transfer",
   Transferred: "Transferred",
   Rejected: "Declined",
   Withdrawn: "Withdrawn",
-  Completed: "Completed",
 };
 export function ShopRefundsPage() {
   const [params, setParams] = useSearchParams();
-  const [shopId, setShopId] = useState("");
   const [data, setData] = useState<RefundPage | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -37,21 +34,8 @@ export function ShopRefundsPage() {
     : "All";
   useEffect(() => {
     const abort = new AbortController();
-    void shopOrderApi
-      .ownerShop(abort.signal)
-      .then((id) => {
-        if (!abort.signal.aborted) setShopId(id);
-      })
-      .catch((e) => {
-        if (!abort.signal.aborted) setError(getApiErrorMessage(e));
-      });
-    return () => abort.abort();
-  }, []);
-  useEffect(() => {
-    if (!shopId) return;
-    const abort = new AbortController();
     void refundApi
-      .shopPage(shopId, page, status, abort.signal)
+      .shopPage(page, status, abort.signal)
       .then((result) => {
         if (abort.signal.aborted) return;
         if (page > Math.max(1, result.totalPages)) {
@@ -72,14 +56,11 @@ export function ShopRefundsPage() {
         if (!abort.signal.aborted) setError(getApiErrorMessage(e));
       });
     return () => abort.abort();
-  }, [shopId, page, status, revision, setParams]);
+  }, [page, status, revision, setParams]);
   useEffect(() => {
     const off = realtime.on(REALTIME_EVENTS.SHOP_ORDERS_CHANGED, (event) => {
       const change = event.data as { shopId?: string; reason?: string } | null;
-      if (
-        change?.shopId === shopId &&
-        ["refund-changed", "reject", "confirmation-expired"].includes(change.reason ?? "")
-      )
+      if (["refund-changed", "reject", "confirmation-expired"].includes(change?.reason ?? ""))
         setRevision((value) => value + 1);
     });
     const connected = realtime.onConnected((again) => {
@@ -89,7 +70,7 @@ export function ShopRefundsPage() {
       off();
       connected();
     };
-  }, [realtime, shopId]);
+  }, [realtime]);
   return (
     <div className="w-full min-w-0 space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -152,7 +133,7 @@ export function ShopRefundsPage() {
               <RefundStatusBadge status={refund.status} overdue={refund.isOverdue} />
             </div>
             <div className="mt-4">
-              <RefundCustomerInfo refund={refund} />
+              <RefundCustomerInfo refund={refund} linkPhone={false} />
             </div>
             {refund.requiresShopAction ? (
               <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">

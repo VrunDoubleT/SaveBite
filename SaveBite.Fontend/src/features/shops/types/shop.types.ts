@@ -1,3 +1,4 @@
+import type { ShopFollow } from "@/features/shop-follows/api/shopFollowApi";
 export interface NearbyShop {
   id: string;
   name: string;
@@ -18,6 +19,10 @@ export interface NearbyShop {
 
 export interface ShopProfile {
   id: string;
+  ownerUserId?: string;
+  followerCount?: number;
+  currentUserFollow: ShopFollow | null;
+  suspendedForPlatformFees?: boolean;
   name: string;
   description?: string | null;
   addressLine: string;
@@ -83,6 +88,8 @@ export interface NearbyShopsPagedResponse {
   totalPages: number;
   hasPrevious: boolean;
   hasNext: boolean;
+  allStoresCount?: number;
+  flashDealsStoresCount?: number;
 }
 
 export interface NearbyShopsRequest {
@@ -91,6 +98,8 @@ export interface NearbyShopsRequest {
   radiusInKm?: number;
   keyword?: string;
   onlyOpen?: boolean;
+  onlyWithFlashDeals?: boolean;
+  hasFlashDeals?: boolean;
   page?: number;
   pageSize?: number;
 }

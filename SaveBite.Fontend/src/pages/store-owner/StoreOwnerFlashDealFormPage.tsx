@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
+import { ownerShopApi } from "@/features/shops/api/ownerShopApi";
 import {
   FlashDealStatusEnum,
   FlashDealVariantStatusEnum,
@@ -20,7 +21,9 @@ import {
   type ShopFlashDealDetail,
 } from "@/features/flash-deals/types/flashDeal.types";
 import { toast } from "@/shared/stores/toastStore";
+import { MIN_AMOUNT_VND, MIN_AMOUNT_TEXT } from "@/shared/config/money";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 interface FormVariantState {
   variantId: string;
@@ -31,6 +34,7 @@ interface FormVariantState {
   totalQuantity: number | "";
   soldQuantity?: number;
   reservedQuantity?: number;
+  unsellableQuantity?: number;
   status?: number; // 0: Active, 1: Hide
   isSelected: boolean;
 }
@@ -39,6 +43,7 @@ export function StoreOwnerFlashDealFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEditMode = Boolean(id);
   const navigate = useNavigate();
+  const shopSuspended = useShopSuspended();
 
   // Loading states
   const [initialLoading, setInitialLoading] = useState(true);
@@ -46,6 +51,10 @@ export function StoreOwnerFlashDealFormPage() {
 
   // Eligible products for creation
   const [eligibleProducts, setEligibleProducts] = useState<ShopEligibleProduct[]>([]);
+  const [shopOperatingHours, setShopOperatingHours] = useState<{
+    openingTime: string | null;
+    closingTime: string | null;
+  } | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
   const productDropdownRef = useRef<HTMLDivElement>(null);
@@ -53,7 +62,10 @@ export function StoreOwnerFlashDealFormPage() {
   // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (productDropdownRef.current && !productDropdownRef.current.contains(event.target as Node)) {
+      if (
+        productDropdownRef.current &&
+        !productDropdownRef.current.contains(event.target as Node)
+      ) {
         setIsProductDropdownOpen(false);
       }
     }
@@ -75,8 +87,38 @@ export function StoreOwnerFlashDealFormPage() {
   // Configured variants with checkbox selection
   const [variants, setVariants] = useState<FormVariantState[]>([]);
 
-  // Whether current deal is already OnSale
-  const isDealOnSale = isEditMode && existingDeal?.status === FlashDealStatusEnum.OnSale;
+  // Whether current deal is ended
+  const isDealEnded = existingDeal
+    ? existingDeal.status === FlashDealStatusEnum.Closed ||
+      existingDeal.status === FlashDealStatusEnum.Cancelled ||
+      new Date(existingDeal.orderEndTime).getTime() <= Date.now()
+    : false;
+
+  // Whether current deal is already active OnSale
+  const isDealOnSale = isEditMode && existingDeal?.status === FlashDealStatusEnum.OnSale && !isDealEnded;
+
+  function parseTimeToMinutes(timeStr: string): number {
+    const [h, m] = timeStr.split(":").map(Number);
+    return h * 60 + (m || 0);
+  }
+
+  function isWithinShopHours(
+    timeStr: string,
+    openingTime: string | null | undefined,
+    closingTime: string | null | undefined
+  ): boolean {
+    if (!openingTime || !closingTime) return true;
+    if (openingTime.slice(0, 5) === closingTime.slice(0, 5)) return true; // 00:00 - 00:00 is full day
+    const timeMins = parseTimeToMinutes(timeStr);
+    const openMins = parseTimeToMinutes(openingTime);
+    const closeMins = parseTimeToMinutes(closingTime);
+
+    if (openMins <= closeMins) {
+      return timeMins >= openMins && timeMins <= closeMins;
+    } else {
+      return timeMins >= openMins || timeMins <= closeMins;
+    }
+  }
 
   // Time format helper
   function formatTime(d: Date): string {
@@ -109,7 +151,15 @@ export function StoreOwnerFlashDealFormPage() {
       return new Date(startDate.getTime() + fallbackMins * 60 * 1000);
     }
     const [h, m] = timeStr.split(":").map(Number);
-    const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), h, m, 0, 0);
+    const d = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+      h,
+      m,
+      0,
+      0,
+    );
     if (d.getTime() <= startDate.getTime()) {
       // End time is after midnight (rolls into next day)
       d.setDate(d.getDate() + 1);
@@ -125,19 +175,47 @@ export function StoreOwnerFlashDealFormPage() {
         const products = await flashDealApi.getEligibleProducts();
         setEligibleProducts(products);
 
+        try {
+          const shopProfile = await ownerShopApi.getMyShopProfile();
+          if (shopProfile) {
+            setShopOperatingHours({
+              openingTime: shopProfile.openingTime ?? null,
+              closingTime: shopProfile.closingTime ?? null,
+            });
+          }
+        } catch {
+          // Shop profile load failure is non-blocking
+        }
+
         if (isEditMode && id) {
           // Edit mode: fetch deal detail
           const deal = await flashDealApi.getShopFlashDealDetail(id);
           setExistingDeal(deal);
           setSelectedProductId(deal.productId);
-          setSaleMode(deal.status === FlashDealStatusEnum.OnSale ? "immediate" : "scheduled");
 
-          const start = new Date(deal.saleStartTime);
-          const end = new Date(deal.orderEndTime);
-          setStartTime(formatTime(start));
-          setEndTime(formatTime(end));
-          const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
-          setDurationMins(diff > 0 ? diff : 60);
+          const isEnded =
+            deal.status === FlashDealStatusEnum.Closed ||
+            deal.status === FlashDealStatusEnum.Cancelled ||
+            new Date(deal.orderEndTime).getTime() <= Date.now();
+
+          if (isEnded) {
+            setSaleMode("immediate");
+            const now = new Date();
+            const start = new Date(now.getTime() + 15 * 60 * 1000);
+            const end = new Date(now.getTime() + 60 * 60 * 1000);
+            setStartTime(formatTime(start));
+            setEndTime(formatTime(end));
+            setDurationMins(60);
+          } else {
+            setSaleMode(deal.status === FlashDealStatusEnum.OnSale ? "immediate" : "scheduled");
+
+            const start = new Date(deal.saleStartTime);
+            const end = new Date(deal.orderEndTime);
+            setStartTime(formatTime(start));
+            setEndTime(formatTime(end));
+            const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
+            setDurationMins(diff > 0 ? diff : 60);
+          }
 
           const prod = products.find((p) => p.id === deal.productId);
           const existingMap = new Map(deal.variants.map((v) => [v.variantId, v]));
@@ -156,6 +234,7 @@ export function StoreOwnerFlashDealFormPage() {
                     totalQuantity: ex.totalQuantity,
                     soldQuantity: ex.soldQuantity,
                     reservedQuantity: ex.reservedQuantity,
+                    unsellableQuantity: ex.unsellableQuantity,
                     status: ex.status ?? FlashDealVariantStatusEnum.Active,
                     isSelected: true,
                   };
@@ -165,13 +244,13 @@ export function StoreOwnerFlashDealFormPage() {
                     sku: pv.sku,
                     variantName: pv.variantName || pv.sku || "Default",
                     originalPrice: pv.originalPrice,
-                    dealPrice: Math.round(pv.originalPrice * 0.7),
+                    dealPrice: Math.max(MIN_AMOUNT_VND, Math.round(pv.originalPrice * 0.7)),
                     totalQuantity: 50,
                     status: FlashDealVariantStatusEnum.Active,
                     isSelected: false,
                   };
                 }
-              })
+              }),
             );
           } else {
             setVariants(
@@ -184,9 +263,10 @@ export function StoreOwnerFlashDealFormPage() {
                 totalQuantity: v.totalQuantity,
                 soldQuantity: v.soldQuantity,
                 reservedQuantity: v.reservedQuantity,
+                unsellableQuantity: v.unsellableQuantity,
                 status: v.status ?? FlashDealVariantStatusEnum.Active,
                 isSelected: true,
-              }))
+              })),
             );
           }
         } else {
@@ -235,14 +315,21 @@ export function StoreOwnerFlashDealFormPage() {
   // Schedule Summary & Validity
   const scheduleSummary = useMemo(() => {
     const now = new Date();
-    const isImmediate = !isEditMode ? saleMode === "immediate" : (existingDeal?.status === FlashDealStatusEnum.OnSale);
+    const isImmediate = (!isEditMode || isDealEnded)
+      ? saleMode === "immediate"
+      : existingDeal?.status === FlashDealStatusEnum.OnSale;
 
-    const start = isImmediate ? now : getStartTimestamp("scheduled", startTime);
+    const start = isDealOnSale && existingDeal
+      ? new Date(existingDeal.saleStartTime)
+      : (isImmediate ? now : getStartTimestamp("scheduled", startTime));
     const end = getEndTimestamp(start, endTime, durationMins || 60);
 
     const diffMs = end.getTime() - start.getTime();
     const computedDurationMins = Math.round(diffMs / (1000 * 60));
-    const isDurationValid = computedDurationMins >= 30 && computedDurationMins <= 120;
+    // For active OnSale deals: end time must be in future (> now), and total duration <= 120 mins
+    const isDurationValid = isDealOnSale
+      ? end.getTime() > now.getTime() && computedDurationMins <= 120
+      : computedDurationMins >= 30 && computedDurationMins <= 120;
 
     let isAdvanceValid = true;
     let advanceErrorMessage = "";
@@ -251,7 +338,8 @@ export function StoreOwnerFlashDealFormPage() {
       const diffStartMins = Math.round((start.getTime() - now.getTime()) / (1000 * 60));
       if (diffStartMins < 14) {
         isAdvanceValid = false;
-        advanceErrorMessage = "Start time must be at least 15 minutes from now, or choose immediate selling.";
+        advanceErrorMessage =
+          "Start time must be at least 15 minutes from now, or choose immediate selling.";
       } else if (diffStartMins > 91) {
         isAdvanceValid = false;
         advanceErrorMessage = `Flash deals can only be scheduled up to 90 minutes in advance (currently: ${diffStartMins} mins).`;
@@ -260,11 +348,31 @@ export function StoreOwnerFlashDealFormPage() {
 
     let durationErrorMessage = "";
     if (!isDurationValid) {
-      durationErrorMessage = `Deal duration must be between 30 and 120 minutes (currently ${computedDurationMins} mins).`;
+      if (isDealOnSale) {
+        if (end.getTime() <= now.getTime()) {
+          durationErrorMessage = "Order end time must be in the future.";
+        } else if (computedDurationMins > 120) {
+          durationErrorMessage = `Deal duration from start time cannot exceed 120 minutes (currently ${computedDurationMins} mins).`;
+        }
+      } else {
+        durationErrorMessage = `Deal duration must be between 30 and 120 minutes (currently ${computedDurationMins} mins).`;
+      }
     }
 
-    const isValid = diffMs > 0 && isDurationValid && isAdvanceValid;
-    const errorMessage = advanceErrorMessage || durationErrorMessage || (diffMs <= 0 ? "End time must be after start time." : "");
+    let operatingHoursErrorMessage = "";
+    if (shopOperatingHours?.openingTime && shopOperatingHours?.closingTime) {
+      const startHM = formatTime(start);
+      const endHM = formatTime(end);
+      if (
+        !isWithinShopHours(startHM, shopOperatingHours.openingTime, shopOperatingHours.closingTime) ||
+        !isWithinShopHours(endHM, shopOperatingHours.openingTime, shopOperatingHours.closingTime)
+      ) {
+        operatingHoursErrorMessage = `Flash deal time must be within shop operating hours (${shopOperatingHours.openingTime} - ${shopOperatingHours.closingTime}).`;
+      }
+    }
+
+    const isValid = diffMs > 0 && isDurationValid && isAdvanceValid && !operatingHoursErrorMessage;
+    const errorMessage = advanceErrorMessage || durationErrorMessage || operatingHoursErrorMessage || (diffMs <= 0 ? "End time must be after start time." : "");
 
     const hours = Math.floor(computedDurationMins / 60);
     const minutes = computedDurationMins % 60;
@@ -292,14 +400,18 @@ export function StoreOwnerFlashDealFormPage() {
       isImmediate,
       isNextDay,
     };
-  }, [startTime, endTime, durationMins, saleMode, isEditMode, isDealOnSale, existingDeal]);
+  }, [startTime, endTime, durationMins, saleMode, isEditMode, isDealOnSale, isDealEnded, existingDeal, shopOperatingHours]);
 
   // Quick duration selection
   function handleSelectDuration(mins: number) {
     setDurationMins(mins);
     const now = new Date();
-    const isImmediate = !isEditMode ? saleMode === "immediate" : (existingDeal?.status === FlashDealStatusEnum.OnSale);
-    const start = isImmediate ? now : getStartTimestamp("scheduled", startTime);
+    const isImmediate = (!isEditMode || isDealEnded)
+      ? saleMode === "immediate"
+      : existingDeal?.status === FlashDealStatusEnum.OnSale;
+    const start = isDealOnSale && existingDeal
+      ? new Date(existingDeal.saleStartTime)
+      : (isImmediate ? now : getStartTimestamp("scheduled", startTime));
     const end = new Date(start.getTime() + mins * 60 * 1000);
     setEndTime(formatTime(end));
   }
@@ -309,8 +421,12 @@ export function StoreOwnerFlashDealFormPage() {
     setEndTime(newEndTime);
     if (!newEndTime) return;
     const now = new Date();
-    const isImmediate = !isEditMode ? saleMode === "immediate" : (existingDeal?.status === FlashDealStatusEnum.OnSale);
-    const start = isImmediate ? now : getStartTimestamp("scheduled", startTime);
+    const isImmediate = (!isEditMode || isDealEnded)
+      ? saleMode === "immediate"
+      : existingDeal?.status === FlashDealStatusEnum.OnSale;
+    const start = isDealOnSale && existingDeal
+      ? new Date(existingDeal.saleStartTime)
+      : (isImmediate ? now : getStartTimestamp("scheduled", startTime));
     const end = getEndTimestamp(start, newEndTime);
     const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
     setDurationMins(diff);
@@ -327,7 +443,8 @@ export function StoreOwnerFlashDealFormPage() {
 
   // Start time quick offset (+15m, +30m, etc.)
   function handleSetStartOffset(offsetMins: number) {
-    const target = new Date(Date.now() + offsetMins * 60 * 1000);
+    const now = new Date();
+    const target = new Date(now.getTime() + offsetMins * 60 * 1000);
     const newStartStr = formatTime(target);
     setStartTime(newStartStr);
     const end = new Date(target.getTime() + (durationMins || 60) * 60 * 1000);
@@ -367,11 +484,11 @@ export function StoreOwnerFlashDealFormPage() {
         sku: v.sku,
         variantName: v.variantName || v.sku || "Default",
         originalPrice: v.originalPrice,
-        dealPrice: Math.round(v.originalPrice * 0.7), // Suggest 30% discount default
+        dealPrice: Math.max(MIN_AMOUNT_VND, Math.round(v.originalPrice * 0.7)), // Suggest 30% discount default (never below the system minimum)
         totalQuantity: 50,
         isSelected: true,
         status: FlashDealVariantStatusEnum.Active,
-      }))
+      })),
     );
   }
 
@@ -380,12 +497,17 @@ export function StoreOwnerFlashDealFormPage() {
     setVariants((prev) =>
       prev.map((v) => {
         if (v.variantId !== variantId) return v;
-        if (v.isSelected && v.soldQuantity && v.soldQuantity > 0) {
-          toast.error(`Variant ${v.variantName} already has orders. Please switch its status to Hide instead.`);
+        if (
+          v.isSelected &&
+          (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) > 0
+        ) {
+          toast.error(
+            `Variant ${v.variantName} already has orders. Please switch its status to Hide instead.`,
+          );
           return v;
         }
         return { ...v, isSelected: !v.isSelected };
-      })
+      }),
     );
   }
 
@@ -393,11 +515,14 @@ export function StoreOwnerFlashDealFormPage() {
   function toggleSelectAll(selectAll: boolean) {
     setVariants((prev) =>
       prev.map((v) => {
-        if (!selectAll && v.soldQuantity && v.soldQuantity > 0) {
+        if (
+          !selectAll &&
+          (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) > 0
+        ) {
           return v;
         }
         return { ...v, isSelected: selectAll };
-      })
+      }),
     );
   }
 
@@ -405,7 +530,7 @@ export function StoreOwnerFlashDealFormPage() {
   function handleUpdateVariant(
     index: number,
     field: "dealPrice" | "totalQuantity" | "status",
-    value: string | number
+    value: string | number,
   ) {
     setVariants((prev) => {
       const next = [...prev];
@@ -421,13 +546,16 @@ export function StoreOwnerFlashDealFormPage() {
   // Submit form
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (shopSuspended) return;
 
     if (!selectedProductId) {
       toast.error("Please select a product.");
       return;
     }
 
-    const isImmediate = !isEditMode ? saleMode === "immediate" : (existingDeal?.status === FlashDealStatusEnum.OnSale);
+    const isImmediate = (!isEditMode || isDealEnded)
+      ? saleMode === "immediate"
+      : existingDeal?.status === FlashDealStatusEnum.OnSale;
 
     if (!scheduleSummary || !scheduleSummary.isValid) {
       toast.error(scheduleSummary?.errorMessage || "Please enter valid deal schedule timing.");
@@ -448,20 +576,22 @@ export function StoreOwnerFlashDealFormPage() {
         toast.error(`Deal price for ${v.variantName} must be greater than 0.`);
         return;
       }
-      if (priceNum < 1000) {
-        toast.error(`Deal price for ${v.variantName} must be at least 1,000 VND.`);
+      if (priceNum < MIN_AMOUNT_VND) {
+        toast.error(`Deal price for ${v.variantName} must be at least ${MIN_AMOUNT_TEXT} VND.`);
         return;
       }
       if (priceNum % 1000 !== 0) {
         const floor = Math.floor(priceNum / 1000) * 1000;
         const ceil = Math.ceil(priceNum / 1000) * 1000;
         toast.error(
-          `Deal price for ${v.variantName} must be a multiple of 1,000 VND. The two nearest valid values are ${floor.toLocaleString("vi-VN")}đ and ${ceil.toLocaleString("vi-VN")}đ.`
+          `Deal price for ${v.variantName} must be a multiple of 1,000 VND. The two nearest valid values are ${floor.toLocaleString("en-US")} VND and ${ceil.toLocaleString("en-US")} VND.`,
         );
         return;
       }
       if (priceNum >= v.originalPrice) {
-        toast.error(`Deal price for ${v.variantName} must be lower than original price (${v.originalPrice.toLocaleString("vi-VN")}đ).`);
+        toast.error(
+          `Deal price for ${v.variantName} must be lower than original price (${v.originalPrice.toLocaleString("en-US")} VND).`,
+        );
         return;
       }
       const qtyNum = Number(v.totalQuantity);
@@ -469,8 +599,10 @@ export function StoreOwnerFlashDealFormPage() {
         toast.error(`Deal quantity for ${v.variantName} must be a positive integer.`);
         return;
       }
-      if (v.soldQuantity !== undefined && qtyNum < (v.soldQuantity + (v.reservedQuantity || 0))) {
-        toast.error(`Deal quantity for ${v.variantName} cannot be less than already sold quantity (${v.soldQuantity}).`);
+      if (v.soldQuantity !== undefined && qtyNum < v.soldQuantity + (v.reservedQuantity || 0) + (v.unsellableQuantity || 0)) {
+        toast.error(
+          `Deal quantity for ${v.variantName} cannot be less than sold, reserved and stopped stock (${v.soldQuantity + (v.reservedQuantity || 0) + (v.unsellableQuantity || 0)}).`,
+        );
         return;
       }
     }
@@ -478,8 +610,12 @@ export function StoreOwnerFlashDealFormPage() {
     try {
       setSubmitting(true);
       if (isEditMode && id) {
+        const payloadStartTime = (isImmediate && isDealEnded)
+          ? new Date().toISOString()
+          : startDateObj.toISOString();
+
         await flashDealApi.updateFlashDeal(id, {
-          saleStartTime: startDateObj.toISOString(),
+          saleStartTime: payloadStartTime,
           orderEndTime: endDateObj.toISOString(),
           shopClosingTime: closingDateObj.toISOString(),
           variants: selectedVariants.map((v) => ({
@@ -489,7 +625,7 @@ export function StoreOwnerFlashDealFormPage() {
             status: v.status ?? FlashDealVariantStatusEnum.Active,
           })),
         });
-        toast.success("Flash deal updated successfully!");
+        toast.success(isDealEnded ? "Flash deal re-opened successfully!" : "Flash deal updated successfully!");
       } else {
         await flashDealApi.createFlashDeal({
           productId: selectedProductId,
@@ -503,7 +639,11 @@ export function StoreOwnerFlashDealFormPage() {
             totalQuantity: Number(v.totalQuantity),
           })),
         });
-        toast.success(isImmediate ? "Flash deal created and activated immediately!" : "Flash deal scheduled successfully!");
+        toast.success(
+          isImmediate
+            ? "Flash deal created and activated immediately!"
+            : "Flash deal scheduled successfully!",
+        );
       }
       navigate(APP_PATHS.STORE_OWNER_FLASH_DEALS);
     } catch (err) {
@@ -536,21 +676,25 @@ export function StoreOwnerFlashDealFormPage() {
       {/* Title */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
-          {isEditMode ? "Edit Flash Deal" : "Create Flash Deal"}
+          {isDealEnded ? "Re-open Flash Deal" : isEditMode ? "Edit Flash Deal" : "Create Flash Deal"}
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Select a product, configure deal timing, and tick variants to offer special flash prices.
+          {isDealEnded
+            ? "Configure new deal timing and prices to re-open this flash deal for sale."
+            : "Select a product, configure deal timing, and tick variants to offer special flash prices."}
         </p>
       </div>
 
+      <fieldset
+        disabled={shopSuspended}
+        className="space-y-6 disabled:opacity-60"
+      >
       {/* Block 1: Product Selection */}
       <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
         <h2 className="text-sm font-bold text-neutral-900">Product Information</h2>
 
         <div>
-          <label className="block text-xs font-medium text-neutral-700">
-            Selected Product
-          </label>
+          <label className="block text-xs font-medium text-neutral-700">Selected Product</label>
 
           {isEditMode ? (
             <div className="mt-1">
@@ -574,27 +718,36 @@ export function StoreOwnerFlashDealFormPage() {
                 {currentProduct ? (
                   <div className="flex items-center gap-2.5 truncate">
                     <img
-                      src={currentProduct.imageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"}
+                      src={
+                        currentProduct.imageUrl ||
+                        "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"
+                      }
                       alt={currentProduct.name}
                       className="size-7 rounded-md object-cover border border-neutral-100 shrink-0"
                     />
                     <div className="text-left truncate">
                       <span className="font-semibold text-neutral-900">{currentProduct.name}</span>
                       <span className="ml-2 text-[11px] text-neutral-400">
-                        {currentProduct.categoryName ? `(${currentProduct.categoryName})` : ""} • {currentProduct.variants.length} variant{currentProduct.variants.length !== 1 ? "s" : ""}
+                        {currentProduct.categoryName ? `(${currentProduct.categoryName})` : ""} •{" "}
+                        {currentProduct.variants.length} variant
+                        {currentProduct.variants.length !== 1 ? "s" : ""}
                       </span>
                     </div>
                   </div>
                 ) : (
                   <span className="text-neutral-400">Select a product to put on flash deal...</span>
                 )}
-                <ChevronDown className={`size-4 text-neutral-400 transition-transform ${isProductDropdownOpen ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  className={`size-4 text-neutral-400 transition-transform ${isProductDropdownOpen ? "rotate-180" : ""}`}
+                />
               </button>
 
               {isProductDropdownOpen && (
                 <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-neutral-200 bg-white p-1.5 shadow-lg">
                   {eligibleProducts.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-neutral-400">No eligible products available</div>
+                    <div className="p-3 text-center text-xs text-neutral-400">
+                      No eligible products available
+                    </div>
                   ) : (
                     eligibleProducts.map((p) => {
                       const isSelected = p.id === selectedProductId;
@@ -606,19 +759,25 @@ export function StoreOwnerFlashDealFormPage() {
                             setIsProductDropdownOpen(false);
                           }}
                           className={`flex items-center justify-between gap-3 rounded-md px-2.5 py-2 cursor-pointer transition ${
-                            isSelected ? "bg-emerald-50 text-emerald-900 font-semibold" : "hover:bg-neutral-50 text-neutral-800"
+                            isSelected
+                              ? "bg-emerald-50 text-emerald-900 font-semibold"
+                              : "hover:bg-neutral-50 text-neutral-800"
                           }`}
                         >
                           <div className="flex items-center gap-2.5 truncate">
                             <img
-                              src={p.imageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"}
+                              src={
+                                p.imageUrl ||
+                                "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"
+                              }
                               alt={p.name}
                               className="size-9 rounded-md object-cover border border-neutral-100 shrink-0"
                             />
                             <div className="truncate text-left">
                               <p className="text-xs font-semibold text-neutral-900">{p.name}</p>
                               <p className="text-[11px] text-neutral-400">
-                                {p.categoryName || "Food"} • {p.variants.length} variant{p.variants.length !== 1 ? "s" : ""}
+                                {p.categoryName || "Food"} • {p.variants.length} variant
+                                {p.variants.length !== 1 ? "s" : ""}
                               </p>
                             </div>
                           </div>
@@ -635,23 +794,40 @@ export function StoreOwnerFlashDealFormPage() {
 
         {/* Product preview card */}
         {currentProduct && (
-          <div className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50/70 p-3">
-            <img
-              src={currentProduct.imageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"}
-              alt={currentProduct.name}
-              className="size-14 rounded-lg object-cover"
-            />
-            <div>
-              <p className="font-semibold text-xs text-neutral-900">{currentProduct.name}</p>
-              <p className="text-[11px] text-neutral-400">
-                {currentProduct.categoryName || "Food"}
-              </p>
-              {currentProduct.description && (
-                <p className="mt-0.5 text-[11px] text-neutral-500 line-clamp-1">
-                  {currentProduct.description}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50/70 p-3">
+              <img
+                src={currentProduct.imageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"}
+                alt={currentProduct.name}
+                className="size-14 rounded-lg object-cover"
+              />
+              <div>
+                <p className="font-semibold text-xs text-neutral-900">{currentProduct.name}</p>
+                <p className="text-[11px] text-neutral-400">
+                  {currentProduct.categoryName || "Food"}
                 </p>
-              )}
+                {currentProduct.description && (
+                  <p className="mt-0.5 text-[11px] text-neutral-500 line-clamp-1">
+                    {currentProduct.description}
+                  </p>
+                )}
+              </div>
             </div>
+
+            {/* Warning banner when product has active deal (FIX-35) */}
+            {currentProduct.hasActiveDeal && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-2xs">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="size-5 shrink-0 text-amber-600 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-bold text-amber-900">Active Flash Deal Notice</h4>
+                    <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                      This product currently has an active flash deal running. Creating or scheduling a new deal will take effect alongside or after the existing deal.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -663,6 +839,11 @@ export function StoreOwnerFlashDealFormPage() {
             <h2 className="text-sm font-bold text-neutral-900">Sale Mode & Schedule</h2>
             <p className="mt-0.5 text-xs text-neutral-500">
               Choose to sell immediately or schedule sale opening ahead (15m - 90m). Deal runs for 30m to 120m.
+              {shopOperatingHours?.openingTime && shopOperatingHours?.closingTime && (
+                <span className="block mt-1 font-semibold text-emerald-700">
+                  Shop operating hours: {shopOperatingHours.openingTime} - {shopOperatingHours.closingTime}
+                </span>
+              )}
             </p>
           </div>
 
@@ -670,8 +851,8 @@ export function StoreOwnerFlashDealFormPage() {
           {scheduleSummary?.isValid ? (
             scheduleSummary.isCurrentlyActive ? (
               <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                ⚡ Active Immediately
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />⚡ Active
+                Immediately
               </span>
             ) : scheduleSummary.isUpcoming ? (
               <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-inset ring-blue-600/20">
@@ -699,13 +880,13 @@ export function StoreOwnerFlashDealFormPage() {
               {/* Option 1: Sell Immediately */}
               <button
                 type="button"
-                disabled={isEditMode}
+                disabled={isEditMode && !isDealEnded}
                 onClick={() => handleSwitchMode("immediate")}
                 className={`group relative flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all ${
                   saleMode === "immediate"
                     ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
                     : "border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50"
-                } ${isEditMode ? "opacity-75 cursor-not-allowed" : ""}`}
+                } ${isEditMode && !isDealEnded ? "opacity-75 cursor-not-allowed" : ""}`}
               >
                 <div
                   className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
@@ -718,9 +899,7 @@ export function StoreOwnerFlashDealFormPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-neutral-900 truncate">
-                      Sell Immediately
-                    </p>
+                    <p className="text-xs font-bold text-neutral-900 truncate">Sell Immediately</p>
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${
                         saleMode === "immediate"
@@ -732,7 +911,8 @@ export function StoreOwnerFlashDealFormPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
-                    Deal is activated immediately upon saving. Customers can order right away, you only need to select duration.
+                    Deal is activated immediately upon saving. Customers can order right away, you
+                    only need to select duration.
                   </p>
                 </div>
               </button>
@@ -740,13 +920,13 @@ export function StoreOwnerFlashDealFormPage() {
               {/* Option 2: Schedule for Later */}
               <button
                 type="button"
-                disabled={isEditMode}
+                disabled={isEditMode && !isDealEnded}
                 onClick={() => handleSwitchMode("scheduled")}
                 className={`group relative flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all ${
                   saleMode === "scheduled"
                     ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
                     : "border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50"
-                } ${isEditMode ? "opacity-75 cursor-not-allowed" : ""}`}
+                } ${isEditMode && !isDealEnded ? "opacity-75 cursor-not-allowed" : ""}`}
               >
                 <div
                   className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
@@ -773,7 +953,8 @@ export function StoreOwnerFlashDealFormPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
-                    Schedule sale opening 15 to 90 minutes in advance. The deal will automatically go live at your chosen time.
+                    Schedule sale opening 15 to 90 minutes in advance. The deal will automatically
+                    go live at your chosen time.
                   </p>
                 </div>
               </button>
@@ -908,7 +1089,8 @@ export function StoreOwnerFlashDealFormPage() {
                   <span className="font-bold flex items-center gap-1">
                     <Clock className="size-3.5 text-emerald-600" />
                     Duration: {scheduleSummary.durationMins} mins
-                    {scheduleSummary.hours > 0 && ` (${scheduleSummary.hours}h${scheduleSummary.minutes > 0 ? ` ${scheduleSummary.minutes}m` : ""})`}
+                    {scheduleSummary.hours > 0 &&
+                      ` (${scheduleSummary.hours}h${scheduleSummary.minutes > 0 ? ` ${scheduleSummary.minutes}m` : ""})`}
                   </span>
                   <span className="text-neutral-300">•</span>
                   <span>
@@ -916,17 +1098,23 @@ export function StoreOwnerFlashDealFormPage() {
                   </span>
                   <span className="text-neutral-400">➔</span>
                   <span>
-                    Cutoff: <strong>{endTime}</strong> {scheduleSummary.isNextDay && <strong className="text-amber-700">(Next Day)</strong>}
+                    Cutoff: <strong>{endTime}</strong>{" "}
+                    {scheduleSummary.isNextDay && (
+                      <strong className="text-amber-700">(Next Day)</strong>
+                    )}
                   </span>
                 </div>
                 <div className="text-[11px] font-medium text-neutral-600">
-                  🔒 Store Closes: <strong>{formatTime(scheduleSummary.closingTime)}</strong> (includes 30m pickup buffer)
+                  🔒 Store Closes: <strong>{formatTime(scheduleSummary.closingTime)}</strong>{" "}
+                  (includes 30m pickup buffer)
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-2 font-medium">
                 <AlertCircle className="size-4 shrink-0 text-red-500" />
-                <span>{scheduleSummary?.errorMessage || "Please enter valid deal schedule timing."}</span>
+                <span>
+                  {scheduleSummary?.errorMessage || "Please enter valid deal schedule timing."}
+                </span>
               </div>
             )}
           </div>
@@ -939,7 +1127,8 @@ export function StoreOwnerFlashDealFormPage() {
           <div>
             <h2 className="text-sm font-bold text-neutral-900">Discounted Variants</h2>
             <p className="mt-0.5 text-xs text-neutral-500">
-              Tick the variants you want to offer in this Flash Deal. Set deal price and inventory quantity for each selected variant.
+              Tick the variants you want to offer in this Flash Deal. Set deal price and inventory
+              quantity for each selected variant.
             </p>
           </div>
 
@@ -970,7 +1159,8 @@ export function StoreOwnerFlashDealFormPage() {
               <div>
                 <p className="font-bold">No variants found for {currentProduct?.name}</p>
                 <p className="mt-0.5 text-amber-700">
-                  This product has no active variants. Please choose another product or add variants in Menu Management.
+                  This product has no active variants. Please choose another product or add variants
+                  in Menu Management.
                 </p>
               </div>
             </div>
@@ -982,18 +1172,20 @@ export function StoreOwnerFlashDealFormPage() {
               const isPriceEntered = v.dealPrice !== "" && !isNaN(priceNum);
               const isNotMultipleOf1000 = isPriceEntered && priceNum > 0 && priceNum % 1000 !== 0;
               const isPriceGteOriginal = isPriceEntered && priceNum >= v.originalPrice;
-              const isPriceTooLow = isPriceEntered && priceNum < 1000;
+              const isPriceTooLow = isPriceEntered && priceNum < MIN_AMOUNT_VND;
               const hasPriceError = isNotMultipleOf1000 || isPriceGteOriginal || isPriceTooLow;
 
-              const nearestFloor = isPriceEntered ? Math.max(1000, Math.floor(priceNum / 1000) * 1000) : 1000;
-              const nearestCeil = isPriceEntered ? Math.ceil(priceNum / 1000) * 1000 : 1000;
+              const nearestFloor = isPriceEntered ? Math.max(MIN_AMOUNT_VND, Math.floor(priceNum / 1000) * 1000) : MIN_AMOUNT_VND;
+              const nearestCeil = isPriceEntered ? Math.max(MIN_AMOUNT_VND, Math.ceil(priceNum / 1000) * 1000) : MIN_AMOUNT_VND;
 
               const discountPercent =
                 isPriceEntered && v.originalPrice > 0 && priceNum < v.originalPrice && priceNum > 0
                   ? Math.round(((v.originalPrice - priceNum) / v.originalPrice) * 100)
                   : 0;
 
-              const hasOrders = Boolean(v.soldQuantity && v.soldQuantity > 0);
+              const hasOrders = Boolean(
+                (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) > 0,
+              );
 
               return (
                 <div
@@ -1030,7 +1222,10 @@ export function StoreOwnerFlashDealFormPage() {
                         <p className="text-[10px] text-neutral-400 font-mono mt-0.5">{v.sku}</p>
                       )}
                       <p className="mt-0.5 text-xs text-neutral-500">
-                        Original: <span className="font-semibold text-neutral-700">{v.originalPrice.toLocaleString("vi-VN")}đ</span>
+                        Original:{" "}
+                        <span className="font-semibold text-neutral-700">
+                          {v.originalPrice.toLocaleString("en-US")} VND
+                        </span>
                       </p>
                       {hasOrders && (
                         <span className="mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
@@ -1051,11 +1246,13 @@ export function StoreOwnerFlashDealFormPage() {
                         <div className="relative">
                           <input
                             type="number"
-                            min="1000"
+                            min={MIN_AMOUNT_VND}
                             step="1000"
                             required
                             value={v.dealPrice}
-                            onChange={(e) => handleUpdateVariant(index, "dealPrice", e.target.value)}
+                            onChange={(e) =>
+                              handleUpdateVariant(index, "dealPrice", e.target.value)
+                            }
                             placeholder="25000"
                             className={`w-full rounded-lg border py-1.5 pl-3 pr-7 text-xs text-neutral-900 shadow-2xs font-semibold focus:outline-none focus:ring-1 ${
                               hasPriceError
@@ -1063,42 +1260,48 @@ export function StoreOwnerFlashDealFormPage() {
                                 : "border-neutral-300 bg-white focus:border-emerald-500 focus:ring-emerald-500"
                             }`}
                           />
-                          <span className="absolute right-2.5 top-1.5 text-xs text-neutral-400 font-medium">đ</span>
+                          <span className="absolute right-2.5 top-1.5 text-xs text-neutral-400 font-medium">
+                            VND
+                          </span>
                         </div>
 
                         {/* Real-time Inline Validation Message & Nearest Suggestions */}
                         {isNotMultipleOf1000 ? (
                           <div className="mt-1 space-y-1">
                             <p className="text-[10px] font-medium text-amber-600">
-                              Must be multiple of 1,000đ
+                              Must be a multiple of 1,000 VND
                             </p>
                             <div className="flex items-center gap-1 text-[10px]">
                               <span className="text-neutral-400">Nearest:</span>
                               <button
                                 type="button"
-                                onClick={() => handleUpdateVariant(index, "dealPrice", nearestFloor)}
+                                onClick={() =>
+                                  handleUpdateVariant(index, "dealPrice", nearestFloor)
+                                }
                                 className="rounded bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 px-1.5 py-0.5 font-bold text-neutral-700 border border-neutral-200 transition text-[10px]"
                               >
-                                {nearestFloor.toLocaleString("vi-VN")}đ
+                                {nearestFloor.toLocaleString("en-US")} VND
                               </button>
                               {nearestCeil !== nearestFloor && (
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateVariant(index, "dealPrice", nearestCeil)}
+                                  onClick={() =>
+                                    handleUpdateVariant(index, "dealPrice", nearestCeil)
+                                  }
                                   className="rounded bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 px-1.5 py-0.5 font-bold text-neutral-700 border border-neutral-200 transition text-[10px]"
                                 >
-                                  {nearestCeil.toLocaleString("vi-VN")}đ
+                                  {nearestCeil.toLocaleString("en-US")} VND
                                 </button>
                               )}
                             </div>
                           </div>
                         ) : isPriceGteOriginal ? (
                           <p className="mt-1 text-[10px] font-medium text-red-500">
-                            Must be lower than {v.originalPrice.toLocaleString("vi-VN")}đ
+                            Must be lower than {v.originalPrice.toLocaleString("en-US")} VND
                           </p>
                         ) : isPriceTooLow ? (
                           <p className="mt-1 text-[10px] font-medium text-red-500">
-                            Must be at least 1,000đ
+                            Must be at least {MIN_AMOUNT_TEXT} VND
                           </p>
                         ) : discountPercent > 0 ? (
                           <p className="mt-1 text-[10px] font-semibold text-emerald-600">
@@ -1120,13 +1323,16 @@ export function StoreOwnerFlashDealFormPage() {
                           step="1"
                           required
                           value={v.totalQuantity}
-                          onChange={(e) => handleUpdateVariant(index, "totalQuantity", e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateVariant(index, "totalQuantity", e.target.value)
+                          }
                           placeholder="50"
                           className="w-full rounded-lg border border-neutral-300 py-1.5 px-3 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
                         />
                         {v.soldQuantity !== undefined ? (
                           <p className="mt-1 text-[10px] text-neutral-400">
-                            Sold {v.soldQuantity}, reserved {v.reservedQuantity || 0}
+                            Sold {v.soldQuantity}, reserved {v.reservedQuantity || 0}, stopped{" "}
+                            {v.unsellableQuantity || 0}
                           </p>
                         ) : (
                           <p className="mt-1 text-[10px] text-neutral-400">Allocated deal stock</p>
@@ -1183,6 +1389,8 @@ export function StoreOwnerFlashDealFormPage() {
         )}
       </div>
 
+      </fieldset>
+
       {/* Footer Actions */}
       <div className="flex items-center justify-end gap-3 pt-2">
         <button
@@ -1194,11 +1402,11 @@ export function StoreOwnerFlashDealFormPage() {
         </button>
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || shopSuspended}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-60"
         >
           {submitting && <Loader2 className="size-3.5 animate-spin" />}
-          <span>Save Flash Deal</span>
+          <span>{isDealEnded ? "Re-open Flash Deal" : "Save Flash Deal"}</span>
         </button>
       </div>
     </form>

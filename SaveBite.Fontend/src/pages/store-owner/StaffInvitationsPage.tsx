@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
+import { subscribeStaffEvents } from "@/features/shop-staffs/realtime/subscribeStaffEvents";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Mail, RefreshCw, Send, Trash2, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
@@ -7,6 +9,7 @@ import type { StaffInvitation } from "@/features/shop-staffs/types/shopStaff.typ
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 import { Pagination, usePagination } from "@/shared/components/pagination";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("en-US", {
@@ -117,6 +120,9 @@ function RevokeInvitationModal({ invitation, loading, onClose, onConfirm }: Revo
 
 export function StoreOwnerStaffInvitationsPage() {
   const navigate = useNavigate();
+  const shopSuspended = useShopSuspended();
+  const realtime = useRealtimeSubscriptions();
+  const loadState = useRef({ version: 0 });
 
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -134,25 +140,37 @@ export function StoreOwnerStaffInvitationsPage() {
     initialPageSize: 10,
   });
 
-  async function loadInvitations() {
-    try {
-      setLoading(true);
-      const result = await shopStaffApi.getInvitations();
-      setInvitations(result);
-    } catch (error) {
-      console.error(error);
-      toast.error(getApiErrorMessage(error) || "Unable to load staff invitations.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const loadInvitations = useCallback(
+    async (showLoading = true) => {
+      const version = ++loadState.current.version;
+      try {
+        if (showLoading) setLoading(true);
+        const result = await shopStaffApi.getInvitations(true);
+        if (version === loadState.current.version) setInvitations(result);
+      } catch (error) {
+        if (version !== loadState.current.version) return;
+        console.error(error);
+        toast.error(getApiErrorMessage(error) || "Unable to load staff invitations.");
+      } finally {
+        if (version === loadState.current.version) setLoading(false);
+      }
+    },
+    [loadState],
+  );
 
   useEffect(() => {
-    void loadInvitations();
-  }, []);
+    const initial = window.setTimeout(() => void loadInvitations(), 0);
+    const off = subscribeStaffEvents(realtime, "invitations", () => loadInvitations(false));
+    const currentLoadState = loadState.current;
+    return () => {
+      window.clearTimeout(initial);
+      off();
+      currentLoadState.version++;
+    };
+  }, [realtime, loadInvitations, loadState]);
 
   async function handleRevoke() {
-    if (!selectedInvitation) return;
+    if (!selectedInvitation || shopSuspended) return;
 
     try {
       setRevoking(true);
@@ -169,7 +187,9 @@ export function StoreOwnerStaffInvitationsPage() {
   }
 
   const pendingCount = invitations.filter((item) => item.status.toLowerCase() === "pending").length;
-  const acceptedCount = invitations.filter((item) => item.status.toLowerCase() === "accepted").length;
+  const acceptedCount = invitations.filter(
+    (item) => item.status.toLowerCase() === "accepted",
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -186,8 +206,8 @@ export function StoreOwnerStaffInvitationsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Staff Invitations</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Staff Invitations</h1>
+          <p className="mt-1 text-sm text-neutral-500">
             View and manage staff invitations sent from your shop.
           </p>
         </div>
@@ -196,47 +216,47 @@ export function StoreOwnerStaffInvitationsPage() {
           type="button"
           disabled={loading}
           onClick={() => void loadInvitations()}
-          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3.5 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <Send size={20} />
-            </div>
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <Send className="size-5" />
+            </span>
             <div>
-              <p className="text-sm text-gray-500">Total invitations</p>
-              <p className="text-2xl font-bold text-gray-900">{invitations.length}</p>
+              <p className="text-xs font-medium text-neutral-500">Total invitations</p>
+              <p className="text-xl font-bold text-neutral-900">{invitations.length}</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-              <Mail size={20} />
-            </div>
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <RefreshCw className="size-5" />
+            </span>
             <div>
-              <p className="text-sm text-gray-500">Pending</p>
-              <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
+              <p className="text-xs font-medium text-neutral-500">Pending</p>
+              <p className="text-xl font-bold text-amber-600">{pendingCount}</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="col-span-2 rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs sm:col-span-1">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-              <Users size={20} />
-            </div>
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <Users className="size-5" />
+            </span>
             <div>
-              <p className="text-sm text-gray-500">Accepted</p>
-              <p className="text-2xl font-bold text-gray-900">{acceptedCount}</p>
+              <p className="text-xs font-medium text-neutral-500">Accepted</p>
+              <p className="text-xl font-bold text-emerald-600">{acceptedCount}</p>
             </div>
           </div>
         </div>
@@ -252,7 +272,7 @@ export function StoreOwnerStaffInvitationsPage() {
           </div>
         </div>
       ) : invitations.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white py-16 text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
             <Mail size={22} />
           </div>
@@ -262,7 +282,7 @@ export function StoreOwnerStaffInvitationsPage() {
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px]">
               <thead className="border-b border-gray-200 bg-gray-50">
@@ -297,14 +317,18 @@ export function StoreOwnerStaffInvitationsPage() {
                             {invitation.invitedUserName?.charAt(0).toUpperCase() ?? "U"}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{invitation.invitedUserName}</p>
+                            <p className="font-medium text-gray-900">
+                              {invitation.invitedUserName}
+                            </p>
                             <p className="text-sm text-gray-500">{invitation.invitedUserEmail}</p>
                           </div>
                         </div>
                       </td>
 
                       <td className="px-6 py-4">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClass(invitation.status)}`}>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClass(invitation.status)}`}
+                        >
                           {getStatusLabel(invitation.status)}
                         </span>
                       </td>
@@ -321,8 +345,14 @@ export function StoreOwnerStaffInvitationsPage() {
                         {isPending ? (
                           <button
                             type="button"
+                            disabled={shopSuspended}
+                            title={
+                              shopSuspended
+                                ? "Managing invitations is unavailable while your shop is suspended."
+                                : undefined
+                            }
                             onClick={() => setSelectedInvitation(invitation)}
-                            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Trash2 size={16} />
                             Revoke
@@ -347,8 +377,7 @@ export function StoreOwnerStaffInvitationsPage() {
                 pageSize={10}
                 itemLabel="invitations"
                 onPageChange={setCurrentPage}
-                showFirstLast = {true}
-        
+                showFirstLast={true}
               />
             </div>
           )}
@@ -356,7 +385,7 @@ export function StoreOwnerStaffInvitationsPage() {
       )}
 
       {/* Revoke modal */}
-      {selectedInvitation && (
+      {selectedInvitation && !shopSuspended && (
         <RevokeInvitationModal
           invitation={selectedInvitation}
           loading={revoking}

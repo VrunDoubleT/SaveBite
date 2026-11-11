@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,7 @@ public class ViewFeeConfigurationTests
     private readonly ITestOutputHelper _output;
     private readonly Mock<IPlatformFeeConfigRepository> _repositoryMock = new();
     private readonly Mock<ILogger<PlatformFeeConfigService>> _loggerMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly PlatformFeeConfigService _service;
 
     private readonly Guid _adminId = Guid.NewGuid();
@@ -31,11 +33,7 @@ public class ViewFeeConfigurationTests
     public ViewFeeConfigurationTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new PlatformFeeConfigService(
-            _repositoryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object
-        );
+        _service = new PlatformFeeConfigService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _auditMock.Object);
     }
 
     private PlatformFeeConfig CreateValidActiveConfig(decimal feeRate = 0.05m, DateTime? effectiveTo = null) => new()

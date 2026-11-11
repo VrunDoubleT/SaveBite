@@ -1,3 +1,5 @@
+using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.BackgroundJobs.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -65,10 +67,7 @@ public class InviteStaffTests
         _staffRepoMock =
             new Mock<IShopStaffRepository>();
 
-        _service = new StaffInvitationService(
-            _invitationRepoMock.Object,
-            _staffRepoMock.Object
-        );
+        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object, new Mock<IStaffInvitationScheduler>().Object, new StaffInvitationNotificationService(_invitationRepoMock.Object, new Mock<INotificationQueue>().Object), TestDbContextFactory.Create(), new Mock<IRealtimePublisher>().Object);
 
         // Precondition: Active shop owned by store owner
         _ownerShop = new Shop
@@ -92,6 +91,14 @@ public class InviteStaffTests
                 _ownerId,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_ownerShop);
+
+        _invitationRepoMock
+            .Setup(r => r.TryTransitionPendingAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<string>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
     }
 
     // =========================================================
@@ -867,6 +874,15 @@ public class InviteStaffTests
             .ReturnsAsync(
                 newlyCreatedInvitation);
 
+        _invitationRepoMock
+            .Setup(r => r.TryTransitionPendingAsync(
+                expiredInvitation.Id,
+                It.IsAny<string>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<Guid, string, DateTime, CancellationToken>((id, status, dt, ct) => expiredInvitation.Status = status)
+            .ReturnsAsync(true);
+
         var request =
             new InviteStaffRequest(
                 _validCandidateId);
@@ -895,7 +911,7 @@ public class InviteStaffTests
 
         Assert.Equal(
             nameof(
-                StaffInvitationStatus.Cancelled),
+                StaffInvitationStatus.Expired),
             expiredInvitation.Status);
     }
 

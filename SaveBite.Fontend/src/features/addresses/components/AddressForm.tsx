@@ -1,3 +1,8 @@
+import {
+  CustomerMutationForm,
+  CustomerActionButton,
+} from "@/shared/components/CustomerMutationControls";
+import { Button, Input } from "@/shared/components/ui";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,22 +38,6 @@ interface AddressFormProps {
   isFirstAddress?: boolean;
   onSaved: (address: UserAddress) => void;
   onCancel: () => void;
-}
-
-const inputClass =
-  "mt-1.5 block w-full rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm font-normal text-text-primary outline-none transition placeholder:text-text-muted focus:border-primary-500 focus:ring-2 focus:ring-primary-100 aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger/20";
-
-const buttonBaseClass =
-  "inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60";
-
-const buttonVariants = {
-  soft: "border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100",
-  outline: "border-border-default bg-bg-surface text-text-secondary hover:bg-bg-subtle",
-  solid: "border-primary-600 bg-primary-600 text-white hover:bg-primary-700",
-} as const;
-
-function buttonClass(variant: keyof typeof buttonVariants) {
-  return `${buttonBaseClass} ${buttonVariants[variant]}`;
 }
 
 type AddressFormValues = CreateAddressFormValues | UpdateAddressFormValues;
@@ -199,10 +188,10 @@ export function AddressForm({
     : "Use this address by default when placing orders.";
 
   return (
-    <form
+    <CustomerMutationForm
       onSubmit={submit}
       noValidate
-      className="rounded-2xl border border-border-default bg-bg-subtle p-5 sm:p-6"
+      className="rounded-md border border-border-default bg-neutral-50/60 p-4 sm:p-5"
     >
       {/* HEADER */}
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -211,16 +200,17 @@ export function AddressForm({
             {isEditing ? "Edit address" : "New address"}
           </h3>
 
-          <p className="mt-1 text-sm text-text-secondary">
+          <p className="mt-1 text-body text-text-secondary">
             Use your current location to fill in the details, or enter them manually.
           </p>
         </div>
 
-        <button
+        <Button
+          variant="secondary"
           type="button"
           onClick={fillFromCurrentLocation}
           disabled={isBusy}
-          className={buttonClass("soft")}
+          className="min-h-11"
         >
           {location.phase !== "idle" ? (
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
@@ -233,27 +223,27 @@ export function AddressForm({
             : location.phase === "resolving"
               ? "Finding address..."
               : "Use my location"}
-        </button>
+        </Button>
       </div>
 
       <div className="mt-4 space-y-3">
         {location.error && (
           <p
             role="alert"
-            className="rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger"
+            className="rounded-md border border-danger-soft bg-danger-soft px-4 py-3 text-body text-danger-strong"
           >
             {location.error}
           </p>
         )}
         {location.phase !== "idle" && (
-          <p role="status" aria-live="polite" className="text-sm text-text-secondary">
+          <p role="status" aria-live="polite" className="text-body text-text-secondary">
             {location.phase === "locating"
               ? "Waiting for your browser location..."
               : "Updating address for the selected point..."}
           </p>
         )}
         {location.accuracy !== null && (
-          <p className="text-xs text-text-secondary">
+          <p className="text-caption text-text-secondary">
             GPS accuracy: approximately {Math.round(location.accuracy)} m. Check the pin and adjust
             it if needed.
           </p>
@@ -262,40 +252,44 @@ export function AddressForm({
           <AddressLocationMap point={point} disabled={isSaving} onSelect={location.selectPoint} />
         )}
       </div>
-      <fieldset disabled={isBusy} className="mt-5 min-w-0 space-y-5 disabled:opacity-60">
+      <fieldset disabled={isBusy} className="mt-5 min-w-0 space-y-4 disabled:opacity-60">
         {/* ADDRESS DETAILS */}
         <FormSection title="Address details">
           <div className="grid gap-4 md:grid-cols-2">
             <FormField label="Label" error={errors.label?.message}>
-              <input
+              <Input
+                variant="auth"
                 {...register("label")}
-                className={inputClass}
+                className="mt-1.5 min-h-11"
                 placeholder="Home, Work..."
                 aria-invalid={Boolean(errors.label)}
               />
             </FormField>
 
             <FormField label="Address line" required error={errors.addressLine?.message}>
-              <input
+              <Input
+                variant="auth"
                 {...register("addressLine")}
-                className={inputClass}
+                className="mt-1.5 min-h-11"
                 placeholder="House number, street name..."
                 aria-invalid={Boolean(errors.addressLine)}
               />
             </FormField>
 
             <FormField label="Ward" error={errors.ward?.message}>
-              <input
+              <Input
+                variant="auth"
                 {...register("ward")}
-                className={inputClass}
+                className="mt-1.5 min-h-11"
                 aria-invalid={Boolean(errors.ward)}
               />
             </FormField>
 
             <FormField label="District" error={errors.district?.message}>
-              <input
+              <Input
+                variant="auth"
                 {...register("district")}
-                className={inputClass}
+                className="mt-1.5 min-h-11"
                 aria-invalid={Boolean(errors.district)}
               />
             </FormField>
@@ -305,9 +299,10 @@ export function AddressForm({
               className="md:col-span-2"
               error={errors.city?.message}
             >
-              <input
+              <Input
+                variant="auth"
                 {...register("city")}
-                className={inputClass}
+                className="mt-1.5 min-h-11"
                 aria-invalid={Boolean(errors.city)}
               />
             </FormField>
@@ -322,25 +317,27 @@ export function AddressForm({
         >
           <div className="grid gap-4 min-[480px]:grid-cols-2">
             <FormField label="Latitude" required error={errors.latitude?.message}>
-              <input
+              <Input
+                variant="auth"
                 {...register("latitude")}
                 type="number"
                 step="any"
                 inputMode="decimal"
                 placeholder="e.g. 10.762622"
-                className={inputClass}
+                className="mt-1.5 min-h-11"
                 aria-invalid={Boolean(errors.latitude)}
               />
             </FormField>
 
             <FormField label="Longitude" required error={errors.longitude?.message}>
-              <input
+              <Input
+                variant="auth"
                 {...register("longitude")}
                 type="number"
                 step="any"
                 inputMode="decimal"
                 placeholder="e.g. 106.660172"
-                className={inputClass}
+                className="mt-1.5 min-h-11"
                 aria-invalid={Boolean(errors.longitude)}
               />
             </FormField>
@@ -349,7 +346,7 @@ export function AddressForm({
 
         {/* DEFAULT ADDRESS */}
         <label
-          className={`flex items-start gap-3 rounded-xl border border-border-default bg-bg-surface p-4 ${
+          className={`flex items-start gap-3 rounded-md border border-border-default bg-bg-surface p-4 ${
             isDefaultLocked ? "cursor-not-allowed" : "cursor-pointer"
           }`}
         >
@@ -361,11 +358,11 @@ export function AddressForm({
           />
 
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-text-primary">
+            <span className="block text-body font-medium text-text-primary">
               Set as default address
             </span>
 
-            <span className="mt-0.5 block text-xs text-text-secondary">{defaultHint}</span>
+            <span className="mt-0.5 block text-caption text-text-secondary">{defaultHint}</span>
           </span>
         </label>
       </fieldset>
@@ -374,7 +371,7 @@ export function AddressForm({
       {errors.root?.server?.message && (
         <div
           role="alert"
-          className="mt-4 rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger"
+          className="mt-4 rounded-md border border-danger-soft bg-danger-soft px-4 py-3 text-body text-danger-strong"
         >
           {errors.root.server.message}
         </div>
@@ -382,17 +379,18 @@ export function AddressForm({
 
       {/* ACTIONS */}
       <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-border-default pt-5">
-        <button
+        <Button
+          variant="secondary"
           type="button"
           onClick={onCancel}
           disabled={isSaving}
-          className={buttonClass("outline")}
+          className="min-h-11"
         >
           <X className="size-4" aria-hidden="true" />
           Cancel
-        </button>
+        </Button>
 
-        <button type="submit" disabled={isBusy} className={buttonClass("solid")}>
+        <CustomerActionButton type="submit" disabled={isBusy} className="min-h-11">
           {isSaving ? (
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
           ) : (
@@ -400,9 +398,9 @@ export function AddressForm({
           )}
 
           {isSaving ? "Saving..." : isEditing ? "Save changes" : "Save address"}
-        </button>
+        </CustomerActionButton>
       </div>
-    </form>
+    </CustomerMutationForm>
   );
 }
 
@@ -415,13 +413,13 @@ interface FormSectionProps {
 
 function FormSection({ title, description, required, children }: FormSectionProps) {
   return (
-    <fieldset className="min-w-0 rounded-xl border border-border-default bg-bg-surface p-4">
-      <legend className="px-2 text-sm font-semibold text-text-primary">
+    <fieldset className="min-w-0 rounded-md border border-border-default bg-bg-surface p-4">
+      <legend className="px-2 text-body font-semibold text-text-primary">
         {title}
-        {required && <span className="ml-1 text-danger">*</span>}
+        {required && <span className="ml-1 text-danger-strong">*</span>}
       </legend>
 
-      {description && <p className="mb-3 text-xs text-text-secondary">{description}</p>}
+      {description && <p className="mb-3 text-caption text-text-secondary">{description}</p>}
 
       {children}
     </fieldset>
@@ -438,14 +436,14 @@ interface FormFieldProps {
 
 function FormField({ label, required, error, className = "", children }: FormFieldProps) {
   return (
-    <label className={`block text-sm font-medium text-text-primary ${className}`}>
+    <label className={`block text-body font-medium text-text-primary ${className}`}>
       {label}
-      {required && <span className="ml-1 text-danger">*</span>}
+      {required && <span className="ml-1 text-danger-strong">*</span>}
 
       {children}
 
       {error && (
-        <span role="alert" className="mt-1 block text-xs font-normal text-danger">
+        <span role="alert" className="mt-1 block text-caption font-normal text-danger-strong">
           {error}
         </span>
       )}

@@ -32,6 +32,7 @@ public class CreateNewProductTests
     private readonly Mock<IProductRepository> _repositoryMock = new();
     private readonly Mock<ICloudinaryService> _cloudinaryMock = new();
     private readonly Mock<ILogger<ProductService>> _loggerMock = new();
+    private readonly AppDbContext _db;
     private readonly ProductService _service;
     private readonly CreateProductRequestValidator _validator;
 
@@ -43,7 +44,10 @@ public class CreateNewProductTests
     public CreateNewProductTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, _publisherMock.Object, null!);
+        _db = TestDbContextFactory.Create();
+        _db.Shops.Add(new Shop { Id = _shopId, OwnerUserId = _userId, Status = ShopStatus.Active, Name = "Shop" });
+        _db.SaveChanges();
+        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, new Mock<IAdminAuditWriter>().Object, _db, new Mock<INotificationQueue>().Object);
 
         var cloudinaryOptions = Options.Create(new CloudinarySettings
         {
@@ -143,6 +147,8 @@ public class CreateNewProductTests
     [Fact]
     public async Task UTCID02_CreateProduct_NoShopAvailable_ThrowsNotFound_Abnormal()
     {
+        _db.Shops.RemoveRange(_db.Shops);
+        _db.SaveChanges();
         // Arrange
         var request = new CreateProductRequest
         {
@@ -168,7 +174,7 @@ public class CreateNewProductTests
 
         // Assert
         var exception = await act.Should().ThrowAsync<AppException>();
-        exception.Which.Message.Should().Be("Shop was not found or is unavailable.");
+        exception.Which.Message.Should().Be("Shop was not found.");
 
         _output.WriteLine("================ UTCID02 ================");
         _output.WriteLine("RESULT: PASS");

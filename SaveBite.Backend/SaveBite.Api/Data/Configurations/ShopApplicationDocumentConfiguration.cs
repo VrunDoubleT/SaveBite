@@ -71,10 +71,9 @@ public class ShopApplicationDocumentConfiguration
                 x.ApplicationId,
                 x.DocumentType
             })
-            .IsUnique()
             .HasDatabaseName(
-                "ux_shop_application_current_document")
-            .HasFilter("\"is_current\" = TRUE");
+                "ix_shop_application_current_document")
+            .HasFilter("\"is_current\" = TRUE AND \"document_type\" <> 'Other'");
 
         builder.HasOne(x => x.Application)
             .WithMany(x => x.Documents)

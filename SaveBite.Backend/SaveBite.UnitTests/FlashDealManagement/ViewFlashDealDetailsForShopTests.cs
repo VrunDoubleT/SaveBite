@@ -4,7 +4,6 @@ using FluentAssertions;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using Moq;
-using SaveBite.Backend.Caching.Interfaces;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Entities;
@@ -26,7 +25,6 @@ namespace SaveBite.Tests.FlashDealManagement;
 public class ViewFlashDealDetailsForShopTests
 {
     private readonly ITestOutputHelper _output;
-    private readonly Mock<IFlashDealRedisService> _redisMock = new();
     private readonly Mock<IFlashDealRepository> _dealRepoMock = new();
     private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
     private readonly Mock<IShopRepository> _shopRepoMock = new();
@@ -48,14 +46,13 @@ public class ViewFlashDealDetailsForShopTests
     {
         _output = output;
         _service = new FlashDealService(
-            _redisMock.Object,
             _dealRepoMock.Object,
             _userAddressRepoMock.Object,
             _shopRepoMock.Object,
             _staffRepoMock.Object,
             _backgroundJobClientMock.Object,
             _publisherMock.Object,
-            _loggerMock.Object, null!);
+            _loggerMock.Object, TestDbContextFactory.Create());
     }
 
     private Shop CreateSampleShop(Guid id, Guid ownerId, string name = "SaveBite Bakery")

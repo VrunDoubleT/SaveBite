@@ -9,7 +9,7 @@ using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Controllers;
 
-/// <summary>Admin configuration of Trust Score levels and rules (UC-129 .. UC-138).</summary>
+/// <summary>Admin configuration of Trust Score levels and rules (UC-129 .. UC-138, UC-152 .. UC-156).</summary>
 [ApiController]
 [Route("api/admin/trust")]
 [AdminAccess]
@@ -22,12 +22,48 @@ public sealed class AdminTrustController : ControllerBase
         _trustConfigService = trustConfigService;
     }
 
-    // UC-129, UC-131
+    // UC-129, UC-131, UC-152 (A. View Level List)
     [HttpGet("levels")]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<AdminTrustLevelResponse>>>> GetLevels(CancellationToken cancellationToken)
     {
         var result = await _trustConfigService.GetLevelsAsync(cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<AdminTrustLevelResponse>>.Ok(result));
+    }
+
+    // UC-152 (A. View Level History)
+    [HttpGet("levels/{levelId:guid}/history")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<TrustLevelHistoryItemResponse>>>> GetLevelHistory(
+        Guid levelId, CancellationToken cancellationToken)
+    {
+        var result = await _trustConfigService.GetLevelHistoryAsync(levelId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<TrustLevelHistoryItemResponse>>.Ok(result));
+    }
+
+    // UC-153 (B. Add New Level)
+    [HttpPost("levels")]
+    public async Task<ActionResult<ApiResponse<AdminTrustLevelResponse>>> CreateLevel(
+        [FromBody] CreateTrustLevelRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _trustConfigService.CreateLevelAsync(GetAuthenticatedUserId(), request, cancellationToken);
+        return Ok(ApiResponse<AdminTrustLevelResponse>.Ok(result, "Trust level created successfully."));
+    }
+
+    // UC-154 (C. Update Level Information)
+    [HttpPut("levels/{levelId:guid}/info")]
+    public async Task<ActionResult<ApiResponse<AdminTrustLevelResponse>>> UpdateLevelInfo(
+        Guid levelId, [FromBody] UpdateTrustLevelInfoRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _trustConfigService.UpdateLevelInfoAsync(GetAuthenticatedUserId(), levelId, request, cancellationToken);
+        return Ok(ApiResponse<AdminTrustLevelResponse>.Ok(result, "Trust level information updated."));
+    }
+
+    // UC-155 (D. Update Level Status)
+    [HttpPut("levels/{levelId:guid}/status")]
+    public async Task<ActionResult<ApiResponse<AdminTrustLevelResponse>>> UpdateLevelStatus(
+        Guid levelId, [FromBody] UpdateTrustLevelStatusRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _trustConfigService.UpdateLevelStatusAsync(GetAuthenticatedUserId(), levelId, request, cancellationToken);
+        return Ok(ApiResponse<AdminTrustLevelResponse>.Ok(result, "Trust level status updated."));
     }
 
     // UC-130
@@ -56,6 +92,15 @@ public sealed class AdminTrustController : ControllerBase
         return Ok(ApiResponse<IReadOnlyList<PenaltyRuleResponse>>.Ok(result));
     }
 
+    // UC-156 (E. Add New Penalty Rule)
+    [HttpPost("penalty-rules")]
+    public async Task<ActionResult<ApiResponse<PenaltyRuleResponse>>> CreatePenaltyRule(
+        [FromBody] CreatePenaltyRuleRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _trustConfigService.CreatePenaltyRuleAsync(GetAuthenticatedUserId(), request, cancellationToken);
+        return Ok(ApiResponse<PenaltyRuleResponse>.Ok(result, "Penalty rule created successfully."));
+    }
+
     // UC-134
     [HttpPut("penalty-rules/{ruleId:guid}")]
     public async Task<ActionResult<ApiResponse<PenaltyRuleResponse>>> UpdatePenaltyRule(
@@ -63,6 +108,15 @@ public sealed class AdminTrustController : ControllerBase
     {
         var result = await _trustConfigService.UpdatePenaltyRuleAsync(GetAuthenticatedUserId(), ruleId, request, cancellationToken);
         return Ok(ApiResponse<PenaltyRuleResponse>.Ok(result));
+    }
+
+    // Delete future scheduled penalty rule
+    [HttpDelete("penalty-rules/{ruleId:guid}")]
+    public async Task<ActionResult<ApiResponse>> DeletePenaltyRule(
+        Guid ruleId, CancellationToken cancellationToken)
+    {
+        await _trustConfigService.DeletePenaltyRuleAsync(GetAuthenticatedUserId(), ruleId, cancellationToken);
+        return Ok(ApiResponse.Ok("Future penalty rule deleted successfully."));
     }
 
     // UC-135

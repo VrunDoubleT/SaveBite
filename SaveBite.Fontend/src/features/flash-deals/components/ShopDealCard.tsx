@@ -1,3 +1,4 @@
+import { useAuthStore } from "@/shared/stores/authStore";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Star, ShoppingBag } from "lucide-react";
@@ -9,12 +10,11 @@ interface ShopDealCardProps {
 }
 
 const formatVndPrice = (value: number) => {
-  return Number.isFinite(value)
-    ? `${Math.round(value).toLocaleString("vi-VN")}đ`
-    : "—";
+  return Number.isFinite(value) ? `${Math.round(value).toLocaleString("en-US")} VND` : "—";
 };
 
 export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
+  const customerSuspended = useAuthStore((state) => state.user?.customerStatus === "suspended");
   // 1. Calculate quantities
   const totalQty = deal.variants.reduce((sum, v) => sum + (v.totalQuantity || 0), 0) || 1;
   const soldQty = deal.variants.reduce((sum, v) => sum + (v.soldQuantity || 0), 0);
@@ -104,7 +104,9 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
             </span>
             <span>•</span>
             <span className="flex items-center gap-1 font-medium">
-              <span>{deal.variants.length > 1 ? `${deal.variants.length} options` : "1 option"}</span>
+              <span>
+                {deal.variants.length > 1 ? `${deal.variants.length} options` : "1 option"}
+              </span>
             </span>
             <span>•</span>
             <span className="flex items-center gap-1 font-semibold text-amber-700">
@@ -162,11 +164,14 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
           ) : onAddToCart ? (
             <button
               type="button"
-              onClick={() => onAddToCart(deal)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-center text-sm sm:text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 hover:shadow-md active:scale-[0.99] cursor-pointer"
+              disabled={customerSuspended}
+              onClick={() => {
+                if (!customerSuspended) onAddToCart(deal);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-center text-sm sm:text-base font-extrabold text-white shadow-xs transition hover:bg-emerald-700 hover:shadow-md active:scale-[0.99] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none"
             >
               <ShoppingBag size={18} />
-              <span>Add to Cart</span>
+              <span>{customerSuspended ? "Customer features suspended" : "Add to Cart"}</span>
             </button>
           ) : (
             <Link

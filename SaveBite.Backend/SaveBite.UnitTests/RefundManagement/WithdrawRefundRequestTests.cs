@@ -58,8 +58,13 @@ public class WithdrawRefundRequestTests
             TimeProvider.System,
             _configMock.Object,
             _deadlinesMock.Object,
-            _loggerMock.Object
+            _loggerMock.Object,
+            new Mock<INotificationQueue>().Object,
+            new Mock<ITrustNotificationService>().Object,
+            TestDbContextFactory.Create()
         );
+        _shopRepoMock.Setup(s => s.OwnerShopAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(ValidShopId);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
 
         // Passthrough order lock for unit testing
         _orderRepoMock
@@ -336,7 +341,7 @@ public class WithdrawRefundRequestTests
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
         ex.Which.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        ex.Which.Message.Should().Be("The 24-hour confirmation deadline has passed. This refund is no longer available.");
+        ex.Which.Message.Should().Be("Mandatory shop-cancellation refunds cannot be withdrawn.");
 
         _output.WriteLine($"[TCID07] Passed: Expired customer confirmation deadline correctly threw 409 Conflict. Message: {ex.Which.Message}");
     }

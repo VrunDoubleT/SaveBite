@@ -1,12 +1,14 @@
-using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
+using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Requests;
 
 namespace SaveBite.Backend.Repositories.Interfaces;
 
 public interface IFeedbackRepository
 {
+    Task<PagedResult<ProductFeedback>> ListAsync(int page, int pageSize, FeedbackStatus? status, string? search, CancellationToken ct = default);
+
     Task<OrderItem?> GetOrderItemWithOrderAsync(Guid orderItemId, CancellationToken ct = default);
     Task<bool> HasFeedbackForOrderItemAsync(Guid orderItemId, CancellationToken ct = default);
     Task<ProductFeedback?> GetByIdAsync(Guid feedbackId, CancellationToken ct = default);
@@ -27,10 +29,5 @@ public interface IFeedbackRepository
     Task<Guid?> GetShopIdForUserAsync(Guid userId, CancellationToken ct = default);
     Task<bool> CanManageFeedbackReplyAsync(Guid userId, Guid feedbackId, CancellationToken ct = default);
 
-    // Manage Feedbacks (moderation)
-    Task<(IReadOnlyList<ProductFeedback> Items, int Total)> ListAsync(int page, int pageSize, FeedbackStatus? status, string? search, CancellationToken ct);
-    Task<ProductFeedback?> GetForUpdateAsync(Guid id, CancellationToken ct);
-    Task<string?> GetCurrentReasonAsync(Guid feedbackId, CancellationToken ct);
-    Task<Dictionary<Guid, string?>> GetCurrentReasonsAsync(IEnumerable<Guid> feedbackIds, CancellationToken ct);
-    Task SaveModerationAsync(ProductFeedback feedback, ProductFeedbackModerationLog log, CancellationToken ct);
+    Task<bool> IsShopOwnerForFeedbackAsync(Guid userId, Guid feedbackId, CancellationToken ct = default);
 }

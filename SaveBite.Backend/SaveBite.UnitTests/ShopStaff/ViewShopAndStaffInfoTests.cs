@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using System.Text.Json;
 using System.Threading;
@@ -31,7 +32,7 @@ public class ViewShopAndStaffInfoTests
     public ViewShopAndStaffInfoTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopStaffService(_staffRepoMock.Object);
+        _service = new ShopStaffService(_staffRepoMock.Object, new Mock<IUserRepository>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IRealtimePublisher>().Object);
     }
 
     [Fact]

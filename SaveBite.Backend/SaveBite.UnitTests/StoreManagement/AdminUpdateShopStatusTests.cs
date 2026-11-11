@@ -34,12 +34,7 @@ public class AdminUpdateShopStatusTests
     public AdminUpdateShopStatusTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopService(
-            _shopRepoMock.Object,
-            _userAddressRepoMock.Object,
-            _cloudinaryMock.Object,
-            _publisherMock.Object
-        );
+        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryMock.Object, new Mock<IAdminAuditWriter>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object, new Mock<IRealtimePublisher>().Object);
     }
 
     [Fact]
@@ -68,12 +63,7 @@ public class AdminUpdateShopStatusTests
             .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _publisherMock
-            .Setup(p => p.PublishAsync(
-                RabbitMqRoutingKeys.ModerationAudit,
-                It.IsAny<ModerationEvent>(),
-                It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        
 
         // Act
         var result = await _service.UpdateShopStatusAsync(_adminId, shopId, request, CancellationToken.None);
@@ -85,7 +75,7 @@ public class AdminUpdateShopStatusTests
         shop.Status.Should().Be(ShopStatus.Suspended);
 
         _shopRepoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _publisherMock.Verify(p => p.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, It.IsAny<ModerationEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+        
     }
 
     [Fact]

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   Store,
+  Search,
   MapPin,
   Navigation,
   RefreshCw,
@@ -16,6 +17,7 @@ import {
   Home,
   Flame,
 } from "lucide-react";
+import { Button, EmptyState } from "@/shared/components/ui";
 import { shopApi } from "../api/shopApi";
 import type { NearbyShop } from "../types/shop.types";
 import { VIETMAP_CONFIG } from "../config/vietmap.config";
@@ -26,7 +28,8 @@ import {
 } from "../utils/vietmapUtils";
 import type { LocationMode } from "@/features/flash-deals/hooks/useNearbyFlashDeals";
 
-interface NearbyStoresMapSectionProps {
+export interface NearbyStoresMapSectionProps {
+  focusShop?: NearbyShop;
   latitude?: number | null;
   longitude?: number | null;
   radiusInKm?: number;
@@ -48,6 +51,7 @@ interface NearbyStoresMapSectionProps {
 let cachedNearbyShops: NearbyShop[] = [];
 
 export function NearbyStoresMapSection({
+  focusShop,
   latitude,
   longitude,
   radiusInKm = 10,
@@ -56,12 +60,10 @@ export function NearbyStoresMapSection({
   locationLabel,
   locationAddress,
   locationVersion,
-  isGpsLoading,
   gpsError,
   onRequestGps,
   onSelectSavedAddress,
   onSelectDefaultLocation,
-  hasDefaultAddress,
   userDefaultAddressLabel,
 }: NearbyStoresMapSectionProps) {
   const [shops, setShops] = useState<NearbyShop[]>(() => cachedNearbyShops);
@@ -78,22 +80,82 @@ export function NearbyStoresMapSection({
   const [showStepDetails, setShowStepDetails] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
 
+  const [searchText, setSearchText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const shopsAbortRef = useRef<AbortController | null>(null);
+
+
   // Filter mode: "all" stores vs "deals_only"
   const [storeFilter, setStoreFilter] = useState<"all" | "deals_only">("all");
-
-  const dealsStoresCount = useMemo(
-    () => shops.filter((s) => (s.flashDealCount ?? 0) > 0).length,
-    [shops],
+  const [allStoresCount, setAllStoresCount] = useState<number>(() => cachedNearbyShops.length);
+  const [dealsStoresCount, setDealsStoresCount] = useState<number>(
+    () => cachedNearbyShops.filter((s) => (s.flashDealCount ?? 0) > 0).length,
   );
 
-  const filteredShops = useMemo(() => {
-    if (storeFilter === "deals_only") {
-      return shops.filter((s) => (s.flashDealCount ?? 0) > 0);
-    }
-    return shops;
-  }, [shops, storeFilter]);
+  const filteredShops = !searchQuery && storeFilter === "all" && focusShop && !shops.some((shop) => shop.id === focusShop.id) ? [...shops, focusShop] : shops;
+  const appliedFocusRef = useRef<string | null>(null);
+
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const shopMarkersRef = useRef<Map<string, any>>(new Map());
+  const userMarkerRef = useRef<any>(null);
+  const userCircleRef = useRef<any>(null);
+  const routePolylineRef = useRef<any>(null);
+  const routeAbortControllerRef = useRef<AbortController | null>(null);
+  const lastLocationRef = useRef<{ lat: number; lng: number; mode?: string | null } | null>(null);
+
+  // 1. Fetch nearby shops from Backend API
+  const fetchShops = useCallback(
+    async (lat?: number | null, lng?: number | null, filterOverride?: "all" | "deals_only") => {
+      const isSavedAddress = locationMode === "saved_address";
+      const targetLat = lat ?? latitude;
+      const targetLng = lng ?? longitude;
+      if (!isLocationReady) return;
+      if (!isSavedAddress && (targetLat == null || targetLng == null)) return;
+      shopsAbortRef.current?.abort();
+      const controller = new AbortController();
+      shopsAbortRef.current = controller;
+      setIsLoading(true);
+      setError(null);
+      const activeFilter = filterOverride ?? storeFilter;
+      try {
+        const res = await shopApi.getNearbyShops({
+          latitude: isSavedAddress ? undefined : (targetLat ?? undefined),
+          longitude: isSavedAddress ? undefined : (targetLng ?? undefined),
+          radiusInKm: Math.min(radiusInKm, 10),
+          page: 1,
+          pageSize: 50,
+          keyword: searchQuery || undefined,
+          onlyWithFlashDeals: activeFilter === "deals_only",
+        }, controller.signal);
+        if (controller.signal.aborted) return;
+        setSelectedShop((current) => current && res.shops.some((shop) => shop.id === current.id) ? current : null);
+        const list = res.shops || [];
+        setShops(list);
+        if (res.allStoresCount !== undefined) {
+          setAllStoresCount(res.allStoresCount);
+        } else if (activeFilter === "all") {
+          setAllStoresCount(list.length);
+        }
+        if (res.flashDealsStoresCount !== undefined) {
+          setDealsStoresCount(res.flashDealsStoresCount);
+        } else {
+          setDealsStoresCount(list.filter((s) => (s.flashDealCount ?? 0) > 0).length);
+        }
+        if (activeFilter === "all" && !searchQuery) {
+          cachedNearbyShops = list;
+        }
+      } catch {
+        if (!controller.signal.aborted) setError("Unable to load nearby stores.");
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
+      }
+    },
+    [isLocationReady, latitude, longitude, locationMode, radiusInKm, storeFilter, searchQuery],
+  );
 
   const handleFilterChange = (filter: "all" | "deals_only") => {
+    if (filter === storeFilter) return;
     setStoreFilter(filter);
     if (filter === "deals_only" && selectedShop && (selectedShop.flashDealCount ?? 0) === 0) {
       setSelectedShop(null);
@@ -107,42 +169,6 @@ export function NearbyStoresMapSection({
     }
   };
 
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const shopMarkersRef = useRef<Map<string, any>>(new Map());
-  const userMarkerRef = useRef<any>(null);
-  const userCircleRef = useRef<any>(null);
-  const routePolylineRef = useRef<any>(null);
-  const routeAbortControllerRef = useRef<AbortController | null>(null);
-  const lastLocationRef = useRef<{ lat: number; lng: number; mode?: string | null } | null>(null);
-
-  // 1. Fetch nearby shops from Backend API
-  const fetchShops = useCallback(async (lat?: number | null, lng?: number | null) => {
-    const isSavedAddress = locationMode === "saved_address";
-    const targetLat = lat ?? latitude;
-    const targetLng = lng ?? longitude;
-    if (!isLocationReady) return;
-    if (!isSavedAddress && (targetLat == null || targetLng == null)) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await shopApi.getNearbyShops({
-        latitude: isSavedAddress ? undefined : (targetLat ?? undefined),
-        longitude: isSavedAddress ? undefined : (targetLng ?? undefined),
-        radiusInKm: Math.min(radiusInKm, 10),
-        page: 1,
-        pageSize: 50,
-      });
-      const list = res.shops || [];
-      setShops(list);
-      cachedNearbyShops = list;
-    } catch {
-      setError("Unable to load nearby stores.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLocationReady, latitude, longitude, locationMode, radiusInKm]);
-
   // Fetch shops when location, mode, or version changes
   useEffect(() => {
     if (isLocationReady) {
@@ -150,7 +176,48 @@ export function NearbyStoresMapSection({
         void fetchShops(latitude, longitude);
       }
     }
+    return () => shopsAbortRef.current?.abort();
   }, [isLocationReady, latitude, longitude, locationMode, locationVersion, radiusInKm, fetchShops]);
+
+  // Real-time update: remove suspended store marker and selection from map
+  useEffect(() => {
+    const handleShopStatus = (e: Event) => {
+      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
+      const rawShopId = detail?.shopId || (detail as any)?.ShopId;
+      const rawStatus = detail?.status || (detail as any)?.Status;
+      const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
+      const blockedShopId = rawShopId?.toLowerCase();
+      if (!blockedShopId) return;
+
+      const isInactive = !rawStatus || rawStatus.toLowerCase() !== "active" || Boolean(isBlocked);
+      if (isInactive) {
+        setShops((prev) => {
+          const hasBlocked = prev.some(
+            (s) => ((s.id || (s as any).shopId) as string)?.toLowerCase() === blockedShopId,
+          );
+          if (!hasBlocked) return prev;
+          const next = prev.filter(
+            (s) => ((s.id || (s as any).shopId) as string)?.toLowerCase() !== blockedShopId,
+          );
+          cachedNearbyShops = next;
+          return next;
+        });
+        setSelectedShop((prev) => {
+          if (!prev) return null;
+          const isSelectedBlocked =
+            ((prev.id || (prev as any).shopId) as string)?.toLowerCase() === blockedShopId;
+          return isSelectedBlocked ? null : prev;
+        });
+      } else {
+        if (latitude != null && longitude != null) {
+          void fetchShops(latitude, longitude);
+        }
+      }
+    };
+
+    window.addEventListener("shop:status-changed", handleShopStatus);
+    return () => window.removeEventListener("shop:status-changed", handleShopStatus);
+  }, [latitude, longitude, fetchShops]);
 
   // 2. Initialize VietMap Leaflet map instance ONCE (never destroy on prop change, only on unmount)
   const hasCoords = latitude != null && longitude != null;
@@ -245,13 +312,13 @@ export function NearbyStoresMapSection({
     }
 
     const isSavedAddress = locationMode === "saved_address";
-    const primaryColor = isSavedAddress ? "#2563eb" : "#059669";
-    const rippleColor = isSavedAddress ? "rgba(37, 99, 235, 0.4)" : "rgba(16, 185, 129, 0.4)";
+    const primaryColor = isSavedAddress ? "var(--color-secondary-700)" : "var(--color-primary-700)";
+    const rippleColor = isSavedAddress ? "color-mix(in srgb, var(--color-secondary-500) 40%, transparent)" : "color-mix(in srgb, var(--color-primary-500) 40%, transparent)";
     const tooltipText = isSavedAddress
       ? (userDefaultAddressLabel || locationLabel
-          ? `🏠 ${userDefaultAddressLabel || locationLabel}`
-          : "🏠 Your saved default address")
-      : (locationAddress ? `📍 ${locationAddress}` : "📍 Your current GPS location");
+          ? `${userDefaultAddressLabel || locationLabel}`
+          : "Your saved default address")
+      : (locationAddress ? `${locationAddress}` : "Your current GPS location");
 
     const userLatLng: [number, number] = [latitude, longitude];
     const userIconHtml = `
@@ -277,15 +344,15 @@ export function NearbyStoresMapSection({
           height: 18px;
           border-radius: 9999px;
           background: ${primaryColor};
-          border: 2.5px solid #ffffff;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+          border: 2.5px solid var(--color-bg-surface);
+          box-shadow: var(--shadow-sm);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
+          color: var(--color-text-inverse);
           font-size: 10px;
           line-height: 1;
-        ">${isSavedAddress ? "🏠" : "📍"}</span>
+        "><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4" /></svg></span>
       </div>
     `;
 
@@ -386,20 +453,18 @@ export function NearbyStoresMapSection({
 
         // Dynamic styling depending on whether the store has active flash deals:
         // - With deals: Vibrant emerald/white border + bright orange badge showing exact deal count
-        // - Without deals (0 deals): Always dimmed ("mờ mờ", opacity ~0.45) even when selected/clicked + soft gray border & '0' badge
+        // - Without deals (0 deals): Always dimmed (opacity ~0.45) even when selected/clicked + soft gray border & '0' badge
         const markerOpacity = hasDeals ? "1" : "0.45";
         const markerFilter = hasDeals ? "none" : "grayscale(35%)";
 
         const markerBorder = isCurrentSelected
-          ? (hasDeals ? "3px solid #059669" : "2.5px solid #94a3b8")
-          : (hasDeals ? "2.5px solid #ffffff" : "2px solid #cbd5e1");
+          ? (hasDeals ? "3px solid var(--color-primary-700)" : "2.5px solid var(--color-neutral-400)")
+          : (hasDeals ? "2.5px solid var(--color-bg-surface)" : "2px solid var(--color-border-default)");
 
-        const markerShadow = isCurrentSelected
-          ? (hasDeals ? "0 8px 20px rgba(5, 150, 105, 0.45)" : "0 3px 8px rgba(0, 0, 0, 0.15)")
-          : (hasDeals ? "0 4px 12px rgba(0, 0, 0, 0.22)" : "0 2px 6px rgba(0, 0, 0, 0.1)");
+        const markerShadow = isCurrentSelected ? "var(--shadow-lg)" : "var(--shadow-md)";
 
-        const badgeBg = hasDeals ? "#f97316" : "#94a3b8";
-        const badgeBorder = "2px solid #ffffff";
+        const badgeBg = hasDeals ? "var(--color-accent-500)" : "var(--color-neutral-400)";
+        const badgeBorder = "2px solid var(--color-bg-surface)";
         const badgeText = dealCount > 99 ? "99+" : `${dealCount}`;
 
         // HTML for circular marker with store avatar and deal badge
@@ -423,7 +488,7 @@ export function NearbyStoresMapSection({
               position: relative;
               border: ${markerBorder};
               box-shadow: ${markerShadow};
-              background: #ffffff;
+              background: var(--color-bg-surface);
             ">
               <img 
                 src="${imageUrl}" 
@@ -443,14 +508,14 @@ export function NearbyStoresMapSection({
               padding: 0 4px;
               border-radius: 9999px;
               background: ${badgeBg};
-              color: #ffffff;
+              color: var(--color-text-primary);
               font-size: 11px;
               font-weight: 800;
               display: flex;
               align-items: center;
               justify-content: center;
               border: ${badgeBorder};
-              box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+              box-shadow: var(--shadow-sm);
             " title="${hasDeals ? `${dealCount} Flash Deals` : "0 Flash Deals (No active deals)"}">
               ${badgeText}
             </span>
@@ -477,7 +542,7 @@ export function NearbyStoresMapSection({
         marker.bindTooltip(tooltipText, {
           direction: "top",
           offset: [0, -22],
-          className: "font-semibold text-xs text-neutral-800 shadow-sm",
+          className: "font-semibold text-xs text-text-primary shadow-sm",
         });
 
         // Click marker to view shop details
@@ -521,6 +586,19 @@ export function NearbyStoresMapSection({
     }
   };
 
+  // Wait for map initialization before applying the selection from the list.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!isMapReady || !map || !focusShop || appliedFocusRef.current === focusShop.id) return;
+    appliedFocusRef.current = focusShop.id;
+    setSelectedShop(focusShop);
+    map.invalidateSize();
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    map.flyTo([focusShop.latitude, focusShop.longitude], 16, { animate: !reducedMotion, duration: 0.8 });
+    mapContainerRef.current?.scrollIntoView({ behavior: reducedMotion ? "instant" : "smooth", block: "center" });
+    mapContainerRef.current?.focus({ preventScroll: true });
+  }, [isMapReady, focusShop]);
+
   // 5. Motorbike routing via VietMap API
   const handleStartRouting = async () => {
     if (!selectedShop || latitude == null || longitude == null) return;
@@ -558,7 +636,7 @@ export function NearbyStoresMapSection({
 
       // Draw route line in emerald green
       const polyline = L.polyline(result.coordinates, {
-        color: "#059669",
+        color: "var(--color-primary-700)",
         weight: 6,
         opacity: 0.9,
         lineCap: "round",
@@ -638,16 +716,16 @@ export function NearbyStoresMapSection({
     <section className="mb-8">
       {/* GPS Error Alert */}
       {gpsError && (
-        <div className="mb-3 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs font-medium text-amber-800">
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-accent-100 bg-accent-50 p-2.5 text-xs font-medium text-accent-700">
           <div className="flex items-center gap-2">
-            <AlertCircle size={14} className="text-amber-600 shrink-0" />
+            <AlertCircle size={14} className="text-accent-700 shrink-0" />
             <span>{gpsError}</span>
           </div>
           {onRequestGps && (
             <button
               type="button"
               onClick={onRequestGps}
-              className="font-bold underline hover:text-amber-900 cursor-pointer"
+              className="font-bold underline hover:text-accent-700 cursor-pointer"
             >
               Retry GPS
             </button>
@@ -655,220 +733,97 @@ export function NearbyStoresMapSection({
         </div>
       )}
 
-      {/* 1. Location Hub Card: Clearly shows Active Browsing Location & its dual application to Store Map & Flash Deals */}
-      <div className="mb-4 overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-2xs">
-        {/* Top Row: Location Icon + Status + Full Address + GPS/Home Switcher */}
-        <div className="flex flex-col gap-3.5 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4 border-b border-neutral-100 bg-neutral-50/50">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition shadow-xs ${
-                locationMode === "gps"
-                  ? "bg-emerald-600 text-white shadow-emerald-600/20"
-                  : "bg-blue-600 text-white shadow-blue-600/20"
-              }`}
-            >
-              {locationMode === "gps" ? (
-                <Navigation size={20} className={isGpsLoading ? "animate-spin" : ""} />
-              ) : (
-                <Home size={20} />
-              )}
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-                  Active Browsing Location
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${
-                    locationMode === "gps"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-blue-100 text-blue-800"
-                  }`}
-                >
-                  {locationMode === "gps" ? (
-                    <>
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                      GPS Active
-                    </>
-                  ) : (
-                    <>
-                      <Home size={11} />
-                      Home Address
-                    </>
-                  )}
-                </span>
-              </div>
-              <h3 className="mt-0.5 text-base sm:text-lg font-extrabold text-neutral-900 truncate max-w-md sm:max-w-xl">
-                {locationAddress || locationLabel}
-              </h3>
-            </div>
-          </div>
-
-          {/* Location Mode Switcher (GPS vs Home's) */}
-          <div className="flex flex-col sm:items-end gap-1 shrink-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-              Switch Location Source
-            </span>
-            {hasDefaultAddress ? (
-              <div className="flex items-center rounded-xl border border-neutral-200 bg-white p-1 text-xs shadow-2xs">
-                <button
-                  type="button"
-                  onClick={onRequestGps}
-                  disabled={isGpsLoading}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-                    locationMode === "gps"
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
-                  } disabled:opacity-60`}
-                  title="Use real-time GPS location (updates Store Map & Flash Deals)"
-                >
-                  <Navigation
-                    size={12}
-                    className={
-                      isGpsLoading
-                        ? "animate-spin text-white"
-                        : locationMode === "gps"
-                        ? "text-white"
-                        : "text-neutral-500"
-                    }
-                  />
-                  <span>GPS Location</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onSelectSavedAddress}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-                    locationMode === "saved_address"
-                      ? "bg-blue-600 text-white shadow-xs"
-                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
-                  }`}
-                  title={`Use saved address for Store Map & Flash Deals: ${userDefaultAddressLabel || "Saved Address"}`}
-                >
-                  <Home size={12} className={locationMode === "saved_address" ? "text-white" : "text-neutral-500"} />
-                  <span className="max-w-[130px] truncate">
-                    {userDefaultAddressLabel || "Saved Address"}
-                  </span>
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={onRequestGps}
-                disabled={isGpsLoading}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs font-bold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:opacity-60 cursor-pointer"
-                title="Use real-time GPS location (updates Store Map & Flash Deals)"
-              >
-                <Navigation size={12} className={isGpsLoading ? "animate-spin text-emerald-600" : "text-emerald-600"} />
-                <span>GPS Location</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Dual Application Indicators + Map Canvas Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-5 text-xs bg-white">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wide">
-              Shared between:
-            </span>
-            <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 text-xs font-bold text-emerald-800 shadow-2xs">
-              <Store size={13} className="text-emerald-600" />
-              <span>1. Nearby Stores Map</span>
-            </div>
-            <span className="text-neutral-300 font-bold">•</span>
-            <div className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200/80 px-2.5 py-1 text-xs font-bold text-amber-800 shadow-2xs">
-              <Flame size={13} className="text-amber-600" />
-              <span>2. Today's Flash Deals</span>
-            </div>
-            <span className="text-neutral-400 text-[11px] hidden md:inline">
-              (within ≤ 10km radius)
-            </span>
-          </div>
-
-          {/* Map Controls */}
-          <div className="flex items-center gap-2 ml-auto">
-            <button
-              type="button"
-              onClick={handlePanToUserLocation}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-bold shadow-2xs transition cursor-pointer ${
-                locationMode === "saved_address"
-                  ? "border-blue-200 bg-blue-50/80 text-blue-800 hover:bg-blue-100/80"
-                  : "border-emerald-200 bg-emerald-50/80 text-emerald-800 hover:bg-emerald-100/80"
-              }`}
-              title="Focus on active location on map"
-            >
-              {locationMode === "saved_address" ? (
-                <Home size={12} className="text-blue-600" />
-              ) : (
-                <Navigation size={12} className="text-emerald-600" />
-              )}
-              <span>My Location</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (latitude != null && longitude != null) {
-                  void fetchShops(latitude, longitude);
-                }
-                if (onSelectDefaultLocation && locationMode === "default") {
-                  onSelectDefaultLocation();
-                } else if (onRequestGps && locationMode === "gps") {
-                  onRequestGps();
-                } else if (onSelectSavedAddress && locationMode === "saved_address") {
-                  onSelectSavedAddress();
-                } else {
-                  handleResetView();
-                }
-              }}
-              disabled={isLoading}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1 text-xs font-bold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:opacity-50 cursor-pointer"
-              title="Refresh stores and reset map view"
-            >
-              <RefreshCw size={12} className={isLoading ? "animate-spin text-emerald-600" : ""} />
-              <span>Refresh</span>
-            </button>
-          </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-surface p-4">
+        <div className="min-w-0 flex-1"><p className="text-caption text-text-secondary">Browsing location</p><p className="truncate font-medium text-text-primary" title={locationAddress || locationLabel}>{locationAddress || locationLabel}</p></div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" className="min-h-11" onClick={handlePanToUserLocation}><MapPin className="size-4" aria-hidden="true" />My location</Button>
+          <Button variant="secondary" className="min-h-11" loading={isLoading} onClick={() => {
+            if (latitude != null && longitude != null) void fetchShops(latitude, longitude);
+            if (onSelectDefaultLocation && locationMode === "default") onSelectDefaultLocation();
+            else if (onRequestGps && locationMode === "gps") onRequestGps();
+            else if (onSelectSavedAddress && locationMode === "saved_address") onSelectSavedAddress();
+            else handleResetView();
+          }}><RefreshCw className="size-4" aria-hidden="true" />Refresh map</Button>
         </div>
       </div>
+
+      <form className="mb-4 flex items-start gap-2" onSubmit={(event) => {
+        event.preventDefault();
+        const nextQuery = searchText.trim();
+        setSelectedShop(null);
+        setRouteResult(null);
+        setRouteError(null);
+        routeAbortControllerRef.current?.abort();
+        if (routePolylineRef.current && mapInstanceRef.current) {
+          mapInstanceRef.current.removeLayer(routePolylineRef.current);
+          routePolylineRef.current = null;
+        }
+        if (nextQuery === searchQuery) void fetchShops(latitude, longitude);
+        else setSearchQuery(nextQuery);
+      }}>
+      <label className="relative block min-w-0 flex-1">
+        <span className="sr-only">Search nearby stores by name</span>
+        <Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-text-muted" aria-hidden="true" />
+        <input
+          type="search"
+          value={searchText}
+          maxLength={120}
+          placeholder="Search stores by name…"
+          onChange={(event) => setSearchText(event.target.value)}
+          onBlur={(event) => {
+            if (!event.currentTarget.value.trim() && searchQuery) {
+              setSearchText("");
+              setSearchQuery("");
+            }
+          }}
+          className="min-h-11 w-full rounded-md border border-border-default bg-bg-surface pl-10 pr-3 text-body text-text-primary focus-visible:outline-2 focus-visible:outline-primary-700"
+        />
+      </label>
+      <Button type="submit" className="min-h-11" loading={isLoading}>Search</Button>
+      </form>
+
+      {!isLoading && !error && searchQuery && shops.length === 0 && (
+        <p role="status" className="mb-4 rounded-md bg-neutral-100 p-3 text-body text-text-secondary">
+          No nearby stores match “{searchQuery}”. Try another name or clear the search.
+        </p>
+      )}
 
       {/* 2. Map Section Title & Filter Toggle */}
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
-          <Store size={18} className="text-emerald-600" />
-          <h3 className="text-base sm:text-lg font-extrabold text-neutral-900">
-            Nearby Stores 
-          </h3>
-          <span className="text-xs font-semibold text-neutral-500">
-            ({filteredShops.length} store{filteredShops.length === 1 ? "" : "s"} found)
+          <Store size={18} className="text-primary-700" />
+          <h2 className="text-section font-semibold text-text-primary">
+            Nearby stores
+          </h2>
+          <span className="text-xs font-semibold text-text-secondary">
+            ({storeFilter === "deals_only" ? dealsStoresCount : allStoresCount} store{(storeFilter === "deals_only" ? dealsStoresCount : allStoresCount) === 1 ? "" : "s"} found)
           </span>
         </div>
 
         {/* Filter Toggle: All Stores vs Flash Deals Only */}
-        <div className="flex items-center gap-1 rounded-xl bg-neutral-100 p-1 border border-neutral-200/80 shadow-2xs">
+        <div className="flex items-center gap-1 rounded-xl bg-neutral-100 p-1 border border-border-default/80 shadow-2xs">
           <button
             type="button"
             onClick={() => handleFilterChange("all")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
               storeFilter === "all"
-                ? "bg-white text-neutral-900 shadow-2xs border border-neutral-200/60"
-                : "text-neutral-500 hover:text-neutral-800"
+                ? "bg-bg-surface text-text-primary shadow-2xs border border-border-default/60"
+                : "text-text-secondary hover:text-text-primary"
             }`}
           >
             <Store
               size={13}
-              className={storeFilter === "all" ? "text-emerald-600" : "text-neutral-400"}
+              className={storeFilter === "all" ? "text-primary-700" : "text-text-muted"}
             />
             <span>All Stores</span>
             <span
               className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
                 storeFilter === "all"
-                  ? "bg-neutral-100 text-neutral-700"
-                  : "text-neutral-400"
+                  ? "bg-neutral-100 text-text-secondary"
+                  : "text-text-muted"
               }`}
             >
-              {shops.length}
+              {allStoresCount}
             </span>
           </button>
 
@@ -877,24 +832,24 @@ export function NearbyStoresMapSection({
             onClick={() => handleFilterChange("deals_only")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
               storeFilter === "deals_only"
-                ? "bg-white text-orange-600 shadow-2xs border border-orange-200/60"
-                : "text-neutral-500 hover:text-neutral-800"
+                ? "bg-bg-surface text-accent-700 shadow-2xs border border-accent-100/60"
+                : "text-text-secondary hover:text-text-primary"
             }`}
           >
             <Flame
               size={13}
               className={
                 storeFilter === "deals_only"
-                  ? "text-orange-500 fill-orange-500"
-                  : "text-neutral-400"
+                  ? "text-accent-500 fill-accent-500"
+                  : "text-text-muted"
               }
             />
             <span>Flash Deals Only</span>
             <span
               className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
                 storeFilter === "deals_only"
-                  ? "bg-orange-100 text-orange-700"
-                  : "text-neutral-400"
+                  ? "bg-accent-100 text-accent-700"
+                  : "text-text-muted"
               }`}
             >
               {dealsStoresCount}
@@ -904,24 +859,26 @@ export function NearbyStoresMapSection({
       </div>
 
       {/* 2. VietMap Leaflet Map Container */}
-      <div className="relative h-[380px] sm:h-[420px] md:h-[460px] w-full overflow-hidden rounded-3xl border border-neutral-200/90 bg-neutral-100 shadow-2xs">
+      <div className="relative h-[380px] sm:h-[420px] md:h-[460px] w-full overflow-hidden rounded-3xl border border-border-default/90 bg-neutral-100 shadow-2xs">
         {/* Leaflet render container */}
-        <div ref={mapContainerRef} className="h-full w-full" style={{ zIndex: 1 }} />
+        <div ref={mapContainerRef} tabIndex={-1} aria-label="Nearby stores map" className="h-full w-full" style={{ zIndex: 1 }} />
 
         {/* Loading overlay when fetching shops */}
         {isLoading && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-xs">
-            <div className="flex items-center gap-2.5 rounded-2xl bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow-md">
-              <RefreshCw size={15} className="animate-spin text-emerald-600" />
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-bg-surface/60 backdrop-blur-xs">
+            <div className="flex items-center gap-2.5 rounded-2xl bg-bg-surface px-4 py-2.5 text-xs font-bold text-primary-800 shadow-md">
+              <RefreshCw size={15} className="animate-spin text-primary-700" />
               <span>Loading nearby stores…</span>
             </div>
           </div>
         )}
 
+        {!isLoading && !error && !isMapReady && <div className="absolute inset-0 z-10 flex items-center justify-center p-4"><EmptyState title="Map unavailable" description="The map could not be displayed. You can still browse nearby flash deals below." icon={MapPin} /></div>}
+
         {/* Error message */}
         {error && (
-          <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-medium text-amber-800 shadow-sm">
-            <AlertCircle size={15} className="text-amber-600 shrink-0" />
+          <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-xl border border-accent-100 bg-accent-50 px-3.5 py-2 text-xs font-medium text-accent-700 shadow-sm">
+            <AlertCircle size={15} className="text-accent-700 shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -929,8 +886,8 @@ export function NearbyStoresMapSection({
         {/* Interaction Hint */}
         {!selectedShop && (
           <div className="pointer-events-none absolute bottom-4 left-4 z-10 hidden sm:block">
-            <div className="flex items-center gap-2 rounded-2xl border border-white/80 bg-white/95 px-3.5 py-2 text-xs font-semibold text-neutral-700 shadow-md backdrop-blur-md">
-              <Compass size={14} className="text-emerald-600" />
+            <div className="flex items-center gap-2 rounded-2xl border border-bg-surface/80 bg-bg-surface/95 px-3.5 py-2 text-xs font-semibold text-text-secondary shadow-md backdrop-blur-md">
+              <Compass size={14} className="text-primary-700" />
               <span>Tap a store on the map to view details & directions</span>
             </div>
           </div>
@@ -940,20 +897,20 @@ export function NearbyStoresMapSection({
         <button
           type="button"
           onClick={handlePanToUserLocation}
-          className="absolute bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-2xl border border-neutral-200 bg-white/95 text-neutral-700 shadow-md backdrop-blur-md transition hover:bg-white hover:scale-105 active:scale-95 cursor-pointer"
+          className="absolute bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-2xl border border-border-default bg-bg-surface/95 text-text-secondary shadow-md backdrop-blur-md transition hover:bg-bg-surface hover:scale-105 active:scale-95 cursor-pointer"
           title="Focus on my location"
         >
           {locationMode === "saved_address" ? (
-            <Home size={18} className="text-blue-600" />
+            <Home size={18} className="text-secondary-700" />
           ) : (
-            <Navigation size={18} className="text-emerald-600" />
+            <Navigation size={18} className="text-primary-700" />
           )}
         </button>
 
         {/* 3. STORE DETAIL CARD */}
         {selectedShop && (
           <div className="absolute bottom-4 left-4 right-4 z-20 sm:right-auto sm:max-w-md animate-in fade-in slide-in-from-bottom-3 duration-200">
-            <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-xl backdrop-blur-md">
+            <div className="overflow-hidden rounded-2xl border border-border-default/90 bg-bg-surface shadow-xl backdrop-blur-md">
               {/* Header image & close button */}
               <div className="relative h-28 w-full bg-neutral-900">
                 <img
@@ -970,23 +927,23 @@ export function NearbyStoresMapSection({
                 <button
                   type="button"
                   onClick={handleCloseDetail}
-                  className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/80 transition cursor-pointer"
+                  className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-text-inverse hover:bg-black/80 transition cursor-pointer"
                   title="Close"
                 >
                   <X size={15} />
                 </button>
 
                 {/* Distance & Open/Closed Badge */}
-                <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-white">
+                <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-text-inverse">
                   <div className="flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-0.5 text-[11px] font-bold backdrop-blur-xs">
-                    <MapPin size={11} className="text-emerald-400" />
+                    <MapPin size={11} className="text-primary-400" />
                     <span>{selectedShop.distanceInKm} km away</span>
                   </div>
 
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-bold backdrop-blur-xs ${
                       selectedShop.isOpen
-                        ? "bg-emerald-600 text-white"
+                        ? "bg-primary-700 text-text-inverse"
                         : "bg-neutral-800 text-neutral-200"
                     }`}
                   >
@@ -999,7 +956,7 @@ export function NearbyStoresMapSection({
               <div className="p-4">
                 <div className="flex items-start gap-3">
                   {/* Logo Avatar */}
-                  <div className="relative -mt-7 flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white bg-white shadow-md">
+                  <div className="relative -mt-7 flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-bg-surface bg-bg-surface shadow-md">
                     {selectedShop.logoUrl ? (
                       <img
                         src={selectedShop.logoUrl}
@@ -1007,7 +964,7 @@ export function NearbyStoresMapSection({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-emerald-50 text-emerald-700">
+                      <div className="flex h-full w-full items-center justify-center bg-primary-50 text-primary-700">
                         <Store size={22} />
                       </div>
                     )}
@@ -1015,12 +972,12 @@ export function NearbyStoresMapSection({
 
                   {/* Store Name & Reviews */}
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-base font-extrabold text-neutral-900">
+                    <h3 className="truncate text-base font-extrabold text-text-primary">
                       {selectedShop.name}
                     </h3>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
-                      <span className="flex items-center gap-0.5 font-bold text-amber-500">
-                        <Star size={12} className="fill-amber-400 text-amber-400" />
+                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-text-secondary">
+                      <span className="flex items-center gap-0.5 font-bold text-accent-500">
+                        <Star size={12} className="fill-accent-300 text-accent-300" />
                         <span>
                           {selectedShop.averageRating > 0
                             ? selectedShop.averageRating
@@ -1038,15 +995,15 @@ export function NearbyStoresMapSection({
                     {/* Deal Count Badge */}
                     <div className="mt-1 flex items-center gap-1.5">
                       {(selectedShop.flashDealCount ?? 0) > 0 ? (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 border border-orange-200 px-2 py-0.5 text-[11px] font-extrabold text-orange-700">
-                          <Flame size={12} className="text-orange-500 fill-orange-500" />
+                        <span className="inline-flex items-center gap-1 rounded-md bg-accent-50 border border-accent-100 px-2 py-0.5 text-[11px] font-extrabold text-accent-700">
+                          <Flame size={12} className="text-accent-500 fill-accent-500" />
                           <span>
                             {selectedShop.flashDealCount} Flash Deal
                             {(selectedShop.flashDealCount ?? 0) > 1 ? "s" : ""}
                           </span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 border border-neutral-200 px-2 py-0.5 text-[11px] font-medium text-neutral-500">
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 border border-border-default px-2 py-0.5 text-[11px] font-medium text-text-secondary">
                           <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
                           <span>No flash deals (0 deals)</span>
                         </span>
@@ -1056,15 +1013,15 @@ export function NearbyStoresMapSection({
                 </div>
 
                 {/* Address */}
-                <p className="mt-2.5 line-clamp-1 text-xs text-neutral-600 flex items-center gap-1.5">
-                  <MapPin size={13} className="text-neutral-400 shrink-0" />
+                <p className="mt-2.5 line-clamp-1 text-xs text-text-secondary flex items-center gap-1.5">
+                  <MapPin size={13} className="text-text-muted shrink-0" />
                   <span className="truncate">{selectedShop.address}</span>
                 </p>
 
                 {/* Operating hours */}
                 {selectedShop.openingTime && selectedShop.closingTime && (
-                  <p className="mt-1 text-xs text-neutral-500 flex items-center gap-1.5">
-                    <Clock size={13} className="text-neutral-400 shrink-0" />
+                  <p className="mt-1 text-xs text-text-secondary flex items-center gap-1.5">
+                    <Clock size={13} className="text-text-muted shrink-0" />
                     <span>
                       {String(selectedShop.openingTime).slice(0, 5)} -{" "}
                       {String(selectedShop.closingTime).slice(0, 5)}
@@ -1074,30 +1031,30 @@ export function NearbyStoresMapSection({
 
                 {/* 4. ROUTE DIRECTIONS & TRAVEL TIME */}
                 {isRouting && (
-                  <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 p-2.5 text-xs font-bold text-emerald-800">
-                    <Navigation size={14} className="animate-spin text-emerald-600" />
+                  <div className="mt-3 flex items-center gap-2 rounded-xl bg-primary-50 p-2.5 text-xs font-bold text-primary-800">
+                    <Navigation size={14} className="animate-spin text-primary-700" />
                     <span>Finding motorbike route & calculating arrival time…</span>
                   </div>
                 )}
 
                 {routeError && (
-                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs font-medium text-amber-800">
+                  <div className="mt-3 rounded-xl border border-accent-100 bg-accent-50 p-2.5 text-xs font-medium text-accent-700">
                     {routeError}
                   </div>
                 )}
 
                 {routeResult && (
-                  <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
+                  <div className="mt-3 rounded-2xl border border-primary-200 bg-primary-50/70 p-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-primary-800">
                           VietMap Motorcycle Route
                         </div>
                         <div className="mt-0.5 flex items-baseline gap-2">
-                          <span className="text-base font-extrabold text-emerald-900">
+                          <span className="text-base font-extrabold text-primary-900">
                             ⏱️ ~{routeResult.durationMinutes} mins
                           </span>
-                          <span className="text-xs font-bold text-emerald-700">
+                          <span className="text-xs font-bold text-primary-700">
                             ({routeResult.distanceFormatted})
                           </span>
                         </div>
@@ -1107,7 +1064,7 @@ export function NearbyStoresMapSection({
                         <button
                           type="button"
                           onClick={() => setShowStepDetails(!showStepDetails)}
-                          className="flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[11px] font-bold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition cursor-pointer"
+                          className="flex items-center gap-1 rounded-lg bg-bg-surface px-2 py-1 text-[11px] font-bold text-primary-800 shadow-2xs hover:bg-primary-100 transition cursor-pointer"
                         >
                           <span>{showStepDetails ? "Hide steps" : "View steps"}</span>
                           {showStepDetails ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -1117,7 +1074,7 @@ export function NearbyStoresMapSection({
 
                     {/* Step details (Accordion) */}
                     {showStepDetails && routeResult.instructions.length > 0 && (
-                      <ol className="mt-2.5 max-h-32 overflow-y-auto space-y-1 rounded-xl bg-white p-2.5 text-[11px] text-neutral-700 list-decimal pl-5">
+                      <ol className="mt-2.5 max-h-32 overflow-y-auto space-y-1 rounded-xl bg-bg-surface p-2.5 text-[11px] text-text-secondary list-decimal pl-5">
                         {routeResult.instructions.map((step, idx) => (
                           <li key={idx} className="leading-relaxed">
                             {step}
@@ -1129,12 +1086,12 @@ export function NearbyStoresMapSection({
                 )}
 
                 {/* Action buttons: Directions & View Deals */}
-                <div className="mt-3.5 flex items-center gap-2 pt-2 border-t border-neutral-100">
+                <div className="mt-3.5 flex items-center gap-2 pt-2 border-t border-border-default">
                   <button
                     type="button"
                     onClick={handleStartRouting}
                     disabled={isRouting}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2.5 text-xs font-extrabold text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-700 disabled:opacity-60 cursor-pointer"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary-700 px-3.5 py-2.5 text-xs font-extrabold text-text-inverse shadow-md shadow-primary-600/25 transition hover:bg-primary-700 disabled:opacity-60 cursor-pointer"
                   >
                     <Navigation
                       size={14}
@@ -1147,7 +1104,7 @@ export function NearbyStoresMapSection({
 
                   <Link
                     to={`/shops/${selectedShop.id}`}
-                    className="inline-flex items-center justify-center gap-1 rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-xs font-bold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 hover:text-emerald-700"
+                    className="inline-flex items-center justify-center gap-1 rounded-xl border border-border-default bg-bg-surface px-3.5 py-2.5 text-xs font-bold text-text-secondary shadow-2xs transition hover:bg-neutral-50 hover:text-primary-700"
                   >
                     <span>
                       {(selectedShop.flashDealCount ?? 0) > 0

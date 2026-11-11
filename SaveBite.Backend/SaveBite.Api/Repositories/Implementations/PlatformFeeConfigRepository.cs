@@ -62,11 +62,6 @@ public sealed class PlatformFeeConfigRepository : IPlatformFeeConfigRepository
         _context.PlatformFeeConfigs.Remove(config);
     }
 
-    public void AddAuditLog(AuditLog audit)
-    {
-        _context.Set<AuditLog>().Add(audit);
-    }
-
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
         await _context.SaveChangesAsync(ct);

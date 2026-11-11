@@ -33,6 +33,9 @@ public class RefundResponse
     public string ShopAction { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public decimal OrderRefundedAmount { get; set; }
+    public decimal OrderNetAmount { get; set; }
+    public IReadOnlyList<RefundItemResponse> Items { get; set; } = [];
     public decimal Amount { get; set; }
     public decimal TransferredAmount { get; set; }
     public string? Reason { get; set; }
@@ -76,4 +79,18 @@ public class RefundImageResponse
     public string? BankBin { get; set; }
     public string? AccountNumber { get; set; }
     public string? AccountHolder { get; set; }
+}
+
+public class RefundItemResponse
+{
+    public string Reason { get; set; } = string.Empty;
+    public IReadOnlyList<string> EvidenceUrls { get; set; } = [];
+    public Guid OrderItemId { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    public string? VariantName { get; set; }
+    public string? ImageUrl { get; set; }
+    public int PurchasedQuantity { get; set; }
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal Amount { get; set; }
 }

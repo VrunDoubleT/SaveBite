@@ -59,8 +59,13 @@ public class GenerateVietQRCodeTests
             TimeProvider.System,
             _configMock.Object,
             _deadlinesMock.Object,
-            _loggerMock.Object
+            _loggerMock.Object,
+            new Mock<INotificationQueue>().Object,
+            new Mock<ITrustNotificationService>().Object,
+            TestDbContextFactory.Create()
         );
+        _shopRepoMock.Setup(s => s.OwnerShopAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(ValidShopId);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
     }
 
     private Refund CreateRefund(
@@ -129,10 +134,10 @@ public class GenerateVietQRCodeTests
         var refund = CreateRefund(ValidRefundId, ValidOrderId, ValidShopId);
 
         _refundRepoMock.Setup(r => r.GetAsync(ValidRefundId, false, It.IsAny<CancellationToken>())).ReturnsAsync(refund);
-        _shopRepoMock.Setup(s => s.RequireAccessAsync(StoreOwnerId, ValidShopId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(StoreOwnerId, ValidShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
 
         // Act
-        var result = await _service.GenerateQrAsync(StoreOwnerId, ValidShopId, ValidRefundId, CancellationToken.None);
+        var result = await _service.GenerateQrAsync(StoreOwnerId, ValidRefundId, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
@@ -159,7 +164,7 @@ public class GenerateVietQRCodeTests
             .ReturnsAsync((Refund?)null);
 
         // Act
-        var act = async () => await _service.GenerateQrAsync(StoreOwnerId, ValidShopId, NonExistentRefundId, CancellationToken.None);
+        var act = async () => await _service.GenerateQrAsync(StoreOwnerId, NonExistentRefundId, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -181,10 +186,10 @@ public class GenerateVietQRCodeTests
         var refund = CreateRefund(ValidRefundId, ValidOrderId, ValidShopId);
 
         _refundRepoMock.Setup(r => r.GetAsync(ValidRefundId, false, It.IsAny<CancellationToken>())).ReturnsAsync(refund);
-        _shopRepoMock.Setup(s => s.RequireAccessAsync(NonOwnerId, ValidShopId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(NonOwnerId, ValidShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(false);
 
         // Act
-        var act = async () => await _service.GenerateQrAsync(NonOwnerId, ValidShopId, ValidRefundId, CancellationToken.None);
+        var act = async () => await _service.GenerateQrAsync(NonOwnerId, ValidRefundId, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -211,10 +216,10 @@ public class GenerateVietQRCodeTests
         );
 
         _refundRepoMock.Setup(r => r.GetAsync(ValidRefundId, false, It.IsAny<CancellationToken>())).ReturnsAsync(refund);
-        _shopRepoMock.Setup(s => s.RequireAccessAsync(StoreOwnerId, ValidShopId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(StoreOwnerId, ValidShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
 
         // Act
-        var act = async () => await _service.GenerateQrAsync(StoreOwnerId, ValidShopId, ValidRefundId, CancellationToken.None);
+        var act = async () => await _service.GenerateQrAsync(StoreOwnerId, ValidRefundId, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -241,10 +246,10 @@ public class GenerateVietQRCodeTests
         );
 
         _refundRepoMock.Setup(r => r.GetAsync(ValidRefundId, false, It.IsAny<CancellationToken>())).ReturnsAsync(refund);
-        _shopRepoMock.Setup(s => s.RequireAccessAsync(StoreOwnerId, ValidShopId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(StoreOwnerId, ValidShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
 
         // Act
-        var act = async () => await _service.GenerateQrAsync(StoreOwnerId, ValidShopId, ValidRefundId, CancellationToken.None);
+        var act = async () => await _service.GenerateQrAsync(StoreOwnerId, ValidRefundId, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -271,10 +276,10 @@ public class GenerateVietQRCodeTests
         );
 
         _refundRepoMock.Setup(r => r.GetAsync(ValidRefundId, false, It.IsAny<CancellationToken>())).ReturnsAsync(refund);
-        _shopRepoMock.Setup(s => s.RequireAccessAsync(StoreOwnerId, ValidShopId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(StoreOwnerId, ValidShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
 
         // Act
-        var act = async () => await _service.GenerateQrAsync(StoreOwnerId, ValidShopId, ValidRefundId, CancellationToken.None);
+        var act = async () => await _service.GenerateQrAsync(StoreOwnerId, ValidRefundId, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();

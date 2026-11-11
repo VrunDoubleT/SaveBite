@@ -1,3 +1,5 @@
+using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.BackgroundJobs.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -37,7 +39,7 @@ public class SearchStaffCandidatesTests
     public SearchStaffCandidatesTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object);
+        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object, new Mock<IStaffInvitationScheduler>().Object, new StaffInvitationNotificationService(_invitationRepoMock.Object, new Mock<INotificationQueue>().Object), TestDbContextFactory.Create(), new Mock<IRealtimePublisher>().Object);
 
         _ownerShop = new Shop
         {

@@ -1,17 +1,18 @@
 using Hangfire;
 using SaveBite.Backend.BackgroundJobs.Interfaces;
 using SaveBite.Backend.BackgroundJobs.Jobs;
+
 namespace SaveBite.Backend.BackgroundJobs.Scheduling;
 
-public class RefundDeadlineScheduler : IRefundDeadlineScheduler
+public sealed class RefundDeadlineScheduler(IBackgroundJobClient jobs, ILogger<RefundDeadlineScheduler> logger) : IRefundDeadlineScheduler
 {
-    private readonly IBackgroundJobClient _jobs;
-    public RefundDeadlineScheduler(IBackgroundJobClient jobs) { _jobs = jobs; }
-    // Include the expected deadline so a stale job cannot expire an extended refund.
-    public string Schedule(Guid refundId, DateTime deadline)
+    public string? Schedule(Guid refundId, DateTime deadline)
+        => SafeSchedule.Try(() => jobs.Schedule<RefundDeadlineJob>(job => job.ExecuteAsync(refundId, deadline, CancellationToken.None),
+            new DateTimeOffset(DateTime.SpecifyKind(deadline, DateTimeKind.Utc))), logger, "refund-deadline", refundId);
+
+    public bool Delete(string jobId)
     {
-        var id = _jobs.Schedule<RefundDeadlineJob>(job => job.ExecuteAsync(refundId, deadline, CancellationToken.None), new DateTimeOffset(deadline, TimeSpan.Zero));
-        return !string.IsNullOrWhiteSpace(id) ? id : throw new InvalidOperationException("Refund deadline could not be scheduled.");
+        try { return jobs.Delete(jobId); }
+        catch (Exception ex) { logger.LogWarning(ex, "Could not delete job {JobId}.", jobId); return false; }
     }
-    public bool Delete(string jobId) => _jobs.Delete(jobId);
 }

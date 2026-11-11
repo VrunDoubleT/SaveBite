@@ -12,6 +12,10 @@ public class EmailConsumer
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
+    protected override string? DeadLetterQueueName => "email_dead_letter_queue";
+    protected override bool ParkFailures => true;
+    protected override int RetryAttempts => 3;
+
     protected override string QueueName => RabbitMqQueues.EmailQueueName;
 
     protected override string RoutingKey => RabbitMqRoutingKeys.EmailRoutingKey;
@@ -30,18 +34,17 @@ public class EmailConsumer
         CancellationToken cancellationToken)
     {
         var email = message.Data;
+        if (email == null || string.IsNullOrWhiteSpace(email.To) || string.IsNullOrWhiteSpace(email.Subject))
+            throw new ArgumentException("Email recipient and subject are required.");
+        if (email.ExpiresAt <= DateTime.UtcNow) return; // Never send an expired OTP on retry/replay.
 
         await using var scope = _scopeFactory.CreateAsyncScope();
 
-        var emailService =
-            scope.ServiceProvider
-                .GetRequiredService<IEmailService>();
-
-        await emailService.SendAsync(
-            to: email.To,
-            subject: email.Subject,
-            body: email.Body,
-            isHtml: email.IsHtml,
-            cancellationToken: cancellationToken);
+        if (string.IsNullOrWhiteSpace(email.DeliveryKey))
+            await scope.ServiceProvider.GetRequiredService<IEmailService>()
+                .SendAsync(email.To, email.Subject, email.Body, email.IsHtml, cancellationToken);
+        else
+            await scope.ServiceProvider.GetRequiredService<SaveBite.Backend.Services.Implementations.EmailDeliveryService>()
+                .SendAsync(email, cancellationToken);
     }
 }

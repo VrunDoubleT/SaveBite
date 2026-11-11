@@ -9,10 +9,21 @@ import { subscribeShopOrderEvents } from "../realtime/subscribeShopOrderEvents";
 import { subscribeShopPendingEvents } from "../realtime/subscribeShopPendingEvents";
 
 // The workspace switches subscriptions without opening another SignalR connection.
-export function ShopOrderWorkspaceNotifications({ shopId, ordersPath }: { shopId?: string; ordersPath: string }) {
+export function ShopOrderWorkspaceNotifications({
+  shopId,
+  ordersPath,
+}: {
+  shopId?: string;
+  ordersPath: string;
+}) {
   const { pathname } = useLocation();
   const viewingOrders = pathname === ordersPath || pathname.startsWith(`${ordersPath}/`);
-  return viewingOrders ? <ShopOrderLiveSubscription /> : <PendingOrdersBadge key={shopId ?? "owner"} shopId={shopId} />;
+  return (
+    <>
+      {viewingOrders && <ShopOrderLiveSubscription />}
+      <PendingOrdersBadge key={shopId ?? "owner"} shopId={shopId} />
+    </>
+  );
 }
 
 function ShopOrderLiveSubscription() {
@@ -29,9 +40,14 @@ function PendingOrdersBadge({ shopId: selectedShopId }: { shopId?: string }) {
   useEffect(() => {
     if (selectedShopId) return;
     const abort = new AbortController();
-    void shopOrderApi.ownerShop(abort.signal).then((id) => {
-      if (!abort.signal.aborted) setShopId(id);
-    }).catch((e) => { if (!abort.signal.aborted) setError(getApiErrorMessage(e)); });
+    void shopOrderApi
+      .ownerShop(abort.signal)
+      .then((id) => {
+        if (!abort.signal.aborted) setShopId(id);
+      })
+      .catch((e) => {
+        if (!abort.signal.aborted) setError(getApiErrorMessage(e));
+      });
     return () => abort.abort();
   }, [selectedShopId]);
   useEffect(() => {
@@ -47,29 +63,42 @@ function PendingOrdersBadge({ shopId: selectedShopId }: { shopId?: string }) {
         while (dirty && !abort.signal.aborted) {
           dirty = false;
           const next = await shopOrderApi.pendingCount(shopId, abort.signal);
-          if (!abort.signal.aborted) { setCount(next); setError(""); }
+          if (!abort.signal.aborted) {
+            setCount(next);
+            setError("");
+          }
         }
       } catch (e) {
         if (!abort.signal.aborted) {
-          const message = getApiErrorStatus(e) === 404
-            ? "Pending order count is unavailable. Restart the backend to load the latest Orders API, then retry."
-            : `Unable to load pending orders: ${getApiErrorMessage(e)}`;
+          const message =
+            getApiErrorStatus(e) === 404
+              ? "Pending order count is unavailable. Restart the backend to load the latest Orders API, then retry."
+              : `Unable to load pending orders: ${getApiErrorMessage(e)}`;
           setError(message);
           toast.error(message);
         }
-      } finally { reading = false; }
+      } finally {
+        reading = false;
+      }
     }
-    const off = subscribeShopPendingEvents(realtime, shopId, () => { void refresh(); });
+    const off = subscribeShopPendingEvents(realtime, shopId, () => {
+      void refresh();
+    });
     void refresh();
-    return () => { off(); abort.abort(); };
+    return () => {
+      off();
+      abort.abort();
+    };
   }, [shopId, realtime]);
   // Show only a real count; keep loading and request errors out of the numeric badge.
   if (count === null || count <= 0) return null;
   return (
-    <span title={error || "Pending orders"}
+    <span
+      title={error || "Pending orders"}
       aria-label={`${count} pending orders`}
       aria-live="polite"
-      className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-xs font-bold leading-4 text-white">
+      className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-xs font-bold leading-4 text-white"
+    >
       {count}
     </span>
   );

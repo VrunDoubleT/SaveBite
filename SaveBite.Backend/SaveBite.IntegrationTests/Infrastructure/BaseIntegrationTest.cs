@@ -32,9 +32,8 @@ public abstract class BaseIntegrationTest : IClassFixture<CustomWebApplicationFa
 
     public virtual async Task DisposeAsync()
     {
-        // Reset database tables using Respawn
-        await DatabaseFixture.ResetDatabaseAsync();
         _scope.Dispose();
+        await DatabaseFixture.ResetDatabaseAsync();
     }
 
     /// <summary>
@@ -53,10 +52,11 @@ public abstract class BaseIntegrationTest : IClassFixture<CustomWebApplicationFa
         string email = "test.admin@savebite.com",
         string fullName = "Test Admin")
     {
+        var targetEmail = email == "test.admin@savebite.com" ? $"test.admin.{Guid.NewGuid():N}@savebite.com" : email;
         var admin = new User
         {
             Id = Guid.NewGuid(),
-            Email = email,
+            Email = targetEmail,
             Phone = $"09{Random.Shared.Next(10000000, 99999999)}",
             FullName = fullName,
             PasswordHash = "dummy-hash",
@@ -82,10 +82,11 @@ public abstract class BaseIntegrationTest : IClassFixture<CustomWebApplicationFa
         string email = "test.owner@savebite.com",
         string fullName = "Test Owner")
     {
+        var targetEmail = email == "test.owner@savebite.com" ? $"test.owner.{Guid.NewGuid():N}@savebite.com" : email;
         var owner = new User
         {
             Id = Guid.NewGuid(),
-            Email = email,
+            Email = targetEmail,
             Phone = $"09{Random.Shared.Next(10000000, 99999999)}",
             FullName = fullName,
             PasswordHash = "dummy-hash",
@@ -106,9 +107,6 @@ public abstract class BaseIntegrationTest : IClassFixture<CustomWebApplicationFa
             ApplicantUserId = owner.Id,
             Name = "Test Bakery Shop",
             AddressLine = "123 Test St",
-            BankName = "TestBank",
-            BankAccountNumber = "1234567890",
-            BankAccountHolder = "Test Owner",
             PayosClientId = "client-id",
             PayosApiKey = "api-key",
             PayosChecksumKey = "checksum-key",
@@ -144,10 +142,11 @@ public abstract class BaseIntegrationTest : IClassFixture<CustomWebApplicationFa
         string email = "test.customer@savebite.com",
         string fullName = "Test Customer")
     {
+        var targetEmail = email == "test.customer@savebite.com" ? $"test.customer.{Guid.NewGuid():N}@savebite.com" : email;
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = email,
+            Email = targetEmail,
             Phone = $"09{Random.Shared.Next(10000000, 99999999)}",
             FullName = fullName,
             PasswordHash = "dummy-hash",

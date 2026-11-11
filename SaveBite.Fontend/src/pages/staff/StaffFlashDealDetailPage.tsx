@@ -1,3 +1,5 @@
+import { FlashDealStockHistory } from "@/features/restock/FlashDealStockHistory";
+import { useRestockWorkspace } from "@/features/restock/restockContext";
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -5,9 +7,14 @@ import {
   Loader2,
   AlertCircle,
   EyeOff,
+  Package,
+  Layers,
+  CheckCircle2,
+  Clock3,
 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
+import { FlashDealStatusHistory } from "@/features/flash-deals/components/FlashDealStatusHistory";
 import {
   FlashDealStatusEnum,
   FlashDealVariantStatusEnum,
@@ -19,6 +26,7 @@ import { getApiErrorMessage } from "@/shared/api/httpClient";
 export function StaffFlashDealDetailPage() {
   const { shopId, id } = useParams<{ shopId: string; id: string }>();
   const navigate = useNavigate();
+  const { revision: stockRevision } = useRestockWorkspace();
 
   const [deal, setDeal] = useState<ShopFlashDealDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +51,7 @@ export function StaffFlashDealDetailPage() {
     return () => {
       ignore = true;
     };
-  }, [id, shopId]);
+  }, [id, shopId, stockRevision]);
 
   function formatDateTime(dateStr?: string) {
     if (!dateStr) return "-";
@@ -62,7 +70,8 @@ export function StaffFlashDealDetailPage() {
 
   // Summary calculations
   const summary = useMemo(() => {
-    if (!deal) return { totalQty: 0, soldQty: 0, reservedQty: 0, remainingQty: 0, revenue: 0, percent: 0 };
+    if (!deal)
+      return { totalQty: 0, soldQty: 0, reservedQty: 0, remainingQty: 0, revenue: 0, percent: 0 };
     const totalQty = deal.variants.reduce((acc, v) => acc + v.totalQuantity, 0);
     const soldQty = deal.variants.reduce((acc, v) => acc + v.soldQuantity, 0);
     const reservedQty = deal.variants.reduce((acc, v) => acc + v.reservedQuantity, 0);
@@ -95,7 +104,7 @@ export function StaffFlashDealDetailPage() {
 
   if (!deal) {
     return (
-      <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center">
+      <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-2xs">
         <AlertCircle className="mx-auto size-8 text-neutral-400" />
         <p className="mt-2 text-sm text-neutral-600">Flash Deal details not found.</p>
         <button
@@ -110,19 +119,28 @@ export function StaffFlashDealDetailPage() {
   }
 
   const isHidden = deal.status === FlashDealStatusEnum.Hidden;
-  const isCancelled = deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed;
+  const isCancelled =
+    deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed;
 
   return (
     <div className="space-y-6">
       {/* Back button */}
-      <button
-        type="button"
-        onClick={() => navigate(`${APP_PATHS.STAFF}/shops/${shopId}/flash-deals`)}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-      >
-        <ArrowLeft className="size-4" />
-        <span>Back to Flash Deals</span>
-      </button>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Flash Deal Details</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            Monitor product, deal pricing, inventory, and schedule.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate(`${APP_PATHS.STAFF}/shops/${shopId}/flash-deals`)}
+          className="inline-flex items-center gap-1.5 self-start rounded-lg border border-neutral-200 bg-white px-3.5 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50"
+        >
+          <ArrowLeft className="size-3.5" />
+          <span>Back to Flash Deals</span>
+        </button>
+      </div>
 
       {/* Prominent Warning Banner if Deal is Hidden (View-only) */}
       {isHidden && (
@@ -136,44 +154,21 @@ export function StaffFlashDealDetailPage() {
                 This Flash Deal is currently hidden from customers
               </h3>
               <p className="text-xs text-amber-700">
-                Customers cannot discover or place orders for this deal. Only store owners can change visibility.
+                Customers cannot discover or place orders for this deal. Only store owners can
+                change visibility.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Flash Deal Details</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Monitor product, deal pricing, inventory, and schedule.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {isHidden ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 ring-1 ring-inset ring-amber-600/30">
-              <EyeOff className="size-3.5 text-amber-700" />
-              Hidden from customers
-            </span>
-          ) : isCancelled ? (
-            <span className="inline-flex items-center rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600 ring-1 ring-inset ring-neutral-500/20">
-              Ended
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Active
-            </span>
-          )}
-        </div>
-      </div>
-
       {/* Product Card */}
-      <div className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-xs sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-2xs sm:flex-row sm:items-center">
         <img
-          src={deal.primaryImageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=160&auto=format&fit=crop&q=60"}
+          src={
+            deal.primaryImageUrl ||
+            "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=160&auto=format&fit=crop&q=60"
+          }
           alt={deal.productName}
           className="size-20 rounded-xl object-cover"
         />
@@ -181,79 +176,112 @@ export function StaffFlashDealDetailPage() {
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-neutral-900">{deal.productName}</h2>
             {deal.categoryName && (
-              <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600">
+              <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600">
                 {deal.categoryName}
+              </span>
+            )}
+            {isHidden ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
+                <EyeOff className="size-3 text-amber-700" />
+                Hidden
+              </span>
+            ) : isCancelled ? (
+              <span className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-[11px] font-medium text-neutral-600">
+                Ended
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Active
               </span>
             )}
           </div>
           <p className="text-xs text-neutral-400">Enrolled in store Flash Deal campaign</p>
-          {deal.description && (
-            <p className="text-xs text-neutral-600">{deal.description}</p>
-          )}
+          {deal.description && <p className="text-xs text-neutral-600">{deal.description}</p>}
         </div>
       </div>
 
-      {/* 5 Stats Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs text-neutral-500">Total Quantity</p>
-          <p className="mt-1 text-xl font-bold text-neutral-900">{summary.totalQty}</p>
+      {/* 4 Stats Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <Package className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Total Quantity</p>
+              <p className="text-xl font-bold text-neutral-900">{summary.totalQty}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs text-neutral-500">Sold</p>
-          <p className="mt-1 text-xl font-bold text-neutral-900">{summary.soldQty}</p>
-          <p className="text-[10px] text-neutral-400">{summary.percent}% of total</p>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Sold ({summary.percent}%)</p>
+              <p className="text-xl font-bold text-emerald-600">{summary.soldQty}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs text-neutral-500">Reserved</p>
-          <p className="mt-1 text-xl font-bold text-neutral-900">{summary.reservedQty}</p>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <Layers className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Remaining</p>
+              <p className="text-xl font-bold text-blue-600">{summary.remainingQty}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs text-neutral-500">Remaining</p>
-          <p className="mt-1 text-xl font-bold text-emerald-600">{summary.remainingQty}</p>
-        </div>
-
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs col-span-2 sm:col-span-1">
-          <p className="text-xs text-neutral-500">Estimated Revenue</p>
-          <p className="mt-1 text-xl font-bold text-neutral-900">
-            {summary.revenue.toLocaleString("vi-VN")}đ
-          </p>
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <Clock3 className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Estimated Revenue</p>
+              <p className="text-base font-bold text-neutral-900 sm:text-lg">
+                {summary.revenue.toLocaleString("en-US")} VND
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Program Schedule Card */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
+      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-2xs space-y-4">
         <h3 className="text-sm font-bold text-neutral-900">Deal Schedule</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg bg-neutral-50 p-3.5 border border-neutral-100">
+          <div className="rounded-lg bg-neutral-50/75 p-3.5 border border-neutral-100">
             <p className="text-[11px] text-neutral-400">Sale Starts</p>
             <p className="mt-1 text-xs font-semibold text-neutral-800">
               {formatDateTime(deal.saleStartTime)}
             </p>
           </div>
 
-          <div className="rounded-lg bg-neutral-50 p-3.5 border border-neutral-100">
+          <div className="rounded-lg bg-neutral-50/75 p-3.5 border border-neutral-100">
             <p className="text-[11px] text-neutral-400">Order Cutoff</p>
             <p className="mt-1 text-xs font-semibold text-neutral-800">
               {formatDateTime(deal.orderEndTime)}
             </p>
           </div>
 
-          <div className="rounded-lg bg-neutral-50 p-3.5 border border-neutral-100">
+          <div className="rounded-lg bg-neutral-50/75 p-3.5 border border-neutral-100">
             <p className="text-[11px] text-neutral-400">Store Closing Time</p>
             <p className="mt-1 text-xs font-semibold text-neutral-800">
               {formatDateTime(deal.shopClosingTime)}
             </p>
           </div>
 
-          <div className="rounded-lg bg-neutral-50 p-3.5 border border-neutral-100">
+          <div className="rounded-lg bg-neutral-50/75 p-3.5 border border-neutral-100">
             <p className="text-[11px] text-neutral-400">Safety Buffer</p>
-            <p className="mt-1 text-xs font-semibold text-neutral-800">
-              {safetyBuffer} mins
-            </p>
+            <p className="mt-1 text-xs font-semibold text-neutral-800">{safetyBuffer} mins</p>
           </div>
         </div>
 
@@ -265,7 +293,7 @@ export function StaffFlashDealDetailPage() {
       </div>
 
       {/* Variants Table Card */}
-      <div className="rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden">
+      <div className="rounded-xl border border-neutral-200 bg-white shadow-2xs overflow-hidden">
         <div className="border-b border-neutral-200 p-5">
           <h3 className="text-sm font-bold text-neutral-900">Configured Variants</h3>
           <p className="mt-0.5 text-xs text-neutral-500">
@@ -275,35 +303,65 @@ export function StaffFlashDealDetailPage() {
 
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-neutral-200 text-left text-xs">
-            <thead className="bg-neutral-50 text-neutral-500">
+            <thead className="bg-neutral-50/75 text-neutral-500">
               <tr>
-                <th scope="col" className="px-4 py-3 font-medium">Variant</th>
-                <th scope="col" className="px-4 py-3 font-medium">Original Price</th>
-                <th scope="col" className="px-4 py-3 font-medium">Deal Price</th>
-                <th scope="col" className="px-4 py-3 font-medium">Discount</th>
-                <th scope="col" className="px-4 py-3 font-medium">Sold</th>
-                <th scope="col" className="px-4 py-3 font-medium">Reserved</th>
-                <th scope="col" className="px-4 py-3 font-medium">Remaining</th>
-                <th scope="col" className="px-4 py-3 font-medium">Status</th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Variant
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Original Price
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Deal Price
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Discount
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Sold
+                </th>
+                <th
+                  scope="col"
+                  className="px-4 py-3 font-medium"
+                  title="Includes stock held while awaiting a restock decision"
+                >
+                  Reserved
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Remaining
+                </th>
+                <th
+                  scope="col"
+                  className="px-4 py-3 font-medium"
+                  title="Quantities marked unsellable or automatically stopped after the restock deadline"
+                >
+                  Stopped from sale
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 bg-white">
               {deal.variants.map((v) => {
-                const soldPercent = v.totalQuantity > 0
-                  ? Math.min(100, Math.round((v.soldQuantity / v.totalQuantity) * 100))
-                  : 0;
+                const soldPercent =
+                  v.totalQuantity > 0
+                    ? Math.min(100, Math.round((v.soldQuantity / v.totalQuantity) * 100))
+                    : 0;
 
                 return (
                   <tr key={v.id} className="hover:bg-neutral-50/60">
                     <td className="px-4 py-3.5">
-                      <p className="font-semibold text-neutral-900">{v.variantName || v.sku || "Default"}</p>
+                      <p className="font-semibold text-neutral-900">
+                        {v.variantName || v.sku || "Default"}
+                      </p>
                       {v.sku && <p className="text-[10px] text-neutral-400">{v.sku}</p>}
                     </td>
                     <td className="px-4 py-3.5 text-neutral-500">
-                      {v.originalPrice.toLocaleString("vi-VN")}đ
+                      {v.originalPrice.toLocaleString("en-US")} VND
                     </td>
                     <td className="px-4 py-3.5 font-bold text-red-600">
-                      {v.dealPrice.toLocaleString("vi-VN")}đ
+                      {v.dealPrice.toLocaleString("en-US")} VND
                     </td>
                     <td className="px-4 py-3.5 font-medium text-emerald-600">
                       {v.discountPercent}%
@@ -322,7 +380,12 @@ export function StaffFlashDealDetailPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-neutral-700">{v.reservedQuantity}</td>
-                    <td className="px-4 py-3.5 font-semibold text-neutral-900">{v.availableQuantity}</td>
+                    <td className="px-4 py-3.5 font-semibold text-neutral-900">
+                      {v.availableQuantity}
+                    </td>
+                    <td className="px-4 py-3.5 font-semibold text-orange-700">
+                      {Number.isInteger(v.unsellableQuantity) ? v.unsellableQuantity : "—"}
+                    </td>
                     <td className="px-4 py-3.5">
                       {v.status === FlashDealVariantStatusEnum.Hide || isHidden ? (
                         <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
@@ -341,6 +404,10 @@ export function StaffFlashDealDetailPage() {
           </table>
         </div>
       </div>
+      <FlashDealStatusHistory history={deal.statusHistory ?? []} />
+      <FlashDealStockHistory flashDealId={deal.id} />
     </div>
   );
 }
+
+export default StaffFlashDealDetailPage;

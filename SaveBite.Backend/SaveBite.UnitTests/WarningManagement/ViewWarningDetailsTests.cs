@@ -29,12 +29,9 @@ public class ViewWarningDetailsTests : IDisposable
     public ViewWarningDetailsTests(ITestOutputHelper output)
     {
         _output = output;
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        _db = new AppDbContext(options);
+        _db = TestDbContextFactory.Create();
 
-        _service = new WarningService(_warningRepoMock.Object, _db, TimeProvider.System);
+        _service = new WarningService(_warningRepoMock.Object, _db, TimeProvider.System, new Mock<INotificationQueue>().Object, new Mock<IAdminAuditWriter>().Object);
     }
 
     public void Dispose()

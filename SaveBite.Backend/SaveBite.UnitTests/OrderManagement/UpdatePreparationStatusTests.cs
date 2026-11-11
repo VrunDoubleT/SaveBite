@@ -59,7 +59,7 @@ public class UpdatePreparationStatusTests
 
         // Assert
         result.Order.Status.Should().Be(expected.ToString());
-        _shopRepoMock.Verify(r => r.AddActivity(It.Is<StaffActivityLog>(x => x.Action == expected && x.ActorRoleSnapshot == "Staff" && x.ActorNameSnapshot == "Test Staff")), Times.Once);
+        _shopRepoMock.Verify(r => r.AddActivity(It.Is<StaffActivityLog>(x => x.Action.ToString() == expected.ToString() && x.ActorRoleSnapshot == "Staff" && x.ActorNameSnapshot == "Test Staff")), Times.Once);
         _realtimeMock.Verify(r => r.NotifyAsync(order.ShopId, order.Id, action, It.IsAny<CancellationToken>()), Times.Once);
         _output.WriteLine("TCID01 PASSED: UpdatePreparationStatus_ForwardTransition_RecordsStaffAndNotifies (Normal).");
     }
@@ -176,7 +176,7 @@ public class UpdatePreparationStatusTests
     {
         // Arrange
         _context.Order.Status = OrderStatus.Confirmed;
-        _shopRepoMock.Setup(r => r.RequireAccessAsync(_context.ActorId, _context.Order.ShopId, It.IsAny<CancellationToken>())).ThrowsAsync(AppException.Forbidden());
+        _shopRepoMock.Setup(r => r.RequireAccessAsync(_context.ActorId, _context.Order.ShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>())).ThrowsAsync(AppException.Forbidden());
 
         // Act
         Func<Task> act = () => _service.ActionAsync(_context.ActorId, _context.Order.ShopId, _context.Order.Id, "Preparing", "Closed");

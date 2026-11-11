@@ -22,6 +22,14 @@ export interface AuthUser {
   role: AuthRole;
   customerStatus: CustomerStatus;
   defaultAddress?: UserAddress | null;
+  shop: CurrentUserShop | null;
+}
+
+export interface CurrentUserShop {
+  shopId: string;
+  status: string;
+  suspendedForPlatformFees: boolean;
+  suspensionReason: string | null;
 }
 
 export interface LoginCredentials {
@@ -66,4 +74,5 @@ export interface CurrentUserResponse {
   role: string;
   customerStatus: CustomerStatus;
   defaultAddress?: UserAddress | null;
+  shop?: CurrentUserShop | null;
 }

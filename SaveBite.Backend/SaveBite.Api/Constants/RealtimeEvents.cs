@@ -6,6 +6,12 @@ public static class RealtimeEvents
     public const string ShopPendingOrdersChanged = "shop.orders.pending.changed";
     public const string CustomerOrdersChanged = "customer.orders.changed";
     public const string ShopOrdersChanged = "shop.orders.changed";
+    public const string ShopStatusChanged = "shop.status.changed";
+    public const string StaffInvitationsChanged = "staff.invitations.changed";
+    public const string ShopStaffChanged = "shop.staff.changed";
+    public const string CustomerStatusChanged = "customer.status.changed";
+    public const string UserRoleChanged = "user.role.changed";
+    public const string ShopApplicationReviewed = "shop.application.reviewed";
     public const string CartChanged = "cart.changed";
 
     // Keep cart notification reasons beside the shared event names.
@@ -19,6 +25,7 @@ public static class RealtimeEvents
     // Keep order notification reasons stable across publishers and recipient filtering.
     public static class OrderReasons
     {
+        public const string RestockChanged = "restock-changed";
         public const string RefundChanged = "refund-changed";
         public const string Pending = "pending";
         public const string Confirm = "confirm";
@@ -36,4 +43,7 @@ public static class RealtimeEvents
     public const string NotificationReceived = "notification.received";
     public const string NotificationRead = "notification.read";
     public const string NotificationDeleted = "notification.deleted";
+
+    // Moderation & store status
+    public const string FeedbackChanged = "feedback.changed";
 }

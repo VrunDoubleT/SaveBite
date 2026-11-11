@@ -30,6 +30,7 @@ public class UpdateVariantTests
     private readonly Mock<IProductRepository> _repositoryMock = new();
     private readonly Mock<ICloudinaryService> _cloudinaryMock = new();
     private readonly Mock<ILogger<ProductService>> _loggerMock = new();
+    private readonly AppDbContext _db;
     private readonly ProductService _service;
     private readonly UpdateProductVariantRequestValidator _validator = new();
 
@@ -43,7 +44,10 @@ public class UpdateVariantTests
     public UpdateVariantTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, _publisherMock.Object, null!);
+        _db = TestDbContextFactory.Create();
+        _db.Shops.Add(new Shop { Id = _shopId, OwnerUserId = _userId, Status = ShopStatus.Active, Name = "Shop" });
+        _db.SaveChanges();
+        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, new Mock<IAdminAuditWriter>().Object, _db, new Mock<INotificationQueue>().Object);
     }
 
     private Product CreateSampleProduct(bool hasMultipleActiveVariants = false)
@@ -223,6 +227,11 @@ public class UpdateVariantTests
     [Fact]
     public async Task UTCID04_UpdateVariant_VariantNotFound_ThrowsNotFound_Abnormal()
     {
+        if (!_db.Shops.Any(x => x.OwnerUserId == _userId))
+        {
+            _db.Shops.Add(new Shop { Id = _shopId, OwnerUserId = _userId, Status = ShopStatus.Active, Name = "Shop" });
+            _db.SaveChanges();
+        }
         // Arrange
         var product = CreateSampleProduct(hasMultipleActiveVariants: true);
         var request = new UpdateProductVariantRequest

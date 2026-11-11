@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Implementations;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Services.Interfaces;
 using SaveBite.Backend.Constants;
@@ -45,7 +46,7 @@ public sealed class CheckoutRepository : ICheckoutRepository
             await _dbContext.Set<ShopPaymentConfig>().AsNoTracking().SingleOrDefaultAsync(x => x.ShopId == shopId, ct));
     }
 
-    private IQueryable<Order> Orders => _dbContext.Orders.Include(x => x.Items).ThenInclude(x => x.FlashDealVariant)
+    private IQueryable<Order> Orders => _dbContext.Orders.Include(x => x.Customer).Include(x => x.Items).ThenInclude(x => x.FlashDealVariant)
         .ThenInclude(x => x.FlashDeal).ThenInclude(x => x.Product).ThenInclude(x => x.Images).Include(x => x.Payments)
         .Include(x => x.Items).ThenInclude(x => x.Feedback)
         .Include(x => x.Shop).ThenInclude(x => x.PaymentConfig).AsSplitQuery();
@@ -72,22 +73,38 @@ public sealed class CheckoutRepository : ICheckoutRepository
         return int.TryParse(maximum, out var value) ? value : 0;
     }
 
-    // Load recorded order and payment data, optionally restricted to its customer.
+    // Load an order for commands or active-customer workflows.
     public async Task<Order?> GetOrderAsync(Guid orderId, Guid? userId, CancellationToken ct)
     {
         if (userId.HasValue) await RequireActiveCustomerAsync(userId.Value, ct);
         return await Orders.SingleOrDefaultAsync(x => x.Id == orderId && (!userId.HasValue || x.CustomerId == userId), ct);
     }
+
+    // Read an existing order for history/detail screens. Customer suspension blocks new actions,
+    // but must not hide records already belonging to an active account.
+    public async Task<Order?> GetOrderForHistoryAsync(Guid orderId, Guid userId, CancellationToken ct)
+    {
+        await RequireCustomerHistoryAccessAsync(userId, ct);
+        return await Orders.AsNoTracking().SingleOrDefaultAsync(
+            x => x.Id == orderId && x.CustomerId == userId, ct);
+    }
+
+    private async Task RequireCustomerHistoryAccessAsync(Guid userId, CancellationToken ct)
+    {
+        if (!await _dbContext.Users.AsNoTracking().AnyAsync(
+            x => x.Id == userId && x.Status == UserStatus.Active && x.Role != UserRole.Admin, ct))
+            throw AppException.Forbidden("An active account is required to view order history.");
+    }
     // Read the customer's most recent orders after checking active Customer access.
     public async Task<IReadOnlyList<Order>> GetOrdersAsync(Guid userId, CancellationToken ct)
     {
-        await RequireActiveCustomerAsync(userId, ct);
+        await RequireCustomerHistoryAccessAsync(userId, ct);
         return await Orders.AsNoTracking().Where(x => x.CustomerId == userId).OrderByDescending(x => x.CreatedAt).Take(50).ToListAsync(ct);
     }
     // Read a customer-scoped cursor page with status counts for the order filters.
     public async Task<(IReadOnlyList<Order> Orders, bool HasMore, IReadOnlyDictionary<string, int> Counts)> GetOrderPageAsync(Guid userId, OrderStatus? status, DateTime? beforeCreatedAt, Guid? beforeId, int pageSize, CancellationToken ct)
     {
-        await RequireActiveCustomerAsync(userId, ct);
+        await RequireCustomerHistoryAccessAsync(userId, ct);
         var query = Orders.AsNoTracking().Where(x => x.CustomerId == userId);
         if (status.HasValue) query = query.Where(x => x.Status == status.Value);
         if (beforeCreatedAt.HasValue && beforeId.HasValue)
@@ -101,7 +118,12 @@ public sealed class CheckoutRepository : ICheckoutRepository
     public Task<Guid?> FindGatewayOrderAsync(long gatewayCode, CancellationToken ct)
         => _dbContext.Payments.AsNoTracking().Where(x => x.GatewayOrderCode == gatewayCode).Select(x => (Guid?)x.OrderId).SingleOrDefaultAsync(ct);
     // Track a new order so it is saved with the current checkout transaction.
-    public void AddOrder(Order order) => _dbContext.Orders.Add(order);
+    public void AddOrder(Order order)
+    {
+        _dbContext.Orders.Add(order);
+        // This request is saved atomically with a new zero-deposit Pending order.
+        if (order.Status == OrderStatus.Pending) OrderNotificationOutbox.Stage(_dbContext, order, null);
+    }
     // Track an order history entry in the same transaction as the state change.
     public void AddHistory(OrderStatusHistory history) => _dbContext.OrderStatusHistories.Add(history);
     // Atomically reserve each variant only when enough stock remains available.
@@ -114,6 +136,7 @@ public sealed class CheckoutRepository : ICheckoutRepository
                 .ExecuteUpdateAsync(set => set.SetProperty(x => x.ReservedQuantity, x => x.ReservedQuantity + item.Quantity), ct);
             if (changed != 1) throw AppException.OutOfStock("Stock changed. Please refresh checkout.");
         }
+        await LifecycleOutbox.InventoryAsync(_dbContext, items.Select(i => i.FlashDealVariantId), null, DateTime.UtcNow, ct);
     }
     // Settle an active reservation once by releasing it or moving its quantity to sold stock.
     public async Task CompleteInventoryAsync(Order order, bool sold, CancellationToken ct)
@@ -128,6 +151,7 @@ public sealed class CheckoutRepository : ICheckoutRepository
             if (changed != 1) throw new InvalidOperationException("Order inventory could not be reconciled; the transaction was rolled back.");
         }
         order.InventoryReservationActive = false;
+        await LifecycleOutbox.InventoryAsync(_dbContext, order.Items.Select(i => i.FlashDealVariantId), order.Id, DateTime.UtcNow, ct);
     }
     // Return eligible reserved or sold quantities when a customer cancels before pickup.
     public async Task ReleaseCancelledInventoryAsync(Order order, CancellationToken ct)
@@ -148,6 +172,7 @@ public sealed class CheckoutRepository : ICheckoutRepository
                 .ExecuteUpdateAsync(set => set.SetProperty(x => x.SoldQuantity, x => x.SoldQuantity - item.Quantity), ct);
             if (changed != 1) throw new InvalidOperationException("Cancelled inventory could not be released; the transaction was rolled back.");
         }
+        await LifecycleOutbox.InventoryAsync(_dbContext, order.Items.Select(i => i.FlashDealVariantId), order.Id, DateTime.UtcNow, ct);
     }
     private bool cartChanged;
     // Remove only the purchased shop's cart items and remember that a cart event is needed.
@@ -192,7 +217,23 @@ public sealed class CheckoutRepository : ICheckoutRepository
             await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM users WHERE id = {ownerId.Value} FOR UPDATE", ct);
         await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM orders WHERE id = {orderId} FOR UPDATE", ct);
         _dbContext.ChangeTracker.Clear();
+        var before = await _dbContext.Orders.AsNoTracking().Where(o => o.Id == orderId)
+            .Select(o => (OrderStatus?)o.Status).SingleOrDefaultAsync(ct);
+        var paidBefore = await _dbContext.Payments.CountAsync(p => p.OrderId == orderId
+            && p.PaymentType == PaymentType.Remaining && p.Status == PaymentStatus.Succeeded, ct);
         var result = await action();
+        var after = await _dbContext.Orders.AsNoTracking().Include(o => o.StatusHistories).Include(o => o.Payments)
+            .SingleOrDefaultAsync(o => o.Id == orderId, ct);
+        if (after != null && before != after.Status)
+        {
+            OrderNotificationOutbox.Stage(_dbContext, after, before);
+            await _dbContext.SaveChangesAsync(ct);
+        }
+        if (after != null && after.Payments.Count(p => p.PaymentType == PaymentType.Remaining && p.Status == PaymentStatus.Succeeded) > paidBefore)
+        {
+            OrderNotificationOutbox.StageRemainingPayment(_dbContext, after);
+            await _dbContext.SaveChangesAsync(ct);
+        }
         await tx.CommitAsync(ct);
         return result;
     }

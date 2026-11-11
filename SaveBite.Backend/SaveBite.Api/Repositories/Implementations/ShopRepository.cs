@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -101,7 +102,7 @@ public sealed class ShopRepository : IShopRepository
             .Where(f => f.Product.ShopId == shopId && f.Status == FeedbackStatus.Visible);
 
         var totalReviews = await reviewsQuery.CountAsync(cancellationToken);
-        var avgRating = totalReviews > 0 ? await reviewsQuery.AverageAsync(f => f.Rating, cancellationToken) : 5.0;
+        var avgRating = totalReviews > 0 ? await reviewsQuery.AverageAsync(f => f.Rating, cancellationToken) : 0.0;
 
         var breakdownGroups = await reviewsQuery
             .GroupBy(f => f.Rating)
@@ -140,6 +141,7 @@ public sealed class ShopRepository : IShopRepository
             .Include(f => f.Images)
             .Include(f => f.Product).ThenInclude(p => p.Images)
             .Include(f => f.Reply).ThenInclude(r => r!.RepliedByUser)
+            .AsSplitQuery()
             .OrderByDescending(f => f.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -213,7 +215,7 @@ public sealed class ShopRepository : IShopRepository
     public async Task<IReadOnlyList<AuditLog>> GetShopStatusHistoryAsync(Guid shopId, CancellationToken ct)
     {
         return await _context.AuditLogs.AsNoTracking()
-            .Where(log => log.TargetType == "Shop" && log.TargetId == shopId && log.Action == "SHOP_STATUS_UPDATED")
+            .Where(log => log.TargetType == "Shop" && log.TargetId == shopId && log.Action == AuditActionTypes.ShopStatusUpdated)
             .OrderByDescending(log => log.CreatedAt)
             .ThenByDescending(log => log.Id)
             .ToListAsync(ct);

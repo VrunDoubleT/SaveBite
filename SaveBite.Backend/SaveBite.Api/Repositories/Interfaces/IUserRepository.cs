@@ -10,7 +10,6 @@ public interface IUserRepository
     Task<PagedResult<User>> GetPagedUsersAsync(GetUsersRequest request, CancellationToken cancellationToken = default);
     Task<User?> GetUserByIdAsync(Guid userId, CancellationToken cancellationToken = default);
     void AddAccountStatusLog(AccountStatusLog log);
-    void AddAuditLog(AuditLog log);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
     Task<List<AccountStatusLog>> GetUserAccountStatusLogsAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<List<UserRoleChangeLog>> GetUserRoleLogsAsync(Guid userId, CancellationToken cancellationToken = default);

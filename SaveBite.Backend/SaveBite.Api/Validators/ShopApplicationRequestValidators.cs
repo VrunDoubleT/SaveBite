@@ -13,21 +13,6 @@ public sealed class CreateShopApplicationRequestValidator : AbstractValidator<Cr
         RuleFor(x => x.AddressLine).NotEmpty().MaximumLength(500);
         RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
         RuleFor(x => x.Longitude).InclusiveBetween(-180, 180);
-
-        RuleFor(x => x).Custom((x, context) =>
-        {
-            if (!x.OpeningTime.HasValue || !x.ClosingTime.HasValue) return;
-
-            if (x.OpeningTime >= x.ClosingTime)
-            {
-                context.AddFailure(nameof(x.OpeningTime), "Opening time must be earlier than closing time.");
-                context.AddFailure(nameof(x.ClosingTime), "Closing time must be later than opening time.");
-            }
-        });
-
-        RuleFor(x => x.BankName).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.BankAccountNumber).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.BankAccountHolder).NotEmpty().MaximumLength(200);
     }
 }
 
@@ -40,21 +25,6 @@ public sealed class ResubmitShopApplicationRequestValidator : AbstractValidator<
         RuleFor(x => x.AddressLine).NotEmpty().MaximumLength(500);
         RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
         RuleFor(x => x.Longitude).InclusiveBetween(-180, 180);
-
-        RuleFor(x => x).Custom((x, context) =>
-        {
-            if (!x.OpeningTime.HasValue || !x.ClosingTime.HasValue) return;
-
-            if (x.OpeningTime >= x.ClosingTime)
-            {
-                context.AddFailure(nameof(x.OpeningTime), "Opening time must be earlier than closing time.");
-                context.AddFailure(nameof(x.ClosingTime), "Closing time must be later than opening time.");
-            }
-        });
-
-        RuleFor(x => x.BankName).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.BankAccountNumber).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.BankAccountHolder).NotEmpty().MaximumLength(200);
     }
 }
 

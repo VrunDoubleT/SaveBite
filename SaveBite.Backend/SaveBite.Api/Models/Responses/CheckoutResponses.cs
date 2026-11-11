@@ -67,8 +67,10 @@ public sealed record CheckoutQuoteResponse
 
 }
 // Expose the item quantities and prices recorded when the order was placed.
+// Expose the item quantities and prices recorded when the order was placed.
 public sealed record CheckoutOrderItemResponse
 {
+    public Guid OrderItemId { get; init; }
     public Guid FlashDealVariantId { get; init; }
     public string ProductName { get; init; } = string.Empty;
     public string? VariantName { get; init; }
@@ -77,7 +79,6 @@ public sealed record CheckoutOrderItemResponse
     public decimal Subtotal { get; init; }
     public string? ImageUrl { get; init; }
     public Guid? FlashDealId { get; init; }
-    public Guid OrderItemId { get; init; }
     // Visible feedback already written for this item, if any.
     public Guid? FeedbackId { get; init; }
     public int? Rating { get; init; }
@@ -116,6 +117,7 @@ public sealed record CheckoutOrderResponse
     public DateTime? CompletedAt { get; init; }
     public decimal PaidAmount { get; init; }
     public decimal OutstandingAmount { get; init; }
+    public string? CancelReason { get; init; }
 
 }
 

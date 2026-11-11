@@ -1,3 +1,4 @@
+import { MapPin } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CheckoutMapInstance, CheckoutMapSdk, RouteLayerGroup } from "../types/map.types";
 import type { CartShop } from "@/features/cart/types/cart.types";
@@ -29,7 +30,7 @@ export function CheckoutRouteMap({
   const longitude = shop.longitude ?? route?.shopLongitude;
   if (!validPoint(latitude, longitude))
     return (
-      <p className="mt-3 text-xs text-neutral-500">
+      <p className="mt-3 text-caption text-text-secondary">
         The shop location is unavailable. Refresh checkout to load the map.
       </p>
     );
@@ -148,31 +149,34 @@ function RouteMap({
           draggable: false,
           icon: sdk.divIcon({
             className: "",
-            html: `<div style="height:28px;width:28px;border:3px solid white;border-radius:50%;background:${color};color:white;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 6px #0005;font-size:11px;font-weight:700">${label}</div>`,
+            html: `<div class="flex size-7 items-center justify-center rounded-full border-2 border-bg-surface text-caption font-bold text-text-inverse shadow-md" style="background:${color}">${label}</div>`,
             iconSize: [28, 28],
             iconAnchor: [14, 14],
           }),
         })
         .bindTooltip(title)
         .addTo(layers);
-    marker([latitude, longitude], "#059669", "Pickup shop", "S");
+    const tokens = getComputedStyle(document.documentElement);
+    const green = tokens.getPropertyValue("--color-primary-700").trim();
+    const secondary = tokens.getPropertyValue("--color-secondary-700").trim();
+    marker([latitude, longitude], green, "Pickup shop", "S");
     const points: [number, number][] = [[latitude, longitude]];
     if (gps && validPoint(gps.latitude, gps.longitude)) {
       points.push([gps.latitude, gps.longitude]);
       if (geometry) {
-        sdk.polyline(geometry, { color: "#059669", weight: 5, opacity: 0.9 }).addTo(layers);
+        sdk.polyline(geometry, { color: green, weight: 5, opacity: 0.9 }).addTo(layers);
         points.push(...geometry);
       }
       sdk
         .circle([gps.latitude, gps.longitude], {
           radius: gps.accuracyMeters,
-          color: "#2563eb",
+          color: secondary,
           weight: 1,
           fillOpacity: 0.08,
           interactive: false,
         })
         .addTo(layers);
-      marker([gps.latitude, gps.longitude], "#2563eb", "Your GPS location", "Y");
+      marker([gps.latitude, gps.longitude], secondary, "Your GPS location", "Y");
       map.fitBounds(sdk.latLngBounds(points), { padding: [28, 28], maxZoom: 16 });
     } else map.setView([latitude, longitude], 16);
   }, [latitude, longitude, gps, geometry]);
@@ -182,36 +186,50 @@ function RouteMap({
         ref={container}
         role="region"
         aria-label="Route from your location to the shop"
-        className="relative z-0 h-56 w-full overflow-hidden rounded-lg border border-neutral-200 sm:h-64"
+        hidden={Boolean(mapError)}
+        className="relative z-0 h-56 w-full overflow-hidden rounded-md border border-border-default sm:h-64"
       />
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500">
+      {mapError && (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-md border border-border-default bg-neutral-50 p-4"
+        >
+          <MapPin className="size-5 shrink-0 text-secondary-700" aria-hidden="true" />
+          <div>
+            <p className="text-body font-semibold text-text-primary">Map unavailable</p>
+            <p className="mt-1 text-caption text-text-secondary">{mapError}</p>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-text-secondary">
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-blue-600" />
+          <span className="size-2 rounded-full bg-secondary-700" />
           Your GPS location
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-emerald-600" />
+          <span className="size-2 rounded-full bg-primary-600" />
           Pickup shop
         </span>
         {geometry && (
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-0.5 w-4 bg-emerald-600" />
+            <span className="h-0.5 w-4 bg-primary-600" />
             Motorcycle route
           </span>
         )}
       </div>
-      <p role="status" className="text-xs text-neutral-500">
-        {mapError ??
-          (loading
+      {!mapError && (
+        <p role="status" className="text-caption text-text-secondary">
+          {loading
             ? "Finding your location and motorcycle route…"
             : !gps
               ? "Enable GPS above to see the route from your current location."
               : !geometry
                 ? "A route preview is not available yet."
-                : "Motorcycle route from your current location to the pickup shop.")}
-      </p>
+                : "Motorcycle route from your current location to the pickup shop."}
+        </p>
+      )}
       {backgroundError && (
-        <p className="text-xs text-neutral-500">
+        <p className="text-caption text-text-secondary">
           A backup map is shown because the VietMap background is unavailable.
         </p>
       )}

@@ -41,7 +41,10 @@ public class RejectShopRegistrationTests
             new CreateShopApplicationRequestValidator(),
             new ResubmitShopApplicationRequestValidator(),
             new ShopApplicationDocumentsValidator(),
-            new ShopApplicationLogoValidator()
+            new ShopApplicationLogoValidator(),
+            new Mock<INotificationQueue>().Object,
+            TestDbContextFactory.Create(),
+            new Mock<IAdminAuditWriter>().Object
         );
     }
 
@@ -60,9 +63,6 @@ public class RejectShopRegistrationTests
             City = "Ho Chi Minh City",
             Latitude = 10.7769,
             Longitude = 106.7009,
-            BankName = "Vietcombank",
-            BankAccountNumber = "987654321",
-            BankAccountHolder = "NGUYEN VAN A",
             PayosClientId = "payos-client-id",
             PayosApiKey = "payos-api-key",
             PayosChecksumKey = "payos-checksum-key",
@@ -224,7 +224,7 @@ public class RejectShopRegistrationTests
         var ex = await act.Should().ThrowAsync<AppException>();
         PrintException("TCID05", ex.Which);
         ex.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        ex.Which.Message.Should().Be("Decision must be Approved or Rejected.");
+        ex.Which.Message.Should().Be("Decision must be Approved, Rejected or NeedsRevision.");
 
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }

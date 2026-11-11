@@ -43,4 +43,38 @@ public sealed class SignalRRealtimePublisher : IRealtimePublisher
             _logger.LogWarning(ex, "Realtime event {EventType} could not be delivered.", eventType);
         }
     }
+
+    // Broadcast a versioned event to all connected authenticated clients.
+    public async Task SendToAllAsync(string eventType, object data)
+    {
+        try
+        {
+            var header = _context?.HttpContext?.Request.Headers["X-Realtime-Request-Id"].ToString();
+            var correlationId = Guid.TryParse(header, out var id) ? id.ToString("D") : null;
+            await _hub.Clients.All
+                .ReceiveEvent(new RealtimeEvent(Guid.NewGuid(), eventType, 1, _clock.GetUtcNow().UtcDateTime, data, correlationId))
+                .WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Realtime broadcast event {EventType} could not be delivered.", eventType);
+        }
+    }
+
+    // Broadcast a versioned event to a specific group of authenticated clients.
+    public async Task SendToGroupAsync(string groupName, string eventType, object data)
+    {
+        try
+        {
+            var header = _context?.HttpContext?.Request.Headers["X-Realtime-Request-Id"].ToString();
+            var correlationId = Guid.TryParse(header, out var id) ? id.ToString("D") : null;
+            await _hub.Clients.Group(groupName)
+                .ReceiveEvent(new RealtimeEvent(Guid.NewGuid(), eventType, 1, _clock.GetUtcNow().UtcDateTime, data, correlationId))
+                .WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Realtime group event {EventType} could not be delivered to {GroupName}.", eventType, groupName);
+        }
+    }
 }

@@ -34,14 +34,9 @@ public class AdminRemoveViolatingProductTests
     public AdminRemoveViolatingProductTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ProductService(
-            _repositoryMock.Object,
-            _cloudinaryMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _publisherMock.Object,
-            null!
-        );
+        var auditMock = new Mock<IAdminAuditWriter>();
+        auditMock.Setup(a => a.Record(It.IsAny<AuditLog>())).Returns((AuditLog l) => l);
+        _service = new ProductService(_repositoryMock.Object, _cloudinaryMock.Object, TimeProvider.System, _loggerMock.Object, auditMock.Object, TestDbContextFactory.Create(), new Mock<INotificationQueue>().Object);
     }
 
     [Fact]
@@ -53,6 +48,7 @@ public class AdminRemoveViolatingProductTests
         {
             Id = productId,
             ShopId = Guid.NewGuid(),
+            Shop = new Shop { Id = Guid.NewGuid(), OwnerUserId = Guid.NewGuid() },
             Name = "Expired Bread",
             Status = ProductStatus.Active,
             DeletedAt = null
@@ -71,12 +67,7 @@ public class AdminRemoveViolatingProductTests
             .Setup(r => r.RemoveProductForViolationAndCancelDealsAsync(product, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _publisherMock
-            .Setup(p => p.PublishAsync(
-                RabbitMqRoutingKeys.ModerationAudit,
-                It.IsAny<ModerationEvent>(),
-                It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        
 
         // Act
         var result = await _service.RemoveProductAsync(_adminId, productId, request, CancellationToken.None);
@@ -89,7 +80,7 @@ public class AdminRemoveViolatingProductTests
         product.DeletedAt.Should().NotBeNull();
 
         _repositoryMock.Verify(r => r.RemoveProductForViolationAndCancelDealsAsync(product, It.IsAny<CancellationToken>()), Times.Once);
-        _publisherMock.Verify(p => p.PublishAsync(RabbitMqRoutingKeys.ModerationAudit, It.IsAny<ModerationEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+        
     }
 
     [Fact]

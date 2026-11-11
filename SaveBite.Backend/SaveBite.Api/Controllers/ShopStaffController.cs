@@ -87,6 +87,8 @@ public sealed class ShopStaffController : ControllerBase
         Guid staffId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate = null,
         CancellationToken cancellationToken = default)
     {
         var result = await _shopStaffService.GetStaffActivityLogsAsync(
@@ -94,6 +96,8 @@ public sealed class ShopStaffController : ControllerBase
             staffId,
             page,
             pageSize,
+            fromDate,
+            toDate,
             cancellationToken
         );
 

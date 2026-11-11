@@ -20,13 +20,39 @@ public sealed class AdminPlatformFeeController : ControllerBase
 {
     private readonly IPlatformFeeConfigService _feeConfigService;
     private readonly IPlatformFeeStatementService _feeStatementService;
+    private readonly IPlatformPayOsConfigService _payOsConfigService;
 
     public AdminPlatformFeeController(
         IPlatformFeeConfigService feeConfigService,
-        IPlatformFeeStatementService feeStatementService)
+        IPlatformFeeStatementService feeStatementService,
+        IPlatformPayOsConfigService payOsConfigService)
     {
         _feeConfigService = feeConfigService;
         _feeStatementService = feeStatementService;
+        _payOsConfigService = payOsConfigService;
+    }
+
+    [HttpGet("platform-payos-config")]
+    public async Task<ActionResult<ApiResponse<PlatformPayOsConfigResponse>>> GetPlatformPayOsConfig(CancellationToken ct)
+    {
+        var result = await _payOsConfigService.GetAdminConfigAsync(ct);
+        return Ok(ApiResponse<PlatformPayOsConfigResponse>.Ok(result));
+    }
+
+    [HttpPut("platform-payos-config")]
+    public async Task<ActionResult<ApiResponse<PlatformPayOsConfigResponse>>> UpdatePlatformPayOsConfig(
+        [FromBody] UpdatePlatformPayOsConfigRequest request,
+        CancellationToken ct)
+    {
+        var result = await _payOsConfigService.UpdateAsync(GetAuthenticatedUserId(), request, ct);
+        return Ok(ApiResponse<PlatformPayOsConfigResponse>.Ok(result, "Platform PayOS configuration updated."));
+    }
+
+    [HttpGet("platform-payos-config/history")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<PlatformPayOsConfigHistoryResponse>>>> GetPlatformPayOsConfigHistory(CancellationToken ct)
+    {
+        var result = await _payOsConfigService.GetHistoryAsync(ct);
+        return Ok(ApiResponse<IReadOnlyList<PlatformPayOsConfigHistoryResponse>>.Ok(result));
     }
 
     /// <summary>
@@ -108,7 +134,6 @@ public sealed class AdminPlatformFeeController : ControllerBase
         await _feeConfigService.CancelScheduledConfigAsync(adminId, configId, ct);
         return Ok(ApiResponse<string>.Ok("Upcoming scheduled fee configuration cancelled successfully."));
     }
-    /// <summary>
 
     /// <summary>
     /// Trigger background check to mark overdue statements and suspend delinquent shops (BR-095, BR-193).
@@ -116,7 +141,8 @@ public sealed class AdminPlatformFeeController : ControllerBase
     [HttpPost("platform-fee-statements/process-overdue")]
     public async Task<ActionResult<ApiResponse<int>>> ProcessOverdueStatements(CancellationToken ct)
     {
-        var count = await _feeStatementService.CheckAndSuspendOverdueShopsAsync(ct);
+        var adminId = GetAuthenticatedUserId();
+        var count = await _feeStatementService.CheckAndSuspendOverdueShopsAsync(ct, adminId);
         return Ok(ApiResponse<int>.Ok(count));
     }
     
@@ -129,7 +155,8 @@ public sealed class AdminPlatformFeeController : ControllerBase
         [FromQuery] short month,
         CancellationToken ct)
     {
-        var count = await _feeStatementService.GenerateMonthlyStatementsAsync(year, month, ct);
+        var adminId = GetAuthenticatedUserId();
+        var count = await _feeStatementService.GenerateMonthlyStatementsAsync(year, month, ct, adminId);
         return Ok(ApiResponse<int>.Ok(count, $"Generated {count} monthly platform fee statement(s) for period {year}-{month}."));
     }
 

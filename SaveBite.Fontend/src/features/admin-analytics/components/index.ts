@@ -5,3 +5,4 @@ export { PlatformShopStatsSection } from "./PlatformShopStatsSection";
 export { PlatformRevenueOrderSection } from "./PlatformRevenueOrderSection";
 export { PlatformFlashDealStatsSection } from "./PlatformFlashDealStatsSection";
 export { PlatformPaymentRefundSection } from "./PlatformPaymentRefundSection";
+export { PlatformShopRevenueSection } from "./PlatformShopRevenueSection";

@@ -36,16 +36,22 @@ public class Order
     public string? ConfirmationExpirationJobId { get; set; }
     public bool InventoryReservationActive { get; set; }
     public bool PaymentReviewRequired { get; set; }
+    public decimal RefundedAmount { get; set; }
     public bool IsPlatformFeeExempt { get; set; }
 
     public string? CancelReason { get; set; }
     public Guid? CancelledBy { get; set; }
 
+    public DateTime? PickupReminderEmailSentAt { get; set; }
+    public DateTime? PickupReminderEmailQueuedAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public DateTime? ReadyAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public DateTime? ExpiredAt { get; set; }
+
+    public DateTime? ResaleDecisionDeadlineAt { get; set; }
+    public string? ResaleDecisionJobId { get; set; }
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -59,7 +65,7 @@ public class Order
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
     public ICollection<Refund> Refunds { get; set; } = new List<Refund>();
     public ICollection<StaffActivityLog> StaffActivityLogs { get; set; } = new List<StaffActivityLog>();
-    public ICollection<TrustScoreHistory> TrustScoreHistories { get; set; } = new List<TrustScoreHistory>();
+    public ICollection<TrustProgressHistory> TrustProgressHistories { get; set; } = new List<TrustProgressHistory>();
     public ICollection<UserTrustLevelHistory> TrustLevelHistories { get; set; } = new List<UserTrustLevelHistory>();
 
     public NoShowPenalty? NoShowPenalty { get; set; }

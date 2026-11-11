@@ -260,7 +260,7 @@ public class GenerateRemainingPaymentQrTests
     {
         // Arrange
         _context.Order.Status = OrderStatus.ReadyForPickup;
-        _shopRepoMock.Setup(r => r.RequireAccessAsync(_context.ActorId, _context.Order.ShopId, It.IsAny<CancellationToken>())).ThrowsAsync(AppException.Forbidden());
+        _shopRepoMock.Setup(r => r.RequireAccessAsync(_context.ActorId, _context.Order.ShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>())).ThrowsAsync(AppException.Forbidden());
 
         // Act
         Func<Task> act = () => _service.RemainingPaymentAsync(_context.ActorId, _context.Order.ShopId, _context.Order.Id);

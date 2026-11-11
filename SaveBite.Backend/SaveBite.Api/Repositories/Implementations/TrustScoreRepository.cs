@@ -45,10 +45,10 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
             .SingleOrDefaultAsync(level => level.Id == levelId, cancellationToken);
 
     // Score history of the user, newest first.
-    public async Task<PagedResult<TrustScoreHistory>> GetHistoryPagedAsync(
+    public async Task<PagedResult<TrustProgressHistory>> GetHistoryPagedAsync(
         Guid userId, GetTrustScoreHistoryRequest request, CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.TrustScoreHistories.AsNoTracking()
+        var query = _dbContext.TrustProgressHistories.AsNoTracking()
             .Where(history => history.UserId == userId);
 
         if (request.EventType.HasValue)
@@ -64,7 +64,22 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
             .Take(request.PageSize)
             .ToListAsync(cancellationToken);
 
-        return PagedResult<TrustScoreHistory>.Create(items, request.Page, request.PageSize, total);
+        return PagedResult<TrustProgressHistory>.Create(items, request.Page, request.PageSize, total);
+    }
+
+    // FIX-17: level transitions linked to the orders shown on a history page (initial assignment excluded).
+    public async Task<IReadOnlyList<UserTrustLevelHistory>> GetLevelChangesForOrdersAsync(
+        Guid userId, IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default)
+    {
+        if (orderIds.Count == 0) return Array.Empty<UserTrustLevelHistory>();
+        return await _dbContext.UserTrustLevelHistories.AsNoTracking()
+            .Include(x => x.PreviousTrustLevel)
+            .Include(x => x.NewTrustLevel)
+            .Where(x => x.UserId == userId
+                && x.OrderId != null && orderIds.Contains(x.OrderId.Value)
+                && x.PreviousTrustLevelId != null)
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
     }
 
     // Penalty history of the user, newest first.
@@ -81,6 +96,7 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
 
         var items = await query
             .Include(penalty => penalty.Order)
+            .Include(penalty => penalty.TrustProgressHistories)
             .OrderByDescending(penalty => penalty.CreatedAt)
             .ThenByDescending(penalty => penalty.Id)
             .Skip((request.Page - 1) * request.PageSize)
@@ -95,6 +111,7 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
         Guid userId, Guid penaltyId, CancellationToken cancellationToken = default)
         => _dbContext.NoShowPenalties.AsNoTracking()
             .Include(penalty => penalty.Order)
+            .Include(penalty => penalty.TrustProgressHistories)
             .Include(penalty => penalty.RecoveryOrders)
                 .ThenInclude(recovery => recovery.Order)
             .AsSplitQuery()

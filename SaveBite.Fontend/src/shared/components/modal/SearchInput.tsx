@@ -19,6 +19,7 @@ export function SearchInput({
       <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
       <input
         type="text"
+        aria-label={placeholder}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -27,6 +28,7 @@ export function SearchInput({
       {value && (
         <button
           type="button"
+          aria-label="Clear search"
           onClick={() => onChange("")}
           className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-neutral-700 transition-colors"
         >

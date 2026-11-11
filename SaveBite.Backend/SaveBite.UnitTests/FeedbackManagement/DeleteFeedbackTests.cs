@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
@@ -32,7 +33,7 @@ public class DeleteFeedbackTests
     public DeleteFeedbackTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new FeedbackService(_feedbackRepoMock.Object, _publisherMock.Object);
+        _service = new FeedbackService(_feedbackRepoMock.Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IAdminAuditWriter>().Object, null, null);
     }
 
     private ProductFeedback CreateFeedback(Guid userId, FeedbackStatus status = FeedbackStatus.Visible)

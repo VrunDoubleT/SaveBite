@@ -25,4 +25,6 @@ public class PlatformFeeStatement
     public ICollection<OrderPlatformFee> OrderPlatformFees { get; set; } = new List<OrderPlatformFee>();
     public ICollection<PlatformFeeAdjustment> Adjustments { get; set; } = new List<PlatformFeeAdjustment>();
     public ICollection<PlatformFeePayment> Payments { get; set; } = new List<PlatformFeePayment>();
+    public ICollection<PlatformFeeStatementHistory> Histories { get; set; } = new List<PlatformFeeStatementHistory>();
+
 }

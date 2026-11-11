@@ -26,6 +26,23 @@ public sealed class FeedbackRepository : IFeedbackRepository
         .Include(f => f.Images)
         .AsSplitQuery();
 
+    public async Task<PagedResult<ProductFeedback>> ListAsync(int page, int pageSize, FeedbackStatus? status, string? search, CancellationToken ct = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 50);
+        var query = FeedbackWithDetails.AsNoTracking().Include(f => f.ModerationLogs).AsQueryable();
+        if (status.HasValue) query = query.Where(f => f.Status == status.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(f => (f.Comment != null && f.Comment.Contains(term))
+                                     || f.User.FullName.Contains(term) || f.Product.Name.Contains(term));
+        }
+        var total = await query.CountAsync(ct);
+        var items = await query.OrderByDescending(f => f.CreatedAt).ThenByDescending(f => f.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return PagedResult<ProductFeedback>.Create(items, page, pageSize, total);
+    }
     public async Task<OrderItem?> GetOrderItemWithOrderAsync(Guid orderItemId, CancellationToken ct = default)
     {
         return await _context.OrderItems
@@ -148,7 +165,7 @@ public sealed class FeedbackRepository : IFeedbackRepository
         // Check if owner of active shop
         var ownerShop = await _context.Shops
             .AsNoTracking()
-            .Where(s => s.OwnerUserId == userId && s.Status == ShopStatus.Active)
+            .Where(s => s.OwnerUserId == userId)
             .Select(s => (Guid?)s.Id)
             .FirstOrDefaultAsync(ct);
 
@@ -164,10 +181,22 @@ public sealed class FeedbackRepository : IFeedbackRepository
         return staffShop;
     }
 
+    public async Task<bool> IsShopOwnerForFeedbackAsync(Guid userId, Guid feedbackId, CancellationToken ct = default)
+    {
+        var feedback = await _context.ProductFeedbacks
+            .AsNoTracking()
+            .Include(f => f.Product)
+            .FirstOrDefaultAsync(f => f.Id == feedbackId, ct);
+        if (feedback == null) return false;
+        return await _context.Shops
+            .AsNoTracking()
+            .AnyAsync(s => s.Id == feedback.Product.ShopId && s.OwnerUserId == userId && s.Status == ShopStatus.Active, ct);
+    }
+
     public async Task<bool> CanManageFeedbackReplyAsync(Guid userId, Guid feedbackId, CancellationToken ct = default)
     {
         var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
-        if (user == null) return false;
+        if (user == null || user.Status != UserStatus.Active) return false;
         if (user.Role == UserRole.Admin) return true;
 
         var feedback = await _context.ProductFeedbacks
@@ -179,16 +208,15 @@ public sealed class FeedbackRepository : IFeedbackRepository
 
         var shopId = feedback.Product.ShopId;
 
-        var isOwner = await _context.Shops
-            .AsNoTracking()
-            .AnyAsync(s => s.Id == shopId && s.OwnerUserId == userId && s.Status == ShopStatus.Active, ct);
+        // Replies change data, so a suspended shop cannot reply even though it can read history.
+        var isOwner = await _context.Shops.AsNoTracking().AnyAsync(
+            s => s.Id == shopId && s.OwnerUserId == userId && s.Status == ShopStatus.Active, ct);
         if (isOwner) return true;
 
-        var isStaff = await _context.ShopStaffMembers
-            .AsNoTracking()
-            .AnyAsync(m => m.ShopId == shopId && m.UserId == userId && m.Status == ShopStaffStatus.Active, ct);
-
-        return isStaff;
+        return await _context.ShopStaffMembers.AsNoTracking().AnyAsync(
+            m => m.ShopId == shopId && m.UserId == userId
+                                    && m.Status == ShopStaffStatus.Active
+                                    && m.Shop.Status == ShopStatus.Active, ct);
     }
 
     public async Task<PagedResult<ProductFeedback>> GetShopFeedbacksAsync(Guid shopId, FeedbackRequests.ShopFeedbacksQueryRequest request, CancellationToken ct = default)
@@ -290,87 +318,6 @@ public sealed class FeedbackRepository : IFeedbackRepository
         return PagedResult<ProductFeedback>.Create(items, page, pageSize, totalItems);
     }
 
-    // Manage Feedbacks (moderation).
-    public async Task<(IReadOnlyList<ProductFeedback> Items, int Total)> ListAsync(int page, int pageSize, FeedbackStatus? status, string? search, CancellationToken ct)
-    {
-        var query = _context.Set<ProductFeedback>().AsNoTracking().AsQueryable();
-
-        if (status.HasValue)
-        {
-            query = query.Where(x => x.Status == status.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var pattern = $"%{search.Trim()}%";
-
-            query = query.Where(x => (x.Comment != null && EF.Functions.ILike(x.Comment, pattern)) ||
-                                     EF.Functions.ILike(x.Product.Name, pattern) || EF.Functions.ILike(x.Product.Shop.Name, pattern));
-        }
-
-        var total = await query.CountAsync(ct);
-
-        var items = await query
-            .Include(x => x.User)
-            .Include(x => x.Product).ThenInclude(p => p.Shop)
-            .OrderByDescending(x => x.CreatedAt)
-            .ThenByDescending(x => x.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(ct);
-
-        return (items, total);
-    }
-
-    // Manage Feedbacks (moderation).
-    public async Task<ProductFeedback?> GetForUpdateAsync(Guid id, CancellationToken ct)
-    {
-        return await _context.Set<ProductFeedback>().FirstOrDefaultAsync(x => x.Id == id, ct);
-    }
-
-    // Manage Feedbacks (moderation).
-    public async Task<string?> GetCurrentReasonAsync(Guid feedbackId, CancellationToken ct)
-    {
-        return await _context.Set<ProductFeedbackModerationLog>().AsNoTracking()
-            .Where(x => x.ProductFeedbackId == feedbackId)
-            .OrderByDescending(x => x.CreatedAt)
-            .ThenByDescending(x => x.Id)
-            .Select(x => x.Reason)
-            .FirstOrDefaultAsync(ct);
-    }
-
-    // Manage Feedbacks (moderation).
-    public async Task<Dictionary<Guid, string?>> GetCurrentReasonsAsync(IEnumerable<Guid> feedbackIds, CancellationToken ct)
-    {
-        var ids = feedbackIds.Distinct().ToArray();
-
-        if (ids.Length == 0)
-        {
-            return new Dictionary<Guid, string?>();
-        }
-
-        var logs = await _context.Set<ProductFeedbackModerationLog>().AsNoTracking()
-            .Where(x => ids.Contains(x.ProductFeedbackId))
-            .OrderByDescending(x => x.CreatedAt)
-            .ThenByDescending(x => x.Id)
-            .Select(x => new
-            {
-                x.ProductFeedbackId,
-                x.Reason
-            }).ToListAsync(ct);
-
-        return logs.GroupBy(x => x.ProductFeedbackId).ToDictionary(
-            x => x.Key,
-            x => (string?)x.First().Reason);
-    }
-
-    // Manage Feedbacks (moderation).
-    public async Task SaveModerationAsync(ProductFeedback feedback, ProductFeedbackModerationLog log, CancellationToken ct)
-    {
-        _context.Set<ProductFeedbackModerationLog>().Add(log);
-        await _context.SaveChangesAsync(ct);
-    }
-
     private static TimeZoneInfo GetVietnamTimeZone()
     {
         try
@@ -390,3 +337,4 @@ public sealed class FeedbackRepository : IFeedbackRepository
         }
     }
 }
+

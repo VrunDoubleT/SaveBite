@@ -5,6 +5,7 @@ namespace SaveBite.Backend.Models.Responses;
 // Response item for shop flash deals list view.
 public class ShopFlashDealListItemResponse
 {
+    public int UnsellableQuantity { get; set; }
     public Guid Id { get; set; }
     public Guid ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
@@ -24,7 +25,7 @@ public class ShopFlashDealListItemResponse
     public int TotalQuantity { get; set; }
     public int ReservedQuantity { get; set; }
     public int SoldQuantity { get; set; }
-    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity);
+    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity - UnsellableQuantity);
 
     public DateTime CreatedAt { get; set; }
 }
@@ -37,6 +38,7 @@ public class ShopFlashDealDetailResponse
     public Guid ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public bool HasActiveDeal { get; set; }
     public string? CategoryName { get; set; }
     public string? PrimaryImageUrl { get; set; }
     public List<string> ProductImageUrls { get; set; } = new();
@@ -50,12 +52,24 @@ public class ShopFlashDealDetailResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    public List<ShopFlashDealStatusHistoryResponse> StatusHistory { get; set; } = new();
     public List<ShopFlashDealVariantDetailResponse> Variants { get; set; } = new();
+}
+
+public class ShopFlashDealStatusHistoryResponse
+{
+    public FlashDealStatus? FromStatus { get; set; }
+    public FlashDealStatus ToStatus { get; set; }
+    public string ChangedByType { get; set; } = string.Empty;
+    public Guid? ChangedByUserId { get; set; }
+    public string? Note { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 // Detailed response for each variant within a shop flash deal.
 public class ShopFlashDealVariantDetailResponse
 {
+    public int UnsellableQuantity { get; set; }
     public Guid Id { get; set; }
     public Guid VariantId { get; set; }
     public string? Sku { get; set; }
@@ -70,7 +84,7 @@ public class ShopFlashDealVariantDetailResponse
     public int TotalQuantity { get; set; }
     public int ReservedQuantity { get; set; }
     public int SoldQuantity { get; set; }
-    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity);
+    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity - UnsellableQuantity);
 
     public FlashDealVariantStatus Status { get; set; }
 }
@@ -81,6 +95,7 @@ public class ShopEligibleProductResponse
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public bool HasActiveDeal { get; set; }
     public string? CategoryName { get; set; }
     public string? ImageUrl { get; set; }
     public List<ShopEligibleProductVariantResponse> Variants { get; set; } = new();

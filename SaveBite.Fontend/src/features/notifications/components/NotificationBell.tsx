@@ -5,21 +5,17 @@ import {
   CheckCheck,
   ChevronDown,
   ChevronUp,
-  CreditCard,
   Inbox,
   Layers,
-  ShieldAlert,
-  ShoppingBag,
   Sparkles,
-  Store,
   Trash2,
-  Users,
   X,
-  Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useNotificationStore } from "../stores/notificationStore";
 import type { NotificationItem } from "../types/notification.types";
+import { resolveNotificationUrl } from "../utils/resolveNotificationUrl";
+import { getNotificationVisual } from "../constants/notificationTypes";
 
 function formatRelativeTime(isoDate: string): string {
   const date = new Date(isoDate);
@@ -36,57 +32,6 @@ function formatRelativeTime(isoDate: string): string {
   return date.toLocaleDateString("en-US");
 }
 
-function getNotificationVisual(type: number | string) {
-  const key = String(type).toLowerCase();
-  // Flash Deal (17)
-  if (key === "17" || key.includes("flashdeal")) {
-    return {
-      Icon: Zap,
-      bg: "bg-amber-100 text-amber-600",
-    };
-  }
-  // Payment / Refund (6..11)
-  if (
-    ["6", "7", "8", "9", "10", "11"].includes(key) ||
-    key.includes("payment") ||
-    key.includes("refund")
-  ) {
-    return {
-      Icon: CreditCard,
-      bg: "bg-blue-100 text-blue-600",
-    };
-  }
-  // Staff Invitation (12, 13)
-  if (["12", "13"].includes(key) || key.includes("staff")) {
-    return {
-      Icon: Users,
-      bg: "bg-purple-100 text-purple-600",
-    };
-  }
-  // Shop Application / Product Revision (14, 15, 16, 20)
-  if (
-    ["14", "15", "16", "20"].includes(key) ||
-    key.includes("shop") ||
-    key.includes("product")
-  ) {
-    return {
-      Icon: Store,
-      bg: "bg-indigo-100 text-indigo-600",
-    };
-  }
-  // Trust Score / Penalty (18, 19)
-  if (["18", "19"].includes(key) || key.includes("trust") || key.includes("penalty")) {
-    return {
-      Icon: ShieldAlert,
-      bg: "bg-rose-100 text-rose-600",
-    };
-  }
-  // Default: Order events (1..5)
-  return {
-    Icon: ShoppingBag,
-    bg: "bg-emerald-100 text-emerald-600",
-  };
-}
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -147,8 +92,9 @@ export function NotificationBell() {
     }
     dismissLivePreview(item.id);
     setOpen(false);
-    if (item.actionUrl) {
-      navigate(item.actionUrl);
+    const target = resolveNotificationUrl(item);
+    if (target) {
+      navigate(target);
     }
   }
 

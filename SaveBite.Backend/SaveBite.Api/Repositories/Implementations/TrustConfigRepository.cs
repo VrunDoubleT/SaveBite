@@ -27,6 +27,43 @@ public sealed class TrustConfigRepository : ITrustConfigRepository
             .Select(group => new { LevelId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.LevelId, item => item.Count, cancellationToken);
 
+    public Task<bool> LevelExistsAsync(Guid levelId, CancellationToken cancellationToken = default)
+        => _dbContext.TrustLevels.AsNoTracking().AnyAsync(level => level.Id == levelId, cancellationToken);
+
+    public Task<bool> LevelNameExistsAsync(string name, Guid? excludeLevelId = null, CancellationToken cancellationToken = default)
+    {
+        var normalized = name.Trim().ToLower();
+        var query = _dbContext.TrustLevels.AsNoTracking()
+            .Where(level => level.Name.ToLower() == normalized);
+
+        if (excludeLevelId.HasValue)
+            query = query.Where(level => level.Id != excludeLevelId.Value);
+
+        return query.AnyAsync(cancellationToken);
+    }
+
+    public async Task<int> GetMaxLevelRankAsync(CancellationToken cancellationToken = default)
+        => await _dbContext.TrustLevels.AsNoTracking()
+            .Select(level => (int?)level.Rank)
+            .MaxAsync(cancellationToken) ?? 0;
+
+    public async Task<int> GetNextLevelHistoryVersionAsync(Guid levelId, CancellationToken cancellationToken = default)
+    {
+        var maxVersion = await _dbContext.TrustLevelHistories.AsNoTracking()
+            .Where(history => history.TrustLevelId == levelId)
+            .Select(history => (int?)history.VersionNo)
+            .MaxAsync(cancellationToken) ?? 0;
+
+        return maxVersion + 1;
+    }
+
+    public async Task<IReadOnlyList<TrustLevelHistory>> GetLevelHistoriesAsync(Guid levelId, CancellationToken cancellationToken = default)
+        => await _dbContext.TrustLevelHistories.AsNoTracking()
+            .Include(history => history.ChangedByUser)
+            .Where(history => history.TrustLevelId == levelId)
+            .OrderByDescending(history => history.VersionNo)
+            .ToListAsync(cancellationToken);
+
     public Task<TrustLevel?> GetLevelForUpdateAsync(Guid levelId, CancellationToken cancellationToken = default)
         => _dbContext.TrustLevels
             .Include(level => level.Requirement)
@@ -41,6 +78,33 @@ public sealed class TrustConfigRepository : ITrustConfigRepository
             .OrderBy(level => level.Rank)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<TrustLevel>> GetAllLevelsWithRequirementsAsync(CancellationToken cancellationToken = default)
+        => await _dbContext.TrustLevels
+            .Include(level => level.Requirement)
+            .OrderBy(level => level.Rank)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<UserTrustScore>> GetUserScoresByLevelForUpdateAsync(
+        Guid levelId, CancellationToken cancellationToken = default)
+        => await _dbContext.UserTrustScores
+            .Where(score => score.TrustLevelId == levelId)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, UserLevelProgress>> GetUserProgressMapAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+    {
+        if (userIds.Count == 0)
+            return new Dictionary<Guid, UserLevelProgress>();
+
+        return await _dbContext.UserLevelProgresses.AsNoTracking()
+            .Where(progress => userIds.Contains(progress.UserId))
+            .ToDictionaryAsync(progress => progress.UserId, cancellationToken);
+    }
+
+    public void AddLevel(TrustLevel level) => _dbContext.TrustLevels.Add(level);
+
+    public void AddRequirement(TrustLevelRequirement requirement) => _dbContext.TrustLevelRequirements.Add(requirement);
+
     public void AddDepositPolicy(TrustLevelDepositPolicy policy)
         => _dbContext.TrustLevelDepositPolicies.Add(policy);
 
@@ -49,6 +113,36 @@ public sealed class TrustConfigRepository : ITrustConfigRepository
 
     public void RemoveDepositRanges(IEnumerable<TrustLevelDepositRange> ranges)
         => _dbContext.TrustLevelDepositRanges.RemoveRange(ranges);
+
+    public void AddLevelHistory(TrustLevelHistory history)
+        => _dbContext.TrustLevelHistories.Add(history);
+
+    public void AddUserTrustLevelHistories(IEnumerable<UserTrustLevelHistory> histories)
+        => _dbContext.UserTrustLevelHistories.AddRange(histories);
+
+    public async Task<T> ExecuteInTransactionAsync<T>(
+        Func<CancellationToken, Task<T>> action,
+        bool lockLevelsAndScores = false,
+        CancellationToken cancellationToken = default)
+    {
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+            if (lockLevelsAndScores)
+            {
+                await _dbContext.Database.ExecuteSqlRawAsync(
+                    "SELECT id FROM trust_levels ORDER BY id FOR UPDATE", cancellationToken);
+                await _dbContext.Database.ExecuteSqlRawAsync(
+                    "SELECT id FROM user_trust_scores ORDER BY id FOR UPDATE", cancellationToken);
+            }
+
+            _dbContext.ChangeTracker.Clear();
+            var result = await action(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        });
+    }
 
     // --------------------------------------------------------- Penalty rules
 
@@ -63,18 +157,46 @@ public sealed class TrustConfigRepository : ITrustConfigRepository
         => _dbContext.RecoveryRequirementRules
             .SingleOrDefaultAsync(rule => rule.Id == ruleId, cancellationToken);
 
-    // A new version is open-ended, so it overlaps any other enabled rule of the same
-    // occurrence tier that has no end date or ends after the new start.
-    public Task<bool> HasOverlappingPenaltyRuleAsync(
-        int minimumOccurrence, DateTime from, Guid excludeRuleId, CancellationToken cancellationToken = default)
-        => _dbContext.RecoveryRequirementRules.AsNoTracking()
-            .AnyAsync(rule => rule.Id != excludeRuleId
-                              && rule.IsActive
-                              && rule.MinimumOccurrence == minimumOccurrence
-                              && (rule.EffectiveTo == null || rule.EffectiveTo > from),
-                cancellationToken);
+    // Two half-open intervals [from1, to1) and [from2, to2) overlap iff:
+    // from1 < (to2 ?? ∞) AND from2 < (to1 ?? ∞).
+    public Task<RecoveryRequirementRule?> FindOverlappingPenaltyRuleAsync(
+        int minimumOccurrence,
+        DateTime from,
+        DateTime? to,
+        Guid? excludeRuleId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.RecoveryRequirementRules.AsNoTracking()
+            .Where(rule => rule.MinimumOccurrence == minimumOccurrence);
+
+        if (excludeRuleId.HasValue)
+            query = query.Where(rule => rule.Id != excludeRuleId.Value);
+
+        if (to.HasValue)
+        {
+            var toValue = to.Value;
+            query = query.Where(rule =>
+                rule.EffectiveFrom < toValue &&
+                (rule.EffectiveTo == null || rule.EffectiveTo > from));
+        }
+        else
+        {
+            query = query.Where(rule =>
+                rule.EffectiveTo == null || rule.EffectiveTo > from);
+        }
+
+        return query
+            .OrderBy(rule => rule.EffectiveFrom)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<bool> IsPenaltyRuleReferencedAsync(Guid ruleId, CancellationToken cancellationToken = default)
+        => _dbContext.NoShowPenalties.AsNoTracking()
+            .AnyAsync(penalty => penalty.RecoveryRuleId == ruleId, cancellationToken);
 
     public void AddPenaltyRule(RecoveryRequirementRule rule) => _dbContext.RecoveryRequirementRules.Add(rule);
+
+    public void RemovePenaltyRule(RecoveryRequirementRule rule) => _dbContext.RecoveryRequirementRules.Remove(rule);
 
     // ----------------------------------------------------------- Score rules
 
@@ -109,7 +231,7 @@ public sealed class TrustConfigRepository : ITrustConfigRepository
 
     // ---------------------------------------------------------------- Shared
 
-    public void AddAuditLog(AuditLog log) => _dbContext.Set<AuditLog>().Add(log);
+
 
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         => _dbContext.SaveChangesAsync(cancellationToken);

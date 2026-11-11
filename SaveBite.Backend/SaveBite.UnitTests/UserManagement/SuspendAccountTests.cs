@@ -25,6 +25,7 @@ public class SuspendAccountTests
 {
     private readonly ITestOutputHelper _output;
     private readonly Mock<IUserRepository> _userRepoMock = new();
+    private readonly Mock<IAdminAuditWriter> _auditMock = new();
     private readonly Mock<IRefreshTokenService> _refreshTokenServiceMock = new();
     private readonly Mock<ILogger<UserService>> _loggerMock = new();
     private readonly Mock<ICloudinaryService> _cloudinaryServiceMock = new();
@@ -38,13 +39,7 @@ public class SuspendAccountTests
     public SuspendAccountTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new UserService(
-            _userRepoMock.Object,
-            _refreshTokenServiceMock.Object,
-            TimeProvider.System,
-            _loggerMock.Object,
-            _cloudinaryServiceMock.Object
-        );
+        _service = new UserService(_userRepoMock.Object, _refreshTokenServiceMock.Object, TimeProvider.System, _loggerMock.Object, _cloudinaryServiceMock.Object, new Mock<IRealtimePublisher>().Object, new Mock<INotificationQueue>().Object, _auditMock.Object, TestDbContextFactory.Create());
     }
 
     private User CreateSampleUser(UserRole role = UserRole.User, UserStatus status = UserStatus.Active)
@@ -95,10 +90,10 @@ public class SuspendAccountTests
             l.Action == UserStatus.Suspended &&
             l.Reason == request.Reason)), Times.Once);
 
-        _userRepoMock.Verify(r => r.AddAuditLog(It.Is<AuditLog>(l =>
+        _auditMock.Verify(r => r.Record(It.Is<AuditLog>(l =>
             l.ActorUserId == _adminId &&
             l.TargetId == _existingUserId &&
-            l.Action == "SuspendAccount")), Times.Once);
+            l.Action == AuditActionTypes.SuspendAccount)), Times.Once);
 
         _refreshTokenServiceMock.Verify(r => r.RevokeAllAsync(
             _existingUserId,

@@ -5,7 +5,7 @@ namespace SaveBite.Backend.Models.Entities;
 public class ProductFeedback
 {
     public Guid Id { get; set; }
-    
+
     public Guid OrderItemId { get; set; }
 
     public Guid ProductId { get; set; }
@@ -23,6 +23,8 @@ public class ProductFeedback
     public DateTime UpdatedAt { get; set; }
 
     public DateTime? HiddenAt { get; set; }
+
+    public int EditCount { get; set; } = 0;
 
     public OrderItem OrderItem { get; set; } = null!;
     public Product Product { get; set; } = null!;

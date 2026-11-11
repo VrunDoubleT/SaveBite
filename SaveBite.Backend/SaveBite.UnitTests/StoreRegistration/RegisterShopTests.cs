@@ -43,7 +43,10 @@ public class RegisterShopTests
             new CreateShopApplicationRequestValidator(),
             new ResubmitShopApplicationRequestValidator(),
             new ShopApplicationDocumentsValidator(),
-            new ShopApplicationLogoValidator()
+            new ShopApplicationLogoValidator(),
+            new Mock<INotificationQueue>().Object,
+            TestDbContextFactory.Create(),
+            new Mock<IAdminAuditWriter>().Object
         );
     }
 
@@ -71,9 +74,6 @@ public class RegisterShopTests
         Longitude = 106.7009,
         OpeningTime = new TimeOnly(8, 0),
         ClosingTime = new TimeOnly(22, 0),
-        BankName = "Vietcombank",
-        BankAccountNumber = "987654321",
-        BankAccountHolder = "NGUYEN VAN A",
         PayosClientId = "payos-client-id",
         PayosApiKey = "payos-api-key",
         PayosChecksumKey = "payos-checksum-key"
@@ -214,7 +214,8 @@ public class RegisterShopTests
             .ReturnsAsync(false);
 
         // Act
-        var act = () => _service.CreateAsync(_userId, request, null, null, Array.Empty<IFormFile>(), Array.Empty<string>());
+        var logo = CreateFakeFormFile("logo.png", "image/png");
+        var act = () => _service.CreateAsync(_userId, request, logo, null, Array.Empty<IFormFile>(), Array.Empty<string>());
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<ValidationException>();
@@ -239,7 +240,8 @@ public class RegisterShopTests
             .ReturnsAsync(false);
 
         // Act
-        var act = () => _service.CreateAsync(_userId, request, null, null, Array.Empty<IFormFile>(), Array.Empty<string>());
+        var logo = CreateFakeFormFile("logo.png", "image/png");
+        var act = () => _service.CreateAsync(_userId, request, logo, null, Array.Empty<IFormFile>(), Array.Empty<string>());
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<ValidationException>();
@@ -264,7 +266,8 @@ public class RegisterShopTests
             .ReturnsAsync(false);
 
         // Act
-        var act = () => _service.CreateAsync(_userId, request, null, null, Array.Empty<IFormFile>(), Array.Empty<string>());
+        var logo = CreateFakeFormFile("logo.png", "image/png");
+        var act = () => _service.CreateAsync(_userId, request, logo, null, Array.Empty<IFormFile>(), Array.Empty<string>());
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<ValidationException>();
@@ -282,20 +285,20 @@ public class RegisterShopTests
     {
         // Arrange
         var request = CreateValidRequest();
-        request.OpeningTime = new TimeOnly(22, 0);
-        request.ClosingTime = new TimeOnly(8, 0); // Opening >= Closing
+        request.Name = ""; // Empty name
 
         _repositoryMock
             .Setup(r => r.HasActiveApplicationAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         // Act
-        var act = () => _service.CreateAsync(_userId, request, null, null, Array.Empty<IFormFile>(), Array.Empty<string>());
+        var logo = CreateFakeFormFile("logo.png", "image/png");
+        var act = () => _service.CreateAsync(_userId, request, logo, null, Array.Empty<IFormFile>(), Array.Empty<string>());
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<ValidationException>();
         PrintException("UTCID07", ex.Which.Message);
-        ex.Which.Errors.Should().Contain(e => e.PropertyName == "OpeningTime" || e.PropertyName == "ClosingTime");
+        ex.Which.Errors.Should().Contain(e => e.PropertyName == "Name");
 
         _repositoryMock.Verify(r => r.AddAsync(It.IsAny<ShopApplication>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -304,23 +307,24 @@ public class RegisterShopTests
     // UTCID08: Số tài khoản ngân hàng rỗng -> Validator ném ValidationException (Abnormal - A)
     // =========================================================================
     [Fact]
-    public async Task UTCID08_RegisterShop_EmptyBankAccountNumber_ThrowsValidationException_Abnormal()
+    public async Task UTCID08_RegisterShop_EmptyName_ThrowsValidationException_Abnormal()
     {
         // Arrange
         var request = CreateValidRequest();
-        request.BankAccountNumber = ""; // Số tài khoản rỗng
+        request.Name = ""; // Tên rỗng
 
         _repositoryMock
             .Setup(r => r.HasActiveApplicationAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         // Act
-        var act = () => _service.CreateAsync(_userId, request, null, null, Array.Empty<IFormFile>(), Array.Empty<string>());
+        var logo = CreateFakeFormFile("logo.png", "image/png");
+        var act = () => _service.CreateAsync(_userId, request, logo, null, Array.Empty<IFormFile>(), Array.Empty<string>());
 
         // Assert & Log
         var ex = await act.Should().ThrowAsync<ValidationException>();
         PrintException("UTCID08", ex.Which.Message);
-        ex.Which.Errors.Should().Contain(e => e.PropertyName == "BankAccountNumber");
+        ex.Which.Errors.Should().Contain(e => e.PropertyName == "Name");
 
         _repositoryMock.Verify(r => r.AddAsync(It.IsAny<ShopApplication>(), It.IsAny<CancellationToken>()), Times.Never);
     }

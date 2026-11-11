@@ -1,13 +1,20 @@
-using Microsoft.EntityFrameworkCore;
-using SaveBite.Backend.Data;
-namespace SaveBite.UnitTests;
-public static class TestDbContextFactory
-{
-    public static AppDbContext Create()
-    {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        return new AppDbContext(options);
-    }
-}
+global using System;
+global using System.Collections.Generic;
+global using System.Linq;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using Moq;
+global using Xunit;
+global using FluentAssertions;
+global using Microsoft.EntityFrameworkCore;
+global using SaveBite.Backend.Data;
+global using SaveBite.Backend.Services.Interfaces;
+global using SaveBite.Backend.Repositories.Interfaces;
+global using SaveBite.Backend.Models.Entities;
+global using SaveBite.Backend.Models.Enums;
+global using SaveBite.Backend.Models.Common;
+global using SaveBite.Backend.Models.Requests;
+global using SaveBite.Backend.Models.Responses;
+global using SaveBite.Backend.Exceptions;
+global using SaveBite.Tests;
+global using SaveBite.Backend.Constants;

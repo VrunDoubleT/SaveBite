@@ -38,6 +38,7 @@ public sealed class FeedbacksController : ControllerBase
     // Upload feedback image (Cloudinary)
     [HttpPost("images")]
     [CustomerAccess]
+    [RequestSizeLimit(6 * 1024 * 1024)]
     public async Task<ActionResult<ApiResponse<string>>> UploadImage(
         IFormFile file,
         CancellationToken ct)
@@ -51,7 +52,7 @@ public sealed class FeedbacksController : ControllerBase
 
     // View feedback history (Customer) - supports deep-linking via feedbackId
     [HttpGet("history")]
-    [CustomerAccess]
+    [CustomerAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<PagedResult<FeedbackResponses.FeedbackItemResponse>>>> GetHistory(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
@@ -98,7 +99,7 @@ public sealed class FeedbacksController : ControllerBase
 
     // View feedback for shop (Store Owner & Staff)
     [HttpGet("shop")]
-    [StoreOwnerOrStaffActiveAccess]
+    [StoreOwnerOrStaffAnyStatusAccess]
     public async Task<ActionResult<ApiResponse<PagedResult<FeedbackResponses.FeedbackItemResponse>>>> GetShopFeedbacks(
         [FromQuery] FeedbackRequests.ShopFeedbacksQueryRequest request,
         CancellationToken ct)

@@ -1,20 +1,22 @@
 import { useCallback } from "react";
-import { Navigate } from "react-router-dom";
-import { Pagination } from "@/shared/components/pagination";
+import { Link, Navigate } from "react-router-dom";
+import { AccountPagination as Pagination } from "@/shared/components/pagination";
 import { trustApi } from "../api/trustApi";
 import { useApiResource } from "../hooks/useApiResource";
 import { TRUST_PAGE_SIZE, useListParams } from "../hooks/useListParams";
 import type { TrustScoreEventType } from "../types/trust.types";
-import { formatDateTime, formatSignedPoints } from "../utils/format";
-import { ListFilter } from "./ListFilter";
+import { formatCurrency, formatDateTime, formatSignedCurrency, formatSignedPoints } from "../utils/format";
+import { Badge, Card, FilterBar } from "@/shared/components/ui";
+import { APP_PATHS } from "@/app/router/paths";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
 
 const EVENT_LABELS: Record<TrustScoreEventType, string> = {
   OrderCompleted: "Order completed",
   NoShow: "No-show",
+  RefundReclaimed: "Refund adjustment",
 };
 
-const EVENT_FILTERS = ["OrderCompleted", "NoShow"] as const;
+const EVENT_FILTERS = ["OrderCompleted", "NoShow", "RefundReclaimed"] as const;
 const EVENT_OPTIONS = EVENT_FILTERS.map((value) => ({ value, label: EVENT_LABELS[value] }));
 
 export function TrustHistoryPanel() {
@@ -48,16 +50,16 @@ export function TrustHistoryPanel() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-base font-bold text-text-primary">Score history</h3>
-        <ListFilter
-          label="Event"
-          allLabel="All events"
-          value={eventType}
-          options={EVENT_OPTIONS}
-          onChange={setFilter}
-        />
-      </div>
+      <FilterBar
+        filters={[
+          {
+            label: "Event",
+            value: eventType ?? "All",
+            options: [{ value: "All", label: "All events" }, ...EVENT_OPTIONS],
+            onChange: (value) => setFilter(value === "All" ? null : (value as TrustScoreEventType)),
+          },
+        ]}
+      />
 
       {error && !data ? (
         <PanelError message={error} onRetry={reload} />
@@ -65,53 +67,135 @@ export function TrustHistoryPanel() {
         <PanelSkeleton rows={4} />
       ) : data.items.length === 0 ? (
         <PanelEmpty
-          title="No score changes yet"
-          description="Your score changes will appear here after you complete an order."
+          title="No history yet"
+          description="Your score and accumulated order value changes will appear here after you complete an order."
         />
       ) : (
         <>
           <div
-            className={`overflow-x-auto rounded-xl border border-border-default bg-bg-surface ${isLoading ? "opacity-60" : ""}`}
+            role="region"
+            aria-label="Score and value changes"
+            className={`space-y-4 ${isLoading ? "opacity-60" : ""}`}
           >
-            <table className="min-w-full divide-y divide-border-default text-left text-sm">
-              <thead className="bg-neutral-50 text-text-secondary">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Date</th>
-                  <th className="px-5 py-3 font-semibold">Event</th>
-                  <th className="px-5 py-3 font-semibold">Order</th>
-                  <th className="px-5 py-3 text-right font-semibold">Change</th>
-                  <th className="px-5 py-3 text-right font-semibold">Score after</th>
-                  <th className="px-5 py-3 font-semibold">Note</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-default text-text-primary">
-                {data.items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="whitespace-nowrap px-5 py-3 text-text-secondary">
-                      {formatDateTime(item.createdAt)}
-                    </td>
-                    <td className="px-5 py-3 font-medium">
+            {data.items.map((item) => (
+              <Card padding="compact" key={item.id} className="space-y-2">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-body font-semibold text-text-primary">
                       {EVENT_LABELS[item.eventType] ?? item.eventType}
-                    </td>
-                    <td className="px-5 py-3 text-text-secondary">{item.orderCode ?? "—"}</td>
-                    <td
-                      className={`px-5 py-3 text-right font-semibold tabular-nums ${
-                        item.scoreDelta >= 0 ? "text-primary-700" : "text-danger"
+                    </h2>
+                    <p className="mt-1 text-caption text-text-secondary">
+                      {formatDateTime(item.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Hide a zero change so a refund row shows only the money badge (and vice versa). */}
+                    {item.scoreDelta !== 0 && (
+                      <Badge
+                        tone={item.scoreDelta > 0 ? "primary" : "danger"}
+                        className="!text-body tabular-nums"
+                      >
+                        {formatSignedPoints(item.scoreDelta)} points
+                      </Badge>
+                    )}
+                    {item.valueDelta !== 0 && (
+                      <Badge
+                        tone={item.valueDelta > 0 ? "primary" : "danger"}
+                        className="!text-body tabular-nums"
+                      >
+                        {formatSignedCurrency(item.valueDelta)}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                {/* Trust score: before -> after this event */}
+                <p className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
+                  Trust score
+                </p>
+                <div className="grid grid-cols-3 gap-2 rounded-lg bg-neutral-50 p-3 text-center">
+                  <div>
+                    <p className="text-caption text-text-secondary">Before</p>
+                    <p className="text-body font-semibold tabular-nums text-text-primary">
+                      {item.scoreBefore}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-caption text-text-secondary">Change</p>
+                    <p
+                      className={`text-body font-semibold tabular-nums ${
+                        item.scoreDelta >= 0 ? "text-primary-700" : "text-red-700"
                       }`}
                     >
                       {formatSignedPoints(item.scoreDelta)}
-                    </td>
-                    <td className="px-5 py-3 text-right tabular-nums">
-                      <span className="text-text-muted">{item.scoreBefore} → </span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-caption text-text-secondary">After</p>
+                    <p className="text-body font-semibold tabular-nums text-text-primary">
                       {item.scoreAfter}
-                    </td>
-                    <td className="max-w-[260px] px-5 py-3 text-text-secondary">
-                      {item.reason ?? "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </p>
+                  </div>
+                </div>
+                {/* Accumulated order value (money): before -> after this event */}
+                <p className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
+                  Accumulated order value
+                </p>
+                <div className="grid grid-cols-3 gap-2 rounded-lg bg-neutral-50 p-3 text-center">
+                  <div>
+                    <p className="text-caption text-text-secondary">Before</p>
+                    <p className="text-body font-semibold tabular-nums text-text-primary">
+                      {formatCurrency(item.valueBefore)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-caption text-text-secondary">Change</p>
+                    <p
+                      className={`text-body font-semibold tabular-nums ${
+                        item.valueDelta >= 0 ? "text-primary-700" : "text-red-700"
+                      }`}
+                    >
+                      {formatSignedCurrency(item.valueDelta)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-caption text-text-secondary">After</p>
+                    <p className="text-body font-semibold tabular-nums text-text-primary">
+                      {formatCurrency(item.valueAfter)}
+                    </p>
+                  </div>
+                </div>
+                {item.previousLevelName && item.newLevelName && (
+                  <p className="text-caption text-text-secondary">
+                    Level changed:{" "}
+                    <strong className="text-text-primary">{item.previousLevelName}</strong> →{" "}
+                    <strong className="text-text-primary">{item.newLevelName}</strong>
+                  </p>
+                )}
+                {item.reason && (
+                  <p className="text-body text-text-secondary [overflow-wrap:anywhere]">
+                    {item.reason}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-default pt-3 text-caption text-text-secondary">
+                  <p>
+                    Order{" "}
+                    {item.orderId ? (
+                      <Link
+                        to={APP_PATHS.ORDER_DETAIL.replace(
+                          ":orderId",
+                          encodeURIComponent(item.orderId),
+                        )}
+                        className="font-semibold text-primary-700 hover:underline"
+                      >
+                        {item.orderCode ?? item.orderId}
+                      </Link>
+                    ) : (
+                      (item.orderCode ?? "—")
+                    )}
+                  </p>
+                </div>
+              </Card>
+            ))}
           </div>
 
           <Pagination
@@ -121,7 +205,6 @@ export function TrustHistoryPanel() {
             totalItems={data.total}
             pageSize={TRUST_PAGE_SIZE}
             itemLabel="changes"
-            hideOnSinglePage
           />
         </>
       )}

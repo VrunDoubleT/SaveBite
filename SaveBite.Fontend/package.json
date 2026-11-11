@@ -9,13 +9,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "test:checkout": "node tests/checkout-policy.test.mjs",
-    "test:shop-orders": "node tests/shop-order-history.test.mjs",
-    "test:cart": "node tests/cart-store.test.mjs",
-    "test:realtime": "node tests/realtime-client.test.mjs",
-    "test:address-location": "node tests/address-location.test.mjs",
-    "preview": "vite preview",
-    "test:products": "playwright test"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

@@ -40,7 +40,10 @@ public class ViewShopRegistrationStatusTests
             new CreateShopApplicationRequestValidator(),
             new ResubmitShopApplicationRequestValidator(),
             new ShopApplicationDocumentsValidator(),
-            new ShopApplicationLogoValidator()
+            new ShopApplicationLogoValidator(),
+            new Mock<INotificationQueue>().Object,
+            TestDbContextFactory.Create(),
+            new Mock<IAdminAuditWriter>().Object
         );
     }
 
@@ -62,9 +65,6 @@ public class ViewShopRegistrationStatusTests
             Longitude = 106.7009,
             OpeningTime = new TimeOnly(8, 0),
             ClosingTime = new TimeOnly(22, 0),
-            BankName = "Vietcombank",
-            BankAccountNumber = "987654321",
-            BankAccountHolder = "NGUYEN VAN A",
             PayosClientId = "payos-client-id",
             PayosApiKey = "payos-api-key",
             PayosChecksumKey = "payos-checksum-key",

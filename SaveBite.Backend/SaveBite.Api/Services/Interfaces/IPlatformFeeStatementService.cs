@@ -7,6 +7,8 @@ namespace SaveBite.Backend.Services.Interfaces;
 
 public interface IPlatformFeeStatementService
 {
+    Task RepairNotificationsAsync(Guid statementId, CancellationToken ct = default);
+
     // UC-79: View System Fees (BR-092, BR-093, BR-192, BR-193)
     Task<PagedResult<PlatformFeeStatementSummaryResponse>> GetShopStatementsAsync(
         Guid shopId,
@@ -24,10 +26,12 @@ public interface IPlatformFeeStatementService
         Guid shopId,
         Guid currentUserId,
         CancellationToken ct = default);
+
     // Admin: View Fee Details for any shop
     Task<PlatformFeeStatementDetailResponse> GetAdminStatementDetailAsync(
         Guid statementId,
         CancellationToken ct = default);
+
     // UC-81: Pay Platform Fee (BR-092, BR-094, BR-097)
     Task<PlatformFeePaymentLinkResponse> CreatePaymentLinkAsync(
         Guid statementId,
@@ -47,7 +51,8 @@ public interface IPlatformFeeStatementService
 
     // BR-095, BR-193: Automatically mark overdue statements and suspend delinquent shops
     Task<int> CheckAndSuspendOverdueShopsAsync(
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        Guid? initiatedByAdminId = null);
 
     // BR-096, BR-194, BR-195: Admin records external payment reconciliation and reactivates shop
     Task RecordExternalPaymentAsync(
@@ -60,5 +65,6 @@ public interface IPlatformFeeStatementService
     Task<int> GenerateMonthlyStatementsAsync(
         int billingYear,
         short billingMonth,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        Guid? initiatedByAdminId = null);
 }

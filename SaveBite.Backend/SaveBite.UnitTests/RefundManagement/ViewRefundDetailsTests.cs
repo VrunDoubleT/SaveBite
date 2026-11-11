@@ -59,8 +59,13 @@ public class ViewRefundDetailsTests
             TimeProvider.System,
             _configMock.Object,
             _deadlinesMock.Object,
-            _loggerMock.Object
+            _loggerMock.Object,
+            new Mock<INotificationQueue>().Object,
+            new Mock<ITrustNotificationService>().Object,
+            TestDbContextFactory.Create()
         );
+        _shopRepoMock.Setup(s => s.OwnerShopAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(ValidShopId);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
     }
 
     private User CreateCustomerUser(Guid id, UserStatus status = UserStatus.Active, CustomerStatus custStatus = CustomerStatus.Active)
@@ -141,7 +146,7 @@ public class ViewRefundDetailsTests
         _refundRepoMock.Setup(r => r.UserAsync(ValidCustomerId, It.IsAny<CancellationToken>())).ReturnsAsync(customer);
 
         // Act
-        var result = await _service.GetAsync(ValidCustomerId, ValidRefundId, null, CancellationToken.None);
+        var result = await _service.GetAsync(ValidCustomerId, ValidRefundId, false, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
@@ -166,10 +171,10 @@ public class ViewRefundDetailsTests
         var refund = CreateRefund(ValidRefundId, ValidOrderId, ValidCustomerId, ValidShopId);
 
         _refundRepoMock.Setup(r => r.GetAsync(ValidRefundId, false, It.IsAny<CancellationToken>())).ReturnsAsync(refund);
-        _shopRepoMock.Setup(s => s.RequireAccessAsync(StoreOwnerId, ValidShopId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(StoreOwnerId, ValidShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
 
         // Act
-        var result = await _service.GetAsync(StoreOwnerId, ValidRefundId, ValidShopId, CancellationToken.None);
+        var result = await _service.GetAsync(StoreOwnerId, ValidRefundId, true, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
@@ -193,7 +198,7 @@ public class ViewRefundDetailsTests
             .ReturnsAsync((Refund?)null);
 
         // Act
-        var act = async () => await _service.GetAsync(ValidCustomerId, NonExistentRefundId, null, CancellationToken.None);
+        var act = async () => await _service.GetAsync(ValidCustomerId, NonExistentRefundId, false, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -218,7 +223,7 @@ public class ViewRefundDetailsTests
         _refundRepoMock.Setup(r => r.UserAsync(ValidCustomerId, It.IsAny<CancellationToken>())).ReturnsAsync(customer);
 
         // Act
-        var act = async () => await _service.GetAsync(ValidCustomerId, ValidRefundId, null, CancellationToken.None);
+        var act = async () => await _service.GetAsync(ValidCustomerId, ValidRefundId, false, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
@@ -240,10 +245,10 @@ public class ViewRefundDetailsTests
         var refund = CreateRefund(ValidRefundId, ValidOrderId, ValidCustomerId, ValidShopId);
 
         _refundRepoMock.Setup(r => r.GetAsync(ValidRefundId, false, It.IsAny<CancellationToken>())).ReturnsAsync(refund);
-        _shopRepoMock.Setup(s => s.RequireAccessAsync(NonOwnerId, ValidShopId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _shopRepoMock.Setup(s => s.RequireAccessAsync(NonOwnerId, ValidShopId, It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(false);
 
         // Act
-        var act = async () => await _service.GetAsync(NonOwnerId, ValidRefundId, ValidShopId, CancellationToken.None);
+        var act = async () => await _service.GetAsync(NonOwnerId, ValidRefundId, true, CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();

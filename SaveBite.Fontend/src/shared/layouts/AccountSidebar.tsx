@@ -1,16 +1,60 @@
+import { FilePenLine, Store } from "lucide-react";
 import { RefundsBadge } from "@/features/refunds/components/RefundsBadge";
 import { APP_PATHS } from "@/app/router/paths";
 import { Fragment } from "react";
 import { NavLink } from "react-router-dom";
 import { ACCOUNT_NAV_GROUPS } from "@/shared/config/accountNavigation";
-
+import { useAuthStore } from "@/shared/stores/authStore";
 export function AccountSidebar() {
+  const role = useAuthStore((state) => state.user?.role);
+  const groups = ACCOUNT_NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items
+      .filter((item) => {
+        if (item.roles && (!role || !item.roles.includes(role))) return false;
+        if (role === "staff" && item.to === APP_PATHS.ACCOUNT_SHOP_APPLICATION) {
+          return false;
+        }
+
+        if (
+          role === "storeOwner" &&
+          new Set<string>([APP_PATHS.ACCOUNT_WORKSPACE, APP_PATHS.ACCOUNT_STAFF_INVITATIONS]).has(
+            item.to,
+          )
+        ) {
+          return false;
+        }
+
+        return true;
+      })
+      .map((item) =>
+        item.to === APP_PATHS.ACCOUNT_SHOP_APPLICATION ? { ...item, icon: FilePenLine } : item,
+      ),
+  }))
+    .map((group) => ({
+      ...group,
+      items:
+        role === "storeOwner" && group.label === "Business"
+          ? [
+              ...group.items,
+              {
+                to: APP_PATHS.STORE_OWNER,
+                label: "My Shop",
+                title: "My Shop",
+                description: "Open your shop workspace",
+                icon: Store,
+              },
+            ]
+          : group.items,
+    }))
+    .filter((group) => group.items.length > 0);
+
   return (
     <nav
       aria-label="Account navigation"
       className="min-w-0 rounded-lg border border-border-default bg-bg-surface p-2 shadow-sm min-[900px]:sticky min-[900px]:top-20 min-[900px]:p-3"
     >
-      {ACCOUNT_NAV_GROUPS.map((group, index) => (
+      {groups.map((group, index) => (
         <Fragment key={group.label}>
           {index > 0 && (
             <hr className="mx-2 my-4 hidden border-t border-border-default min-[900px]:block" />

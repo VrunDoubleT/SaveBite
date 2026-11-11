@@ -1,3 +1,5 @@
+using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.BackgroundJobs.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -33,11 +35,12 @@ public class AcceptStaffInvitationTests
     public AcceptStaffInvitationTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object);
+        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object, new Mock<IStaffInvitationScheduler>().Object, new StaffInvitationNotificationService(_invitationRepoMock.Object, new Mock<INotificationQueue>().Object), TestDbContextFactory.Create(), new Mock<IRealtimePublisher>().Object);
 
         var mockTransaction = new Mock<IDbContextTransaction>();
         _staffRepoMock.Setup(r => r.BeginTransactionAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(mockTransaction.Object);
+        _invitationRepoMock.Setup(r => r.TryTransitionPendingAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
     }
 
     private User CreateValidCandidateUser()
@@ -139,7 +142,7 @@ public class AcceptStaffInvitationTests
         PrintException("UTCID03", ex.Which);
         ex.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         ex.Which.ErrorCode.Should().Be(ErrorCodes.InvitationInvalidOrExpired);
-        invitation.Status.Should().Be(nameof(StaffInvitationStatus.Cancelled));
+        _invitationRepoMock.Verify(r => r.TryTransitionPendingAsync(_invitationId, nameof(StaffInvitationStatus.Expired), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // =========================================================================

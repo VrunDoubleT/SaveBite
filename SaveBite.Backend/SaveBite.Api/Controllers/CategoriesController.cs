@@ -1,8 +1,11 @@
 using SaveBite.Backend.Authorization;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Common;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Services.Interfaces;
 
@@ -54,7 +57,7 @@ public sealed class CategoriesController : ControllerBase
         [FromBody] CreateCategoryRequest request,
         CancellationToken cancellationToken)
     {
-        var categoryId = await _categoryService.CreateCategoryAsync(request, cancellationToken);
+        var categoryId = await _categoryService.CreateCategoryAsync(GetAuthenticatedUserId(), request, cancellationToken);
         return Ok(ApiResponse.Ok($"Category created successfully with ID: {categoryId}"));
     }
 
@@ -65,7 +68,7 @@ public sealed class CategoriesController : ControllerBase
         [FromBody] UpdateCategoryRequest request,
         CancellationToken cancellationToken)
     {
-        await _categoryService.UpdateCategoryAsync(id, request, cancellationToken);
+        await _categoryService.UpdateCategoryAsync(GetAuthenticatedUserId(), id, request, cancellationToken);
         return Ok(ApiResponse.Ok("Category updated successfully."));
     }
 
@@ -76,7 +79,7 @@ public sealed class CategoriesController : ControllerBase
         [FromBody] UpdateCategoryStatusRequest request,
         CancellationToken cancellationToken)
     {
-        await _categoryService.UpdateCategoryStatusAsync(id, request, cancellationToken);
+        await _categoryService.UpdateCategoryStatusAsync(GetAuthenticatedUserId(), id, request, cancellationToken);
         var statusMsg = request.IsActive ? "activated" : "deactivated";
         return Ok(ApiResponse.Ok($"Category {statusMsg} successfully."));
     }
@@ -87,7 +90,13 @@ public sealed class CategoriesController : ControllerBase
         Guid id,
         CancellationToken cancellationToken)
     {
-        await _categoryService.DeleteCategoryAsync(id, cancellationToken);
+        await _categoryService.DeleteCategoryAsync(GetAuthenticatedUserId(), id, cancellationToken);
         return Ok(ApiResponse.Ok("Category deleted successfully."));
+    }
+
+    private Guid GetAuthenticatedUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        return Guid.TryParse(value, out var userId) ? userId : throw AppException.Unauthorized();
     }
 }

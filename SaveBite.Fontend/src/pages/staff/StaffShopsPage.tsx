@@ -1,3 +1,4 @@
+import { AssociatedShopImage } from "@/features/staff-shops/components/AssociatedShopImage";
 import { useEffect, useState } from "react";
 import { CalendarDays, ChevronRight, Store } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -7,7 +8,7 @@ import type { AssociatedShop } from "@/features/staff-shops/types/staff.types";
 import { APP_PATHS } from "@/app/router/paths";
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString("vi-VN");
+  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
 }
 
 function getStatusStyle(status: AssociatedShop["status"]) {
@@ -145,9 +146,7 @@ export function StaffShopsPage() {
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-4">
                 {/* Icon */}
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                  <Store size={24} />
-                </div>
+                <AssociatedShopImage shop={shop} />
 
                 {/* Shop info */}
                 <div className="min-w-0">

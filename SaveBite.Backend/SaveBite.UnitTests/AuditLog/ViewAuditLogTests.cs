@@ -88,7 +88,7 @@ public class ViewAuditLogTests
             .ReturnsAsync(pagedLogs);
 
         _repositoryMock
-            .Setup(r => r.GetDistinctFiltersAsync(It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetDistinctFiltersAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(filterOptions);
 
         // Act
@@ -106,7 +106,7 @@ public class ViewAuditLogTests
         result.FilterOptions.TargetTypes.Should().Contain("User");
 
         _repositoryMock.Verify(r => r.GetPagedLogsAsync(request, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()), Times.Once);
-        _repositoryMock.Verify(r => r.GetDistinctFiltersAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(r => r.GetDistinctFiltersAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
 
         _output.WriteLine($"[TCID01 PASSED] 200 OK - Retrieved {result.Page.Items.Count} audit logs successfully.");
     }
@@ -157,7 +157,7 @@ public class ViewAuditLogTests
             .Setup(r => r.GetPagedLogsAsync(request, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedLogs);
         _repositoryMock
-            .Setup(r => r.GetDistinctFiltersAsync(It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetDistinctFiltersAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<string> { "UpdateCredentials" }, new List<string> { "Shop" }));
 
         // Act
@@ -194,7 +194,7 @@ public class ViewAuditLogTests
             .Setup(r => r.GetPagedLogsAsync(request, It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedLogs);
         _repositoryMock
-            .Setup(r => r.GetDistinctFiltersAsync(It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetDistinctFiltersAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<string>(), new List<string>()));
 
         // Act

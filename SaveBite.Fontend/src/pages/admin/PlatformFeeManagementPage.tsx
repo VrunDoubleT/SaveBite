@@ -224,8 +224,8 @@ export function PlatformFeeManagementPage() {
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight sm:text-3xl">
-            Platform Fee Management
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+            Platform Fees Management
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Configure global commission rates and oversee periodic statement reconciliation
@@ -561,7 +561,8 @@ export function PlatformFeeManagementPage() {
               <h3 className="text-sm font-bold text-slate-900">Manual Reconciliation</h3>
               <p className="text-xs text-slate-500 leading-normal">
                 Record cash payments or direct bank transfers to Admin, debit accounts, and
-                automatically unlock suspended shops.
+                automatically reactivate shops suspended for overdue platform fees. Administrator
+                suspensions remain in effect.
               </p>
             </div>
             <button
@@ -687,9 +688,24 @@ export function PlatformFeeManagementPage() {
                     return (
                       <tr key={stmt.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="px-5 py-4 font-bold text-slate-900">
-                          {stmt.shopName || "Shop"}
-                          <div className="font-mono text-[10px] text-slate-400 font-normal">
-                            {stmt.id.substring(0, 18)}...
+                          <div className="flex items-center gap-3">
+                            {stmt.shopLogoUrl ? (
+                              <img
+                                src={stmt.shopLogoUrl}
+                                alt={stmt.shopName || "Shop"}
+                                className="size-8 rounded-lg object-cover border border-slate-200"
+                              />
+                            ) : (
+                              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 border border-primary-100">
+                                <Store className="size-4" />
+                              </div>
+                            )}
+                            <div>
+                              <div>{stmt.shopName || "Shop"}</div>
+                              <div className="font-mono text-[10px] text-slate-400 font-normal">
+                                {stmt.id.substring(0, 18)}...
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className="px-5 py-4 font-medium text-slate-700">

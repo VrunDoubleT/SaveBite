@@ -1,3 +1,5 @@
+using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.BackgroundJobs.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Moq;
@@ -33,7 +35,8 @@ public class RevokeStaffInvitationTests
     public RevokeStaffInvitationTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object);
+        _service = new StaffInvitationService(_invitationRepoMock.Object, _staffRepoMock.Object, new Mock<IStaffInvitationScheduler>().Object, new StaffInvitationNotificationService(_invitationRepoMock.Object, new Mock<INotificationQueue>().Object), TestDbContextFactory.Create(), new Mock<IRealtimePublisher>().Object);
+        _invitationRepoMock.Setup(r => r.TryTransitionPendingAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         _ownerShop = new Shop
         {
@@ -55,6 +58,7 @@ public class RevokeStaffInvitationTests
         {
             Id = _invitationId,
             ShopId = _shopId,
+            Shop = _ownerShop,
             Status = nameof(StaffInvitationStatus.Pending),
             InvitedAt = DateTime.UtcNow.AddHours(-2) // Còn hạn (mới mời 2 tiếng trước)
         };
@@ -74,10 +78,7 @@ public class RevokeStaffInvitationTests
         PrintSuccess("UT01", "Invitation successfully revoked and marked as Cancelled.");
 
         // Assert
-        invitation.Status.Should().Be(nameof(StaffInvitationStatus.Cancelled));
-        invitation.RespondedAt.Should().NotBeNull();
-        _invitationRepoMock.Verify(r => r.UpdateInvitationAsync(invitation, It.IsAny<CancellationToken>()), Times.Once);
-        _invitationRepoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _invitationRepoMock.Verify(r => r.TryTransitionPendingAsync(_invitationId, nameof(StaffInvitationStatus.Cancelled), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // =========================================================
@@ -200,6 +201,7 @@ public class RevokeStaffInvitationTests
         {
             Id = _invitationId,
             ShopId = _shopId,
+            Shop = _ownerShop,
             Status = nameof(StaffInvitationStatus.Pending),
             InvitedAt = DateTime.UtcNow.AddDays(-4)
         };
@@ -219,13 +221,9 @@ public class RevokeStaffInvitationTests
         PrintException("UT06", ex.Which);
         ex.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         ex.Which.ErrorCode.Should().Be(ErrorCodes.InvitationInvalidOrExpired);
-        ex.Which.Message.Should().Be("Invitation has already expired and has been cancelled");
+        ex.Which.Message.Should().Be("Invitation has expired");
 
-        // Verify: Hệ thống đã tự động cập nhật Status = Cancelled và lưu vào DB
-        invitation.Status.Should().Be(nameof(StaffInvitationStatus.Cancelled));
-        invitation.RespondedAt.Should().NotBeNull();
-        _invitationRepoMock.Verify(r => r.UpdateInvitationAsync(invitation, It.IsAny<CancellationToken>()), Times.Once);
-        _invitationRepoMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _invitationRepoMock.Verify(r => r.TryTransitionPendingAsync(_invitationId, nameof(StaffInvitationStatus.Expired), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private void PrintSuccess(string utcid, string message)

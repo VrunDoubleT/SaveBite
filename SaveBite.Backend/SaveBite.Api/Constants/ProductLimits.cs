@@ -2,6 +2,7 @@ namespace SaveBite.Backend.Constants;
 
 public static class ProductLimits
 {
+    public const int PriceStepVnd = 1000;
     public const int Images = 10;
     public const int Attributes = 3;
     public const int ValuesPerAttribute = 20;

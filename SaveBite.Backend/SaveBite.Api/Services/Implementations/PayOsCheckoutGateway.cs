@@ -1,3 +1,4 @@
+using SaveBite.Backend.Constants;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -38,8 +39,8 @@ public sealed class PayOsCheckoutGateway : ICheckoutPaymentGateway
         var returnUrl = $"{frontend.TrimEnd('/')}/checkout?orderId={order.Id}";
         var cancelUrl = returnUrl + "&cancelled=1";
         var code = payment.GatewayOrderCode ?? throw AppException.InternalError();
-        if (payment.Amount <= 0 || decimal.Truncate(payment.Amount) != payment.Amount || payment.Amount > long.MaxValue)
-            throw AppException.BadRequest("Online payment amounts must be positive whole VND values.");
+        if (payment.Amount < MoneyLimits.MinAmountVnd || decimal.Truncate(payment.Amount) != payment.Amount || payment.Amount > long.MaxValue)
+            throw AppException.BadRequest($"Online payment amounts must be whole VND values of at least {MoneyLimits.MinAmountVnd:N0}.");
         var amount = (long)payment.Amount;
         var description = $"SB{code % 10000000:0000000}";
         var signatureData = FormattableString.Invariant($"amount={amount}&cancelUrl={cancelUrl}&description={description}&orderCode={code}&returnUrl={returnUrl}");

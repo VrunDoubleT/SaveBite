@@ -1,15 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Eye,
-  Edit2,
-  EyeOff,
-  Plus,
-  Search,
-  XCircle,
-  Sparkles,
-  Loader2,
-} from "lucide-react";
+import { Eye, Edit2, EyeOff, Plus, Search, XCircle, Sparkles, Loader2 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import {
@@ -20,11 +11,13 @@ import { CancelFlashDealModal } from "@/features/flash-deals/components/CancelFl
 import { ToggleVisibilityModal } from "@/features/flash-deals/components/ToggleVisibilityModal";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 type FilterTab = "all" | "pending" | "running" | "ended" | "hidden";
 
 export function StoreOwnerFlashDealsPage() {
   const navigate = useNavigate();
+  const shopSuspended = useShopSuspended();
   const [deals, setDeals] = useState<ShopFlashDealListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
@@ -74,7 +67,8 @@ export function StoreOwnerFlashDealsPage() {
   // Compute status helpers
   function getDealState(deal: ShopFlashDealListItem): "pending" | "running" | "ended" | "hidden" {
     if (deal.status === FlashDealStatusEnum.Hidden) return "hidden";
-    if (deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed) return "ended";
+    if (deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed)
+      return "ended";
     const now = new Date();
     const start = new Date(deal.saleStartTime);
     const end = new Date(deal.orderEndTime);
@@ -148,7 +142,7 @@ export function StoreOwnerFlashDealsPage() {
 
   // Confirm toggle visibility via modal
   async function handleConfirmToggleVisibility() {
-    if (!togglingDeal) return;
+    if (!togglingDeal || shopSuspended) return;
     try {
       setToggleModalLoading(true);
       if (togglingDeal.status === FlashDealStatusEnum.Hidden) {
@@ -169,7 +163,7 @@ export function StoreOwnerFlashDealsPage() {
 
   // Confirm cancel via modal
   async function handleConfirmCancel() {
-    if (!cancellingDeal) return;
+    if (!cancellingDeal || shopSuspended) return;
     try {
       setCancelModalLoading(true);
       await flashDealApi.cancelFlashDeal(cancellingDeal.id);
@@ -209,8 +203,14 @@ export function StoreOwnerFlashDealsPage() {
         </div>
         <button
           type="button"
+          disabled={shopSuspended}
+          title={
+            shopSuspended
+              ? "Creating flash deals is unavailable while your shop is suspended."
+              : undefined
+          }
           onClick={() => navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_CREATE)}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="size-4" />
           <span>Create Flash Deal</span>
@@ -218,43 +218,57 @@ export function StoreOwnerFlashDealsPage() {
       </div>
 
       {/* 4 Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Running */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Running Deals</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{stats.running}</p>
-          <p className="mt-1 text-xs text-neutral-400">
-            {stats.pending} upcoming program{stats.pending !== 1 ? "s" : ""}
-          </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        {/* Card 1: Total Deals */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <Sparkles className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Total Deals</p>
+              <p className="text-xl font-bold text-neutral-900">{stats.totalDeals}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Card 2: Sold */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Total Sold</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{stats.sold}</p>
-          <p className="mt-1 text-xs text-neutral-400">
-            out of {stats.total} total items
-          </p>
+        {/* Card 2: Active Deals */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <span className="size-2 rounded-full bg-emerald-500" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Active Deals</p>
+              <p className="text-xl font-bold text-emerald-600">{stats.running}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Card 3: Remaining */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Remaining Inventory</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-600">{stats.remaining}</p>
-          <p className="mt-1 text-xs text-neutral-400">Available for customer orders</p>
+        {/* Card 3: Upcoming Deals */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <span className="size-2 rounded-full bg-amber-500" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Upcoming Deals</p>
+              <p className="text-xl font-bold text-amber-600">{stats.pending}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Card 4: Total Programs */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Total Deals</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{stats.totalDeals}</p>
-          <p className="mt-1 text-xs text-neutral-400">
-            {stats.hidden > 0 ? (
-              <span className="font-semibold text-amber-700">{stats.hidden} hidden from buyers</span>
-            ) : (
-              <span>{stats.ended} ended or closed</span>
-            )}
-          </p>
+        {/* Card 4: Hidden / Ended */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+              <EyeOff className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Hidden / Ended</p>
+              <p className="text-xl font-bold text-slate-700">{stats.hidden + stats.ended}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -269,7 +283,10 @@ export function StoreOwnerFlashDealsPage() {
               <span className="font-bold">
                 You have {stats.hidden} hidden Flash Deal{stats.hidden !== 1 ? "s" : ""}
               </span>
-              <span className="text-amber-700"> — Hidden deals are not visible to customers on SaveBite.</span>
+              <span className="text-amber-700">
+                {" "}
+                — Hidden deals are not visible to customers on SaveBite.
+              </span>
             </div>
           </div>
           <button
@@ -288,10 +305,10 @@ export function StoreOwnerFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("all")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "all"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             All ({tabCounts.all})
@@ -299,10 +316,10 @@ export function StoreOwnerFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("pending")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "pending"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             Upcoming ({tabCounts.pending})
@@ -310,10 +327,10 @@ export function StoreOwnerFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("running")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "running"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             Running ({tabCounts.running})
@@ -321,10 +338,10 @@ export function StoreOwnerFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("ended")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "ended"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             Ended ({tabCounts.ended})
@@ -332,12 +349,12 @@ export function StoreOwnerFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("hidden")}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "hidden"
-                ? "bg-amber-600 text-white shadow-xs"
+                ? "bg-amber-600 text-white shadow-sm"
                 : tabCounts.hidden > 0
-                ? "bg-amber-100/70 text-amber-800 hover:bg-amber-200/70"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             <EyeOff className="size-3.5" />
@@ -353,23 +370,35 @@ export function StoreOwnerFlashDealsPage() {
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
             placeholder="Search deals or products..."
-            className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none"
           />
         </div>
       </div>
 
       {/* Deals Table */}
-      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xs">
+      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-neutral-200 text-left text-xs">
             <thead className="bg-neutral-50/75 text-neutral-500">
               <tr>
-                <th scope="col" className="px-4 py-3.5 font-medium">Product</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Flash Deal Price</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Schedule</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Sales Progress</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Status & Visibility</th>
-                <th scope="col" className="px-4 py-3.5 text-right font-medium">Actions</th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Product
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Flash Deal Price
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Schedule
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Sales Progress
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Status & Visibility
+                </th>
+                <th scope="col" className="px-4 py-3.5 text-right font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 bg-white">
@@ -384,7 +413,9 @@ export function StoreOwnerFlashDealsPage() {
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-neutral-400">
                     <Sparkles className="mx-auto size-8 text-neutral-300" />
-                    <p className="mt-2 text-sm font-medium text-neutral-600">No flash deals found</p>
+                    <p className="mt-2 text-sm font-medium text-neutral-600">
+                      No flash deals found
+                    </p>
                     <p className="mt-1 text-xs text-neutral-400">
                       Create a new Flash Deal to offer surplus food at discounted prices!
                     </p>
@@ -394,9 +425,10 @@ export function StoreOwnerFlashDealsPage() {
                 filteredDeals.map((deal) => {
                   const state = getDealState(deal);
                   const isHidden = deal.status === FlashDealStatusEnum.Hidden;
-                  const soldPercent = deal.totalQuantity > 0
-                    ? Math.min(100, Math.round((deal.soldQuantity / deal.totalQuantity) * 100))
-                    : 0;
+                  const soldPercent =
+                    deal.totalQuantity > 0
+                      ? Math.min(100, Math.round((deal.soldQuantity / deal.totalQuantity) * 100))
+                      : 0;
 
                   return (
                     <tr
@@ -411,7 +443,10 @@ export function StoreOwnerFlashDealsPage() {
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={deal.productImageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"}
+                            src={
+                              deal.productImageUrl ||
+                              "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"
+                            }
                             alt={deal.productName}
                             className="size-11 rounded-lg object-cover"
                           />
@@ -434,7 +469,7 @@ export function StoreOwnerFlashDealsPage() {
                       {/* Price */}
                       <td className="px-4 py-4 whitespace-nowrap">
                         <p className="font-bold text-red-600">
-                          {deal.minDealPrice.toLocaleString("vi-VN")}đ
+                          {deal.minDealPrice.toLocaleString("en-US")} VND
                         </p>
                         <p className="text-[11px] text-neutral-400">
                           up to {deal.maxDiscountPercent}% off
@@ -444,7 +479,9 @@ export function StoreOwnerFlashDealsPage() {
                       {/* Time */}
                       <td className="px-4 py-4 whitespace-nowrap text-neutral-600">
                         <p>Starts: {formatDateTime(deal.saleStartTime)}</p>
-                        <p className="text-neutral-400">Ends: {formatDateTime(deal.orderEndTime)}</p>
+                        <p className="text-neutral-400">
+                          Ends: {formatDateTime(deal.orderEndTime)}
+                        </p>
                       </td>
 
                       {/* Progress */}
@@ -476,7 +513,9 @@ export function StoreOwnerFlashDealsPage() {
                               <EyeOff className="size-3 text-amber-700" />
                               Hidden
                             </span>
-                            <p className="text-[10px] font-medium text-amber-700">Not visible to buyers</p>
+                            <p className="text-[10px] font-medium text-amber-700">
+                              Not visible to buyers
+                            </p>
                           </div>
                         ) : state === "running" ? (
                           <div className="space-y-0.5">
@@ -484,7 +523,9 @@ export function StoreOwnerFlashDealsPage() {
                               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                               Active
                             </span>
-                            <p className="text-[10px] font-medium text-emerald-600">Visible to customers</p>
+                            <p className="text-[10px] font-medium text-emerald-600">
+                              Visible to customers
+                            </p>
                           </div>
                         ) : state === "pending" ? (
                           <div className="space-y-0.5">
@@ -507,12 +548,13 @@ export function StoreOwnerFlashDealsPage() {
                       <td className="px-4 py-4 whitespace-nowrap text-right">
                         <div className="inline-flex items-center gap-2">
                           {/* Prominent High-Visibility Hide / Unhide Button */}
-                          {state !== "ended" && (
-                            isHidden ? (
+                          {state !== "ended" &&
+                            (isHidden ? (
                               <button
                                 type="button"
+                                disabled={shopSuspended}
                                 onClick={() => setTogglingDeal(deal)}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-500 px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition hover:bg-amber-600 active:scale-95"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-500 px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition hover:bg-amber-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                                 title="Click to unhide this deal for customers"
                               >
                                 <Eye className="size-3.5" />
@@ -521,15 +563,15 @@ export function StoreOwnerFlashDealsPage() {
                             ) : (
                               <button
                                 type="button"
+                                disabled={shopSuspended}
                                 onClick={() => setTogglingDeal(deal)}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 shadow-2xs transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 shadow-2xs transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
                                 title="Click to temporarily hide this deal from customers"
                               >
                                 <EyeOff className="size-3.5 text-neutral-500" />
                                 <span>Hide</span>
                               </button>
-                            )
-                          )}
+                            ))}
 
                           {/* View details */}
                           <button
@@ -537,7 +579,7 @@ export function StoreOwnerFlashDealsPage() {
                             title="View deal details"
                             onClick={() =>
                               navigate(
-                                APP_PATHS.STORE_OWNER_FLASH_DEAL_DETAIL.replace(":id", deal.id)
+                                APP_PATHS.STORE_OWNER_FLASH_DEAL_DETAIL.replace(":id", deal.id),
                               )
                             }
                             className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-2xs transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900"
@@ -545,29 +587,29 @@ export function StoreOwnerFlashDealsPage() {
                             <Eye className="size-3.5" />
                           </button>
 
-                          {/* Edit */}
-                          {state !== "ended" && (
-                            <button
-                              type="button"
-                              title="Edit deal"
-                              onClick={() =>
-                                navigate(
-                                  APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id)
-                                )
-                              }
-                              className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-2xs transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900"
-                            >
-                              <Edit2 className="size-3.5" />
-                            </button>
-                          )}
+                          {/* Edit - ended deals can be reopened; suspension disables actions */}
+                          <button
+                            type="button"
+                            disabled={shopSuspended}
+                            title={state === "ended" ? "Edit deal timing to re-open" : "Edit deal"}
+                            onClick={() =>
+                              navigate(
+                                APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id),
+                              )
+                            }
+                            className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-2xs transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Edit2 className="size-3.5" />
+                          </button>
 
                           {/* Cancel - Opens Confirmation Modal */}
                           {state !== "ended" && (
                             <button
                               type="button"
+                              disabled={shopSuspended}
                               title="Cancel deal"
                               onClick={() => setCancellingDeal(deal)}
-                              className="rounded-lg border border-red-200 bg-red-50/50 p-1.5 text-red-600 shadow-2xs transition hover:border-red-300 hover:bg-red-100"
+                              className="rounded-lg border border-red-200 bg-red-50/50 p-1.5 text-red-600 shadow-2xs transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <XCircle className="size-3.5" />
                             </button>
@@ -585,7 +627,8 @@ export function StoreOwnerFlashDealsPage() {
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-neutral-200 px-4 py-3 text-xs text-neutral-500">
           <span>
-            Showing {filteredDeals.length} of {deals.length} Flash Deal{deals.length !== 1 ? "s" : ""}
+            Showing {filteredDeals.length} of {deals.length} Flash Deal
+            {deals.length !== 1 ? "s" : ""}
           </span>
         </div>
       </div>

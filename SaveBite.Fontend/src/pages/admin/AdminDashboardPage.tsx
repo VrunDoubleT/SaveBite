@@ -5,6 +5,7 @@ import {
   History,
   Landmark,
   LayoutDashboard,
+  Store,
   Users,
   Zap,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import {
   PlatformFlashDealStatsSection,
   PlatformPaymentRefundSection,
   PlatformRevenueOrderSection,
+  PlatformShopRevenueSection,
   PlatformShopStatsSection,
   PlatformSummaryComparison,
   PlatformUserStatsSection,
@@ -27,7 +29,10 @@ import {
 } from "@/features/admin-analytics/utils/analyticsTabs";
 import type { DetailView } from "@/features/store-analytics/hooks/useAnalyticsPeriod";
 import { AnalyticsPeriodFilter } from "@/features/store-analytics/components";
-import { describePeriod, formatPeriodRange } from "@/features/store-analytics/utils/formatAnalytics";
+import {
+  describePeriod,
+  formatPeriodRange,
+} from "@/features/store-analytics/utils/formatAnalytics";
 import {
   DashboardHeader,
   DashboardSkeleton,
@@ -39,13 +44,14 @@ import { ErrorModal } from "@/shared/components/modal/ErrorModal";
 const SECTION_TABS: TabItem<PlatformAnalyticsTab>[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "revenue-orders", label: "Revenue and orders", icon: Banknote },
+  { id: "shop-revenue", label: "Revenue by shop", icon: Store },
   { id: "fees", label: "Fees", icon: Landmark },
   { id: "users-shops", label: "Users and shops", icon: Users },
   { id: "deals", label: "Flash Deals", icon: Zap },
   { id: "payments-refunds", label: "Payments and refunds", icon: CreditCard },
 ];
 
-// Routes: /admin/analytics/:tab (overview | revenue-orders | fees | users-shops | deals | payments-refunds)
+// Routes: /admin/analytics/:tab (overview | revenue-orders | shop-revenue | fees | users-shops | deals | payments-refunds)
 // The period and the "all time" switch stay in the query string (?preset=month&month=2026-10&view=all-time).
 export function AdminDashboardPage() {
   const { tab } = useParams();
@@ -82,12 +88,16 @@ function PlatformDashboard({ activeTab }: { activeTab: PlatformAnalyticsTab }) {
   const snapshot = data ? (view === "selected" ? data.selected : data.overall) : null;
   const scopeLabel = view === "selected" ? selectedName.toLowerCase() : "all time";
   const granularity = view === "selected" && data ? data.period.granularity : "month";
-  const show = (...tabs: PlatformAnalyticsTab[]) => activeTab === "overview" || tabs.includes(activeTab);
+  const show = (...tabs: PlatformAnalyticsTab[]) =>
+    activeTab === "overview" || tabs.includes(activeTab);
 
   return (
-    <div className={`space-y-6 transition-opacity ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
+    <div
+      className={`space-y-6 transition-opacity ${loading ? "opacity-60" : ""}`}
+      aria-busy={loading}
+    >
       <DashboardHeader
-        title="Platform analytics"
+        title="Platform Analytics"
         subtitle="Revenue, fees, users, shops, Flash Deals, payments and refunds across SaveBite."
         periodLabel={data ? formatPeriodRange(data.period) : undefined}
         actions={
@@ -111,7 +121,11 @@ function PlatformDashboard({ activeTab }: { activeTab: PlatformAnalyticsTab }) {
 
       {data && snapshot && (
         <>
-          <PlatformSummaryComparison period={data.period} selected={data.selected} overall={data.overall} />
+          <PlatformSummaryComparison
+            period={data.period}
+            selected={data.selected}
+            overall={data.overall}
+          />
 
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm font-medium text-neutral-700">Show details for</p>
@@ -134,19 +148,40 @@ function PlatformDashboard({ activeTab }: { activeTab: PlatformAnalyticsTab }) {
             />
           )}
 
-          {show("fees") && <PlatformFeeStatsSection fees={snapshot.platformFees} scopeLabel={scopeLabel} />}
+          {/* FIX-45: own tab only (not part of the overview); it loads its own per-shop data. */}
+          {activeTab === "shop-revenue" && (
+            <PlatformShopRevenueSection
+              query={analytics.query}
+              allTime={view === "overall"}
+              rangeError={analytics.rangeError}
+              scopeLabel={scopeLabel}
+            />
+          )}
+
+          {show("fees") && (
+            <PlatformFeeStatsSection fees={snapshot.platformFees} scopeLabel={scopeLabel} />
+          )}
 
           {show("users-shops") && (
             <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
-              <PlatformUserStatsSection users={snapshot.users} scopeLabel={scopeLabel} granularity={granularity} />
+              <PlatformUserStatsSection
+                users={snapshot.users}
+                scopeLabel={scopeLabel}
+                granularity={granularity}
+              />
               <PlatformShopStatsSection shops={snapshot.shops} scopeLabel={scopeLabel} />
             </div>
           )}
 
-          {show("deals") && <PlatformFlashDealStatsSection deals={snapshot.flashDeals} scopeLabel={scopeLabel} />}
+          {show("deals") && (
+            <PlatformFlashDealStatsSection deals={snapshot.flashDeals} scopeLabel={scopeLabel} />
+          )}
 
           {show("payments-refunds") && (
-            <PlatformPaymentRefundSection paymentsAndRefunds={snapshot.paymentsAndRefunds} scopeLabel={scopeLabel} />
+            <PlatformPaymentRefundSection
+              paymentsAndRefunds={snapshot.paymentsAndRefunds}
+              scopeLabel={scopeLabel}
+            />
           )}
         </>
       )}

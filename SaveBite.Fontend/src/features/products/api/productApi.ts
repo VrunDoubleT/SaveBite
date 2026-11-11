@@ -70,9 +70,7 @@ export const productApi = {
       )
     ).data.data;
   },
-  async valueImage(id: string, valueId: string, image: File) {
-    const body = new FormData();
-    body.append("Image", image);
+  async valueImage(id: string, valueId: string, body: FormData) {
     return (
       await httpClient.put<ApiResponse<Product>>(
         API_ENDPOINTS.PRODUCTS.VALUE_IMAGE(id, valueId),

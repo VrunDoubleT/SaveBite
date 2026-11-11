@@ -19,4 +19,11 @@ public sealed record CurrentUserResponse(
     string? AvatarUrl,
     string Role,
     string CustomerStatus,
-    DefaultAddressResponse? DefaultAddress = null);
+    DefaultAddressResponse? DefaultAddress = null,
+    CurrentUserShopResponse? Shop = null);
+
+public sealed record CurrentUserShopResponse(
+    Guid ShopId,
+    string Status,
+    bool SuspendedForPlatformFees,
+    string? SuspensionReason);

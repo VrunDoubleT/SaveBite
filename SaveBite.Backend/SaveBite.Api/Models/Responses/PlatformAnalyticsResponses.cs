@@ -136,3 +136,31 @@ public sealed record PlatformDashboardAnalyticsResponse(
     PlatformAnalyticsSnapshotResponse Selected,
     PlatformAnalyticsSnapshotResponse Overall
 );
+
+// FIX-45 (UC-142): revenue broken down per shop. Same definition as the platform dashboard: only Completed orders in the
+// period; NetRevenue = paid - refunded, so the per-shop figures add up to NetPlatformOrderRevenue.
+public sealed record ShopRevenueItemResponse(
+    Guid ShopId,
+    string ShopName,
+    string? LogoUrl,
+    int CompletedOrders,
+    decimal PaidRevenue,
+    decimal CollectedOnlineAmount,
+    decimal CollectedCashAmount,
+    decimal RefundedAmount,
+    decimal NetRevenue,
+    decimal AverageOrderValue,
+    decimal PlatformFeeAmount,
+    decimal SharePercent
+);
+
+public sealed record PlatformShopRevenueResponse(
+    AnalyticsPeriodInfoResponse Period,
+    int ShopsWithRevenue,
+    int CompletedOrders,
+    decimal PaidRevenue,
+    decimal RefundedAmount,
+    decimal NetRevenue,
+    decimal PlatformFeeAmount,
+    IReadOnlyList<ShopRevenueItemResponse> Shops
+);

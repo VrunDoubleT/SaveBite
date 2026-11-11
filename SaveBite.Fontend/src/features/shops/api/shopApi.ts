@@ -17,17 +17,22 @@ import type { ShopStatus } from "../types/ownerShop.types";
 import type { ModerationActionResult } from "@/shared/types/moderationAction.types";
 
 export const shopApi = {
-  async getNearbyShops(params: NearbyShopsRequest): Promise<{
+  async getNearbyShops(
+    params: NearbyShopsRequest,
+    signal?: AbortSignal,
+  ): Promise<{
     shops: NearbyShop[];
     totalItems: number;
     totalPages: number;
     page: number;
     pageSize: number;
+    allStoresCount?: number;
+    flashDealsStoresCount?: number;
     message?: string;
   }> {
     const response = await httpClient.get<ApiResponse<NearbyShopsPagedResponse>>(
       API_ENDPOINTS.SHOPS.NEARBY,
-      { params },
+      { params, signal },
     );
 
     const data = response.data.data;
@@ -38,6 +43,8 @@ export const shopApi = {
       totalPages: data?.totalPages ?? 0,
       page: data?.page ?? 1,
       pageSize: data?.pageSize ?? 6,
+      allStoresCount: data?.allStoresCount,
+      flashDealsStoresCount: data?.flashDealsStoresCount,
       message: response.data.message,
     };
   },

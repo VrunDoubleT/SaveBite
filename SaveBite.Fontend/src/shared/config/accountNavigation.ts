@@ -52,12 +52,19 @@ export const ACCOUNT_NAV_GROUPS: readonly AccountNavGroup[] = [
         description: "Track your payments and their related orders",
         icon: CreditCard,
       },
-      {
+          {
         to: APP_PATHS.ACCOUNT_REFUNDS,
         label: "Refunds",
         title: "Refunds",
         description: "Manage refund requests and bank transfer details",
         icon: RotateCcw,
+      },
+      {
+        to: APP_PATHS.ACCOUNT_FOLLOWED_SHOPS,
+        label: "Followed shops",
+        title: "Followed shops",
+        description: "Manage the stores you follow and their deal notifications",
+        icon: Store,
       },
       {
         to: APP_PATHS.ACCOUNT_REVIEWS,

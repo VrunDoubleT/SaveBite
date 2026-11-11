@@ -1,3 +1,4 @@
+import { Button } from "@/shared/components/ui";
 import { useEffect, useRef, useState } from "react";
 import type {
   AddressMapInstance,
@@ -59,7 +60,7 @@ export function AddressLocationMap({ point, disabled, onSelect }: Props) {
       title: "Drag to correct your address location",
       icon: sdk.divIcon({
         className: "",
-        html: '<div style="width:26px;height:26px;border:3px solid white;border-radius:50% 50% 50% 0;background:#059669;transform:rotate(-45deg);box-shadow:0 2px 7px #0005"></div>',
+        html: '<div class="size-7 rotate-[-45deg] rounded-t-full rounded-br-full border-2 border-bg-surface bg-primary-700 shadow-md"></div>',
         iconSize: [26, 26],
         iconAnchor: [13, 26],
       }),
@@ -124,12 +125,12 @@ export function AddressLocationMap({ point, disabled, onSelect }: Props) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-text-secondary">
+      <p className="text-body text-text-secondary">
         Click the map or drag the pin to correct your location. The address fields update
         automatically.
       </p>
       {mapError && (
-        <p role="status" className="text-sm text-text-secondary">
+        <p role="status" className="text-body text-text-secondary">
           {mapError}
         </p>
       )}
@@ -137,21 +138,22 @@ export function AddressLocationMap({ point, disabled, onSelect }: Props) {
         ref={container}
         role="region"
         aria-label="Address location map"
-        className="relative z-0 h-72 w-full overflow-hidden rounded-xl border border-border-default sm:h-80"
+        className="relative z-0 h-72 w-full overflow-hidden rounded-md border border-border-default sm:h-80"
       />
-      <button
+      <Button
+        variant="secondary"
         type="button"
         disabled={disabled}
         onClick={() => {
           const center = mapRef.current?.getCenter();
           if (center) onSelect({ latitude: center.lat, longitude: center.lng });
         }}
-        className="rounded-full border border-border-default px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-bg-subtle disabled:opacity-60"
+        className="min-h-11"
       >
         Use map center
-      </button>
+      </Button>
       {!point && (
-        <p className="text-xs text-text-muted">
+        <p className="text-caption text-text-muted">
           Choose a point to set your coordinates. The initial map center is not your detected
           location.
         </p>

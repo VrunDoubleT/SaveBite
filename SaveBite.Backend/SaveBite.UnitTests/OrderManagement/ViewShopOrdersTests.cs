@@ -62,7 +62,7 @@ public class ViewShopOrdersTests
         result.Page.Items.Should().ContainSingle();
         result.Page.Items[0].IsOwner.Should().Be(!staff);
         result.Page.TotalItems.Should().Be(1);
-        _shopRepoMock.Verify(r => r.RequireAccessAsync(_context.ActorId, order.ShopId, It.IsAny<CancellationToken>()), Times.Once);
+        _shopRepoMock.Verify(r => r.RequireViewAccessAsync(_context.ActorId, order.ShopId, It.IsAny<CancellationToken>()), Times.Once);
         _shopRepoMock.Verify(r => r.PageAsync(order.ShopId, null, null, 1, 10, It.IsAny<CancellationToken>(), null), Times.Once);
         _output.WriteLine("TCID01 PASSED: ViewShopOrders_ActiveOwnerOrStaff_ReturnsScopedPage (Normal).");
     }
@@ -89,7 +89,7 @@ public class ViewShopOrdersTests
     public async Task TCID03_ViewShopOrders_UnauthorizedOperator_IsRejectedBeforeQuery_Abnormal()
     {
         // Arrange
-        _shopRepoMock.Setup(r => r.RequireAccessAsync(_context.ActorId, _context.Order.ShopId, It.IsAny<CancellationToken>())).ThrowsAsync(AppException.Forbidden());
+        _shopRepoMock.Setup(r => r.RequireViewAccessAsync(_context.ActorId, _context.Order.ShopId, It.IsAny<CancellationToken>())).ThrowsAsync(AppException.Forbidden());
 
         // Act
         Func<Task> act = () => _service.PageAsync(_context.ActorId, _context.Order.ShopId, null, null, 1, 10);

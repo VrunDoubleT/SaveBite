@@ -37,22 +37,10 @@ export const useToastStore = create<ToastState>((set) => ({
   },
 }));
 
-function showToast(
-  type: ToastType,
-  message: string,
-  duration = 4000,
-): number {
-  const {
-    addToast,
-    removeToast,
-    toasts,
-  } = useToastStore.getState();
+function showToast(type: ToastType, message: string, duration = 4000): number {
+  const { addToast, toasts } = useToastStore.getState();
 
-  const duplicate = toasts.find(
-    (toast) =>
-      toast.type === type &&
-      toast.message === message,
-  );
+  const duplicate = toasts.find((toast) => toast.type === type && toast.message === message);
 
   if (duplicate) {
     return duplicate.id;
@@ -63,10 +51,6 @@ function showToast(
     message,
     duration,
   });
-
-  window.setTimeout(() => {
-    removeToast(id);
-  }, duration);
 
   return id;
 }

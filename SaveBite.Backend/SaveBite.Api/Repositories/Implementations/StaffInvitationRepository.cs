@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Audit;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -7,16 +9,42 @@ using StaffInvitation = SaveBite.Backend.Models.Entities.StaffInvitation;
 
 namespace SaveBite.Backend.Repositories.Implementations;
 
-public sealed class StaffInvitationRepository(AppDbContext context)
+public sealed class StaffInvitationRepository(AppDbContext context, IAuditWriter audit)
     : IStaffInvitationRepository
 {
     private const string StatusPending =
         nameof(StaffInvitationStatus.Pending);
 
-    private const string StatusCancelled =
-        nameof(StaffInvitationStatus.Cancelled);
-
     private const int InvitationLifetimeDays = 3;
+
+    // A conditional update prevents expiry and a customer response from overwriting each other.
+    public async Task<bool> TryTransitionPendingAsync(Guid invitationId, string status, DateTime now, CancellationToken cancellationToken = default)
+    {
+        var cutoff = now.AddDays(-InvitationLifetimeDays);
+        var query = context.StaffInvitations.Where(i => i.Id == invitationId && i.Status == StatusPending);
+        query = status == nameof(StaffInvitationStatus.Expired)
+            ? query.Where(i => i.InvitedAt <= cutoff)
+            : query.Where(i => i.InvitedAt > cutoff);
+        var changed = await query.ExecuteUpdateAsync(updates => updates
+            .SetProperty(i => i.Status, status).SetProperty(i => i.RespondedAt, (DateTime?)now), cancellationToken) == 1;
+        var tracked = context.StaffInvitations.Local.FirstOrDefault(i => i.Id == invitationId);
+        if (changed && tracked != null)
+        {
+            var entry = context.Entry(tracked);
+            entry.Property(i => i.Status).CurrentValue = status;
+            entry.Property(i => i.Status).OriginalValue = status;
+            entry.Property(i => i.RespondedAt).CurrentValue = now;
+            entry.Property(i => i.RespondedAt).OriginalValue = now;
+        }
+        if (changed)
+        {
+            audit.Record("StaffInvitation", invitationId, AuditActionTypes.Update,
+                new { Status = StatusPending },
+                new { Status = status, RespondedAt = (DateTime?)now });
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        return changed;
+    }
 
     public async Task<Shop?> GetShopByOwnerUserIdAsync(
         Guid ownerUserId,

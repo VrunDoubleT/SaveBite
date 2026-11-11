@@ -88,10 +88,15 @@ public sealed record TrustScoreHistoryItemResponse(
     string? Reason,
     Guid? OrderId,
     string? OrderCode,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? PreviousLevelName = null,
+    string? NewLevelName = null,
+    decimal ValueBefore = 0m,
+    decimal ValueDelta = 0m,
+    decimal ValueAfter = 0m);
 
 // ---------------------------------------------------------------------
-// Customer: UC-48 / UC-49
+// Customer: UC-48 / UC-49 (BR-054: includes Reason)
 // ---------------------------------------------------------------------
 
 public sealed record PenaltyItemResponse(
@@ -108,7 +113,8 @@ public sealed record PenaltyItemResponse(
     int CompletedOnlineOrders,
     decimal CompletedOnlineOrderValue,
     DateTime CreatedAt,
-    DateTime? RecoveredAt);
+    DateTime? RecoveredAt,
+    string? Reason = null);
 
 public sealed record PenaltyRecoveryOrderResponse(
     Guid OrderId,
@@ -124,7 +130,7 @@ public sealed record PenaltyRecoveryResponse(
     IReadOnlyList<PenaltyRecoveryOrderResponse> RecoveryOrders);
 
 // ---------------------------------------------------------------------
-// Admin: UC-129 .. UC-138
+// Admin: UC-129 .. UC-138, UC-152 .. UC-156
 // ---------------------------------------------------------------------
 
 public sealed record AdminTrustLevelResponse(
@@ -137,6 +143,35 @@ public sealed record AdminTrustLevelResponse(
     TrustLevelRequirementResponse? Requirement,
     int UserCount,
     DateTime UpdatedAt);
+
+public sealed record TrustLevelDepositRangeSnapshotResponse(
+    decimal FromOrderAmount,
+    decimal ToOrderAmount,
+    decimal DepositAmount);
+
+public sealed record TrustLevelDepositPolicySnapshotResponse(
+    bool RequireFullOnlinePayment,
+    decimal? DepositFreeOrderAmount,
+    decimal? MaxDepositOrderAmount,
+    IReadOnlyList<TrustLevelDepositRangeSnapshotResponse> Ranges);
+
+public sealed record TrustLevelHistoryItemResponse(
+    Guid Id,
+    Guid TrustLevelId,
+    int VersionNo,
+    string ChangeType,
+    string Name,
+    string? Description,
+    int Rank,
+    bool IsActive,
+    int MinScore,
+    int MinCompletedOrders,
+    decimal MinTotalOrderValue,
+    TrustLevelDepositPolicySnapshotResponse? DepositPolicy,
+    int AffectedUserCount,
+    Guid? ChangedByUserId,
+    string? ChangedByName,
+    DateTime ChangedAt);
 
 public sealed record PenaltyRuleResponse(
     Guid Id,

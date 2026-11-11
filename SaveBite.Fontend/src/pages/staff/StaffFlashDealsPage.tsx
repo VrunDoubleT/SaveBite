@@ -1,12 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Eye,
-  EyeOff,
-  Search,
-  Sparkles,
-  Loader2,
-} from "lucide-react";
+import { Eye, EyeOff, Search, Sparkles, Loader2 } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import {
@@ -54,7 +48,8 @@ export function StaffFlashDealsPage() {
   // Compute status helpers
   function getDealState(deal: ShopFlashDealListItem): "pending" | "running" | "ended" | "hidden" {
     if (deal.status === FlashDealStatusEnum.Hidden) return "hidden";
-    if (deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed) return "ended";
+    if (deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed)
+      return "ended";
     const now = new Date();
     const start = new Date(deal.saleStartTime);
     const end = new Date(deal.orderEndTime);
@@ -143,66 +138,85 @@ export function StaffFlashDealsPage() {
   return (
     <div className="space-y-6">
       {/* Header (View only, no Create button) */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Flash Deals</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          View and monitor surplus food discount deals for this store.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Flash Deals</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            View and monitor surplus food discount deals for this store.
+          </p>
+        </div>
       </div>
 
       {/* 4 Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Running */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Running Deals</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{stats.running}</p>
-          <p className="mt-1 text-xs text-neutral-400">
-            {stats.pending} upcoming program{stats.pending !== 1 ? "s" : ""}
-          </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        {/* Card 1: Total Deals */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <Sparkles className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Total Deals</p>
+              <p className="text-xl font-bold text-neutral-900">{stats.totalDeals}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Card 2: Sold */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Total Sold</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{stats.sold}</p>
-          <p className="mt-1 text-xs text-neutral-400">
-            out of {stats.total} total items
-          </p>
+        {/* Card 2: Active Deals */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <span className="size-2 rounded-full bg-emerald-500" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Active Deals</p>
+              <p className="text-xl font-bold text-emerald-600">{stats.running}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Card 3: Remaining */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Remaining Inventory</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-600">{stats.remaining}</p>
-          <p className="mt-1 text-xs text-neutral-400">Available for customer orders</p>
+        {/* Card 3: Upcoming Deals */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <span className="size-2 rounded-full bg-amber-500" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Upcoming Deals</p>
+              <p className="text-xl font-bold text-amber-600">{stats.pending}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Card 4: Total Programs */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs">
-          <p className="text-sm font-medium text-neutral-500">Total Deals</p>
-          <p className="mt-2 text-3xl font-bold text-neutral-900">{stats.totalDeals}</p>
-          <p className="mt-1 text-xs text-neutral-400">
-            {stats.hidden > 0 ? (
-              <span className="font-semibold text-amber-700">{stats.hidden} hidden from buyers</span>
-            ) : (
-              <span>{stats.ended} ended or closed</span>
-            )}
-          </p>
+        {/* Card 4: Hidden / Ended */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+              <EyeOff className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Hidden / Ended</p>
+              <p className="text-xl font-bold text-slate-700">{stats.hidden + stats.ended}</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Hidden Deals Notice Banner */}
       {stats.hidden > 0 && activeTab !== "hidden" && (
-        <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between shadow-2xs">
           <div className="flex items-center gap-2.5 text-amber-900">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
               <EyeOff className="size-4" />
             </div>
             <div>
               <span className="font-bold">
                 Store has {stats.hidden} hidden Flash Deal{stats.hidden !== 1 ? "s" : ""}
               </span>
-              <span className="text-amber-700"> — Hidden deals are not visible to customers on SaveBite.</span>
+              <span className="text-amber-700">
+                {" "}
+                — Hidden deals are not visible to customers on SaveBite.
+              </span>
             </div>
           </div>
           <button
@@ -221,10 +235,10 @@ export function StaffFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("all")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "all"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             All ({tabCounts.all})
@@ -232,10 +246,10 @@ export function StaffFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("pending")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "pending"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             Upcoming ({tabCounts.pending})
@@ -243,10 +257,10 @@ export function StaffFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("running")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "running"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             Running ({tabCounts.running})
@@ -254,10 +268,10 @@ export function StaffFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("ended")}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "ended"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             Ended ({tabCounts.ended})
@@ -265,12 +279,12 @@ export function StaffFlashDealsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("hidden")}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeTab === "hidden"
-                ? "bg-amber-600 text-white shadow-xs"
+                ? "bg-amber-600 text-white shadow-sm"
                 : tabCounts.hidden > 0
-                ? "bg-amber-100/70 text-amber-800 hover:bg-amber-200/70"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
             <EyeOff className="size-3.5" />
@@ -286,23 +300,35 @@ export function StaffFlashDealsPage() {
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
             placeholder="Search deals or products..."
-            className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none"
           />
         </div>
       </div>
 
       {/* Deals Table */}
-      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xs">
+      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-neutral-200 text-left text-xs">
             <thead className="bg-neutral-50/75 text-neutral-500">
               <tr>
-                <th scope="col" className="px-4 py-3.5 font-medium">Product</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Flash Deal Price</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Schedule</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Sales Progress</th>
-                <th scope="col" className="px-4 py-3.5 font-medium">Status & Visibility</th>
-                <th scope="col" className="px-4 py-3.5 text-right font-medium">Actions</th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Product
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Flash Deal Price
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Schedule
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Sales Progress
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
+                  Status & Visibility
+                </th>
+                <th scope="col" className="px-4 py-3.5 text-right font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 bg-white">
@@ -317,7 +343,9 @@ export function StaffFlashDealsPage() {
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-neutral-400">
                     <Sparkles className="mx-auto size-8 text-neutral-300" />
-                    <p className="mt-2 text-sm font-medium text-neutral-600">No flash deals found</p>
+                    <p className="mt-2 text-sm font-medium text-neutral-600">
+                      No flash deals found
+                    </p>
                     <p className="mt-1 text-xs text-neutral-400">
                       No flash deals configured for this store yet.
                     </p>
@@ -327,9 +355,10 @@ export function StaffFlashDealsPage() {
                 filteredDeals.map((deal) => {
                   const state = getDealState(deal);
                   const isHidden = deal.status === FlashDealStatusEnum.Hidden;
-                  const soldPercent = deal.totalQuantity > 0
-                    ? Math.min(100, Math.round((deal.soldQuantity / deal.totalQuantity) * 100))
-                    : 0;
+                  const soldPercent =
+                    deal.totalQuantity > 0
+                      ? Math.min(100, Math.round((deal.soldQuantity / deal.totalQuantity) * 100))
+                      : 0;
 
                   return (
                     <tr
@@ -344,7 +373,10 @@ export function StaffFlashDealsPage() {
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={deal.productImageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"}
+                            src={
+                              deal.productImageUrl ||
+                              "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"
+                            }
                             alt={deal.productName}
                             className="size-11 rounded-lg object-cover"
                           />
@@ -367,7 +399,7 @@ export function StaffFlashDealsPage() {
                       {/* Price */}
                       <td className="px-4 py-4 whitespace-nowrap">
                         <p className="font-bold text-red-600">
-                          {deal.minDealPrice.toLocaleString("vi-VN")}đ
+                          {deal.minDealPrice.toLocaleString("en-US")} VND
                         </p>
                         <p className="text-[11px] text-neutral-400">
                           up to {deal.maxDiscountPercent}% off
@@ -377,7 +409,9 @@ export function StaffFlashDealsPage() {
                       {/* Time */}
                       <td className="px-4 py-4 whitespace-nowrap text-neutral-600">
                         <p>Starts: {formatDateTime(deal.saleStartTime)}</p>
-                        <p className="text-neutral-400">Ends: {formatDateTime(deal.orderEndTime)}</p>
+                        <p className="text-neutral-400">
+                          Ends: {formatDateTime(deal.orderEndTime)}
+                        </p>
                       </td>
 
                       {/* Progress */}
@@ -409,7 +443,9 @@ export function StaffFlashDealsPage() {
                               <EyeOff className="size-3 text-amber-700" />
                               Hidden
                             </span>
-                            <p className="text-[10px] font-medium text-amber-700">Not visible to buyers</p>
+                            <p className="text-[10px] font-medium text-amber-700">
+                              Not visible to buyers
+                            </p>
                           </div>
                         ) : state === "running" ? (
                           <div className="space-y-0.5">
@@ -417,7 +453,9 @@ export function StaffFlashDealsPage() {
                               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                               Active
                             </span>
-                            <p className="text-[10px] font-medium text-emerald-600">Visible to customers</p>
+                            <p className="text-[10px] font-medium text-emerald-600">
+                              Visible to customers
+                            </p>
                           </div>
                         ) : state === "pending" ? (
                           <div className="space-y-0.5">
@@ -442,9 +480,7 @@ export function StaffFlashDealsPage() {
                           type="button"
                           title="View deal details"
                           onClick={() =>
-                            navigate(
-                              `${APP_PATHS.STAFF}/shops/${shopId}/flash-deals/${deal.id}`
-                            )
+                            navigate(`${APP_PATHS.STAFF}/shops/${shopId}/flash-deals/${deal.id}`)
                           }
                           className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
                         >
@@ -463,10 +499,13 @@ export function StaffFlashDealsPage() {
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-neutral-200 px-4 py-3 text-xs text-neutral-500">
           <span>
-            Showing {filteredDeals.length} of {deals.length} Flash Deal{deals.length !== 1 ? "s" : ""}
+            Showing {filteredDeals.length} of {deals.length} Flash Deal
+            {deals.length !== 1 ? "s" : ""}
           </span>
         </div>
       </div>
     </div>
   );
 }
+
+export default StaffFlashDealsPage;

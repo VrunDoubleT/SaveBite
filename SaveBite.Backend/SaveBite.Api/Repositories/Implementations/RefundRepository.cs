@@ -12,20 +12,21 @@ public class RefundRepository : IRefundRepository
     public RefundRepository(AppDbContext db) { _db = db; }
 
     private IQueryable<Refund> Refunds => _db.Refunds.Include(x => x.Order).ThenInclude(x => x.Shop)
-        .Include(x => x.Order).ThenInclude(x => x.Customer).ThenInclude(x => x.TrustScore).ThenInclude(x => x!.TrustLevel).Include(x => x.History).Include(x => x.EvidenceImages).AsSplitQuery();
+        .Include(x => x.Order).ThenInclude(x => x.Customer).ThenInclude(x => x.TrustScore).ThenInclude(x => x!.TrustLevel).Include(x => x.Items).Include(x => x.History).Include(x => x.EvidenceImages).AsSplitQuery();
 
-    // Count active shop obligations, including those waiting for the customer, but exclude closed requests.
+    public Task<bool> HasCustomerRequestAsync(Guid orderId, CancellationToken ct)
+        => _db.Set<OrderRefundRequest>().AsNoTracking().AnyAsync(x => x.OrderId == orderId, ct);
+
+    // Badge counts only email-confirmed refunds the shop can currently review or transfer.
     public Task<int> ShopPendingCountAsync(Guid shopId, CancellationToken ct)
-        => _db.Refunds.AsNoTracking().CountAsync(x => x.Order.ShopId == shopId
-            && (x.Status == RefundStatus.AwaitingCustomerDetails || x.Status == RefundStatus.PendingVerification || x.Status == RefundStatus.AwaitingTransfer || x.Status == RefundStatus.Overdue)
-            && (x.RefundType == RefundType.ShopCancellation || (x.Order.Status == OrderStatus.Completed
-                && x.DestinationConfirmedAt != null && x.Status != RefundStatus.AwaitingCustomerDetails)), ct);
+        => _db.Refunds.AsNoTracking().Where(x => x.Order.ShopId == shopId)
+            .CountAsync(SaveBite.Backend.Helpers.RefundRules.ShopActionRequiredAt(DateTime.UtcNow), ct);
 
-    // Count only mandatory shop refunds that still need customer bank/email details.
+    // Count refunds that still need customer bank/email confirmation, including voluntary requests.
     public Task<int> PendingDetailsCountAsync(Guid userId, CancellationToken ct)
         => _db.Refunds.AsNoTracking().CountAsync(x => x.Order.CustomerId == userId
-            && x.RefundType == RefundType.ShopCancellation && x.Status == RefundStatus.AwaitingCustomerDetails
-            && x.DestinationConfirmedAt == null, ct);
+                                                      && x.Status == RefundStatus.AwaitingCustomerDetails
+                                                      && x.DestinationConfirmedAt == null, ct);
 
     // View queries disable tracking and never perform writes or payment reconciliation.
     public Task<Refund?> GetAsync(Guid id, bool tracked, CancellationToken ct)
@@ -33,9 +34,8 @@ public class RefundRepository : IRefundRepository
     public Task<List<Refund>> ForOrderAsync(Guid orderId, CancellationToken ct)
         => Refunds.AsNoTracking().Where(x => x.OrderId == orderId).OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).ToListAsync(ct);
     public Task<Order?> OrderAsync(Guid id, CancellationToken ct)
-        => _db.Orders.Include(x => x.Customer).ThenInclude(x => x.TrustScore).ThenInclude(x => x!.TrustLevel).Include(x => x.Shop).Include(x => x.Payments)
+        => _db.Orders.Include(x => x.Items).ThenInclude(x => x.FlashDealVariant).ThenInclude(x => x.FlashDeal).ThenInclude(x => x.Product).ThenInclude(x => x.Images).Include(x => x.Customer).ThenInclude(x => x.TrustScore).ThenInclude(x => x!.TrustLevel).Include(x => x.Shop).Include(x => x.Payments)
             .Include(x => x.Refunds).ThenInclude(x => x.History).AsSplitQuery().SingleOrDefaultAsync(x => x.Id == id, ct);
-
     // Scope before filtering or counting, including the shop's visibility gate for customer requests.
     public async Task<(List<Refund> Items, int Total)> PageAsync(Guid userId, Guid? shopId, RefundStatus? status, RefundType? type, int page, int size, CancellationToken ct)
     {
@@ -57,7 +57,7 @@ public class RefundRepository : IRefundRepository
     public Task<TrustOrderProcessing?> ProcessingAsync(Guid orderId, CancellationToken ct)
         => _db.Set<TrustOrderProcessing>().SingleOrDefaultAsync(x => x.OrderId == orderId, ct);
     public Task<bool> LegacyCreditAsync(Guid orderId, CancellationToken ct)
-        => _db.TrustScoreHistories.AnyAsync(x => x.OrderId == orderId && x.EventType == TrustScoreEventType.OrderCompleted, ct);
+        => _db.TrustProgressHistories.AnyAsync(x => x.OrderId == orderId && x.EventType == TrustScoreEventType.OrderCompleted, ct);
     public Task<OrderPlatformFee?> FeeAsync(Guid orderId, CancellationToken ct)
         => _db.Set<OrderPlatformFee>().Include(x => x.Adjustments).SingleOrDefaultAsync(x => x.OrderId == orderId, ct);
     public void Add<T>(T entity) where T : class => _db.Set<T>().Add(entity);

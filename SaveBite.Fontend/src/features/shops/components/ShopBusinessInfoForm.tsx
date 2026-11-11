@@ -1,5 +1,6 @@
+import { OpeningHoursPicker } from "@/shared/components/ui/OpeningHoursPicker";
 import { useCallback, useEffect, useState, type ChangeEvent, type ReactNode } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ImagePlus, LoaderCircle, MapPin, Save, UploadCloud, Undo2 } from "lucide-react";
 import type { OwnerShop, UpdateBusinessInfo } from "@/features/shops/types/ownerShop.types";
@@ -10,6 +11,7 @@ import {
 } from "@/features/shops/schemas/ownerShop.schema";
 import { getApiErrorMessage, getApiValidationErrors } from "@/shared/api";
 import { useAddressLocation } from "@/features/addresses/hooks/useAddressLocation";
+import { AddressLocationMap } from "@/features/addresses/components/AddressLocationMap";
 import type {
   AddressCoordinates,
   ResolvedAddress,
@@ -258,6 +260,7 @@ export function ShopBusinessInfoForm({
   }>({});
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setValue,
@@ -268,6 +271,9 @@ export function ShopBusinessInfoForm({
     mode: "onTouched",
     defaultValues: toFormValues(shop),
   });
+
+  const openingTime = useWatch({ control, name: "openingTime" });
+  const closingTime = useWatch({ control, name: "closingTime" });
 
   useEffect(() => {
     reset(toFormValues(shop));
@@ -533,6 +539,17 @@ export function ShopBusinessInfoForm({
                 />
               </FormField>
             </div>
+            <div className="mt-4">
+              <AddressLocationMap
+                point={
+                  shop.latitude != null && shop.longitude != null
+                    ? { latitude: Number(shop.latitude), longitude: Number(shop.longitude) }
+                    : null
+                }
+                disabled={isSaving}
+                onSelect={location.selectPoint}
+              />
+            </div>
           </HighlightCard>
 
           <HighlightCard className="grid gap-4 sm:grid-cols-2">
@@ -577,24 +594,24 @@ export function ShopBusinessInfoForm({
         </FormSection>
 
         <FormSection title="Opening hours" description="Leave both empty if your hours vary.">
-          <HighlightCard className="grid gap-4 sm:max-w-md sm:grid-cols-2">
-            <FormField label="Opening time" error={errors.openingTime?.message}>
-              <input
-                type="time"
-                {...register("openingTime")}
-                aria-invalid={!!errors.openingTime}
-                className={`${inputClass} tabular-nums`}
-              />
-            </FormField>
-            <FormField label="Closing time" error={errors.closingTime?.message}>
-              <input
-                type="time"
-                {...register("closingTime")}
-                aria-invalid={!!errors.closingTime}
-                className={`${inputClass} tabular-nums`}
-              />
-            </FormField>
-          </HighlightCard>
+          <OpeningHoursPicker
+            openingTime={openingTime ?? ""}
+            closingTime={closingTime ?? ""}
+            onChange={({ openingTime, closingTime }) => {
+              setValue("openingTime", openingTime || null, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+              setValue("closingTime", closingTime || null, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+            }}
+            openingError={errors.openingTime?.message}
+            closingError={errors.closingTime?.message}
+            disabled={isSaving}
+            allowClear
+          />
         </FormSection>
       </div>
 

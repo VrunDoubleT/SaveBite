@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using FluentAssertions;
 using Moq;
@@ -31,7 +32,7 @@ public class ViewStaffListTests
     public ViewStaffListTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopStaffService(_staffRepoMock.Object);
+        _service = new ShopStaffService(_staffRepoMock.Object, new Mock<IUserRepository>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IRealtimePublisher>().Object);
 
         _ownerShop = new Shop
         {

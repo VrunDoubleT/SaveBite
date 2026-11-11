@@ -13,6 +13,7 @@ import { Pagination } from "@/shared/components/pagination";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api";
+import { useAuthStore } from "@/shared/stores/authStore";
 
 interface ShopFeedbackManagementPanelProps {
   title: string;
@@ -34,6 +35,7 @@ interface ShopFeedbackManagementPanelProps {
   onEditReply: (feedbackId: string, content: string) => Promise<void>;
   onDeleteReply: (feedbackId: string) => Promise<void>;
   showShopName?: boolean;
+  mutationsDisabled?: boolean;
 }
 
 export function ShopFeedbackManagementPanel({
@@ -56,7 +58,12 @@ export function ShopFeedbackManagementPanel({
   onEditReply,
   onDeleteReply,
   showShopName = false,
+  mutationsDisabled = false,
 }: ShopFeedbackManagementPanelProps) {
+  const currentUser = useAuthStore((state) => state.user);
+  const isStoreOwner = currentUser?.role === "storeOwner";
+  const isStaff = currentUser?.role === "staff";
+
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Reply modal state
@@ -74,18 +81,20 @@ export function ShopFeedbackManagementPanel({
   const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
 
   const openReplyModal = (feedback: FeedbackItem) => {
+    if (mutationsDisabled) return;
     setReplyTarget(feedback);
     setReplyContent("");
   };
 
   const openEditReplyModal = (feedback: FeedbackItem) => {
+    if (mutationsDisabled) return;
     setEditReplyTarget(feedback);
     setEditReplyContent(feedback.reply?.content ?? "");
   };
 
   const handleReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyTarget || !replyContent.trim()) return;
+    if (mutationsDisabled || !replyTarget || !replyContent.trim()) return;
     try {
       setIsSubmittingReply(true);
       await onReply(replyTarget.id, replyContent.trim());
@@ -101,7 +110,7 @@ export function ShopFeedbackManagementPanel({
 
   const handleEditReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editReplyTarget || !editReplyContent.trim()) return;
+    if (mutationsDisabled || !editReplyTarget || !editReplyContent.trim()) return;
     try {
       setIsSubmittingEdit(true);
       await onEditReply(editReplyTarget.id, editReplyContent.trim());
@@ -116,7 +125,7 @@ export function ShopFeedbackManagementPanel({
   };
 
   const handleDeleteReplySubmit = async () => {
-    if (!deleteReplyTarget) return;
+    if (mutationsDisabled || !deleteReplyTarget) return;
     try {
       setIsSubmittingDelete(true);
       await onDeleteReply(deleteReplyTarget.id);
@@ -129,30 +138,81 @@ export function ShopFeedbackManagementPanel({
     }
   };
 
+  const needsReplyCount = feedbacks.filter((f) => !f.reply).length;
+  const repliedCount = feedbacks.filter((f) => Boolean(f.reply)).length;
+  const fiveStarsCount = feedbacks.filter((f) => f.rating === 5).length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-100 pb-4">
-          <div>
-            <h1 className="text-xl font-bold text-neutral-900">{title}</h1>
-            <p className="mt-1 text-xs text-neutral-500 sm:text-sm">{subtitle}</p>
-          </div>
-          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800">
-            <Star className="size-4 fill-amber-400 text-amber-500" />
-            <span>Total Reviews: {totalItems}</span>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">{title}</h1>
+          <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>
+        </div>
+      </div>
+
+      {/* 4 Stats Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <MessageSquare className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Total reviews</p>
+              <p className="text-xl font-bold text-neutral-900">{totalItems}</p>
+            </div>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <Pencil className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Needs reply</p>
+              <p className="text-xl font-bold text-amber-600">{needsReplyCount}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <MessageSquareQuote className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Replied</p>
+              <p className="text-xl font-bold text-emerald-600">{repliedCount}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+              <Star className="size-5 fill-amber-400" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">5-Star reviews</p>
+              <p className="text-xl font-bold text-neutral-900">{fiveStarsCount}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Status Filter */}
           <button
             type="button"
             onClick={() => onReplyFilterChange(null)}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeReplyFilter === null && !isToday
-                ? "bg-emerald-600 text-white"
+                ? "bg-emerald-600 text-white shadow-sm"
                 : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
@@ -161,9 +221,9 @@ export function ShopFeedbackManagementPanel({
           <button
             type="button"
             onClick={() => onReplyFilterChange(false)}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeReplyFilter === false
-                ? "bg-emerald-600 text-white"
+                ? "bg-emerald-600 text-white shadow-sm"
                 : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
@@ -172,9 +232,9 @@ export function ShopFeedbackManagementPanel({
           <button
             type="button"
             onClick={() => onReplyFilterChange(true)}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeReplyFilter === true
-                ? "bg-emerald-600 text-white"
+                ? "bg-emerald-600 text-white shadow-sm"
                 : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
@@ -184,9 +244,9 @@ export function ShopFeedbackManagementPanel({
             <button
               type="button"
               onClick={onTodayToggle}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
                 isToday
-                  ? "bg-emerald-600 text-white"
+                  ? "bg-emerald-600 text-white shadow-sm"
                   : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
               }`}
             >
@@ -194,13 +254,13 @@ export function ShopFeedbackManagementPanel({
             </button>
           )}
 
-          <span className="h-5 w-px bg-neutral-200 mx-1 hidden sm:block" />
+          <span className="mx-1 hidden h-5 w-px bg-neutral-200 sm:block" />
 
           {/* Star Filter */}
           <button
             type="button"
             onClick={() => onRatingChange(null)}
-            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition shadow-2xs ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition shadow-2xs ${
               activeRating === null
                 ? "bg-neutral-900 text-white"
                 : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
@@ -213,7 +273,7 @@ export function ShopFeedbackManagementPanel({
               key={stars}
               type="button"
               onClick={() => onRatingChange(stars)}
-              className={`inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
                 activeRating === stars
                   ? "bg-neutral-900 text-white"
                   : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
@@ -232,7 +292,7 @@ export function ShopFeedbackManagementPanel({
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-44 animate-pulse rounded-2xl border border-neutral-200 bg-white p-5"
+              className="h-44 animate-pulse rounded-xl border border-neutral-200 bg-white p-5 shadow-2xs"
             />
           ))}
         </div>
@@ -241,7 +301,7 @@ export function ShopFeedbackManagementPanel({
           {feedbacks.map((item) => (
             <article
               key={item.id}
-              className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs transition hover:border-neutral-300"
+              className="rounded-xl border border-neutral-200 bg-white p-5 shadow-2xs transition hover:border-neutral-300"
             >
               {/* Header: Customer info & time */}
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -321,9 +381,7 @@ export function ShopFeedbackManagementPanel({
                     {item.productName}
                   </span>
                   {item.variantName && (
-                    <span className="text-[11px] text-neutral-500">
-                      {item.variantName}
-                    </span>
+                    <span className="text-[11px] text-neutral-500">{item.variantName}</span>
                   )}
                 </div>
               </div>
@@ -376,24 +434,42 @@ export function ShopFeedbackManagementPanel({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEditReplyModal(item)}
-                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 hover:bg-emerald-100/60 hover:text-emerald-800 transition"
-                      >
-                        <Pencil size={12} />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteReplyTarget(item)}
-                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 transition"
-                      >
-                        <Trash2 size={12} />
-                        Delete
-                      </button>
-                    </div>
+                    {(() => {
+                      const isOwnReply = Boolean(
+                        currentUser &&
+                        item.reply?.repliedByUserId &&
+                        item.reply.repliedByUserId.toLowerCase() === currentUser.id.toLowerCase(),
+                      );
+                      const canEditReply = isOwnReply;
+                      const canDeleteReply = isStoreOwner || (isStaff && isOwnReply);
+
+                      return (
+                        <div className="flex items-center gap-1">
+                          {canEditReply && (
+                            <button
+                              type="button"
+                              disabled={mutationsDisabled}
+                              onClick={() => openEditReplyModal(item)}
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 hover:bg-emerald-100/60 hover:text-emerald-800 transition disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Pencil size={12} />
+                              Edit
+                            </button>
+                          )}
+                          {canDeleteReply && (
+                            <button
+                              type="button"
+                              disabled={mutationsDisabled}
+                              onClick={() => setDeleteReplyTarget(item)}
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 transition disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Trash2 size={12} />
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <p className="mt-1.5 text-neutral-700 leading-relaxed whitespace-pre-line">
                     {item.reply.content}
@@ -403,8 +479,9 @@ export function ShopFeedbackManagementPanel({
                 <div className="mt-4 flex items-center justify-end border-t border-neutral-100 pt-3">
                   <button
                     type="button"
+                    disabled={mutationsDisabled}
                     onClick={() => openReplyModal(item)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-700 transition"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Send size={12} />
                     Reply to customer
@@ -430,7 +507,7 @@ export function ShopFeedbackManagementPanel({
           )}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-white p-12 text-center shadow-xs">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-200 bg-white p-12 text-center shadow-2xs">
           <div className="flex size-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
             <MessageSquare size={28} />
           </div>
@@ -470,7 +547,7 @@ export function ShopFeedbackManagementPanel({
 
       {/* Create Reply Modal */}
       <SharedModal
-        isOpen={Boolean(replyTarget)}
+        isOpen={Boolean(replyTarget) && !mutationsDisabled}
         onClose={() => !isSubmittingReply && setReplyTarget(null)}
         title={`Reply to ${replyTarget?.customerName || "Customer"}`}
         maxWidthClass="max-w-lg"
@@ -481,26 +558,20 @@ export function ShopFeedbackManagementPanel({
               {replyTarget?.productName} ({replyTarget?.rating}/5 ⭐)
             </p>
             {replyTarget?.comment && (
-              <p className="mt-1 text-neutral-600 italic">
-                &ldquo;{replyTarget.comment}&rdquo;
-              </p>
+              <p className="mt-1 text-neutral-600 italic">&ldquo;{replyTarget.comment}&rdquo;</p>
             )}
           </div>
 
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs font-medium text-neutral-700">
-                Your Response
-              </label>
-              <span className="text-[11px] text-neutral-400">
-                {replyContent.length}/2000
-              </span>
+              <label className="block text-xs font-medium text-neutral-700">Your Response</label>
+              <span className="text-[11px] text-neutral-400">{replyContent.length}/2000</span>
             </div>
             <textarea
               rows={4}
               maxLength={2000}
               required
-              disabled={isSubmittingReply}
+              disabled={isSubmittingReply || mutationsDisabled}
               value={replyContent}
               onChange={(e) => setReplyContent(e.target.value)}
               placeholder="Thank the customer for their feedback and share any updates or care instructions..."
@@ -519,7 +590,7 @@ export function ShopFeedbackManagementPanel({
             </button>
             <button
               type="submit"
-              disabled={isSubmittingReply || !replyContent.trim()}
+              disabled={isSubmittingReply || mutationsDisabled || !replyContent.trim()}
               className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
             >
               {isSubmittingReply ? "Submitting..." : "Send response"}
@@ -530,7 +601,7 @@ export function ShopFeedbackManagementPanel({
 
       {/* Edit Reply Modal */}
       <SharedModal
-        isOpen={Boolean(editReplyTarget)}
+        isOpen={Boolean(editReplyTarget) && !mutationsDisabled}
         onClose={() => !isSubmittingEdit && setEditReplyTarget(null)}
         title="Edit Response"
         maxWidthClass="max-w-lg"
@@ -538,18 +609,14 @@ export function ShopFeedbackManagementPanel({
         <form onSubmit={handleEditReplySubmit} className="space-y-4">
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs font-medium text-neutral-700">
-                Edit Response
-              </label>
-              <span className="text-[11px] text-neutral-400">
-                {editReplyContent.length}/2000
-              </span>
+              <label className="block text-xs font-medium text-neutral-700">Edit Response</label>
+              <span className="text-[11px] text-neutral-400">{editReplyContent.length}/2000</span>
             </div>
             <textarea
               rows={4}
               maxLength={2000}
               required
-              disabled={isSubmittingEdit}
+              disabled={isSubmittingEdit || mutationsDisabled}
               value={editReplyContent}
               onChange={(e) => setEditReplyContent(e.target.value)}
               placeholder="Update your response..."
@@ -568,7 +635,7 @@ export function ShopFeedbackManagementPanel({
             </button>
             <button
               type="submit"
-              disabled={isSubmittingEdit || !editReplyContent.trim()}
+              disabled={isSubmittingEdit || mutationsDisabled || !editReplyContent.trim()}
               className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
             >
               {isSubmittingEdit ? "Saving..." : "Save changes"}
@@ -579,20 +646,21 @@ export function ShopFeedbackManagementPanel({
 
       {/* Delete Reply Confirmation Modal */}
       <SharedModal
-        isOpen={Boolean(deleteReplyTarget)}
+        isOpen={Boolean(deleteReplyTarget) && !mutationsDisabled}
         onClose={() => !isSubmittingDelete && setDeleteReplyTarget(null)}
         title="Delete Response?"
         maxWidthClass="max-w-md"
       >
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-neutral-600">
-            Are you sure you want to delete your response to this review? The customer will no longer see your response.
+            Are you sure you want to delete your response to this review? The customer will no
+            longer see your response.
           </p>
 
           <div className="flex items-center justify-end gap-2 pt-2">
             <button
               type="button"
-              disabled={isSubmittingDelete}
+              disabled={isSubmittingDelete || mutationsDisabled}
               onClick={() => setDeleteReplyTarget(null)}
               className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
             >
@@ -600,7 +668,7 @@ export function ShopFeedbackManagementPanel({
             </button>
             <button
               type="button"
-              disabled={isSubmittingDelete}
+              disabled={isSubmittingDelete || mutationsDisabled}
               onClick={handleDeleteReplySubmit}
               className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
             >

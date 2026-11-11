@@ -37,6 +37,7 @@ internal sealed class PaymentHistoryTestContext
             .ReturnsAsync(((IReadOnlyList<Payment>)Order.Payments.ToList(), 1));
         Payments.Setup(x => x.GetAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(() => Order.Payments.First());
         Orders.Setup(x => x.GetOrderAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>())).ReturnsAsync(Order);
+        Orders.Setup(x => x.GetOrderForHistoryAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(Order);
         Service = new PaymentHistoryService(Payments.Object, Orders.Object, Clock);
     }
 }

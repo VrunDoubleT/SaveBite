@@ -4,7 +4,6 @@ using FluentAssertions;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using Moq;
-using SaveBite.Backend.Caching.Interfaces;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Models.Common;
@@ -28,7 +27,6 @@ namespace SaveBite.Tests.FlashDealManagement;
 public class UpdateFlashDealTests
 {
     private readonly ITestOutputHelper _output;
-    private readonly Mock<IFlashDealRedisService> _redisMock = new();
     private readonly Mock<IFlashDealRepository> _dealRepoMock = new();
     private readonly Mock<IUserAddressRepository> _userAddressRepoMock = new();
     private readonly Mock<IShopRepository> _shopRepoMock = new();
@@ -50,14 +48,13 @@ public class UpdateFlashDealTests
     {
         _output = output;
         _service = new FlashDealService(
-            _redisMock.Object,
             _dealRepoMock.Object,
             _userAddressRepoMock.Object,
             _shopRepoMock.Object,
             _staffRepoMock.Object,
             _backgroundJobClientMock.Object,
             _publisherMock.Object,
-            _loggerMock.Object, null!);
+            _loggerMock.Object, TestDbContextFactory.Create());
     }
 
     private Shop CreateSampleShop()
@@ -233,7 +230,7 @@ public class UpdateFlashDealTests
         var request = new UpdateFlashDealRequest
         {
             SaleStartTime = now.AddMinutes(30),
-            OrderEndTime = now.AddMinutes(90),
+            OrderEndTime = now.AddMinutes(45),
             ShopClosingTime = now.AddMinutes(120),
             Variants = new List<UpdateFlashDealVariantRequest>()
         };
@@ -261,7 +258,7 @@ public class UpdateFlashDealTests
         var exception = await act.Should().ThrowAsync<AppException>();
         PrintError("UTCID03", (int)exception.Which.StatusCode, exception.Which.Message);
         exception.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        exception.Which.Message.Should().Be("Cannot update a closed or cancelled flash deal.");
+        exception.Which.Message.Should().Be("The duration of a flash deal must be between 30 minutes and a maximum of 120 minutes.");
     }
 
     // =========================================================================

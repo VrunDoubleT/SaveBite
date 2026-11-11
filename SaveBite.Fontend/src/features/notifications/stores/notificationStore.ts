@@ -155,9 +155,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
-  onNotificationReceived(payload) {
+   onNotificationReceived(payload) {
     if (!payload?.notification) return;
     const notification = payload.notification;
+    const silent = notification.type === 24 || notification.type === "StaffJoinedShop";
 
     clearPreviewTimer(notification.id);
 
@@ -168,7 +169,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         : [notification, ...state.items].slice(0, 30);
 
       const existingPreviews = state.livePreviews.filter((n) => n.id !== notification.id);
-      const nextPreviews = [notification, ...existingPreviews].slice(0, 3);
+      const nextPreviews = silent
+        ? existingPreviews
+        : [notification, ...existingPreviews].slice(0, 3);
 
       return {
         items: nextItems,
@@ -180,6 +183,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         livePreview: nextPreviews[0] ?? null,
       };
     });
+
+    if (silent) return;
 
     // Auto dismiss each preview after 5 seconds
     const timer = setTimeout(() => {

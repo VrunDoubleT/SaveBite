@@ -11,6 +11,9 @@ export interface ShopProfileDocument {
 
 export interface OwnerShop {
   id: string;
+  ownerUserId?: string;
+  followerCount?: number;
+  suspendedForPlatformFees?: boolean;
   name: string;
   description?: string | null;
   addressLine?: string;
@@ -46,9 +49,6 @@ export interface UpdateBusinessInfo {
 }
 
 export interface ShopPaymentConfig {
-  bankName: string | null;
-  bankAccountNumber: string | null;
-  bankAccountHolder: string | null;
   payosClientId: string;
   hasPayosApiKey: boolean;
   hasPayosChecksumKey: boolean;
@@ -56,9 +56,6 @@ export interface ShopPaymentConfig {
 }
 
 export interface UpdateShopPaymentConfigRequest {
-  bankName: string | null;
-  bankAccountNumber: string | null;
-  bankAccountHolder: string | null;
   payosClientId: string;
   payosApiKey: string;
   payosChecksumKey: string;

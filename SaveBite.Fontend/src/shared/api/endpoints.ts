@@ -134,6 +134,9 @@ export const API_ENDPOINTS = {
   },
   ADMIN_TRUST: {
     LEVELS: "/admin/trust/levels",
+    LEVEL_HISTORY: (levelId: string) => `/admin/trust/levels/${levelId}/history`,
+    LEVEL_INFO: (levelId: string) => `/admin/trust/levels/${levelId}/info`,
+    LEVEL_STATUS: (levelId: string) => `/admin/trust/levels/${levelId}/status`,
     LEVEL_BENEFITS: (levelId: string) => `/admin/trust/levels/${levelId}/benefits`,
     LEVEL_REQUIREMENTS: (levelId: string) => `/admin/trust/levels/${levelId}/requirements`,
     PENALTY_RULES: "/admin/trust/penalty-rules",
@@ -146,6 +149,8 @@ export const API_ENDPOINTS = {
   PLATFORM_FEES: {
     ADMIN_CONFIG: "/admin/platform-fee-config",
     ADMIN_CONFIGS: "/admin/platform-fee-configs",
+    ADMIN_PAYOS_CONFIG: "/admin/platform-payos-config",
+    ADMIN_PAYOS_CONFIG_HISTORY: "/admin/platform-payos-config/history",
     ADMIN_CANCEL_SCHEDULED_CONFIG: (configId: string) =>
       `/admin/platform-fee-configs/scheduled/${configId}`,
     ADMIN_STATEMENTS: "/admin/platform-fee-statements",
@@ -160,25 +165,16 @@ export const API_ENDPOINTS = {
       `/shops/${shopId}/platform-fees/${statementId}/payment-link`,
     WEBHOOK: "/platform-fees/payos/webhook",
   },
-  STORE_ANALYTICS: {
-    DASHBOARD: "/shops/me/analytics",
-    REVENUE_OVERVIEW: "/shops/me/analytics/revenue-overview",
-    ORDERS: "/shops/me/analytics/orders",
-    FLASH_DEALS: "/shops/me/analytics/flash-deals",
-    PAYMENT_METHODS: "/shops/me/analytics/payment-methods",
+  WARNINGS: {
+    BASE: "/warnings",
+    DETAIL: (warningId: string) => `/warnings/${encodeURIComponent(warningId)}`,
+    ISSUE_FOR_PRODUCT: (productId: string) =>
+      `/warnings/admin/products/${encodeURIComponent(productId)}`,
   },
-  ADMIN_ANALYTICS: {
-    DASHBOARD: "/admin/analytics",
-    PLATFORM_FEES: "/admin/analytics/platform-fees",
-    USERS: "/admin/analytics/users",
-    SHOPS: "/admin/analytics/shops",
-    REVENUE_ORDERS: "/admin/analytics/revenue-orders",
-    FLASH_DEALS: "/admin/analytics/flash-deals",
-    PAYMENTS_REFUNDS: "/admin/analytics/payments-refunds",
-  },
-  ADMIN_AUDIT_LOGS: {
-    BASE: "/admin/audit-logs",
-    DETAIL: (id: string) => `/admin/audit-logs/${id}`,
+  FEEDBACK: {
+    BASE: "/feedback",
+    REMOVE: (feedbackId: string) => `/feedback/${encodeURIComponent(feedbackId)}`,
+    RESTORE: (feedbackId: string) => `/feedback/${encodeURIComponent(feedbackId)}/restore`,
   },
   FEEDBACKS: {
     BASE: "/feedbacks",
@@ -196,15 +192,25 @@ export const API_ENDPOINTS = {
       `/notifications/${encodeURIComponent(notificationId)}/read`,
     DELETE: (notificationId: string) => `/notifications/${encodeURIComponent(notificationId)}`,
   },
-  WARNINGS: {
-    BASE: "/warnings",
-    DETAIL: (warningId: string) => `/warnings/${encodeURIComponent(warningId)}`,
-    ISSUE_FOR_PRODUCT: (productId: string) =>
-      `/warnings/admin/products/${encodeURIComponent(productId)}`,
+  STORE_ANALYTICS: {
+    DASHBOARD: "/shops/me/analytics",
+    REVENUE_OVERVIEW: "/shops/me/analytics/revenue-overview",
+    ORDERS: "/shops/me/analytics/orders",
+    FLASH_DEALS: "/shops/me/analytics/flash-deals",
+    PAYMENT_METHODS: "/shops/me/analytics/payment-methods",
   },
-  FEEDBACK: {
-    BASE: "/feedback",
-    REMOVE: (feedbackId: string) => `/feedback/${encodeURIComponent(feedbackId)}`,
-    RESTORE: (feedbackId: string) => `/feedback/${encodeURIComponent(feedbackId)}/restore`,
+  ADMIN_ANALYTICS: {
+    DASHBOARD: "/admin/analytics",
+    PLATFORM_FEES: "/admin/analytics/platform-fees",
+    USERS: "/admin/analytics/users",
+    SHOPS: "/admin/analytics/shops",
+    REVENUE_ORDERS: "/admin/analytics/revenue-orders",
+    SHOP_REVENUE: "/admin/analytics/shop-revenue",
+    FLASH_DEALS: "/admin/analytics/flash-deals",
+    PAYMENTS_REFUNDS: "/admin/analytics/payments-refunds",
   },
-} as const;
+  ADMIN_AUDIT_LOGS: {
+    BASE: "/admin/audit-logs",
+    DETAIL: (id: string) => `/admin/audit-logs/${id}`,
+  },
+} as const; 

@@ -112,16 +112,38 @@ public sealed class TrustScoreService : ITrustScoreService
     {
         var paged = await _repository.GetHistoryPagedAsync(userId, request, cancellationToken);
 
-        var items = paged.Items.Select(history => new TrustScoreHistoryItemResponse(
-            history.Id,
-            history.EventType.ToString(),
-            history.ScoreBefore,
-            history.ScoreDelta,
-            history.ScoreAfter,
-            history.Reason,
-            history.OrderId,
-            history.Order?.OrderCode,
-            history.CreatedAt)).ToList();
+        // FIX-17: attach the level change (if any) that the same order/event caused.
+        var orderIds = paged.Items.Where(h => h.OrderId.HasValue).Select(h => h.OrderId!.Value).Distinct().ToList();
+        var levelChanges = await _repository.GetLevelChangesForOrdersAsync(userId, orderIds, cancellationToken);
+
+        var items = paged.Items.Select(history =>
+        {
+            var expectedReason = history.EventType switch
+            {
+                TrustScoreEventType.NoShow => TrustLevelChangeReason.NoShowPenalty,
+                TrustScoreEventType.RefundReclaimed => TrustLevelChangeReason.RefundTransferred,
+                _ => TrustLevelChangeReason.RequirementsMet
+            };
+            var change = history.OrderId is null
+                ? null
+                : levelChanges.LastOrDefault(l => l.OrderId == history.OrderId && l.Reason == expectedReason);
+
+            return new TrustScoreHistoryItemResponse(
+                history.Id,
+                history.EventType.ToString(),
+                history.ScoreBefore,
+                history.ScoreDelta,
+                history.ScoreAfter,
+                history.Reason,
+                history.OrderId,
+                history.Order?.OrderCode,
+                history.CreatedAt,
+                change?.PreviousTrustLevel?.Name,
+                change?.NewTrustLevel?.Name,
+                history.ValueBefore,
+                history.ValueDelta,
+                history.ValueAfter);
+        }).ToList();
 
         return PagedResult<TrustScoreHistoryItemResponse>.Create(items, paged.Page, paged.PageSize, paged.TotalItems);
     }
@@ -231,7 +253,17 @@ public sealed class TrustScoreService : ITrustScoreService
         => metrics.Count == 0 ? 100m : Math.Round(metrics.Average(metric => metric.Percent), 1);
 
     private static PenaltyItemResponse ToPenaltyItem(NoShowPenalty penalty)
-        => new(
+    {
+        var reason = penalty.TrustProgressHistories
+            .Where(h => h.EventType == TrustScoreEventType.NoShow && !string.IsNullOrWhiteSpace(h.Reason))
+            .OrderBy(h => h.CreatedAt)
+            .Select(h => h.Reason)
+            .FirstOrDefault()
+            ?? (penalty.Order?.OrderCode is { Length: > 0 } code
+                ? $"No-show #{penalty.OccurrenceNumber} in {penalty.PenaltyMonth:D2}/{penalty.PenaltyYear} on order {code}."
+                : $"No-show #{penalty.OccurrenceNumber} in {penalty.PenaltyMonth:D2}/{penalty.PenaltyYear}.");
+
+        return new PenaltyItemResponse(
             penalty.Id,
             penalty.OrderId,
             penalty.Order?.OrderCode,
@@ -245,5 +277,7 @@ public sealed class TrustScoreService : ITrustScoreService
             penalty.CompletedOnlineOrders,
             penalty.CompletedOnlineOrderValue,
             penalty.CreatedAt,
-            penalty.RecoveredAt);
+            penalty.RecoveredAt,
+            reason);
+    }
 }
