@@ -17,7 +17,6 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class ShopDealNotificationService(
     AppDbContext db,
     INotificationService notifications,
-    IDealRecipientResolver recipientResolver,
     IConnectionMultiplexer redis,
     TimeProvider clock,
     ILogger<ShopDealNotificationService> logger)
@@ -43,22 +42,7 @@ public sealed class ShopDealNotificationService(
             return;
         }
 
-        // 1. Resolve and persist nearby recipients (Redis GEO + GPS TTL priority rules)
-        await recipientResolver.ResolveAndMaterializeRecipientsAsync(
-            deal.Id,
-            deal.PublicationId,
-            deal.ShopId,
-            deal.Shop.Latitude,
-            deal.Shop.Longitude,
-            radiusInKm: 15.0,
-            ct);
-
-        // 2. Fetch pending recipients for this publication
-        var pendingRecipients = await db.DealNotificationRecipients
-            .Where(r => r.PublicationId == deal.PublicationId && r.Status == DealNotificationRecipientStatus.Pending)
-            .ToListAsync(ct);
-
-        // Re-check deal status to ensure it was not Hidden while resolution ran
+        // Re-check deal status to ensure it was not Hidden while processing
         var currentDealStatus = await db.FlashDeals
             .Where(d => d.Id == deal.Id)
             .Select(d => d.Status)
@@ -66,13 +50,7 @@ public sealed class ShopDealNotificationService(
 
         if (currentDealStatus != FlashDealStatus.OnSale)
         {
-            logger.LogWarning("Deal {DealId} status changed to {Status} during resolution; cancelling delivery.", deal.Id, currentDealStatus);
-            foreach (var r in pendingRecipients)
-            {
-                r.Status = DealNotificationRecipientStatus.Skipped;
-                r.ErrorMessage = $"Deal status became {currentDealStatus}";
-            }
-            await db.SaveChangesAsync(ct);
+            logger.LogWarning("Deal {DealId} status changed to {Status}; cancelling delivery.", deal.Id, currentDealStatus);
             return;
         }
 
@@ -80,38 +58,12 @@ public sealed class ShopDealNotificationService(
         var notificationBody = NotificationMessages.DealsAndProducts.FlashDealAvailableBody(deal.Product.Name);
         var actionUrl = NotificationActionUrls.FlashDeal(deal.Id);
 
-        // 3. Dispatch to nearby recipients
-        var notifiedUserIds = new HashSet<Guid>();
-        if (pendingRecipients.Count > 0)
-        {
-            var userIds = pendingRecipients.Select(r => r.UserId).Distinct().ToList();
-            notifiedUserIds.UnionWith(userIds);
-            await notifications.SendAsync(
-                NotificationTarget.Users(userIds),
-                new CreateNotificationCommand(
-                    NotificationType.FlashDealAvailable,
-                    notificationTitle,
-                    notificationBody,
-                    actionUrl,
-                    $"flash-deal-pub:{deal.PublicationId}"),
-                ct);
-
-            var sentAt = clock.GetUtcNow().UtcDateTime;
-            foreach (var r in pendingRecipients)
-            {
-                r.Status = DealNotificationRecipientStatus.Sent;
-                r.SentAt = sentAt;
-            }
-            await db.SaveChangesAsync(ct);
-        }
-
-        // 4. Also notify shop followers (exclude users already notified above and verify active category filters)
+        // Only notify shop followers who have deal notifications enabled
         var candidateFollowers = await db.ShopFollows.AsNoTracking()
             .Where(f => f.ShopId == data.ShopId && f.NotificationStatus == ShopNotificationStatus.Enabled
                 && f.FollowedAt <= data.OpenedAt
                 && f.Customer.Role != UserRole.Admin && f.Customer.Status == UserStatus.Active
-                && f.Customer.CustomerStatus == CustomerStatus.Active
-                && !notifiedUserIds.Contains(f.CustomerId))
+                && f.Customer.CustomerStatus == CustomerStatus.Active)
             .Select(f => f.CustomerId)
             .Distinct()
             .ToListAsync(ct);
