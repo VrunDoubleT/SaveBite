@@ -6,7 +6,6 @@ import {
   SearchX,
   Store,
   CheckCircle2,
-  CirclePause,
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
@@ -132,7 +131,6 @@ export function ShopManagementPage() {
   const [counts, setCounts] = useState({
     total: 0,
     active: 0,
-    paused: 0,
     suspended: 0,
     withDeals: 0,
   });
@@ -175,7 +173,6 @@ export function ShopManagementPage() {
           setCounts({
             total: data.totalShops ?? 0,
             active: data.activeShops ?? 0,
-            paused: data.pausedShops ?? 0,
             suspended: data.suspendedShops ?? 0,
             withDeals: data.shopsWithActiveDeals ?? 0,
           });
@@ -276,10 +273,10 @@ export function ShopManagementPage() {
         />
       </header>
 
-      {/* 5 Overview Stat Cards with icons (no hover, non-clickable) */}
+      {/* 4 Overview Stat Cards with icons (no hover, non-clickable) */}
 
       <div
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 sm:gap-4"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4"
 
         role="region"
 
@@ -312,22 +309,6 @@ export function ShopManagementPage() {
 
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
                 {loadingStats ? "–" : counts.active}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-              <CirclePause className="size-5" />
-            </span>
-
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-slate-500 truncate">Paused</p>
-
-              <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.paused}
               </p>
             </div>
           </div>

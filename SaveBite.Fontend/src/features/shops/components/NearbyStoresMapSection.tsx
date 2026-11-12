@@ -23,6 +23,7 @@ import { shopApi } from "../api/shopApi";
 import type { NearbyShop } from "../types/shop.types";
 import { VIETMAP_CONFIG } from "../config/vietmap.config";
 import { fetchVietmapRoute, getVietmapStyle, type RouteResult } from "../utils/vietmapUtils";
+import { formatShopOperatingHours } from "../utils/shopOperatingHours";
 import type { LocationMode } from "@/features/flash-deals/hooks/useNearbyFlashDeals";
 
 export interface NearbyStoresMapSectionProps {
@@ -1289,13 +1290,10 @@ export function NearbyStoresMapSection({
                 </p>
 
                 {/* Operating hours */}
-                {selectedShop.openingTime && selectedShop.closingTime && (
+                {formatShopOperatingHours(selectedShop.openingTime, selectedShop.closingTime) && (
                   <p className="mt-1 text-xs text-text-secondary flex items-center gap-1.5">
                     <Clock size={13} className="text-text-muted shrink-0" />
-                    <span>
-                      {String(selectedShop.openingTime).slice(0, 5)} -{" "}
-                      {String(selectedShop.closingTime).slice(0, 5)}
-                    </span>
+                    <span>{formatShopOperatingHours(selectedShop.openingTime, selectedShop.closingTime)}</span>
                   </p>
                 )}
 

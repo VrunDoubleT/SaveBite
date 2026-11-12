@@ -81,7 +81,7 @@ export function UserTable({ users, currentUserId, onViewDetails, onAction }: Use
 
                 <td className="px-5 py-4">
                   <span className="inline-flex whitespace-nowrap rounded-md border border-neutral-200 bg-neutral-100 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide text-neutral-700">
-                    {u.role}
+                    {u.role === "User" ? "Customer" : u.role}
                   </span>
                 </td>
 

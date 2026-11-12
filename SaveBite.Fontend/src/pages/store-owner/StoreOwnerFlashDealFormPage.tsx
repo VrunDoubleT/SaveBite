@@ -836,7 +836,14 @@ export function StoreOwnerFlashDealFormPage() {
                               className="size-9 rounded-md object-cover border border-neutral-100 shrink-0"
                             />
                             <div className="truncate text-left">
-                              <p className="text-xs font-semibold text-neutral-900">{p.name}</p>
+                              <p className="flex items-center gap-1.5 text-xs font-semibold text-neutral-900">
+                                <span className="truncate">{p.name}</span>
+                                {p.hasActiveDeal && (
+                                  <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                                    Has Flash Deal
+                                  </span>
+                                )}
+                              </p>
                               <p className="text-[11px] text-neutral-400">
                                 {p.categoryName || "Food"} • {p.variants.length} variant
                                 {p.variants.length !== 1 ? "s" : ""}

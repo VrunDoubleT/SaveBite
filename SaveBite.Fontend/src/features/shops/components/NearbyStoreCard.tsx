@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Clock, MapPin, Star, Store, ArrowRight } from "lucide-react";
 import type { NearbyShop } from "@/features/shops/types/shop.types";
+import { formatShopOperatingHours } from "../utils/shopOperatingHours";
 
 interface NearbyStoreCardProps {
   shop: NearbyShop;
@@ -10,10 +11,7 @@ export function NearbyStoreCard({ shop }: NearbyStoreCardProps) {
   const fallbackCover =
     "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80";
 
-  const operatingHours =
-    shop.openingTime && shop.closingTime
-      ? `${String(shop.openingTime).slice(0, 5)} - ${String(shop.closingTime).slice(0, 5)}`
-      : "08:00 - 21:30";
+  const operatingHours = formatShopOperatingHours(shop.openingTime, shop.closingTime) ?? "08:00 - 21:30";
 
   const reviewCount = shop.totalReviews ?? 0;
   const rating = shop.averageRating > 0 ? shop.averageRating : 4.5;

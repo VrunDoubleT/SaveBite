@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Users, UserCheck, UserX, Store, User } from "lucide-react";
+import { Users, UserCheck, UserX, Store, User, ShoppingBag } from "lucide-react";
 import type { AdminUser, UserDetailsResponse } from "@/features/users/types/user.types";
 import { USER_PAGE_SIZE, useUserManagement } from "@/features/users/hooks/useUserManagement";
 import {
@@ -42,14 +42,18 @@ export function UserManagementPage() {
   // Summary counts state
   const [counts, setCounts] = useState<{
     total: number;
-    active: number;
-    suspended: number;
+    activeAccounts: number;
+    suspendedAccounts: number;
+    activeCustomers: number;
+    suspendedCustomers: number;
     storeOwners: number;
     customers: number;
   }>({
     total: 0,
-    active: 0,
-    suspended: 0,
+    activeAccounts: 0,
+    suspendedAccounts: 0,
+    activeCustomers: 0,
+    suspendedCustomers: 0,
     storeOwners: 0,
     customers: 0,
   });
@@ -66,11 +70,15 @@ export function UserManagementPage() {
         const storeOwners =
           data.roleBreakdown?.find((r) => r.label.toLowerCase() === "storeowner")?.count ?? 0;
         const customers =
-          data.roleBreakdown?.find((r) => r.label.toLowerCase() === "customer")?.count ?? 0;
+          data.roleBreakdown?.find((r) =>
+            ["user", "customer"].includes(r.label.trim().toLowerCase()),
+          )?.count ?? 0;
         setCounts({
           total: data.totalUsers ?? 0,
-          active: data.activeAccounts ?? 0,
-          suspended: data.suspendedAccounts ?? 0,
+          activeAccounts: data.activeAccounts ?? 0,
+          suspendedAccounts: data.suspendedAccounts ?? 0,
+          activeCustomers: data.activeCustomerProfiles ?? 0,
+          suspendedCustomers: data.suspendedCustomerProfiles ?? 0,
           storeOwners,
           customers,
         });
@@ -138,7 +146,7 @@ export function UserManagementPage() {
 
       {/* 5 Overview Stat Cards with icons (no hover, non-clickable) */}
       <div
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 sm:gap-4"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7 sm:gap-4"
         role="region"
         aria-label="User summary metrics"
       >
@@ -162,9 +170,9 @@ export function UserManagementPage() {
               <UserCheck className="size-5" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-medium text-slate-500 truncate">Active</p>
+              <p className="text-xs font-medium text-slate-500 truncate">Active Accounts</p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.active}
+                {loadingStats ? "–" : counts.activeAccounts}
               </p>
             </div>
           </div>
@@ -176,9 +184,37 @@ export function UserManagementPage() {
               <UserX className="size-5" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-medium text-slate-500 truncate">Suspended</p>
+              <p className="text-xs font-medium text-slate-500 truncate">Suspended Accounts</p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.suspended}
+                {loadingStats ? "–" : counts.suspendedAccounts}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <ShoppingBag className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 truncate">Active Customers</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+                {loadingStats ? "–" : counts.activeCustomers}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+              <ShoppingBag className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 truncate">Suspended Customers</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+                {loadingStats ? "–" : counts.suspendedCustomers}
               </p>
             </div>
           </div>

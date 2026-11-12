@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { OwnerShop } from "@/features/shops/types/ownerShop.types";
+import { formatShopOperatingHours } from "../utils/shopOperatingHours";
 
 export type ShopStatusMeta = {
   label: string;
@@ -139,7 +140,8 @@ export function ShopProfileHeader({
   const area = [shop.district, shop.city].filter(Boolean).join(", ");
   const open = shop.openingTime?.slice(0, 5);
   const close = shop.closingTime?.slice(0, 5);
-  const hasHours = Boolean(open && close);
+  const operatingHours = formatShopOperatingHours(open, close);
+  const hasHours = Boolean(operatingHours);
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white shadow-2xs">
@@ -214,7 +216,7 @@ export function ShopProfileHeader({
                   <OpenStateBadge open={open} close={close} />
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium tabular-nums text-text-primary">
                     <Clock3 size={15} className="text-text-muted" aria-hidden />
-                    {open} – {close}
+                    {operatingHours}
                   </span>
                 </div>
               )}

@@ -17,6 +17,7 @@ import {
 import { RecordId } from "@/shared/components/RecordId";
 import { OpenStateBadge, ShopStatusBadge } from "./ShopProfileHeader";
 import type { ShopContentManagement as ShopContentManagementModel } from "../types/shopManagement.types";
+import { formatShopOperatingHours } from "../utils/shopOperatingHours";
 
 type OwnerInfo = { id: string; fullName: string; email: string | null; phoneNumber: string | null };
 
@@ -93,8 +94,7 @@ export function ShopContentManagement({ shop: s }: { shop: ShopContentManagement
   const owner = (s as ShopContentManagementModel & { owner?: OwnerInfo | null }).owner;
   const documents = s.documents ?? [];
   const address = [s.addressLine, s.ward, s.district, s.city].filter(Boolean).join(", ");
-  const openingHours =
-    s.openingTime && s.closingTime ? `${s.openingTime} – ${s.closingTime}` : null;
+  const openingHours = formatShopOperatingHours(s.openingTime, s.closingTime);
   const hasCoordinates = s.latitude != null && s.longitude != null;
 
   return (

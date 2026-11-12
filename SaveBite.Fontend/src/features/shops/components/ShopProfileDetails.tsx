@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { OwnerShop } from "@/features/shops/types/ownerShop.types";
 import { OpenStateBadge, ShopStatusBadge, getShopStatus, toMinutes } from "./ShopProfileHeader";
+import { formatShopOperatingHours } from "../utils/shopOperatingHours";
 
 const NOT_PROVIDED = "Not provided";
 const DAY = 1440;
@@ -130,16 +131,7 @@ function Hours({ open, close }: { open: string | null; close: string | null }) {
     <div className="w-full">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <p className="mt-0.5 flex items-center gap-2 text-base font-semibold leading-6 tracking-tight text-text-primary tabular-nums">
-          <span>{open}</span>
-          <span aria-hidden className="text-xs font-normal text-text-muted">
-            to
-          </span>
-          <span>{close}</span>
-          {isFullDay && (
-            <span className="text-xs font-normal text-primary-700">
-              (Open 24/7)
-            </span>
-          )}
+          <span>{formatShopOperatingHours(open, close)}</span>
         </p>
 
         <OpenStateBadge open={open} close={close} />
@@ -148,7 +140,7 @@ function Hours({ open, close }: { open: string | null; close: string | null }) {
       <div className="mt-6">
         <div
           role="img"
-          aria-label={`Shop opening hours: ${open} to ${close}`}
+          aria-label={`Shop opening hours: ${formatShopOperatingHours(open, close)}`}
           className="relative h-3 overflow-hidden rounded-full bg-border-default/60 ring-1 ring-inset ring-border-default/40"
         >
           {segments.map((segment) => (
