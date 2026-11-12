@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import {
-  ChevronRight,
   ClipboardList,
   Eye,
   Inbox,
@@ -37,13 +36,13 @@ const locationOf = (item: ShopApplication) =>
   [item.district, item.city].filter(Boolean).join(", ") || item.addressLine || "";
 
 const actionLabel = (status: string) => (status.toLowerCase() === "pending" ? "Review" : "View");
-const SUMMARY_STYLE: Record<string, { icon: string; count: string }> = {
-  All: { icon: "bg-slate-100 text-slate-600", count: "text-slate-900" },
-  Pending: { icon: "bg-amber-50 text-amber-600", count: "text-amber-600" },
-  NeedsRevision: { icon: "bg-orange-50 text-orange-600", count: "text-orange-600" },
-  Approved: { icon: "bg-emerald-50 text-emerald-600", count: "text-emerald-600" },
-  Rejected: { icon: "bg-rose-50 text-rose-600", count: "text-rose-600" },
-  Cancelled: { icon: "bg-slate-100 text-slate-500", count: "text-slate-600" },
+const SUMMARY_ICON_STYLE: Record<string, string> = {
+All: "bg-neutral-100 text-neutral-600",
+Pending: "bg-amber-50 text-amber-600",
+NeedsRevision: "bg-orange-50 text-orange-600",
+Approved: "bg-emerald-50 text-emerald-600",
+Rejected: "bg-rose-50 text-rose-600",
+Cancelled: "bg-slate-100 text-slate-500",
 };
 
 function Avatar({ item }: { item: ShopApplication }) {
@@ -82,7 +81,7 @@ export function AdminShopApplicationsList({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1.5">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
@@ -98,7 +97,7 @@ export function AdminShopApplicationsList({
           aria-label="Filter applications by status"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          className={`min-w-40 rounded-lg border border-border-default bg-white px-3 py-2 text-sm font-semibold text-text-primary shadow-sm transition-colors hover:border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-500 ${focusRing}`}
+          className={`min-h-10 w-full rounded-lg border border-border-default bg-white px-3 text-sm font-medium text-text-primary shadow-sm transition-colors hover:border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-500 sm:w-56 ${focusRing}`}
         >
           {FILTERS.map((status) => (
             <option key={status} value={status}>
@@ -126,7 +125,8 @@ export function AdminShopApplicationsList({
 
       {/* Status totals are an overview only; filtering is controlled by the dropdown above. */}
       <div
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 sm:gap-4"
+        role="region"
         aria-label="Application totals by status"
       >
         {FILTERS.map((status) => {
@@ -136,26 +136,28 @@ export function AdminShopApplicationsList({
               : status === "NeedsRevision"
                 ? PencilLine
                 : getStatusMeta(status).icon;
-          const style = SUMMARY_STYLE[status] ?? SUMMARY_STYLE.All;
+          const iconStyle = SUMMARY_ICON_STYLE[status] ?? SUMMARY_ICON_STYLE.All;
 
           return (
             <div
               key={status}
-              className="flex min-h-20 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm"
+              className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs"
             >
-              <span
-                className={`flex size-10 shrink-0 items-center justify-center rounded-full ${style.icon}`}
-                aria-hidden="true"
-              >
-                <SummaryIcon className="size-4" />
-              </span>
-              <div className="min-w-0">
-                <span className="block whitespace-normal break-words text-xs font-medium leading-tight text-slate-500">
-                  {status === "All" ? "Total applications" : getStatusMeta(status).label}
+              <div className="flex items-center gap-3">
+                <span
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconStyle}`}
+                  aria-hidden="true"
+                >
+                  <SummaryIcon className="size-5" />
                 </span>
-                <span className={`mt-0.5 block text-xl font-bold tabular-nums ${style.count}`}>
-                  {loading ? "–" : (counts[status] ?? 0)}
-                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium text-slate-500">
+                    {status === "All" ? "All applications" : getStatusMeta(status).label}
+                  </p>
+                  <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+                    {loading ? "–" : (counts[status] ?? 0)}
+                  </p>
+                </div>
               </div>
             </div>
           );
@@ -209,171 +211,182 @@ export function AdminShopApplicationsList({
         ) : (
           <>
             {/* Desktop table */}
-            <table className="hidden w-full table-fixed text-left text-sm md:table">
-              <thead className="border-b border-slate-200 bg-slate-50/80 text-xs text-slate-500">
-                <tr>
-                  <th scope="col" className="w-[18%] px-5 py-3 font-medium">
-                    ID
-                  </th>
-                  <th scope="col" className="w-[26%] px-5 py-3 font-medium">
-                    Store
-                  </th>
-                  <th scope="col" className="w-[18%] px-5 py-3 font-medium">
-                    Location
-                  </th>
-                  <th scope="col" className="w-28 px-5 py-3 font-medium">
-                    Submitted
-                  </th>
-                  <th scope="col" className="w-32 px-5 py-3 font-medium">
-                    Status
-                  </th>
-                  <th scope="col" className="w-24 px-5 py-3 font-medium">
-                    Revision
-                  </th>
-                  <th scope="col" className="w-36 px-5 py-3">
-                    <span className="sr-only">Action</span>
-                  </th>
-                </tr>
-              </thead>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
+                <colgroup>
+                  <col className="w-[14%]" />
+                  <col className="w-[24%]" />
+                  <col className="w-[19%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[10%]" />
+                </colgroup>
+                <thead className="border-b border-border-default bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                  <tr>
+                    <th scope="col" className="px-5 py-4">
+                      ID
+                    </th>
+                    <th scope="col" className="px-5 py-4">
+                      Store
+                    </th>
+                    <th scope="col" className="px-5 py-4">
+                      Location
+                    </th>
+                    <th scope="col" className="px-5 py-4">
+                      Submitted
+                    </th>
+                    <th scope="col" className="px-5 py-4">
+                      Status
+                    </th>
+                    <th scope="col" className="px-5 py-4">
+                      Revision
+                    </th>
+                    <th scope="col" className="px-5 py-4 text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
 
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((item) => {
-                  const opening = openingId === item.id;
-                  const place = locationOf(item);
+                <tbody className="divide-y divide-border-default text-text-primary">
+                  {rows.map((item) => {
+                    const opening = openingId === item.id;
+                    const place = locationOf(item);
 
-                  return (
-                    <tr
-                      key={item.id}
-                      onClick={() => !busy && openDetail(item)}
-                      className={`group transition-colors hover:bg-emerald-50/40 ${
-                        busy ? "cursor-wait" : "cursor-pointer"
-                      } ${opening ? "bg-emerald-50/60" : ""}`}
-                    >
-                      <td className="max-w-40 px-5 py-3.5">
-                        <RecordId id={item.id} />
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <Avatar item={item} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-semibold text-slate-900" title={item.name}>
-                              {item.name}
-                            </p>
-                            <p className="mt-0.5 truncate text-xs text-slate-500">
-                              {item.businessLicenseNo || "No license number"}
-                            </p>
+                    return (
+                      <tr
+                        key={item.id}
+                        onClick={() => !busy && openDetail(item)}
+                        className={`transition-colors hover:bg-neutral-50/70 ${
+                          busy ? "cursor-wait" : "cursor-pointer"
+                        } ${opening ? "bg-primary-50/50" : ""}`}
+                      >
+                        <td className="max-w-40 px-5 py-4">
+                          <RecordId id={item.id} />
+                        </td>
+                        <td className="min-w-0 px-5 py-4">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <Avatar item={item} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold text-text-primary" title={item.name}>
+                                {item.name}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-text-muted">
+                                {item.businessLicenseNo || "No license number"}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="px-5 py-3.5 text-slate-600">
-                        {place ? (
-                          <span className="flex items-start gap-1.5" title={place}>
-                            <MapPin
-                              className="mt-0.5 size-3.5 shrink-0 text-slate-400"
-                              aria-hidden="true"
-                            />
-                            <span className="line-clamp-2 min-w-0 break-words">{place}</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-
-                      <td className="whitespace-nowrap px-5 py-3.5 text-slate-600">
-                        {shortDate(item.createdAt)}
-                      </td>
-
-                      <td className="px-5 py-3.5">
-                        <StatusBadge status={item.status} />
-                      </td>
-
-                      <td className="px-5 py-3.5">
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-600">
-                          #{item.revisionNumber}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDetail(item);
-                          }}
-                          disabled={busy}
-                          aria-label={`${actionLabel(item.status)} application from ${item.name}`}
-                          className={`inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
-                        >
-                          {opening ? "Opening…" : actionLabel(item.status)}
-                          {opening ? (
-                            <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                        <td className="px-5 py-4 text-text-secondary">
+                          {place ? (
+                            <span className="flex items-start gap-1.5" title={place}>
+                              <MapPin
+                                className="mt-0.5 size-3.5 shrink-0 text-text-muted"
+                                aria-hidden="true"
+                              />
+                              <span className="line-clamp-2 min-w-0 break-words">{place}</span>
+                            </span>
                           ) : (
-                            <Eye className="size-3.5" aria-hidden="true" />
+                            <span className="text-text-muted">—</span>
                           )}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+
+                        <td className="whitespace-nowrap px-5 py-4 text-text-secondary">
+                          {shortDate(item.createdAt)}
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <StatusBadge status={item.status} />
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <span className="inline-flex rounded-md bg-neutral-100 px-2 py-1 text-xs font-medium tabular-nums text-neutral-700">
+                            #{item.revisionNumber}
+                          </span>
+                        </td>
+
+                        <td className="px-5 py-4 text-right">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openDetail(item);
+                            }}
+                            disabled={busy}
+                            aria-label={`${actionLabel(item.status)} application from ${item.name}`}
+                            title={actionLabel(item.status)}
+                            className={`inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
+                          >
+                            {opening ? (
+                              <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                            ) : (
+                              <Eye className="size-3.5" aria-hidden="true" />
+                            )}
+                            {!opening && <span>{actionLabel(item.status)}</span>}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
             {/* Mobile cards */}
-            <ul className="divide-y divide-slate-100 md:hidden">
+            <ul className="divide-y divide-border-default md:hidden">
               {rows.map((item) => {
                 const opening = openingId === item.id;
                 const place = locationOf(item);
 
                 return (
-                  <li key={item.id}>
-                    <div className={`flex items-start gap-3 px-4 py-4 ${opening ? "bg-emerald-50/60" : ""}`}>
-                      <div className="mt-1 shrink-0">
+                  <li key={item.id} className={opening ? "bg-primary-50/50" : ""}>
+                    <div className="flex items-start gap-3 px-4 py-4">
+                      <div className="shrink-0">
                         <RecordId id={item.id} />
                       </div>
                       <Avatar item={item} />
 
-                      <span className="min-w-0 flex-1">
-                        <button
-                          type="button"
-                          onClick={() => openDetail(item)}
-                          disabled={busy}
-                          className="w-full text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-60"
-                        >
-                          <span className="flex items-start justify-between gap-2">
-                            <span
-                              className="min-w-0 truncate font-semibold text-slate-900"
-                              title={item.name}
-                            >
-                              {item.name}
-                            </span>
-                            <span className="shrink-0">
-                              <StatusBadge status={item.status} />
-                            </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 truncate font-semibold text-text-primary" title={item.name}>
+                            {item.name}
+                          </p>
+                          <span className="shrink-0">
+                            <StatusBadge status={item.status} />
                           </span>
+                        </div>
 
-                          <span className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-                            <MapPin className="size-3 shrink-0 text-slate-400" aria-hidden="true" />
-                            <span className="truncate">{place || "—"}</span>
+                        <p className="mt-1 truncate text-xs text-text-muted">
+                          {item.businessLicenseNo || "No license number"}
+                        </p>
+                        <p className="mt-1 flex items-center gap-1 text-xs text-text-secondary" title={place}>
+                          <MapPin className="size-3 shrink-0 text-text-muted" aria-hidden="true" />
+                          <span className="truncate">{place || "—"}</span>
+                        </p>
+
+                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border-default pt-3">
+                          <span className="text-xs text-text-muted">
+                            Revision {item.revisionNumber} · {shortDate(item.createdAt)}
                           </span>
-
-                          <span className="mt-1 block text-xs text-slate-500">
-                            Revision {item.revisionNumber}, {shortDate(item.createdAt)}
-                          </span>
-                        </button>
-                      </span>
-
-                      {opening ? (
-                        <Loader2
-                          className="mt-3 size-4 shrink-0 animate-spin text-slate-400 motion-reduce:animate-none"
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <ChevronRight
-                          className="mt-3 size-4 shrink-0 text-slate-300"
-                          aria-hidden="true"
-                        />
-                      )}
+                          <button
+                            type="button"
+                            onClick={() => openDetail(item)}
+                            disabled={busy}
+                            aria-label={`${actionLabel(item.status)} application from ${item.name}`}
+                            className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
+                          >
+                            {opening ? (
+                              <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                            ) : (
+                              <>
+                                <Eye className="size-3.5" aria-hidden="true" />
+                                {actionLabel(item.status)}
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </li>
                 );

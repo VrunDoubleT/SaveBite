@@ -103,7 +103,7 @@ export function PenaltyRulesPanel() {
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
-            className="inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
           >
             <Plus className="size-4" />
             Add penalty rule
@@ -117,18 +117,18 @@ export function PenaltyRulesPanel() {
           description="No-show penalty rules have not been set up."
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border-default bg-bg-surface">
-          <table className="min-w-full divide-y divide-border-default text-left text-sm">
-            <thead className="bg-neutral-50 text-text-secondary">
+        <div className="overflow-x-auto rounded-lg border border-border-default bg-bg-surface shadow-sm">
+          <table className="w-full min-w-[1200px] table-fixed divide-y divide-border-default text-left text-sm">
+            <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
               <tr>
-                <th className="px-5 py-3 font-semibold">ID</th>
-                <th className="px-5 py-3 font-semibold">From no-show #</th>
-                <th className="px-5 py-3 text-right font-semibold">Points deducted</th>
-                <th className="px-5 py-3 font-semibold">Recovery requirement</th>
-                <th className="px-5 py-3 font-semibold">Pay at shop</th>
-                <th className="px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3 font-semibold">Effective period</th>
-                <th className="px-5 py-3 text-right font-semibold">Actions</th>
+                <th className="px-3 py-3">ID</th>
+                <th className="px-3 py-3">From no-show #</th>
+                <th className="px-3 py-3 text-right">Points deducted</th>
+                <th className="px-3 py-3">Recovery requirement</th>
+                <th className="px-3 py-3">Pay at shop</th>
+                <th className="px-3 py-3">Status</th>
+                <th className="px-3 py-3">Effective period</th>
+                <th className="px-3 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default text-text-primary">
@@ -145,26 +145,26 @@ export function PenaltyRulesPanel() {
                         : ""
                     }
                   >
-                    <td className="max-w-40 px-5 py-3">
+                    <td className="max-w-40 px-3 py-3">
                       <RecordId id={rule.id} />
                     </td>
-                    <td className="px-5 py-3 font-semibold tabular-nums">
+                    <td className="px-3 py-3 font-semibold tabular-nums">
                       #{rule.minimumOccurrence}
                     </td>
-                    <td className="px-5 py-3 text-right font-semibold tabular-nums text-danger">
+                    <td className="px-3 py-3 text-right font-semibold tabular-nums text-danger">
                       -{rule.scoreDeduction}
                     </td>
-                    <td className="px-5 py-3 text-xs">
+                    <td className="px-3 py-3 text-xs">
                       <p>{rule.requiredOnlineOrders} online orders</p>
                       <p>{formatCurrency(rule.requiredOnlineOrderValue)}</p>
                     </td>
-                    <td className="px-5 py-3 text-xs">
+                    <td className="px-3 py-3 text-xs">
                       {rule.permanentOfflineLock ? "Turned off permanently" : "Not affected"}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-3 py-3">
                       <RuleStatusBadge status={status} />
                     </td>
-                    <td className="px-5 py-3 text-xs">
+                    <td className="px-3 py-3 text-xs">
                       <p>
                         From: <span className="font-medium">{formatDateTime(rule.effectiveFrom)}</span>
                       </p>
@@ -175,26 +175,29 @@ export function PenaltyRulesPanel() {
                         </span>
                       </p>
                     </td>
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-3 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => setEditingRule(rule)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-neutral-50"
+                          title="Edit rule"
+                          aria-label="Edit rule"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
                         >
-                          <Pencil className="size-3.5" />
-                          Edit
+                          <Pencil className="size-4" aria-hidden="true" />
+                          <span>Edit</span>
                         </button>
 
                         {canDelete && (
                           <button
                             type="button"
                             onClick={() => setDeletingRule(rule)}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-red-50"
+                            aria-label="Delete rule"
                             title="Delete future scheduled rule"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
                           >
-                            <Trash2 className="size-3.5" />
-                            Delete
+                            <Trash2 className="size-4" aria-hidden="true" />
+                            <span>Delete</span>
                           </button>
                         )}
                       </div>

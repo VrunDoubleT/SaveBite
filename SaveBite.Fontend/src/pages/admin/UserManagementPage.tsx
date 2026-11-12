@@ -138,7 +138,7 @@ export function UserManagementPage() {
 
       {/* 5 Overview Stat Cards with icons (no hover, non-clickable) */}
       <div
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 sm:gap-4"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 sm:gap-4"
         role="region"
         aria-label="User summary metrics"
       >
