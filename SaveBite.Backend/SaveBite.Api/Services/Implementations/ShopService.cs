@@ -102,13 +102,13 @@ public sealed class ShopService : IShopService
             return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
         }
 
-        var shops = await _shopRepository.GetActiveShopsAsync(request.Keyword, request.Category, request.ShopName, cancellationToken);
+        var shops = await _shopRepository.GetActiveShopsAsync(request.Keyword, request.Category, request.ShopName, cancellationToken, request.Price);
         if (!shops.Any())
             return NearbyShopsPagedResult.Create(Array.Empty<NearbyShopResponse>(), page, pageSize, 0, 0, 0);
 
         var nowTime = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
 
-        double maxDistance = Math.Min(request.RadiusInKm <= 0 ? 5.0 : request.RadiusInKm, 50.0);
+        double maxDistance = Math.Clamp(request.RadiusInKm, 5.0, 20.0);
         if (!string.IsNullOrWhiteSpace(request.Distance))
         {
             var distanceRules = request.Distance.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -118,7 +118,7 @@ public sealed class ShopService : IShopService
                 if (distanceRules.Any(r => r.Contains("5km", StringComparison.OrdinalIgnoreCase))) maxDistance = Math.Max(maxDistance, 5.0);
                 if (distanceRules.Any(r => r.Contains("10km", StringComparison.OrdinalIgnoreCase))) maxDistance = Math.Max(maxDistance, 10.0);
                 if (distanceRules.Any(r => r.Contains("20km", StringComparison.OrdinalIgnoreCase))) maxDistance = Math.Max(maxDistance, 20.0);
-                if (distanceRules.Any(r => r.Contains("50km", StringComparison.OrdinalIgnoreCase))) maxDistance = Math.Max(maxDistance, 50.0);
+                if (distanceRules.Any(r => r.Contains("15km", StringComparison.OrdinalIgnoreCase))) maxDistance = Math.Max(maxDistance, 15.0);
             }
         }
 

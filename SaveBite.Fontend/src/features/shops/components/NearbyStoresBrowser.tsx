@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useDebounce } from "@/shared/hooks/useDebounce";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { List, Map, MapPin, Search, Star, Store, X } from "lucide-react";
 import {
@@ -19,7 +20,7 @@ export function NearbyStoresBrowser(props: NearbyStoresMapSectionProps) {
   const [focusRequest, setFocusRequest] = useState<{ shop: NearbyShop; location: string } | null>(
     null,
   );
-  const locationKey = `${props.latitude}:${props.longitude}:${props.locationMode}:${props.locationVersion}:${props.radiusInKm}:${props.searchKeyword ?? ""}:${props.category ?? ""}:${props.distance ?? ""}:${props.selectedShop ?? ""}`;
+  const locationKey = `${props.latitude}:${props.longitude}:${props.locationMode}:${props.locationVersion}`;
   const view = useHomePreferencesStore((state) => state.storesView);
   const setView = useHomePreferencesStore((state) => state.setStoresView);
   return (
@@ -78,11 +79,15 @@ function NearbyStoresList({
   isLocationReady,
   onViewOnMap,
   searchKeyword,
+  onSearchChange,
   category,
+  price,
   distance,
   selectedShop: propSelectedShop,
 }: NearbyStoresMapSectionProps & { onViewOnMap: (shop: NearbyShop) => void }) {
-  const [keyword, setKeyword] = useState("");
+  const [localKeyword, setLocalKeyword] = useState("");
+  const keyword = onSearchChange ? (searchKeyword ?? "") : localKeyword;
+  const setKeyword = onSearchChange ?? setLocalKeyword;
   const [query, setQuery] = useState("");
   const [onlyDeals, setOnlyDeals] = useState(false);
   const [page, setPage] = useState(1);
@@ -93,18 +98,21 @@ function NearbyStoresList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Real-time store search debounce (300ms) - no need to press Search
+  const debouncedKeyword = useDebounce(keyword.trim(), 700);
+
+  const appliedKeyword = useRef<string | null>(null);
+
+  // Apply a search only after the user pauses typing.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const next = keyword.trim();
-      if (next !== query) {
-        setQuery(next);
-        setPage(1);
-        setLoading(true);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [keyword, query]);
+    if (appliedKeyword.current === debouncedKeyword) return;
+    appliedKeyword.current = debouncedKeyword;
+    const next = debouncedKeyword;
+    if (next !== query) {
+      setQuery(next);
+      setPage(1);
+      setLoading(true);
+    }
+  }, [debouncedKeyword, query]);
 
   // Real-time flash deal update listener
   useEffect(() => {
@@ -118,17 +126,18 @@ function NearbyStoresList({
   useEffect(() => {
     if (!isLocationReady) return;
     const controller = new AbortController();
-    const effectiveKw = query?.trim() || searchKeyword?.trim() || undefined;
+    const effectiveKw = query.trim() || undefined;
     shopApi
       .getNearbyShops(
         {
           latitude: locationMode === "saved_address" ? undefined : (latitude ?? undefined),
           longitude: locationMode === "saved_address" ? undefined : (longitude ?? undefined),
-          radiusInKm: Math.min(radiusInKm ?? 5, 50),
+          radiusInKm: Math.min(radiusInKm ?? 5, 20),
           keyword: effectiveKw,
-          category: category || undefined,
+          category: effectiveKw ? undefined : category || undefined,
+          price: effectiveKw ? undefined : price || undefined,
           distance: distance || undefined,
-          shopName: propSelectedShop || undefined,
+          shopName: effectiveKw ? undefined : propSelectedShop || undefined,
           onlyWithFlashDeals: onlyDeals,
           page,
           pageSize: 8,
@@ -155,8 +164,9 @@ function NearbyStoresList({
     radiusInKm,
     locationMode,
     isLocationReady,
-    searchKeyword,
+    query,
     category,
+    price,
     distance,
     propSelectedShop,
     onlyDeals,
@@ -167,7 +177,8 @@ function NearbyStoresList({
   // Real-time update: remove suspended store from nearby stores list
   useEffect(() => {
     const handleShopStatus = (e: Event) => {
-      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
+      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>)
+        .detail;
       const rawShopId = detail?.shopId || (detail as any)?.ShopId;
       const rawStatus = detail?.status || (detail as any)?.Status;
       const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
@@ -286,7 +297,7 @@ function NearbyStoresList({
       ) : (
         <>
           <p className="text-caption text-text-secondary">
-            {result.totalItems} stores within {Math.min(radiusInKm, 10)} km · Nearest first
+            {result.totalItems} stores within {Math.min(radiusInKm, 20)} km · Nearest first
           </p>
           <ul className="grid gap-3 md:grid-cols-2">
             {result.shops.map((shop) => (

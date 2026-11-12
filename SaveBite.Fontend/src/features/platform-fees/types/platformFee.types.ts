@@ -15,7 +15,7 @@ export interface PlatformFeeConfigResponse {
   feePercentage: number;
   effectiveFrom: string;
   effectiveTo: string | null;
-  createdBy: string;
+  createdBy: string | null;
   createdAt: string;
 }
 

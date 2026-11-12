@@ -17,9 +17,9 @@ public class PlatformFeeConfig
     public string? ClosureReason { get; set; }
     public DateTime? ActivationProcessedAt { get; set; }
 
-    public Guid CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
 
-    public User CreatedByUser { get; set; } = null!;
+    public User? CreatedByUser { get; set; }
     public ICollection<OrderPlatformFee> OrderPlatformFees { get; set; } = new List<OrderPlatformFee>();
 }

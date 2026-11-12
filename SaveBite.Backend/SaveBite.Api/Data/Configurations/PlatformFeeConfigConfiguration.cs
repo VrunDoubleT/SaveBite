@@ -55,7 +55,7 @@ public class PlatformFeeConfigConfiguration
 
         builder.Property(x => x.CreatedBy)
             .HasColumnName("created_by")
-            .IsRequired();
+            .IsRequired(false);
 
         builder.Property(x => x.CreatedAt)
             .HasColumnName("created_at")

@@ -16,7 +16,7 @@ public sealed class PlatformFeeConfigResponse
     public decimal FeePercentage { get; set; }
     public DateTime EffectiveFrom { get; set; }
     public DateTime? EffectiveTo { get; set; }
-    public Guid CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
 
     public PlatformFeeConfigResponse() { }
@@ -27,7 +27,7 @@ public sealed class PlatformFeeConfigResponse
         decimal feePercentage,
         DateTime effectiveFrom,
         DateTime? effectiveTo,
-        Guid createdBy,
+        Guid? createdBy,
         DateTime createdAt)
     {
         Id = id;

@@ -25,7 +25,7 @@ public sealed class ShopRepository : IShopRepository
             .FirstOrDefaultAsync(shop => shop.OwnerUserId == ownerUserId, cancellationToken);
     }
 
-    public async Task<List<Shop>> GetActiveShopsAsync(string? keyword, string? category = null, string? shopName = null, CancellationToken cancellationToken = default)
+    public async Task<List<Shop>> GetActiveShopsAsync(string? keyword, string? category = null, string? shopName = null, CancellationToken cancellationToken = default, string? price = null)
     {
         var query = _context.Shops
             .AsNoTracking()
@@ -53,24 +53,34 @@ public sealed class ShopRepository : IShopRepository
                 s.FlashDeals.Any(d => d.Status == FlashDealStatus.OnSale &&
                     (EF.Functions.ILike(d.Product.Name, $"%{rawKw}%") ||
                      EF.Functions.ILike(EF.Functions.Unaccent(d.Product.Name), $"%{cleanKw}%") ||
+                     (d.Product.Description != null && (
+                         EF.Functions.ILike(d.Product.Description, $"%{rawKw}%") ||
+                         EF.Functions.ILike(EF.Functions.Unaccent(d.Product.Description), $"%{cleanKw}%"))) ||
                      EF.Functions.ILike(d.Product.Category.Name, $"%{rawKw}%") ||
                      EF.Functions.ILike(EF.Functions.Unaccent(d.Product.Category.Name), $"%{cleanKw}%"))));
         }
 
-        if (!string.IsNullOrWhiteSpace(category))
+        // Category and price must match the same visible deal, as on the Home feed.
+        if (!string.IsNullOrWhiteSpace(category) || !string.IsNullOrWhiteSpace(price))
         {
-            var rawCategories = category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                                        .Select(c => SaveBite.Backend.Helpers.VietnameseTextHelper.NormalizeNfc(c).ToLowerInvariant())
-                                        .ToList();
-            var unaccentCategories = category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                                             .Select(c => SaveBite.Backend.Helpers.VietnameseTextHelper.RemoveDiacritics(c))
-                                             .ToList();
-            if (rawCategories.Count > 0)
+            var deals = SaveBite.Backend.Services.Implementations.FlashDealReadQuery.Visible(_context, DateTime.UtcNow);
+            if (!string.IsNullOrWhiteSpace(category))
             {
-                query = query.Where(s => s.FlashDeals.Any(d => d.Status == FlashDealStatus.OnSale &&
-                    (rawCategories.Contains(d.Product.Category.Name.ToLower()) ||
-                     unaccentCategories.Contains(EF.Functions.Unaccent(d.Product.Category.Name).ToLower()))));
+                var categories = category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(SaveBite.Backend.Helpers.VietnameseTextHelper.RemoveDiacritics).ToArray();
+                deals = deals.Where(d => categories.Contains(EF.Functions.Unaccent(d.Product.Category.Name).ToLower()));
             }
+            var prices = (price ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (prices.Length > 0)
+            {
+                var low = prices.Contains("Under 30k", StringComparer.OrdinalIgnoreCase);
+                var mid = prices.Contains("30k - 50k", StringComparer.OrdinalIgnoreCase);
+                var high = prices.Contains("Over 50k", StringComparer.OrdinalIgnoreCase);
+                deals = deals.Where(d => (low && d.Variants.Min(v => (decimal?)v.DealPrice) < 30000)
+                    || (mid && d.Variants.Min(v => (decimal?)v.DealPrice) >= 30000 && d.Variants.Min(v => (decimal?)v.DealPrice) <= 50000)
+                    || (high && d.Variants.Min(v => (decimal?)v.DealPrice) > 50000));
+            }
+            query = query.Where(s => deals.Select(d => d.ShopId).Contains(s.Id));
         }
 
         return await query.ToListAsync(cancellationToken);

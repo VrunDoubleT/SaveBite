@@ -18,10 +18,8 @@ public sealed class FlashDealCursorRequestValidator : AbstractValidator<FlashDea
             .When(x => x.Longitude.HasValue);
 
         RuleFor(x => x.RadiusInKm)
-            .GreaterThan(0)
-            .WithMessage("RadiusInKm must be greater than 0.")
-            .LessThanOrEqualTo(100)
-            .WithMessage("RadiusInKm must be between 0 and 100 km.");
+            .InclusiveBetween(5.0, 20.0)
+            .WithMessage("RadiusInKm must be between 5 and 20 km.");
 
         RuleFor(x => x.Limit)
             .InclusiveBetween(1, 100)

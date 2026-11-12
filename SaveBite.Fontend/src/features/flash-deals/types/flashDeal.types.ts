@@ -53,6 +53,7 @@ export interface FlashDeal {
 export type CursorMode = "Initial" | "Older" | "Newer";
 
 export interface FlashDealCursorParams {
+  dealId?: string;
   latitude?: number;
   longitude?: number;
   radiusInKm?: number;

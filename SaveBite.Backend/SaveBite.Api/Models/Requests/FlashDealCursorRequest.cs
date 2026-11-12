@@ -9,6 +9,9 @@ public enum CursorMode
 
 public class FlashDealCursorRequest
 {
+    // Optional targeted lookup using the same visibility and feed filters.
+    public Guid? DealId { get; set; }
+
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public double RadiusInKm { get; set; } = 5.0;

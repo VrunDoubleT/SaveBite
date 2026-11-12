@@ -15,7 +15,7 @@ interface NearbyStoresSectionProps {
 export function NearbyStoresSection({
   latitude,
   longitude,
-  radiusInKm = 10,
+  radiusInKm = 5,
   isLocationReady = false,
 }: NearbyStoresSectionProps) {
   const [shops, setShops] = useState<NearbyShop[]>([]);

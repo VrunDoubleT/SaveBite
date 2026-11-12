@@ -18,10 +18,8 @@ public sealed class NearbyShopsRequestValidator : AbstractValidator<NearbyShopsR
             .When(x => x.Longitude.HasValue);
 
         RuleFor(x => x.RadiusInKm)
-            .GreaterThan(0)
-            .WithMessage("RadiusInKm must be greater than 0.")
-            .LessThanOrEqualTo(10.0)
-            .WithMessage("RadiusInKm must not exceed 10 km.");
+            .InclusiveBetween(5.0, 20.0)
+            .WithMessage("RadiusInKm must be between 5 and 20 km.");
 
         RuleFor(x => x.Keyword)
             .MaximumLength(100)

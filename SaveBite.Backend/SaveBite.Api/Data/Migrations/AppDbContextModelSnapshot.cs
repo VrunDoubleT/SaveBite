@@ -1458,7 +1458,7 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<Guid>("CreatedBy")
+                    b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
@@ -4782,8 +4782,7 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasOne("SaveBite.Backend.Models.Entities.User", "CreatedByUser")
                         .WithMany("CreatedPlatformFeeConfigs")
                         .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SaveBite.Backend.Models.Entities.PlatformFeeConfig", null)
                         .WithMany()

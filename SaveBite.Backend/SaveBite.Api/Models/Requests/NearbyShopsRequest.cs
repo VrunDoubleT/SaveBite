@@ -6,6 +6,7 @@ public class NearbyShopsRequest
     public double? Longitude { get; set; }
     public double RadiusInKm { get; set; } = 5.0;
     public string? Keyword { get; set; }
+    public string? Price { get; set; }
     public string? Category { get; set; }
     public string? ShopName { get; set; }
     public string? Distance { get; set; }

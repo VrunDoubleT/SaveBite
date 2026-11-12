@@ -100,6 +100,7 @@ export interface NearbyShopsRequest {
   radiusInKm?: number;
   keyword?: string;
   category?: string;
+  price?: string;
   shopName?: string;
   distance?: string;
   onlyOpen?: boolean;

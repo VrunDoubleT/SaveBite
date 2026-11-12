@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Flame, RefreshCw, Search, X } from "lucide-react";
+import { Flame, Search, X } from "lucide-react";
 import { DealGrid } from "@/features/flash-deals/components/DealGrid";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
@@ -109,16 +109,6 @@ export function DealSection({
             )}
           </p>
         </div>
-        <Button
-          variant="secondary"
-          aria-label="Refresh deals"
-          className="min-h-11"
-          onClick={onRefresh}
-          loading={isLoading}
-        >
-          {!isLoading && <RefreshCw className="size-4" aria-hidden="true" />}
-          <span className="hidden sm:inline">Refresh</span>
-        </Button>
       </header>
       <div>
         <label htmlFor="flash-deal-search" className="sr-only">

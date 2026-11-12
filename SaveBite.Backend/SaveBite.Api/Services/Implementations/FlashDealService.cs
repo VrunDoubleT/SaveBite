@@ -132,10 +132,10 @@ public sealed class FlashDealService : IFlashDealService
 
         if (!double.IsFinite(latitude) || !double.IsFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
             throw AppException.BadRequest("Invalid location coordinates.");
-        if (!double.IsFinite(request.RadiusInKm) || request.RadiusInKm <= 0)
-            throw AppException.BadRequest("Radius must be greater than zero.");
+        if (!double.IsFinite(request.RadiusInKm) || request.RadiusInKm < 5 || request.RadiusInKm > 20)
+            throw AppException.BadRequest("Radius must be between 5 and 20 km.");
         request.Limit = Math.Clamp(request.Limit, 1, 100);
-        var radius = Math.Min(request.RadiusInKm <= 0 ? 5.0 : request.RadiusInKm, 50.0);
+        var radius = request.RadiusInKm;
         if (!string.IsNullOrWhiteSpace(request.Distance))
         {
             var distanceRules = (request.Distance ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -145,9 +145,11 @@ public sealed class FlashDealService : IFlashDealService
                 if (distanceRules.Any(r => r.Contains("5km", StringComparison.OrdinalIgnoreCase))) radius = Math.Max(radius, 5.0);
                 if (distanceRules.Any(r => r.Contains("10km", StringComparison.OrdinalIgnoreCase))) radius = Math.Max(radius, 10.0);
                 if (distanceRules.Any(r => r.Contains("20km", StringComparison.OrdinalIgnoreCase))) radius = Math.Max(radius, 20.0);
-                if (distanceRules.Any(r => r.Contains("50km", StringComparison.OrdinalIgnoreCase))) radius = Math.Max(radius, 50.0);
+                if (distanceRules.Any(r => r.Contains("15km", StringComparison.OrdinalIgnoreCase))) radius = Math.Max(radius, 15.0);
             }
         }
+
+        radius = Math.Min(radius, 20.0);
 
         // Section 8.2 & 8.4: Keyset Cursor & Snapshot Handling
         DateTime snapshotAt = DateTime.UtcNow;
@@ -178,6 +180,8 @@ public sealed class FlashDealService : IFlashDealService
         }
 
         var query = FlashDealReadQuery.Visible(_db, DateTime.UtcNow);
+        if (request.DealId.HasValue)
+            query = query.Where(d => d.Id == request.DealId.Value);
         // Ensure deal was published before or at snapshot time
         query = query.Where(d => d.FeedPublishedAt <= snapshotAt);
 
@@ -207,7 +211,13 @@ public sealed class FlashDealService : IFlashDealService
             var rawKw = VietnameseTextHelper.NormalizeNfc(request.Keyword).ToLowerInvariant();
             var cleanKw = VietnameseTextHelper.RemoveDiacritics(request.Keyword);
             query = query.Where(d =>
-                EF.Functions.ILike(d.Product.Name, $"%{rawKw}%")
+                EF.Functions.ILike(d.Shop.Name, $"%{rawKw}%")
+                || EF.Functions.ILike(EF.Functions.Unaccent(d.Shop.Name), $"%{cleanKw}%")
+                || EF.Functions.ILike(d.Shop.AddressLine, $"%{rawKw}%")
+                || EF.Functions.ILike(EF.Functions.Unaccent(d.Shop.AddressLine), $"%{cleanKw}%")
+                || EF.Functions.ILike(d.Product.Category.Name, $"%{rawKw}%")
+                || EF.Functions.ILike(EF.Functions.Unaccent(d.Product.Category.Name), $"%{cleanKw}%")
+                || EF.Functions.ILike(d.Product.Name, $"%{rawKw}%")
                 || EF.Functions.ILike(EF.Functions.Unaccent(d.Product.Name), $"%{cleanKw}%")
                 || (d.Product.Description != null && (
                     EF.Functions.ILike(d.Product.Description, $"%{rawKw}%")
@@ -243,6 +253,8 @@ public sealed class FlashDealService : IFlashDealService
                 || (mid && d.Variants.Min(v => (decimal?)v.DealPrice) >= 30000 && d.Variants.Min(v => (decimal?)v.DealPrice) <= 50000)
                 || (high && d.Variants.Min(v => (decimal?)v.DealPrice) > 50000));
         }
+
+        radius = Math.Min(radius, 20.0);
 
         // Section 8.2: Keyset Order
         var sortedDeals = query.OrderByDescending(d => d.FeedPublishedAt).ThenByDescending(d => d.Id);

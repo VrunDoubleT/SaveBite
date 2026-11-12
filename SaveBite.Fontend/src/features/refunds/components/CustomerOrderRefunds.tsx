@@ -1,12 +1,11 @@
-import { isUploadCancelled } from "@/shared/uploads/uploadErrors";
-import { toast } from "@/shared/stores/toastStore";
 import { CustomerActionLink } from "@/shared/components/CustomerMutationControls";
 import { Badge, Card } from "@/shared/components/ui";
-import { RefundCard } from "./RefundCard";
+import { Link } from "react-router-dom";
+import { RefundStatusBadge } from "./RefundStatusBadge";
 import { refundEligibility } from "../utils/refundEligibility";
 import { APP_PATHS } from "@/app/router/paths";
-import { useEffect, useRef, useState } from "react";
-import { ChevronDown, RotateCcw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { RotateCcw } from "lucide-react";
 import { getApiErrorMessage } from "@/shared/api";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
@@ -19,14 +18,9 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
   const [refunds, setRefunds] = useState<Refund[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now);
-  const operation = useRef(false);
-  const revision = useRef(0);
-  const alive = useRef(true);
   const realtime = useRealtimeSubscriptions();
   useEffect(() => {
-    alive.current = true;
     const abort = new AbortController();
     let reading = false;
     let dirty = false;
@@ -37,11 +31,11 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
       try {
         while (dirty && !abort.signal.aborted) {
           dirty = false;
-          const current = revision.current;
           const items = await refundApi.forOrder(order.id, abort.signal);
-          if (!abort.signal.aborted && !operation.current && current === revision.current) {
+          if (!abort.signal.aborted) {
             setRefunds(items);
             setLoaded(true);
+            setError("");
           }
         }
       } catch (e) {
@@ -58,37 +52,14 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
       },
       order.id,
     );
-    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => {
-      alive.current = false;
       abort.abort();
       off();
       window.clearInterval(timer);
     };
   }, [order.id, realtime]);
 
-  async function mutate(action: () => Promise<Refund>) {
-    if (operation.current) return;
-    operation.current = true;
-    revision.current++;
-    setBusy(true);
-    setError("");
-    try {
-      const changed = await action();
-      if (!alive.current) return;
-      setRefunds((items) => [changed, ...items.filter((item) => item.id !== changed.id)]);
-      setLoaded(true);
-    } catch (e) {
-      if (isUploadCancelled(e))
-        toast.info(
-          "Upload stopped. Your refund draft is saved; edit it or submit again when ready.",
-        );
-      else if (alive.current) setError(getApiErrorMessage(e));
-    } finally {
-      operation.current = false;
-      if (alive.current) setBusy(false);
-    }
-  }
   const {
     completed,
     deadline,
@@ -96,25 +67,20 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
     eligible: canRequest,
     reason,
   } = refundEligibility(order, refunds, now);
-  const eligible = loaded && canRequest;
+  const eligible = loaded && !error && refunds.length === 0 && canRequest;
   if (!completed && !refunds.length && !error) return null;
 
   return (
     <Card aria-label="Order refunds" className="!p-4">
-      <details className="group">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-body font-semibold text-text-primary">
+      <section aria-label="Refund options">
+        <h2 className="flex min-h-11 flex-wrap items-center gap-2 text-body font-semibold text-text-primary">
           <RotateCcw size={16} className="text-secondary-700" aria-hidden="true" />
           Refunds
           {hasActive && <Badge tone="warning">Action in progress</Badge>}
           {loaded && refunds.length > 0 && <Badge tone="neutral">{refunds.length}</Badge>}
-          <ChevronDown
-            size={16}
-            className="ml-auto shrink-0 transition-transform group-open:rotate-180"
-            aria-hidden="true"
-          />
-        </summary>
+        </h2>
         <div className="border-t border-border-default pt-3">
-          {completed && (
+          {eligible && (
             <p className="text-caption text-text-secondary">
               Request a refund for affected items within 6 hours of order completion.
             </p>
@@ -130,21 +96,36 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
           {!loaded && !error && (
             <p className="mt-3 text-caption text-text-secondary">Loading refund eligibility…</p>
           )}
-          {completed && deadline !== null && (
+          {eligible && deadline !== null && (
             <p className="mt-2 text-caption text-text-secondary">
               Request deadline: {checkoutTime(new Date(deadline).toISOString())} · GMT+7
             </p>
           )}
-          {loaded && completed && !hasActive && !eligible && (
-            <p className="mt-2 text-caption text-text-secondary">{reason}</p>
+          {loaded && !error && completed && refunds.length === 0 && !eligible && (
+            <p role="status" className="mt-2 text-body text-text-secondary">
+              {deadline !== null && now > deadline
+                ? "The refund request window has closed. You can no longer request a refund for this order."
+                : reason}
+            </p>
           )}
           <div className="mt-3 space-y-3">
             {refunds.map((refund) => (
-              <RefundCard key={refund.id} refund={refund} busy={busy} mutate={mutate} />
+              <div
+                key={refund.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-default p-3"
+              >
+                <RefundStatusBadge status={refund.status} overdue={refund.isOverdue} />
+                <Link
+                  to={APP_PATHS.REFUND_DETAIL.replace(":refundId", encodeURIComponent(refund.id))}
+                  className="inline-flex min-h-11 items-center rounded-md px-3 text-body font-semibold text-primary-700 underline underline-offset-4 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
+                >
+                  View refund details
+                </Link>
+              </div>
             ))}
           </div>
         </div>
-      </details>
+      </section>
       {error && (
         <p
           role="alert"

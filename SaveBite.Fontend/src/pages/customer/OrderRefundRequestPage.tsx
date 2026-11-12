@@ -12,6 +12,8 @@ import {
 import { orderApi } from "@/features/orders/api/orderApi";
 import type { CheckoutOrder } from "@/features/checkout/types/checkout.types";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
+import { RefundDestinationForm } from "@/features/refunds/components/RefundDestinationForm";
+import { RefundStatusBadge } from "@/features/refunds/components/RefundStatusBadge";
 import { RefundRequestForm } from "@/features/refunds/components/RefundRequestForm";
 import { refundApi } from "@/features/refunds/api/refundApi";
 import type { Refund } from "@/features/refunds/types/refund.types";
@@ -85,9 +87,7 @@ function RefundRequestPage({ orderId }: { orderId: string }) {
       const refund = await action();
       toast.success("Refund request submitted.");
       if (!alive.current) return;
-      navigate(APP_PATHS.REFUND_DETAIL.replace(":refundId", encodeURIComponent(refund.id)), {
-        replace: true,
-      });
+      setResult({ order, refunds: [refund, ...refunds.filter((item) => item.id !== refund.id)] });
     } catch (e) {
       if (isUploadCancelled(e)) toast.info("Upload stopped. Your refund draft is saved.");
       else if (alive.current) setSubmitError(getApiErrorMessage(e));
@@ -97,12 +97,45 @@ function RefundRequestPage({ orderId }: { orderId: string }) {
       if (alive.current) setBusy(false);
     }
   }
+  async function updateRefund(action: () => Promise<Refund>) {
+    if (operation.current) return;
+    operation.current = true;
+    setBusy(true);
+    setSubmitError("");
+    try {
+      const refund = await action();
+      if (!alive.current) return;
+      setResult(
+        (current) =>
+          current && {
+            ...current,
+            refunds: [refund, ...current.refunds.filter((item) => item.id !== refund.id)],
+          },
+      );
+      toast.success(
+        refund.destinationConfirmedAt
+          ? "Refund destination confirmed. The shop will review your request."
+          : "Confirmation code sent to your email.",
+      );
+    } catch (e) {
+      if (alive.current) setSubmitError(getApiErrorMessage(e));
+    } finally {
+      operation.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }
+  const currentRefund =
+    result?.refunds.find((refund) => refund.type === "CustomerRequest") ?? result?.refunds[0];
   const eligibility = result && refundEligibility(result.order, result.refunds, now);
   return (
     <div className="min-w-0 w-full space-y-6 py-6 sm:py-8">
       <PageHeader
         title="Request a refund"
-        description="Select the affected items and provide details for the shop to review."
+        description={
+          currentRefund
+            ? "Confirm your refund destination here. You can also continue from the refund details page."
+            : "Select the affected items and provide details for the shop to review."
+        }
         breadcrumb={
           <ol className="flex flex-wrap items-center gap-2">
             <li>
@@ -145,6 +178,44 @@ function RefundRequestPage({ orderId }: { orderId: string }) {
           <Skeleton className="h-20" />
           <Skeleton className="h-96" />
         </div>
+      ) : currentRefund ? (
+        <Card className="min-w-0 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-section font-semibold text-text-primary">
+              {currentRefund.status === "AwaitingCustomerDetails"
+                ? "Confirm your refund destination"
+                : "Your refund request"}
+            </h2>
+            <RefundStatusBadge status={currentRefund.status} overdue={currentRefund.isOverdue} />
+          </div>
+          <p role="status" className="text-body text-text-secondary">
+            {currentRefund.status === "AwaitingCustomerDetails"
+              ? "Your refund request is saved. Provide your bank details or QR image, then enter the confirmation code sent to your email."
+              : currentRefund.status === "PendingVerification"
+                ? "Your refund destination is confirmed. The shop is reviewing your request."
+                : "Your refund request is saved. Open refund details to follow its progress."}
+          </p>
+          {submitError && (
+            <p role="alert" className="rounded-md bg-danger-soft p-3 text-body text-danger-strong">
+              {submitError}
+            </p>
+          )}
+          {currentRefund.status === "AwaitingCustomerDetails" && (
+            <RefundDestinationForm
+              key={currentRefund.id}
+              refund={currentRefund}
+              busy={busy}
+              mutate={updateRefund}
+            />
+          )}
+          <ButtonLink
+            to={APP_PATHS.REFUND_DETAIL.replace(":refundId", encodeURIComponent(currentRefund.id))}
+            variant="secondary"
+            className="min-h-11"
+          >
+            View refund details
+          </ButtonLink>
+        </Card>
       ) : eligibility && !eligibility.eligible && !busy ? (
         <EmptyState
           title="Refund request unavailable"
@@ -187,7 +258,6 @@ function RefundRequestPage({ orderId }: { orderId: string }) {
                 toast.info(
                   "Your refund request is uploading in the background. Follow its progress in the upload panel.",
                 );
-                navigate(APP_PATHS.ACCOUNT_REFUNDS, { replace: true });
               }}
               onClose={() => navigate(detailUrl)}
             />

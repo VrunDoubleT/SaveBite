@@ -12,7 +12,6 @@ import {
   MapPin,
   Map,
   ChevronDown,
-  ArrowRight,
   Pause,
   Play,
 } from "lucide-react";
@@ -69,6 +68,7 @@ export function CustomerHomePage() {
   const setIsMobileFilterOpen = useHomePreferencesStore((state) => state.setMobileFiltersExpanded);
   const isMapOpen = useHomePreferencesStore((state) => state.storesExpanded);
   const setIsMapOpen = useHomePreferencesStore((state) => state.setStoresExpanded);
+  const [shopSearchKeyword, setShopSearchKeyword] = useState("");
   const [isCategoryAnimationPaused, setIsCategoryAnimationPaused] = useState(false);
 
   const activeFilterCount =
@@ -146,19 +146,17 @@ export function CustomerHomePage() {
                     : gpsError
                       ? "Try my location again"
                       : "Use my location"}
-                  {!isGpsLoading && <ArrowRight className="size-4" aria-hidden="true" />}
                 </Button>
 
                 {isAuthenticated && userDefaultAddress && (
                   <Button
                     size="lg"
                     className="min-h-11 rounded-full bg-primary-700 px-5 text-white shadow-lg shadow-primary-700/25 hover:bg-primary-800 sm:min-h-13 sm:px-7"
-                    onClick={() => selectSavedAddress(userDefaultAddress)}
+                    onClick={selectSavedAddress}
                     title={defaultAddressText}
                   >
                     <Home className="size-4 shrink-0" aria-hidden="true" />
                     Use my default address
-                    <ArrowRight className="size-4" aria-hidden="true" />
                   </Button>
                 )}
               </div>
@@ -378,7 +376,9 @@ export function CustomerHomePage() {
                   userDefaultAddressLabel={
                     userDefaultAddress?.label || userDefaultAddress?.addressLine
                   }
-                  searchKeyword={searchKeyword}
+                  searchKeyword={shopSearchKeyword}
+                  onSearchChange={setShopSearchKeyword}
+                  price={filters.price.join(",") || undefined}
                   category={filters.category.length > 0 ? filters.category.join(",") : undefined}
                   distance={filters.distance.length > 0 ? filters.distance.join(",") : undefined}
                   selectedShop={selectedShop}

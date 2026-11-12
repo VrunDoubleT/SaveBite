@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { Filter, RotateCcw, X } from "lucide-react";
+import { Filter, X } from "lucide-react";
 import type { DealFilterState } from "@/features/flash-deals/types/flashDeal.types";
 import { categoryApi } from "@/features/categories/api/categoryApi";
 
 import { Button, Card, Checkbox, IconButton, Skeleton } from "@/shared/components/ui";
-import { toast } from "@/shared/stores/toastStore";
 
 interface FilterSidebarProps {
   filters: DealFilterState;
@@ -21,11 +20,9 @@ interface FilterSidebarProps {
 }
 
 const DISTANCE_OPTIONS = [
-  "Under 2km",
-  "Under 5km",
   "Under 10km",
+  "Under 15km",
   "Under 20km",
-  "Under 50km",
 ];
 const PRICE_OPTIONS = ["Under 30k", "30k - 50k", "Over 50k"];
 
@@ -49,7 +46,6 @@ export function FilterSidebar({
   const [customDistance, setCustomDistance] = useState<string>(
     radiusInKm !== undefined ? String(radiusInKm) : "5",
   );
-  const [distanceError, setDistanceError] = useState<string | null>(null);
 
   useEffect(() => {
     if (radiusInKm !== undefined) {
@@ -59,32 +55,22 @@ export function FilterSidebar({
 
   const handleCustomDistanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    setCustomDistance(raw);
-    if (raw.trim() === "") {
-      setDistanceError(null);
+    if (raw === "") {
+      setCustomDistance("");
       return;
     }
-    const val = parseFloat(raw);
-    if (isNaN(val) || val < 0 || val > 50) {
-      setDistanceError("Distance must be between 0 and 50 km");
-    } else {
-      setDistanceError(null);
-      setRadiusInKm?.(val <= 0 ? 5 : val);
-    }
+    const value = e.target.valueAsNumber;
+    if (!Number.isFinite(value)) return;
+    const radius = Math.min(20, Math.max(5, value));
+    setCustomDistance(String(radius));
+    setFilters((prev) => ({ ...prev, distance: [] }));
+    setRadiusInKm?.(radius);
   };
 
   const handleCustomDistanceBlur = () => {
-    const trimmed = customDistance.trim();
-    if (!trimmed) {
+    if (!customDistance.trim()) {
       setCustomDistance("5");
-      setDistanceError(null);
-      setRadiusInKm?.(5);
-      return;
-    }
-    const val = parseFloat(trimmed);
-    if (isNaN(val) || val <= 0 || val > 50) {
-      setCustomDistance("5");
-      setDistanceError(null);
+      setFilters((prev) => ({ ...prev, distance: [] }));
       setRadiusInKm?.(5);
     }
   };
@@ -133,7 +119,7 @@ export function FilterSidebar({
       filters.distance.includes(value) ||
       (value === "Under 10km" && filters.distance.includes("Over 5km - 10km")) ||
       (value === "Under 20km" && filters.distance.includes("10km - 20km")) ||
-      (value === "Under 50km" && filters.distance.includes("20km - 50km"));
+      (value === "Under 15km" && filters.distance.includes("10km - 15km"));
 
     const nextDistance = isSelected ? [] : [value];
     setFilters((prev) => ({
@@ -142,19 +128,16 @@ export function FilterSidebar({
     }));
     if (!isSelected) {
       let mappedRadius = 5;
-      if (value === "Under 2km") mappedRadius = 2;
-      else if (value === "Under 5km") mappedRadius = 5;
+      if (value === "Under 5km") mappedRadius = 5;
       else if (value === "Under 10km" || value === "Over 5km - 10km") mappedRadius = 10;
       else if (value === "Under 20km" || value === "10km - 20km") mappedRadius = 20;
-      else if (value === "Under 50km" || value === "20km - 50km") mappedRadius = 50;
+      else if (value === "Under 15km" || value === "10km - 15km") mappedRadius = 15;
       setRadiusInKm?.(mappedRadius);
       setCustomDistance(String(mappedRadius));
-      setDistanceError(null);
     } else {
       // Uncheck -> Revert to default 5km
       setRadiusInKm?.(5);
       setCustomDistance("5");
-      setDistanceError(null);
     }
   };
 
@@ -170,9 +153,7 @@ export function FilterSidebar({
     setFilters({ distance: [], price: [], category: [] });
     setRadiusInKm?.(5);
     setCustomDistance("5");
-    setDistanceError(null);
     onClearShop();
-    toast.success("Filters reset");
   };
 
   const categoryList = useMemo(() => {
@@ -190,8 +171,7 @@ export function FilterSidebar({
           Filters
         </h2>
         <Button variant="ghost" size="sm" className="min-h-9 px-2" onClick={clearAll}>
-          <RotateCcw className="size-4" aria-hidden="true" />
-          Reset
+          Clear filter
         </Button>
       </div>
 
@@ -273,32 +253,25 @@ export function FilterSidebar({
               htmlFor="custom-distance-input"
               className="block text-[11px] font-medium text-text-secondary mb-1"
             >
-              Custom radius (0 - 50 km)
+              Custom radius (5 - 20 km)
             </label>
             <div className="relative">
               <input
                 id="custom-distance-input"
                 type="number"
-                min={0}
-                max={50}
+                min={5}
+                max={20}
                 step={0.5}
                 value={customDistance}
                 onChange={handleCustomDistanceChange}
                 onBlur={handleCustomDistanceBlur}
                 placeholder="5"
-                className={`w-full rounded-md border px-2.5 py-1 text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 ${
-                  distanceError
-                    ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                    : "border-border-default focus:border-primary-500 focus:ring-primary-500"
-                }`}
+                className="w-full rounded-md border border-border-default px-2.5 py-1 text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:border-primary-500 focus:ring-primary-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-caption text-text-tertiary">
                 km
               </span>
             </div>
-            {distanceError && (
-              <p className="mt-1 text-[11px] text-red-500">{distanceError}</p>
-            )}
           </div>
 
           <div className="space-y-0.5">
@@ -312,7 +285,7 @@ export function FilterSidebar({
                     filters.distance.includes(option) ||
                     (option === "Under 10km" && filters.distance.includes("Over 5km - 10km")) ||
                     (option === "Under 20km" && filters.distance.includes("10km - 20km")) ||
-                    (option === "Under 50km" && filters.distance.includes("20km - 50km"))
+                    (option === "Under 15km" && filters.distance.includes("10km - 15km"))
                   }
                   onChange={() => toggleDistance(option)}
                 />

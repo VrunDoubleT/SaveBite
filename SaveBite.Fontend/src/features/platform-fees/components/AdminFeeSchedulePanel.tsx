@@ -525,7 +525,7 @@ export function AdminFeeSchedulePanel() {
                   <td className="max-w-sm p-3">
                     <p>{item.reason || "Previous configuration"}</p>
                     <p className="mt-1 text-xs text-slate-500">
-                      Created by {item.createdByName || item.createdBy} · {dateTime(item.createdAt)}
+                      Created by {item.createdByName || item.createdBy || "System"} · {dateTime(item.createdAt)}
                     </p>
                     {item.replacesConfigId && (
                       <p className="mt-1 break-all text-xs text-slate-500">
