@@ -11,7 +11,7 @@ export function CustomerHeader() {
 
   return (
     <header
-      className={`sticky top-0 z-20 h-16 border-b backdrop-blur-xl ${
+      className={`sticky top-0 z-30 h-16 border-b backdrop-blur-xl ${
         isHome
           ? "border-white/30 bg-white/45"
           : "border-border-default bg-bg-surface"

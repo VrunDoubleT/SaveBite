@@ -1113,7 +1113,7 @@ export function NearbyStoresMapSection({
       </div>
 
       {/* 2. VietMap Leaflet Map Container */}
-      <div className="relative h-[380px] sm:h-[420px] md:h-[460px] w-full overflow-hidden rounded-3xl border border-border-default/90 bg-neutral-100 shadow-2xs">
+      <div className="isolate relative h-[380px] sm:h-[420px] md:h-[460px] w-full overflow-hidden rounded-3xl border border-border-default/90 bg-neutral-100 shadow-2xs">
         {/* Leaflet render container */}
         <div
           ref={mapContainerRef}
@@ -1175,7 +1175,7 @@ export function NearbyStoresMapSection({
         <button
           type="button"
           onClick={handlePanToUserLocation}
-          className="absolute bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-2xl border border-border-default bg-bg-surface/95 text-text-secondary shadow-md backdrop-blur-md transition hover:bg-bg-surface hover:scale-105 active:scale-95 cursor-pointer"
+          className="absolute bottom-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-2xl border border-border-default bg-bg-surface/95 text-text-secondary shadow-md backdrop-blur-md transition hover:bg-bg-surface hover:scale-105 active:scale-95 cursor-pointer"
           title="Focus on my location"
         >
           {locationMode === "saved_address" ? (

@@ -32,7 +32,7 @@ import { toast } from "@/shared/stores/toastStore";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
 import { Panel } from "@/shared/components/analytics/Panel";
 import { StatusBadge } from "@/shared/components/analytics/StatusBadge";
-import { SearchInput } from "@/shared/components/modal/SearchInput";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 
 const rows = [
   { id: "1", name: "Fresh vegetable box", status: "Active", price: "45,000 ₫" },

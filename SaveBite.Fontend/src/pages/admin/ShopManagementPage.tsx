@@ -14,7 +14,7 @@ import { shopApi } from "@/features/shops/api/shopApi";
 import { ShopManagementTable } from "@/features/shops/components/ShopManagementTable";
 import type { ShopListManagement } from "@/features/shops/types/shopManagement.types";
 import { Pagination } from "@/shared/components/pagination";
-import { SearchInput } from "@/shared/components/modal/SearchInput";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { platformAnalyticsApi } from "@/features/admin-analytics/api/platformAnalyticsApi";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 

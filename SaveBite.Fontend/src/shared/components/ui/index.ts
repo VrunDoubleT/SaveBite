@@ -29,5 +29,6 @@ export { ToastViewport as Toast } from "../feedback/ToastViewport";
 export { MediaImage } from "./MediaImage";
 
 export { FilterBar } from "./FilterBar";
+export { SearchInput } from "./SearchInput";
 export { AmountSummary } from "./AmountSummary";
 export { ScrollToTopButton } from "./ScrollToTopButton";

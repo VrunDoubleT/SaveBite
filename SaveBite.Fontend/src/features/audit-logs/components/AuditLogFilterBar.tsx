@@ -1,5 +1,5 @@
 import type { AuditLogFilterOptions, AuditLogIdentifiers } from "../types/auditLog.types";
-import { SearchInput } from "@/shared/components/modal/SearchInput";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { formatAuditAction } from "../utils/formatAuditLog";
 import { todayInVietnam } from "@/features/store-analytics/utils/formatAnalytics";
 

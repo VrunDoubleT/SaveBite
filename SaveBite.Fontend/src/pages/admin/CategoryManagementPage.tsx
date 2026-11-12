@@ -13,7 +13,7 @@ import {
 } from "@/features/categories/components";
 import { Pagination } from "@/shared/components/pagination";
 import { ErrorModal } from "@/shared/components/modal/ErrorModal";
-import { SearchInput } from "@/shared/components/modal/SearchInput";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 
 export function CategoryManagementPage() {
   const {

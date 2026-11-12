@@ -12,7 +12,7 @@ import {
 import { useAuthStore } from "@/shared/stores/authStore";
 import { Pagination } from "@/shared/components/pagination";
 import { ErrorModal } from "@/shared/components/modal/ErrorModal";
-import { SearchInput } from "@/shared/components/modal/SearchInput";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { platformAnalyticsApi } from "@/features/admin-analytics/api/platformAnalyticsApi";
 
 interface DetailsState {

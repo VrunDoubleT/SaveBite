@@ -24,7 +24,7 @@ import type {
   FeedbackStatus,
 } from "@/features/feedback/types/feedback.types";
 import { Pagination } from "@/shared/components/pagination";
-import { SearchInput } from "@/shared/components/modal/SearchInput";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api";
 import { emitFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";

@@ -5,7 +5,7 @@ import { productApi } from "@/features/products/api/productApi";
 import { ProductManagementTable } from "@/features/products/components/ProductManagementTable";
 import type { ProductListManagement, AdminProductSummary } from "@/features/products/types/product.types";
 import { Pagination } from "@/shared/components/pagination";
-import { SearchInput } from "@/shared/components/modal/SearchInput";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 
 const PAGE_SIZE = 5;
 const SEARCH_DEBOUNCE_MS = 400;
