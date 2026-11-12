@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { paymentApi } from "@/features/payments/api/paymentApi";
@@ -36,7 +37,8 @@ function Simulation({ orderId, paymentId }: { orderId: string; paymentId?: strin
   }, [orderId, paymentId]);
   const receipt = `/checkout?orderId=${encodeURIComponent(orderId)}`;
   const expired = !order?.paymentExpiresAt || Date.parse(order.paymentExpiresAt) <= now;
-  const outdatedOrder = !paymentId && order?.status === "Pending" && order.paymentStatus === "Pending";
+  const outdatedOrder =
+    !paymentId && order?.status === "Pending" && order.paymentStatus === "Pending";
   const resolved =
     (paymentId
       ? !["Confirmed", "Preparing", "ReadyForPickup"].includes(order?.status ?? "")
@@ -68,7 +70,7 @@ function Simulation({ orderId, paymentId }: { orderId: string; paymentId?: strin
           {error}
         </p>
       )}
-      {!order && !error && <p className="mt-4">Loading orders…</p>}
+      {!order && !error && <LoadingSkeleton variant="detail" label="Loading orders…" />}
       {order && (
         <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-6">
           <p className="font-semibold">Order {order.orderCode}</p>

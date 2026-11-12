@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { isUploadCancelled } from "@/shared/uploads/uploadErrors";
 import { toast } from "@/shared/stores/toastStore";
 import { useCallback, useEffect, useState } from "react";
@@ -190,15 +191,7 @@ export function CreateProductPage() {
     [activeDraftId, busy, navigate, location.pathname, reset, resumeDraftId, shopSuspended, userId],
   );
   if (resumeDraftId && resumeFinishedId !== resumeDraftId) {
-    return (
-      <div
-        role="status"
-        className="flex min-h-64 items-center justify-center gap-3 text-sm text-neutral-500"
-      >
-        <LoaderCircle className="size-5 animate-spin" />
-        Resuming product creation…
-      </div>
-    );
+    return <LoadingSkeleton variant="form" label="Resuming product creation" />;
   }
 
   return (

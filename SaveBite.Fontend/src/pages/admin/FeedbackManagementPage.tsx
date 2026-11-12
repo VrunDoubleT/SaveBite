@@ -1,4 +1,4 @@
-
+import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -106,9 +106,7 @@ function StateMessage({
     >
       <span
         className={`flex size-14 items-center justify-center rounded-2xl ${
-          isError
-            ? "bg-red-50 text-red-600"
-            : "bg-neutral-100 text-text-muted"
+          isError ? "bg-red-50 text-red-600" : "bg-neutral-100 text-text-muted"
         }`}
       >
         <Icon className="size-7" aria-hidden="true" />
@@ -122,11 +120,7 @@ function StateMessage({
         {title}
       </p>
 
-      {description && (
-        <p className="max-w-sm text-sm text-text-secondary">
-          {description}
-        </p>
-      )}
+      {description && <p className="max-w-sm text-sm text-text-secondary">{description}</p>}
 
       {actions && <div className="mt-2">{actions}</div>}
     </div>
@@ -139,25 +133,17 @@ export function FeedbackManagementPage() {
   // URL is the source of truth for pagination and filters.
   const requestedPage = Number(searchParams.get("page") ?? 1);
 
-  const page =
-    Number.isInteger(requestedPage) && requestedPage > 0
-      ? requestedPage
-      : 1;
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
   const search = searchParams.get("search") ?? "";
 
   const requestedStatus = searchParams.get("status") ?? "";
 
-  const status = ["1", "2", "3"].includes(requestedStatus)
-    ? requestedStatus
-    : "";
+  const status = ["1", "2", "3"].includes(requestedStatus) ? requestedStatus : "";
 
   const [searchInput, setSearchInput] = useState(search);
 
-  const debouncedSearch = useDebounce(
-    searchInput,
-    SEARCH_DEBOUNCE_MS,
-  );
+  const debouncedSearch = useDebounce(searchInput, SEARCH_DEBOUNCE_MS);
 
   const [data, setData] = useState<FeedbackPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -165,8 +151,7 @@ export function FeedbackManagementPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const [selected, setSelected] = useState<Feedback | null>(null);
-  const [detailsFeedback, setDetailsFeedback] =
-    useState<Feedback | null>(null);
+  const [detailsFeedback, setDetailsFeedback] = useState<Feedback | null>(null);
 
   // Summary counts state.
   const [counts, setCounts] = useState({
@@ -284,8 +269,7 @@ export function FeedbackManagementPage() {
 
   const isInitialLoading = loading && !data;
 
-  const hasFilters =
-    search.trim() !== "" || status !== "";
+  const hasFilters = search.trim() !== "" || status !== "";
 
   // Correct page if it exceeds the available page count.
   useEffect(() => {
@@ -363,10 +347,7 @@ export function FeedbackManagementPage() {
     );
   };
 
-  const moderationMode =
-    selected && getStatusCode(selected.status) === 3
-      ? "restore"
-      : "hide";
+  const moderationMode = selected && getStatusCode(selected.status) === 3 ? "restore" : "hide";
 
   function openModeration(item: Feedback) {
     const itemStatus = getStatusCode(item.status);
@@ -387,16 +368,11 @@ export function FeedbackManagementPage() {
 
     const isRestoring = moderationMode === "restore";
 
-    const nextStatus: FeedbackStatus = isRestoring
-      ? "Visible"
-      : "HiddenByAdmin";
+    const nextStatus: FeedbackStatus = isRestoring ? "Visible" : "HiddenByAdmin";
 
     try {
       if (isRestoring) {
-        await feedbackApi.restore(
-          targetFeedback.id,
-          reason || undefined,
-        );
+        await feedbackApi.restore(targetFeedback.id, reason || undefined);
 
         toast.success("Feedback restored successfully.");
       } else {
@@ -416,33 +392,24 @@ export function FeedbackManagementPage() {
               ? {
                   ...item,
                   status: nextStatus,
-                  currentReason: !isRestoring
-                    ? reason
-                    : item.currentReason,
+                  currentReason: !isRestoring ? reason : item.currentReason,
                 }
               : item,
           ),
         };
       });
 
-      emitFeedbackSync(
-        isRestoring ? "restore" : "hide",
-        targetFeedback.id,
-        {
-          shopId: targetFeedback.shopId,
-          productId: targetFeedback.productId,
-          rating: targetFeedback.rating,
-        },
-      );
+      emitFeedbackSync(isRestoring ? "restore" : "hide", targetFeedback.id, {
+        shopId: targetFeedback.shopId,
+        productId: targetFeedback.productId,
+        rating: targetFeedback.rating,
+      });
 
       setSelected(null);
 
       retry();
     } catch (error) {
-      toast.error(
-        getApiErrorMessage(error) ||
-          "Failed to update feedback.",
-      );
+      toast.error(getApiErrorMessage(error) || "Failed to update feedback.");
     }
   }
 
@@ -457,8 +424,7 @@ export function FeedbackManagementPage() {
           </div>
 
           <p className="text-sm text-text-secondary">
-            Review customer feedback, hide content that breaks the
-            rules and restore it when needed.
+            Review customer feedback, hide content that breaks the rules and restore it when needed.
           </p>
         </div>
 
@@ -510,12 +476,14 @@ export function FeedbackManagementPage() {
             </span>
 
             <div className="min-w-0">
-              <p className="text-xs font-medium text-slate-500 truncate">
-                All Feedback
-              </p>
+              <p className="text-xs font-medium text-slate-500 truncate">All Feedback</p>
 
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.total}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.total
+                )}
               </p>
             </div>
           </div>
@@ -528,12 +496,14 @@ export function FeedbackManagementPage() {
             </span>
 
             <div className="min-w-0">
-              <p className="text-xs font-medium text-slate-500 truncate">
-                Visible
-              </p>
+              <p className="text-xs font-medium text-slate-500 truncate">Visible</p>
 
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.visible}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.visible
+                )}
               </p>
             </div>
           </div>
@@ -546,12 +516,14 @@ export function FeedbackManagementPage() {
             </span>
 
             <div className="min-w-0">
-              <p className="text-xs font-medium text-slate-500 truncate">
-                Hidden by Customer
-              </p>
+              <p className="text-xs font-medium text-slate-500 truncate">Hidden by Customer</p>
 
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.hiddenByCustomer}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.hiddenByCustomer
+                )}
               </p>
             </div>
           </div>
@@ -564,12 +536,14 @@ export function FeedbackManagementPage() {
             </span>
 
             <div className="min-w-0">
-              <p className="text-xs font-medium text-slate-500 truncate">
-                Hidden by Admin
-              </p>
+              <p className="text-xs font-medium text-slate-500 truncate">Hidden by Admin</p>
 
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.hiddenByAdmin}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.hiddenByAdmin
+                )}
               </p>
             </div>
           </div>
@@ -591,10 +565,7 @@ export function FeedbackManagementPage() {
               onClick={retry}
               className="inline-flex items-center gap-2 rounded-xl bg-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
             >
-              <RotateCw
-                className="size-4"
-                aria-hidden="true"
-              />
+              <RotateCw className="size-4" aria-hidden="true" />
               Try again
             </button>
           }
@@ -628,10 +599,7 @@ export function FeedbackManagementPage() {
           className="overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-sm"
           aria-busy={loading}
         >
-          <FeedbackTable
-            items={items}
-            onViewDetails={setDetailsFeedback}
-          />
+          <FeedbackTable items={items} onViewDetails={setDetailsFeedback} />
 
           {totalItems > 0 && (
             <div className="flex w-full items-center justify-around border-t border-border-default bg-neutral-50/30 px-6 py-5">

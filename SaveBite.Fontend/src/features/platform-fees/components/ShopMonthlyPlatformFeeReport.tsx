@@ -1,3 +1,5 @@
+import { TableSkeletonRows } from "@/shared/components/ui/LoadingSkeleton";
+import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useState } from "react";
 import { CalendarDays, CircleDollarSign, ShoppingBag } from "lucide-react";
 import { platformFeeApi } from "@/features/platform-fees/api/platformFeeApi";
@@ -127,13 +129,15 @@ export function ShopMonthlyPlatformFeeReport({ shopId }: ShopMonthlyPlatformFeeR
             aria-live="polite"
             className="text-2xl font-bold tabular-nums text-emerald-900 sm:text-3xl"
           >
-            {rateLoading
-              ? "Loading…"
-              : rateError
-                ? "Unavailable"
-                : currentRate === null
-                  ? "No active rate"
-                  : `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(currentRate)}%`}
+            {rateLoading ? (
+              <InlineSkeleton label="Loading rate" className="w-24" />
+            ) : rateError ? (
+              "Unavailable"
+            ) : currentRate === null ? (
+              "No active rate"
+            ) : (
+              `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(currentRate)}%`
+            )}
           </div>
         </div>
         {rateError && (
@@ -219,7 +223,11 @@ export function ShopMonthlyPlatformFeeReport({ shopId }: ShopMonthlyPlatformFeeR
                 Total platform fees
               </div>
               <p className="mt-2 text-xl font-bold tabular-nums text-emerald-800">
-                {loading ? "Loading…" : formatVnd(report?.totalFeeAmount ?? 0)}
+                {loading ? (
+                  <InlineSkeleton label="Loading rate" className="w-24" />
+                ) : (
+                  formatVnd(report?.totalFeeAmount ?? 0)
+                )}
               </p>
               <p className="mt-1 text-xs text-emerald-800">
                 Accrued in {monthLabel} {year}
@@ -231,7 +239,11 @@ export function ShopMonthlyPlatformFeeReport({ shopId }: ShopMonthlyPlatformFeeR
                 Not yet invoiced
               </div>
               <p className="mt-2 text-xl font-bold tabular-nums text-amber-900">
-                {loading ? "Loading…" : formatVnd(report?.unbilledFeeAmount ?? 0)}
+                {loading ? (
+                  <InlineSkeleton label="Loading rate" className="w-24" />
+                ) : (
+                  formatVnd(report?.unbilledFeeAmount ?? 0)
+                )}
               </p>
               <p className="mt-1 text-xs text-amber-900">
                 Fees from orders not yet included in a statement
@@ -243,7 +255,11 @@ export function ShopMonthlyPlatformFeeReport({ shopId }: ShopMonthlyPlatformFeeR
                 Orders with fees
               </div>
               <p className="mt-2 text-xl font-bold tabular-nums text-neutral-900">
-                {loading ? "…" : (report?.orderCount ?? 0).toLocaleString("en-US")}
+                {loading ? (
+                  <InlineSkeleton label="Loading order count" className="w-16" />
+                ) : (
+                  (report?.orderCount ?? 0).toLocaleString("en-US")
+                )}
               </p>
               <p className="mt-1 text-xs text-neutral-600">
                 Completed orders, including refunded orders
@@ -252,7 +268,11 @@ export function ShopMonthlyPlatformFeeReport({ shopId }: ShopMonthlyPlatformFeeR
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
               <div className="text-sm font-medium text-neutral-700">Order gross sales</div>
               <p className="mt-2 text-xl font-bold tabular-nums text-neutral-900">
-                {loading ? "Loading…" : formatVnd(report?.totalGrossAmount ?? 0)}
+                {loading ? (
+                  <InlineSkeleton label="Loading rate" className="w-24" />
+                ) : (
+                  formatVnd(report?.totalGrossAmount ?? 0)
+                )}
               </p>
               <p className="mt-1 text-xs text-neutral-600">Original order sales for this month</p>
             </div>
@@ -305,11 +325,7 @@ export function ShopMonthlyPlatformFeeReport({ shopId }: ShopMonthlyPlatformFeeR
                   </thead>
                   <tbody className="divide-y divide-neutral-100">
                     {loading ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-10 text-center text-neutral-500">
-                          Loading order fee details…
-                        </td>
-                      </tr>
+                      <TableSkeletonRows columns={6} label="Loading order fee details" />
                     ) : orderPage?.items.length ? (
                       orderPage.items.map((order) => (
                         <tr key={order.id} className="text-neutral-700 hover:bg-neutral-50/70">

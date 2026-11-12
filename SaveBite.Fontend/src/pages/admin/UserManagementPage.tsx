@@ -1,3 +1,4 @@
+import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useState } from "react";
 import { Users, UserCheck, UserX, Store, User, ShoppingBag } from "lucide-react";
 import type { AdminUser, UserDetailsResponse } from "@/features/users/types/user.types";
@@ -158,7 +159,11 @@ export function UserManagementPage() {
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-500 truncate">All Users</p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.total}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.total
+                )}
               </p>
             </div>
           </div>
@@ -172,7 +177,11 @@ export function UserManagementPage() {
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-500 truncate">Active Accounts</p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.activeAccounts}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.activeAccounts
+                )}
               </p>
             </div>
           </div>
@@ -186,7 +195,11 @@ export function UserManagementPage() {
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-500 truncate">Suspended Accounts</p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.suspendedAccounts}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.suspendedAccounts
+                )}
               </p>
             </div>
           </div>
@@ -200,7 +213,11 @@ export function UserManagementPage() {
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-500 truncate">Active Customers</p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.activeCustomers}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.activeCustomers
+                )}
               </p>
             </div>
           </div>
@@ -214,7 +231,11 @@ export function UserManagementPage() {
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-500 truncate">Suspended Customers</p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.suspendedCustomers}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.suspendedCustomers
+                )}
               </p>
             </div>
           </div>
@@ -228,7 +249,11 @@ export function UserManagementPage() {
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-500 truncate">Store Owners</p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.storeOwners}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.storeOwners
+                )}
               </p>
             </div>
           </div>
@@ -242,7 +267,11 @@ export function UserManagementPage() {
             <div className="min-w-0">
               <p className="text-xs font-medium text-slate-500 truncate">Customers</p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.customers}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.customers
+                )}
               </p>
             </div>
           </div>

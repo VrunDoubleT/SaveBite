@@ -16,7 +16,7 @@ export function Modal({
   hideHeader = false,
   closeOnClickOutside = true,
   maxWidthClass = "max-w-lg",
-  scrollBody = false,
+  scrollBody = true,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -88,14 +88,14 @@ export function Modal({
             onClose();
         }
       }}
-      className={`fixed max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] ${scrollBody ? "flex flex-col overflow-hidden" : "overflow-auto"} border border-border-default bg-bg-surface p-0 text-text-primary shadow-lg ${drawer ? "inset-y-0 right-auto left-0 m-0 h-dvh max-h-dvh max-w-sm rounded-none" : `inset-0 m-auto rounded-lg ${maxWidthClass}`}`}
+      className={`fixed max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] flex flex-col overflow-hidden border border-border-default bg-bg-surface p-0 text-text-primary shadow-lg ${drawer ? "inset-y-0 right-auto left-0 m-0 h-dvh max-h-dvh max-w-sm rounded-none" : `inset-0 m-auto rounded-lg ${maxWidthClass}`}`}
     >
       {hideHeader ? (
         <h2 id={titleId} className="sr-only">
           {title}
         </h2>
       ) : (
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border-default p-4 sm:px-6">
+        <div className="relative z-10 flex shrink-0 bg-bg-surface items-start justify-between gap-4 border-b border-border-default p-4 sm:px-6">
           <div className="flex min-w-0 flex-col items-start gap-1">
             <h2 id={titleId} className="text-section font-semibold">
               {title}
@@ -107,7 +107,11 @@ export function Modal({
           </IconButton>
         </div>
       )}
-      <div className={`p-4 sm:p-6 ${scrollBody ? "min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]" : ""}`}>{children}</div>
+      <div
+        className={`p-4 sm:p-6 min-h-0 flex-1 overflow-y-auto overscroll-contain ${scrollBody ? "[scrollbar-gutter:stable]" : ""}`}
+      >
+        {children}
+      </div>
     </dialog>
   );
 }

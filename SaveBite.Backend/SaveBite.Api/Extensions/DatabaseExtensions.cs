@@ -46,6 +46,7 @@ public static class DatabaseExtensions
 
         await context.Database.MigrateAsync(ct);
         await DbSeeder.SeedAsync(context);
+        await TrustEarningDefaults.EnsureAsync(context, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);
         await TrustLevelDefaults.EnsureAsync(context, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);
         await PlatformFeeDefaults.EnsureAsync(context, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);
     }

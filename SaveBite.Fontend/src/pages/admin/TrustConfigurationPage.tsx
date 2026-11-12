@@ -14,6 +14,8 @@ import {
 export function TrustConfigurationPage() {
   const { tab } = useParams();
   const activeTab = findTab(ADMIN_TRUST_TABS, tab);
+  if (tab === "earning-rules")
+    return <Navigate to={`${ADMIN_TRUST_BASE_PATH}/score-rules`} replace />;
 
   // /admin/trust and unknown tabs open the first tab (replaces the history entry).
   if (!activeTab) {
@@ -40,7 +42,6 @@ export function TrustConfigurationPage() {
         {activeTab === "levels" && <AdminLevelsPanel />}
         {activeTab === "penalty-rules" && <PenaltyRulesPanel />}
         {activeTab === "score-rules" && <ScoreRulesPanel variant="all" />}
-        {activeTab === "earning-rules" && <ScoreRulesPanel variant="earning" />}
       </div>
     </div>
   );

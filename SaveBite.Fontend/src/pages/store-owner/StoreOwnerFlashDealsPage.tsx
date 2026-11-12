@@ -1,6 +1,7 @@
+import { TableSkeletonRows } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, Edit2, EyeOff, Plus, Search, XCircle, Sparkles, Loader2 } from "lucide-react";
+import { Eye, Edit2, EyeOff, Plus, Search, XCircle, Sparkles } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
 import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import {
@@ -405,12 +406,7 @@ export function StoreOwnerFlashDealsPage() {
             </thead>
             <tbody className="divide-y divide-neutral-200 bg-white">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-neutral-400">
-                    <Loader2 className="mx-auto size-6 animate-spin text-emerald-600" />
-                    <p className="mt-2 text-xs">Loading flash deals...</p>
-                  </td>
-                </tr>
+                <TableSkeletonRows columns={6} />
               ) : filteredDeals.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-neutral-400">

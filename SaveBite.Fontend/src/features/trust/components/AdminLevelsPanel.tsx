@@ -1,3 +1,4 @@
+import { TableLoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useCallback, useMemo, useState } from "react";
 import { History, Pencil, Plus, Power } from "lucide-react";
 import { getApiErrorMessage } from "@/shared/api";
@@ -21,13 +22,12 @@ import { LevelHistoryDrawer } from "./LevelHistoryDrawer";
 import { LevelInfoModal } from "./LevelInfoModal";
 import { LevelRequirementModal } from "./LevelRequirementModal";
 import { LevelStatusModal } from "./LevelStatusModal";
-import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
+import { PanelEmpty, PanelError } from "./PanelState";
 
 const actionButton =
   "rounded p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700 disabled:cursor-not-allowed disabled:opacity-40";
 
-const inactiveRowClass =
-  "bg-neutral-200/80 text-neutral-500 transition-colors";
+const inactiveRowClass = "bg-neutral-200/80 text-neutral-500 transition-colors";
 
 function ActiveBadge({ isActive }: { isActive: boolean }) {
   return (
@@ -99,9 +99,7 @@ function DepositPolicySummary({
             <li key={range.id} className="tabular-nums">
               {formatCurrency(range.fromOrderAmount)} &ndash; {formatCurrency(range.toOrderAmount)}:{" "}
               <span
-                className={`font-semibold ${
-                  isActive ? "text-primary-700" : "text-neutral-600"
-                }`}
+                className={`font-semibold ${isActive ? "text-primary-700" : "text-neutral-600"}`}
               >
                 {formatCurrency(range.depositAmount)} deposit
               </span>
@@ -187,7 +185,13 @@ export function AdminLevelsPanel() {
   };
 
   if (error && !data) return <PanelError message={error} onRetry={reload} />;
-  if (!data) return <PanelSkeleton rows={3} />;
+  if (!data)
+    return (
+      <TableLoadingSkeleton
+        headers={["ID", "Level", "Status", "Customers", "Thresholds", "Updated", "Actions"]}
+        label="Loading trust rules"
+      />
+    );
   if (data.length === 0)
     return <PanelEmpty title="No levels yet" description="Trust levels have not been set up." />;
 
@@ -199,7 +203,8 @@ export function AdminLevelsPanel() {
           <div>
             <h3 className="text-base font-bold text-text-primary">Trust Levels</h3>
             <p className="text-sm text-text-secondary">
-              Overview of all levels, customer distribution, thresholds, status, and version history.
+              Overview of all levels, customer distribution, thresholds, status, and version
+              history.
             </p>
           </div>
 
@@ -245,10 +250,14 @@ export function AdminLevelsPanel() {
                       <RecordId id={level.id} />
                     </td>
                     <td className="px-3 py-3">
-                      <p className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}>
+                      <p
+                        className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}
+                      >
                         {level.name}
                       </p>
-                      <p className={`text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}>
+                      <p
+                        className={`text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}
+                      >
                         Rank {level.rank}
                       </p>
                     </td>
@@ -258,7 +267,9 @@ export function AdminLevelsPanel() {
                     <td className="px-3 py-3 text-right font-semibold tabular-nums">
                       {level.userCount}
                     </td>
-                    <td className={`px-3 py-3 text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}>
+                    <td
+                      className={`px-3 py-3 text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}
+                    >
                       <span className="tabular-nums">
                         Score &ge;{" "}
                         <strong className={active ? "text-text-primary" : "text-neutral-600"}>
@@ -280,7 +291,9 @@ export function AdminLevelsPanel() {
                         </strong>
                       </span>
                     </td>
-                    <td className={`px-3 py-3 text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}>
+                    <td
+                      className={`px-3 py-3 text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}
+                    >
                       {formatDateTime(level.updatedAt)}
                     </td>
                     <td className="px-3 py-3 text-right">
@@ -332,7 +345,9 @@ export function AdminLevelsPanel() {
       {/* 2. UC-129 / UC-130: Level benefits & deposit policy */}
       <section className="space-y-3">
         <div>
-          <h3 className="text-base font-bold text-text-primary">Level benefits &amp; deposit policy</h3>
+          <h3 className="text-base font-bold text-text-primary">
+            Level benefits &amp; deposit policy
+          </h3>
           <p className="text-sm text-text-secondary">
             Manage benefit descriptions and fixed Pay at shop deposit policies for each level.
           </p>
@@ -346,30 +361,29 @@ export function AdminLevelsPanel() {
                 <th className="px-3 py-3">Level</th>
                 <th className="px-3 py-3">Benefits description</th>
                 <th className="px-3 py-3">Pay at shop deposit policy</th>
-                <th className="px-3 py-3 text-right">
-                  Actions
-                </th>
+                <th className="px-3 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default text-text-primary">
               {data.map((level) => {
                 const active = level.isActive;
                 return (
-                  <tr
-                    key={level.id}
-                    className={`align-top ${!active ? inactiveRowClass : ""}`}
-                  >
+                  <tr key={level.id} className={`align-top ${!active ? inactiveRowClass : ""}`}>
                     <td className="max-w-40 px-3 py-3">
                       <RecordId id={level.id} />
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}>
+                        <p
+                          className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}
+                        >
                           {level.name}
                         </p>
                         {!active && <ActiveBadge isActive={false} />}
                       </div>
-                      <p className={`mt-0.5 text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}>
+                      <p
+                        className={`mt-0.5 text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}
+                      >
                         Rank {level.rank}
                       </p>
                     </td>
@@ -427,9 +441,7 @@ export function AdminLevelsPanel() {
                 <th className="px-3 py-3 text-right">Min score</th>
                 <th className="px-3 py-3 text-right">Min completed orders</th>
                 <th className="px-3 py-3 text-right">Min order value</th>
-                <th className="px-3 py-3 text-right">
-                  Actions
-                </th>
+                <th className="px-3 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default text-text-primary">
@@ -442,22 +454,32 @@ export function AdminLevelsPanel() {
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}>
+                        <span
+                          className={`font-semibold ${active ? "text-text-primary" : "text-neutral-600 line-through decoration-neutral-400"}`}
+                        >
                           {level.name}
                         </span>
-                        <span className={`text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}>
+                        <span
+                          className={`text-xs ${active ? "text-text-secondary" : "text-neutral-500"}`}
+                        >
                           (Rank {level.rank})
                         </span>
                         {!active && <ActiveBadge isActive={false} />}
                       </div>
                     </td>
-                    <td className={`px-3 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}>
+                    <td
+                      className={`px-3 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}
+                    >
                       {level.requirement?.minScore ?? 0}
                     </td>
-                    <td className={`px-3 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}>
+                    <td
+                      className={`px-3 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}
+                    >
                       {level.requirement?.minCompletedOrders ?? 0}
                     </td>
-                    <td className={`px-3 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}>
+                    <td
+                      className={`px-3 py-3 text-right tabular-nums ${active ? "" : "text-neutral-500"}`}
+                    >
                       {formatCurrency(level.requirement?.minTotalOrderValue ?? 0)}
                     </td>
                     <td className="px-3 py-3 text-right">
@@ -487,11 +509,7 @@ export function AdminLevelsPanel() {
         onCreate={createLevel}
       />
 
-      <LevelInfoModal
-        level={infoLevel}
-        onClose={() => setInfoLevel(null)}
-        onSave={saveInfo}
-      />
+      <LevelInfoModal level={infoLevel} onClose={() => setInfoLevel(null)} onSave={saveInfo} />
 
       <LevelStatusModal
         level={statusLevel}
@@ -499,10 +517,7 @@ export function AdminLevelsPanel() {
         onConfirm={saveStatus}
       />
 
-      <LevelHistoryDrawer
-        level={historyLevel}
-        onClose={() => setHistoryLevel(null)}
-      />
+      <LevelHistoryDrawer level={historyLevel} onClose={() => setHistoryLevel(null)} />
 
       <LevelBenefitsModal
         level={benefitsLevel}

@@ -46,7 +46,7 @@ export function ProductDealsPanel({ productId }: { productId: string }) {
         </select>
       </div>
       {loading ? (
-        <Loading />
+        <Loading variant="list" />
       ) : error ? (
         <ErrorState error={error} retry={reload} />
       ) : data && data.items.length ? (

@@ -245,7 +245,10 @@ export function ShopContentManagementPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-4">
-        <Link to={APP_PATHS.ADMIN_STORES} className="inline-flex items-center gap-2 rounded-md text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700">
+        <Link
+          to={APP_PATHS.ADMIN_STORES}
+          className="inline-flex items-center gap-2 rounded-md text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
+        >
           <ArrowLeft className="size-4" aria-hidden="true" />
           Back to shops
         </Link>
@@ -370,7 +373,7 @@ export function ShopContentManagementPage() {
             }}
             className="my-0 mr-0 ml-auto h-dvh max-h-none w-full max-w-md bg-white p-0 text-text-primary shadow-2xl backdrop:bg-neutral-900/40 open:flex open:flex-col"
           >
-            <header className="flex items-start justify-between gap-4 border-b border-border-default px-6 py-4">
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border-default px-6 py-4">
               <div className="min-w-0">
                 <h2 id="moderation-title" className="text-lg font-semibold">
                   Change shop status

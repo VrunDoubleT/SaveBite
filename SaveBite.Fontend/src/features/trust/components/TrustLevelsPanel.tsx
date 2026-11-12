@@ -1,17 +1,18 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { Badge, Card } from "@/shared/components/ui";
 import { useCallback } from "react";
 import { Award, Check, CreditCard, Gift, Lock, Target, WalletCards } from "lucide-react";
 import { trustApi } from "../api/trustApi";
 import { useApiResource } from "../hooks/useApiResource";
 import { formatCurrency } from "../utils/format";
-import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
+import { PanelEmpty, PanelError } from "./PanelState";
 
 export function TrustLevelsPanel() {
   const fetchLevels = useCallback(() => trustApi.getLevels(), []);
   const { data, error, reload } = useApiResource("trust:levels", fetchLevels);
 
   if (error && !data) return <PanelError message={error} onRetry={reload} />;
-  if (!data) return <PanelSkeleton rows={2} />;
+  if (!data) return <LoadingSkeleton variant="levels" rows={2} label="Loading trust information" />;
   if (data.length === 0)
     return <PanelEmpty title="No levels yet" description="Trust levels have not been set up." />;
 

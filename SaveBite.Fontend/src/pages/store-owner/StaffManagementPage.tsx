@@ -1,3 +1,4 @@
+import { TableLoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeStaffEvents } from "@/features/shop-staffs/realtime/subscribeStaffEvents";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -284,11 +285,10 @@ export function StaffManagementPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="space-y-3 rounded-xl border border-neutral-200 bg-white p-6 shadow-2xs">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-12 animate-pulse rounded-lg bg-neutral-100" />
-          ))}
-        </div>
+        <TableLoadingSkeleton
+          headers={["Staff", "Role", "Status", "Joined date", "Actions"]}
+          label="Loading staff records"
+        />
       ) : (
         <div className="space-y-4">
           <StaffTable

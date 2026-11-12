@@ -1,10 +1,15 @@
+import { TableLoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useMemo, useState } from "react";
 import { Banknote, Receipt, Search, Store, Undo2 } from "lucide-react";
 import { EmptyState, KpiGrid, Panel, ProgressBar } from "@/shared/components/analytics";
 import { Pagination, usePagination } from "@/shared/components/pagination";
 import { MediaImage } from "@/shared/components/ui";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
-import { formatNumber, formatPercent, formatVnd } from "@/features/store-analytics/utils/formatAnalytics";
+import {
+  formatNumber,
+  formatPercent,
+  formatVnd,
+} from "@/features/store-analytics/utils/formatAnalytics";
 import type { AnalyticsPeriodQuery } from "@/features/store-analytics/types/storeAnalytics.types";
 import { platformAnalyticsApi } from "../api/platformAnalyticsApi";
 import type { PlatformShopRevenue, ShopRevenueItem } from "../types/platformAnalytics.types";
@@ -71,7 +76,9 @@ export function PlatformShopRevenueSection({
 
   const rows = useMemo(() => {
     const q = keyword.trim().toLowerCase();
-    const filtered = (data?.shops ?? []).filter((shop) => !q || shop.shopName.toLowerCase().includes(q));
+    const filtered = (data?.shops ?? []).filter(
+      (shop) => !q || shop.shopName.toLowerCase().includes(q),
+    );
     return [...filtered].sort((a: ShopRevenueItem, b: ShopRevenueItem) =>
       sortKey === "shopName" ? a.shopName.localeCompare(b.shopName) : b[sortKey] - a[sortKey],
     );
@@ -83,12 +90,28 @@ export function PlatformShopRevenueSection({
   });
 
   if (loading && !data) {
-    return <div className="h-64 animate-pulse rounded-lg bg-neutral-100" role="status" aria-label="Loading revenue by shop" />;
+    return (
+      <TableLoadingSkeleton
+        headers={[
+          "Shop",
+          "Orders",
+          "Collected",
+          "Refunded",
+          "Net revenue",
+          "Share",
+          "Platform fee",
+        ]}
+        label="Loading revenue by shop"
+      />
+    );
   }
 
   if (error && !data) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+      <div
+        className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        role="alert"
+      >
         {error}
       </div>
     );
@@ -97,7 +120,10 @@ export function PlatformShopRevenueSection({
   if (!data) return null;
 
   return (
-    <div className={`space-y-6 transition-opacity ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
+    <div
+      className={`space-y-6 transition-opacity ${loading ? "opacity-60" : ""}`}
+      aria-busy={loading}
+    >
       <Panel
         icon={Store}
         title={`Revenue by shop, ${scopeLabel}`}
@@ -196,13 +222,20 @@ export function PlatformShopRevenueSection({
                             showFallbackLabel={false}
                             className="size-9 shrink-0 rounded-md"
                           />
-                          <span className="min-w-0 truncate font-medium text-neutral-900" title={shop.shopName}>
+                          <span
+                            className="min-w-0 truncate font-medium text-neutral-900"
+                            title={shop.shopName}
+                          >
                             {shop.shopName}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums">{formatNumber(shop.completedOrders)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{formatVnd(shop.paidRevenue)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatNumber(shop.completedOrders)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatVnd(shop.paidRevenue)}
+                      </td>
                       <td className="px-4 py-3 text-right tabular-nums text-neutral-500">
                         {formatVnd(shop.refundedAmount)}
                       </td>
@@ -212,14 +245,19 @@ export function PlatformShopRevenueSection({
                       <td className="px-4 py-3">
                         <div className="flex min-w-32 items-center gap-2">
                           <div className="w-20 flex-1">
-                            <ProgressBar percent={shop.sharePercent} label={`${shop.shopName} share of revenue`} />
+                            <ProgressBar
+                              percent={shop.sharePercent}
+                              label={`${shop.shopName} share of revenue`}
+                            />
                           </div>
                           <span className="w-12 text-right text-xs tabular-nums text-neutral-500">
                             {formatPercent(shop.sharePercent)}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums">{formatVnd(shop.platformFeeAmount)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatVnd(shop.platformFeeAmount)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

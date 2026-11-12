@@ -118,6 +118,5 @@ public sealed class UpdateTrustScoreRuleRequest
 {
     public int ScoreDelta { get; set; }
 
-    /// <summary>When the new version takes effect. Defaults to now.</summary>
-    public DateTime? EffectiveFrom { get; set; }
+    public bool IsActive { get; set; } = true;
 }

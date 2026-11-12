@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, ShoppingBag, Store, Package, CircleAlert, CheckCircle2 } from "lucide-react";
@@ -261,12 +262,12 @@ export function CartPage() {
           ))}
         </div>
       )}
+      {isLoadingMore && <LoadingSkeleton variant="detail" rows={1} label="Loading more shops" />}
       <div ref={sentinel} className="flex min-h-12 justify-center py-2" aria-live="polite">
         {hasMore ? (
           <Button
             variant="secondary"
-            disabled={isLoading || isMutating}
-            loading={isLoadingMore}
+            disabled={isLoading || isMutating || isLoadingMore}
             onClick={() => void loadMore()}
           >
             {error

@@ -1,12 +1,7 @@
-import { EmptyState, ErrorState, Skeleton } from "@/shared/components/ui";
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { EmptyState, ErrorState } from "@/shared/components/ui";
 export function PanelSkeleton({ rows = 3 }: { rows?: number }) {
-  return (
-    <div role="status" aria-label="Loading trust information" className="space-y-3">
-      {Array.from({ length: rows }, (_, index) => (
-        <Skeleton key={index} className="h-24" />
-      ))}
-    </div>
-  );
+  return <LoadingSkeleton rows={rows} label="Loading trust information" />;
 }
 export function PanelError({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (

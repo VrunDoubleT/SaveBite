@@ -7,10 +7,11 @@ using SaveBite.Backend.Services.Interfaces;
 namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class EmailDeliveryService(AppDbContext db, IEmailService smtp, TimeProvider clock,
-    ILogger<EmailDeliveryService> logger)
+    ILogger<EmailDeliveryService> logger, BusinessEmailQueue businessEmails)
 {
     public async Task SendAsync(EmailNotificationEvent email, CancellationToken ct)
     {
+        if (!await businessEmails.StillRelevantAsync(email, ct)) return;
         if (string.IsNullOrWhiteSpace(email.DeliveryKey))
         {
             await smtp.SendAsync(email.To, email.Subject, email.Body, email.IsHtml, ct);

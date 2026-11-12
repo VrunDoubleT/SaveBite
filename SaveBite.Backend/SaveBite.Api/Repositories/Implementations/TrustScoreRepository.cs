@@ -125,10 +125,7 @@ public sealed class TrustScoreRepository : ITrustScoreRepository
 
     public Task<TrustScoreRule?> GetCurrentEarningRuleAsync(DateTime now, CancellationToken cancellationToken = default, TrustScoreRuleType ruleType = TrustScoreRuleType.OnlineOrderCompleted)
         => _dbContext.TrustScoreRules.AsNoTracking()
-            .Where(rule => rule.RuleType == ruleType && rule.ScoreDelta > 0
-                           && rule.EffectiveFrom <= now
-                           && (rule.EffectiveTo == null || rule.EffectiveTo > now))
-            .OrderByDescending(rule => rule.EffectiveFrom)
+            .Where(rule => rule.IsActive && rule.RuleType == ruleType && rule.ScoreDelta > 0)
             .FirstOrDefaultAsync(cancellationToken);
 
     public async Task<bool> TryProvisionAsync(

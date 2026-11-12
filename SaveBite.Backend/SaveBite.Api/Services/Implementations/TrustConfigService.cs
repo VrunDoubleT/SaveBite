@@ -1,3 +1,5 @@
+using SaveBite.Backend.BackgroundJobs.Interfaces;
+using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.DTOs;
 using System.Text.Json;
@@ -16,6 +18,7 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class TrustConfigService : ITrustConfigService
 {
     private readonly IAdminAuditWriter _audit;
+    private readonly IPenaltyRuleScheduler _penaltyScheduler;
     private const string KindEarning = "Earning";
     private const string KindPenalty = "Penalty";
 
@@ -30,9 +33,10 @@ public sealed class TrustConfigService : ITrustConfigService
     public TrustConfigService(
         ITrustConfigRepository repository, IAdminAuditWriter audit,
         TimeProvider timeProvider,
-        ILogger<TrustConfigService> logger, INotificationQueue notifications)
+        ILogger<TrustConfigService> logger, INotificationQueue notifications, IPenaltyRuleScheduler penaltyScheduler)
     {
         _audit = audit;
+        _penaltyScheduler = penaltyScheduler;
         _repository = repository;
         _notifications = notifications;
         _timeProvider = timeProvider;
@@ -761,127 +765,95 @@ public sealed class TrustConfigService : ITrustConfigService
         return rules.Select(rule => ToPenaltyRuleResponse(rule, now)).ToList();
     }
 
-    // UC-156: Add New Penalty Rule (allows same MinimumOccurrence if [EffectiveFrom, EffectiveTo) does not overlap).
     public async Task<PenaltyRuleResponse> CreatePenaltyRuleAsync(
         Guid adminId, CreatePenaltyRuleRequest request, CancellationToken cancellationToken = default)
     {
         var now = _timeProvider.GetUtcNow().UtcDateTime;
-        var effectiveFrom = ResolveEffectiveFrom(request.EffectiveFrom, now);
-        var effectiveTo = ResolveEffectiveTo(request.EffectiveTo, effectiveFrom);
-
-        var conflict = await _repository.FindOverlappingPenaltyRuleAsync(
-            request.MinimumOccurrence, effectiveFrom, effectiveTo, excludeRuleId: null, cancellationToken);
-
-        if (conflict is not null)
+        var changedIds = new List<Guid>();
+        var result = await _repository.ExecuteInTransactionAsync(async ct =>
         {
-            throw AppException.Conflict(BuildPenaltyOverlapMessage(conflict));
-        }
-
-        var rule = new RecoveryRequirementRule
-        {
-            Id = Guid.NewGuid(),
-            MinimumOccurrence = request.MinimumOccurrence,
-            ScoreDeduction = request.ScoreDeduction,
-            RequiredOnlineOrders = request.RequiredOnlineOrders,
-            RequiredOnlineOrderValue = request.RequiredOnlineOrderValue,
-            PermanentOfflineLock = request.PermanentOfflineLock,
-            IsActive = request.IsActive,
-            EffectiveFrom = effectiveFrom,
-            EffectiveTo = effectiveTo,
-            CreatedByUserId = adminId,
-            CreatedAt = now
-        };
-
-        _repository.AddPenaltyRule(rule);
-        WriteAudit(adminId, AuditActionTypes.CreatePenaltyRule, "RecoveryRequirementRule", rule.Id, null, SnapshotPenaltyRule(rule), now);
-
-        try
-        {
-            await _repository.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
-        {
-            throw AppException.Conflict($"Another penalty rule for occurrence #{request.MinimumOccurrence} was created concurrently.");
-        }
-
-        _logger.LogInformation("New penalty rule created. RuleId: {RuleId}, MinimumOccurrence: {Occurrence}",
-            rule.Id, rule.MinimumOccurrence);
-
-        return ToPenaltyRuleResponse(rule, now);
+            var rules = (await _repository.LockPenaltyRulesAsync(ct)).ToList();
+            var from = ResolveEffectiveFrom(request.EffectiveFrom, now);
+            var to = ResolveEffectiveTo(request.EffectiveTo, from);
+            var previous = rules.Where(r => r.MinimumOccurrence == request.MinimumOccurrence && r.EffectiveFrom < from)
+                .OrderByDescending(r => r.EffectiveFrom).FirstOrDefault();
+            var next = rules.Where(r => r.MinimumOccurrence == request.MinimumOccurrence && r.EffectiveFrom > from)
+                .OrderBy(r => r.EffectiveFrom).FirstOrDefault();
+            if (previous != null && previous.EffectiveTo == null)
+            {
+                var old = SnapshotPenaltyRule(previous);
+                previous.EffectiveTo = from;
+                previous.EndProcessedAt = null;
+                WriteAudit(adminId, AuditActionTypes.UpdatePenaltyRule, "RecoveryRequirementRule", previous.Id, old, SnapshotPenaltyRule(previous), now);
+                changedIds.Add(previous.Id);
+            }
+            // Inserting between versions defaults the new end to the following start.
+            if (to == null && next != null) to = next.EffectiveFrom;
+            var rule = new RecoveryRequirementRule
+            {
+                Id = Guid.NewGuid(), MinimumOccurrence = request.MinimumOccurrence, ScoreDeduction = request.ScoreDeduction,
+                RequiredOnlineOrders = request.RequiredOnlineOrders, RequiredOnlineOrderValue = request.RequiredOnlineOrderValue,
+                PermanentOfflineLock = request.PermanentOfflineLock, IsActive = request.IsActive,
+                EffectiveFrom = from, EffectiveTo = to, CreatedByUserId = adminId, CreatedAt = now
+            };
+            rules.Add(rule);
+            PenaltyScheduleRules.Validate(rules, now);
+            _repository.AddPenaltyRule(rule);
+            WriteAudit(adminId, AuditActionTypes.CreatePenaltyRule, "RecoveryRequirementRule", rule.Id, null, SnapshotPenaltyRule(rule), now);
+            await _repository.SaveChangesAsync(ct);
+            changedIds.Add(rule.Id);
+            return ToPenaltyRuleResponse(rule, now);
+        }, cancellationToken: cancellationToken);
+        foreach (var id in changedIds) await _penaltyScheduler.SyncAsync(id, cancellationToken);
+        return result;
     }
 
-    // UC-134: Edit any penalty rule and validate non-overlapping [EffectiveFrom, EffectiveTo) intervals.
     public async Task<PenaltyRuleResponse> UpdatePenaltyRuleAsync(
         Guid adminId, Guid ruleId, UpdatePenaltyRuleRequest request, CancellationToken cancellationToken = default)
     {
-        var rule = await _repository.GetPenaltyRuleForUpdateAsync(ruleId, cancellationToken)
-                   ?? throw AppException.NotFound("Penalty rule not found.");
-
         var now = _timeProvider.GetUtcNow().UtcDateTime;
-        var effectiveFrom = ResolveUpdatedEffectiveFrom(rule.EffectiveFrom, request.EffectiveFrom, now);
-        var effectiveTo = ResolveEffectiveTo(request.EffectiveTo, effectiveFrom);
-
-        var conflict = await _repository.FindOverlappingPenaltyRuleAsync(
-            request.MinimumOccurrence, effectiveFrom, effectiveTo, excludeRuleId: rule.Id, cancellationToken);
-
-        if (conflict is not null)
+        var result = await _repository.ExecuteInTransactionAsync(async ct =>
         {
-            throw AppException.Conflict(BuildPenaltyOverlapMessage(conflict));
-        }
-
-        var old = SnapshotPenaltyRule(rule);
-
-        rule.MinimumOccurrence = request.MinimumOccurrence;
-        rule.ScoreDeduction = request.ScoreDeduction;
-        rule.RequiredOnlineOrders = request.RequiredOnlineOrders;
-        rule.RequiredOnlineOrderValue = request.RequiredOnlineOrderValue;
-        rule.PermanentOfflineLock = request.PermanentOfflineLock;
-        rule.IsActive = request.IsActive;
-        rule.EffectiveFrom = effectiveFrom;
-        rule.EffectiveTo = effectiveTo;
-
-        WriteAudit(adminId, AuditActionTypes.UpdatePenaltyRule, "RecoveryRequirementRule", rule.Id, old, SnapshotPenaltyRule(rule), now);
-
-        try
-        {
-            await _repository.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
-        {
-            throw AppException.Conflict("A concurrent update occurred on this penalty rule. Please retry.");
-        }
-
-        _logger.LogInformation("Penalty rule updated. RuleId: {RuleId}", rule.Id);
-
-        return ToPenaltyRuleResponse(rule, now);
+            var rules = await _repository.LockPenaltyRulesAsync(ct);
+            var rule = rules.SingleOrDefault(r => r.Id == ruleId) ?? throw AppException.NotFound("Penalty rule not found.");
+            var old = SnapshotPenaltyRule(rule);
+            rule.MinimumOccurrence = request.MinimumOccurrence;
+            rule.ScoreDeduction = request.ScoreDeduction;
+            rule.RequiredOnlineOrders = request.RequiredOnlineOrders;
+            rule.RequiredOnlineOrderValue = request.RequiredOnlineOrderValue;
+            rule.PermanentOfflineLock = request.PermanentOfflineLock;
+            rule.IsActive = request.IsActive;
+            rule.EffectiveFrom = ResolveUpdatedEffectiveFrom(rule.EffectiveFrom, request.EffectiveFrom, now);
+            rule.EffectiveTo = ResolveEffectiveTo(request.EffectiveTo, rule.EffectiveFrom);
+            rule.StartProcessedAt = null;
+            rule.EndProcessedAt = null;
+            PenaltyScheduleRules.Validate(rules, now);
+            WriteAudit(adminId, AuditActionTypes.UpdatePenaltyRule, "RecoveryRequirementRule", rule.Id, old, SnapshotPenaltyRule(rule), now);
+            await _repository.SaveChangesAsync(ct);
+            return ToPenaltyRuleResponse(rule, now);
+        }, cancellationToken: cancellationToken);
+        await _penaltyScheduler.SyncAsync(ruleId, cancellationToken);
+        return result;
     }
 
-    // Delete a future scheduled penalty rule that has not taken effect yet.
-    public async Task DeletePenaltyRuleAsync(
-        Guid adminId, Guid ruleId, CancellationToken cancellationToken = default)
+    public async Task DeletePenaltyRuleAsync(Guid adminId, Guid ruleId, CancellationToken cancellationToken = default)
     {
-        var rule = await _repository.GetPenaltyRuleForUpdateAsync(ruleId, cancellationToken)
-                   ?? throw AppException.NotFound("Penalty rule not found.");
-
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
-        if (rule.EffectiveFrom <= now)
+        await _repository.ExecuteInTransactionAsync(async ct =>
         {
-            throw AppException.BadRequest(
-                "Only future scheduled penalty rules that have not taken effect yet can be deleted.");
-        }
-
-        if (await _repository.IsPenaltyRuleReferencedAsync(rule.Id, cancellationToken))
-        {
-            throw AppException.Conflict(
-                "Cannot delete a penalty rule that has already been applied to customer penalties.");
-        }
-
-        var old = SnapshotPenaltyRule(rule);
-        _repository.RemovePenaltyRule(rule);
-        WriteAudit(adminId, AuditActionTypes.DeletePenaltyRule, "RecoveryRequirementRule", rule.Id, old, new { Deleted = true }, now);
-
-        await _repository.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Future penalty rule deleted. RuleId: {RuleId}", rule.Id);
+            var rules = (await _repository.LockPenaltyRulesAsync(ct)).ToList();
+            var rule = rules.SingleOrDefault(r => r.Id == ruleId) ?? throw AppException.NotFound("Penalty rule not found.");
+            if (rule.EffectiveFrom <= _timeProvider.GetUtcNow().UtcDateTime)
+                throw AppException.BadRequest("Only future penalty rules can be deleted.");
+            if (await _repository.IsPenaltyRuleReferencedAsync(ruleId, ct))
+                throw AppException.Conflict("This rule has already been applied.");
+            rules.Remove(rule);
+            PenaltyScheduleRules.Validate(rules, _timeProvider.GetUtcNow().UtcDateTime);
+            _penaltyScheduler.Cancel(rule.StartJobId, rule.EndJobId);
+            _repository.RemovePenaltyRule(rule);
+            WriteAudit(adminId, AuditActionTypes.DeletePenaltyRule, "RecoveryRequirementRule", rule.Id, SnapshotPenaltyRule(rule), new { Deleted = true }, _timeProvider.GetUtcNow().UtcDateTime);
+            await _repository.SaveChangesAsync(ct);
+            return true;
+        }, cancellationToken: cancellationToken);
     }
 
     private static DateTime ResolveUpdatedEffectiveFrom(DateTime currentEffectiveFrom, DateTime? requested, DateTime now)
@@ -977,61 +949,17 @@ public sealed class TrustConfigService : ITrustConfigService
         CancellationToken cancellationToken)
     {
         var rule = await _repository.GetScoreRuleForUpdateAsync(ruleId, cancellationToken);
-        if (rule is null || (earningOnly && rule.ScoreDelta <= 0))
-            throw AppException.NotFound(earningOnly ? "Earning rule not found." : "Trust Score rule not found.");
-
-        if (rule.EffectiveTo.HasValue)
-            throw AppException.Conflict("This rule version has been replaced. Update the latest version of the rule instead.");
-
-        if (Math.Sign(request.ScoreDelta) != Math.Sign(rule.ScoreDelta))
-            throw AppException.BadRequest("An earning rule must stay positive and a penalty rule must stay negative.");
-
+        if (rule == null || rule.RuleType == TrustScoreRuleType.NoShow)
+            throw AppException.NotFound("Current earning rule not found. Manage deductions in Penalty Rules.");
+        if (request.ScoreDelta <= 0)
+            throw AppException.BadRequest("Points must be positive. Use Inactive to stop awarding points.");
+        var old = new { rule.ScoreDelta, rule.IsActive };
+        rule.ScoreDelta = request.ScoreDelta;
+        rule.IsActive = request.IsActive;
         var now = _timeProvider.GetUtcNow().UtcDateTime;
-        var isPending = rule.EffectiveFrom > now;
-        var effectiveFrom = isPending ? rule.EffectiveFrom : ResolveEffectiveFrom(request.EffectiveFrom, now);
-
-        if (request.ScoreDelta == rule.ScoreDelta)
-            throw AppException.BadRequest("The score change is the same as the current rule.");
-
-        // Allow one rule per earning type at any time; online and PayAtShop schedules are independent.
-        if (await _repository.HasOverlappingScoreRuleAsync(rule.RuleType, effectiveFrom, rule.Id, cancellationToken))
-            throw AppException.Conflict("Another Trust Score rule of the same type is already in effect for this period.");
-
-        var oldDelta = rule.ScoreDelta;
-        TrustScoreRule target;
-
-        if (isPending)
-        {
-            target = rule;
-            target.ScoreDelta = request.ScoreDelta;
-        }
-        else
-        {
-            if (effectiveFrom <= rule.EffectiveFrom)
-                throw AppException.BadRequest("The new version must start after the current version.");
-
-            rule.EffectiveTo = effectiveFrom;
-
-            target = new TrustScoreRule
-            {
-                Id = Guid.NewGuid(),
-                RuleType = rule.RuleType,
-                ScoreDelta = request.ScoreDelta,
-                EffectiveFrom = effectiveFrom,
-                CreatedBy = adminId,
-                CreatedAt = now
-            };
-            _repository.AddScoreRule(target);
-        }
-
-        WriteAudit(adminId, action, "TrustScoreRule", target.Id,
-            new { ScoreDelta = oldDelta, rule.EffectiveFrom },
-            new { target.ScoreDelta, target.EffectiveFrom }, now);
-
+        WriteAudit(adminId, action, "TrustScoreRule", rule.Id, old, new { rule.ScoreDelta, rule.IsActive }, now);
         await _repository.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Trust Score rule updated. RuleId: {RuleId}, PreviousRuleId: {PreviousRuleId}", target.Id, rule.Id);
-
-        return ToScoreRuleResponse(target, now);
+        return ToScoreRuleResponse(rule, now);
     }
 
     // -----------------------------------------------------------------------
@@ -1156,16 +1084,8 @@ public sealed class TrustConfigService : ITrustConfigService
             rule.CreatedAt);
 
     private static TrustScoreRuleResponse ToScoreRuleResponse(TrustScoreRule rule, DateTime now)
-        => new(
-            rule.Id,
-            rule.ScoreDelta,
-            rule.ScoreDelta > 0 ? KindEarning : KindPenalty,
-            rule.EffectiveFrom,
-            rule.EffectiveTo,
-            IsCurrent(rule.EffectiveFrom, rule.EffectiveTo, now),
-            rule.CreatedByUser?.FullName,
-            rule.CreatedAt,
-            rule.RuleType.ToString());
+        => new(rule.Id, rule.ScoreDelta, KindEarning, rule.CreatedByUser?.FullName,
+            rule.CreatedAt, rule.RuleType.ToString(), rule.IsActive);
 
     private void WriteLevelHistory(
         TrustLevel level,

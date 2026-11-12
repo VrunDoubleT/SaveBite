@@ -1,3 +1,4 @@
+import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { CustomerSuspensionBanner } from "@/shared/components/CustomerSuspensionBanner";
 import { useState } from "react";
@@ -17,7 +18,10 @@ import {
 } from "lucide-react";
 import { Badge, Button, ErrorState, ScrollToTopButton } from "@/shared/components/ui";
 import { NewDealAlertToast } from "@/features/flash-deals/components/NewDealAlertToast";
-import { useNearbyFlashDeals, cleanAddressParts } from "@/features/flash-deals/hooks/useNearbyFlashDeals";
+import {
+  useNearbyFlashDeals,
+  cleanAddressParts,
+} from "@/features/flash-deals/hooks/useNearbyFlashDeals";
 import { FilterSidebar } from "@/features/flash-deals/components/FilterSidebar";
 import { DealSection } from "@/features/flash-deals/components/DealSection";
 import { NearbyStoresBrowser } from "@/features/shops/components/NearbyStoresBrowser";
@@ -81,7 +85,7 @@ export function CustomerHomePage() {
     !isLoading &&
     deals.length === 0 &&
     searchKeyword.trim().length > 0 &&
-    filters.category.length > 0
+    filters.category.length > 0,
   );
 
   const defaultAddressText = userDefaultAddress
@@ -161,7 +165,6 @@ export function CustomerHomePage() {
                 )}
               </div>
 
-
               {/* If authenticated but no default address saved yet */}
               {isAuthenticated && !userDefaultAddress && (
                 <div className="mt-3 flex items-center gap-2 text-xs text-slate-600">
@@ -211,9 +214,7 @@ export function CustomerHomePage() {
                 Explore categories
               </h2>
               {isLoadingCategories && (
-                <span role="status" className="text-[11px] text-white/90">
-                  Loading…
-                </span>
+                <InlineSkeleton label="Loading categories" className="w-16" />
               )}
               {categories.length > 0 && (
                 <button

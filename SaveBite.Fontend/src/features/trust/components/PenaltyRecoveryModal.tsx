@@ -38,7 +38,12 @@ export function PenaltyRecoveryModal({ penaltyId, onClose }: PenaltyRecoveryModa
             </p>
           </div>
 
-          {data.isRecovered ? (
+          {data.penalty.status === "Superseded" ? (
+            <p className="rounded-lg bg-neutral-100 p-3 text-sm text-neutral-700">
+              Replaced by a later penalty. The progress below is historical; recovery now starts
+              from zero for the latest penalty.
+            </p>
+          ) : data.isRecovered ? (
             <p className="rounded-lg bg-primary-50 p-3 text-sm text-primary-700">
               Recovered on {formatDateTime(data.penalty.recoveredAt)}.
             </p>

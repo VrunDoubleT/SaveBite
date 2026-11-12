@@ -69,6 +69,7 @@ export function PenaltyRuleModal({
   });
 
   const watchedOccurrence = useWatch({ control, name: "minimumOccurrence" });
+  const watchedEffectiveFrom = useWatch({ control, name: "effectiveFrom" });
   const watchedEffectiveTo = useWatch({ control, name: "effectiveTo" });
 
   useEffect(() => {
@@ -98,6 +99,17 @@ export function PenaltyRuleModal({
       });
     }
   }, [isOpen, rule, suggestedOccurrence, reset]);
+
+  useEffect(() => {
+    if (!isOpen || rule) return;
+    const latest = existingRules
+      .filter((r) => r.minimumOccurrence === Number(watchedOccurrence))
+      .sort((a, b) => Date.parse(b.effectiveFrom) - Date.parse(a.effectiveFrom))[0];
+    if (latest?.effectiveTo && Date.parse(latest.effectiveTo) > Date.now()) {
+      setValue("effectiveFrom", toDateTimeLocalValue(latest.effectiveTo));
+    } else setValue("effectiveFrom", "");
+    setValue("effectiveTo", "");
+  }, [isOpen, rule, existingRules, watchedOccurrence, setValue]);
 
   const handleClose = () => {
     setServerError(null);
@@ -161,6 +173,17 @@ export function PenaltyRuleModal({
       }
     }
 
+    if (!isEditMode && data.effectiveFrom) {
+      const adjoining = sameOccurrenceRules.find(
+        (other) =>
+          other.effectiveTo && Math.abs(Date.parse(other.effectiveTo) - fromMs) < ONE_MINUTE_MS,
+      );
+      if (adjoining?.effectiveTo) {
+        fromIso = adjoining.effectiveTo;
+        fromMs = Date.parse(adjoining.effectiveTo);
+      }
+    }
+
     // 2. Resolve Until timestamp
     let toIso: string | null = null;
     let toMs: number = Number.POSITIVE_INFINITY;
@@ -178,6 +201,14 @@ export function PenaltyRuleModal({
       toIso = toIsoOrUndefined(data.effectiveTo) ?? null;
     }
 
+    if (!isEditMode && !data.effectiveTo) {
+      const next = sameOccurrenceRules.find((other) => Date.parse(other.effectiveFrom) > fromMs);
+      if (next) {
+        toIso = next.effectiveFrom;
+        toMs = Date.parse(next.effectiveFrom);
+      }
+    }
+
     // 3. Validate non-overlapping intervals with all other rules of the same MinimumOccurrence
     const overlapping = existingRules.find((other) => {
       if (other.id === rule?.id) return false;
@@ -188,6 +219,8 @@ export function PenaltyRuleModal({
         ? new Date(other.effectiveTo).getTime()
         : Number.POSITIVE_INFINITY;
 
+      // Creating a successor automatically closes an open-ended predecessor.
+      if (!isEditMode && !other.effectiveTo && otherFromMs < fromMs) return false;
       return fromMs < otherToMs && otherFromMs < toMs;
     });
 
@@ -197,7 +230,7 @@ export function PenaltyRuleModal({
       }`;
       setServerError(
         `Time period overlaps with an existing rule for no-show #${overlapping.minimumOccurrence} (${rangeText}). ` +
-          `Please set an 'Until' date on the existing rule or choose a non-overlapping 'From' / 'Until' range.`,
+          `Choose a period outside the existing schedule. Open-ended predecessors are closed automatically when adding a successor.`,
       );
       return;
     }
@@ -213,9 +246,7 @@ export function PenaltyRuleModal({
       effectiveTo: toIso,
     };
 
-    const error = isEditMode
-      ? await onSave(rule.id, payload)
-      : await onCreate(payload);
+    const error = isEditMode ? await onSave(rule.id, payload) : await onCreate(payload);
 
     if (error) setServerError(error);
     else handleClose();
@@ -236,7 +267,8 @@ export function PenaltyRuleModal({
         {rule && <RecordId id={rule.id} variant="full" />}
         <p className="text-sm text-text-secondary">
           Configure the points deducted, recovery requirements, and effective period. Rules with the
-          same no-show number cannot have overlapping <strong>From – Until</strong> periods.
+          same no-show number cannot overlap. Adding a successor automatically ends its open-ended
+          predecessor. Gaps are allowed only when no higher no-show threshold is in effect.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -316,7 +348,7 @@ export function PenaltyRuleModal({
                     </>
                   ) : (
                     <span className="text-amber-700 font-semibold">
-                      (No end date — set an &apos;Until&apos; date on this rule first to schedule after it)
+                      (Open-ended — automatically ends when its successor starts)
                     </span>
                   )}
                 </li>
@@ -325,6 +357,15 @@ export function PenaltyRuleModal({
           </div>
         )}
 
+        {!isEditMode && sameOccurrenceRules.some((r) => !r.effectiveTo) && (
+          <p className="rounded-lg bg-primary-50 p-3 text-sm text-primary-700">
+            The existing open-ended rule will end{" "}
+            {watchedEffectiveFrom
+              ? `at ${formatDateTime(new Date(watchedEffectiveFrom).toISOString())}`
+              : "when the new rule starts"}
+            . Both changes are saved together.
+          </p>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             label="Effective from"
@@ -344,7 +385,7 @@ export function PenaltyRuleModal({
             label="Effective until (optional)"
             htmlFor="pr-effective-to"
             error={errors.effectiveTo?.message}
-            hint="Leave empty for no end date."
+            hint="Leave empty to end at the next scheduled version, or remain indefinite if none exists."
           >
             <div className="space-y-1">
               <input

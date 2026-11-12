@@ -82,6 +82,8 @@ public class NoShowPenaltyConfiguration
             .HasColumnType("timestamp with time zone")
             .IsRequired();
 
+        builder.Property(x => x.SupersededAt).HasColumnName("superseded_at").HasColumnType("timestamp with time zone");
+
         builder.Property(x => x.RecoveredAt)
             .HasColumnName("recovered_at")
             .HasColumnType("timestamp with time zone");

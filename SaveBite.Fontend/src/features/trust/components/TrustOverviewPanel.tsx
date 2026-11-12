@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { Badge, Card } from "@/shared/components/ui";
 import { useCallback } from "react";
 import {
@@ -35,7 +36,8 @@ const STANDING: Record<
   },
   Restricted: {
     label: "Recovering from a penalty",
-    description: "Completed online orders first satisfy your penalty recovery requirements. Trust points and level progress resume on the next order after recovery.",
+    description:
+      "Completed online orders first satisfy your penalty recovery requirements. Trust points and level progress resume on the next order after recovery.",
     className: "border-accent-100 bg-accent-50 text-accent-700",
     icon: ShieldAlert,
   },
@@ -61,7 +63,8 @@ export function TrustOverviewPanel() {
 
   if (overview.error && !overview.data)
     return <PanelError message={overview.error} onRetry={reloadAll} />;
-  if (!overview.data) return <PanelSkeleton rows={3} />;
+  if (!overview.data)
+    return <LoadingSkeleton variant="detail" rows={2} label="Loading trust information" />;
 
   const data = overview.data;
   const standing = STANDING[data.standing] ?? STANDING.GoodStanding;

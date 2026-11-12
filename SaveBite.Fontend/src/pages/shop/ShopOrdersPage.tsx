@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useShopOrderEventsStore } from "@/features/shop-orders/stores/shopOrderEventsStore";
 import { Pagination } from "@/shared/components/pagination";
 import { ConfirmationCountdown } from "@/features/shop-orders/components/ConfirmationCountdown";
@@ -102,7 +103,16 @@ function ShopOrdersPageContent() {
         }
       });
     return () => abort.abort();
-  }, [shopId, status, trimmedSearch, searchDateParam, page, retry, shopRevision, reconnectRevision]);
+  }, [
+    shopId,
+    status,
+    trimmedSearch,
+    searchDateParam,
+    page,
+    retry,
+    shopRevision,
+    reconnectRevision,
+  ]);
 
   function reset() {
     setPage(1);
@@ -150,9 +160,7 @@ function ShopOrdersPageContent() {
             </span>
             <div>
               <p className="text-xs font-medium text-neutral-500">Pending</p>
-              <p className="text-xl font-bold text-amber-600">
-                {data?.statusCounts?.Pending ?? 0}
-              </p>
+              <p className="text-xl font-bold text-amber-600">{data?.statusCounts?.Pending ?? 0}</p>
             </div>
           </div>
         </div>
@@ -187,7 +195,10 @@ function ShopOrdersPageContent() {
       {/* Realtime Search without Search Button */}
       <div className="flex max-w-lg gap-2">
         <label className="relative min-w-0 flex-1">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <Search
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+          />
           <span className="sr-only">Order ID or order code</span>
           <input
             value={input}
@@ -282,7 +293,7 @@ function ShopOrdersPageContent() {
       )}
 
       {loading ? (
-        <p className="py-8 text-sm text-neutral-500">Loading orders…</p>
+        <LoadingSkeleton variant="list" label="Loading orders…" />
       ) : data?.page.items.length === 0 ? (
         <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500">
           <Package className="mx-auto mb-2 text-neutral-400" />

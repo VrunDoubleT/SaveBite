@@ -353,11 +353,11 @@ export function buildScoreRuleSchema(kind: "Earning" | "Penalty") {
       kind === "Earning"
         ? points.min(1, "An earning rule must add at least 1 point")
         : points.max(-1, "A penalty rule must remove at least 1 point"),
-    effectiveFrom: z.string(),
+    isActive: z.boolean(),
   });
 }
 
-export type ScoreRuleFormData = { scoreDelta: number; effectiveFrom: string };
+export type ScoreRuleFormData = { scoreDelta: number; isActive: boolean };
 
 /** Converts a datetime-local value into an ISO string, or undefined when empty. */
 export function toIsoOrUndefined(value: string): string | undefined {

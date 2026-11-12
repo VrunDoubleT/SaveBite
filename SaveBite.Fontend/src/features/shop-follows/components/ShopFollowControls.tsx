@@ -1,3 +1,4 @@
+import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useRef, useState } from "react";
 import { Bell, BellOff, Check, Plus } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -138,7 +139,13 @@ function FollowControls({ shopId, shopName, initialFollow, onChange, compact = f
           ) : (
             <Plus className="size-4" aria-hidden="true" />
           )}
-          {loading ? "Loading…" : follow ? "Unfollow store" : "Follow store"}
+          {loading ? (
+            <InlineSkeleton label="Loading follow status" className="w-24" />
+          ) : follow ? (
+            "Unfollow store"
+          ) : (
+            "Follow store"
+          )}
         </Button>
         {follow && (
           <Button

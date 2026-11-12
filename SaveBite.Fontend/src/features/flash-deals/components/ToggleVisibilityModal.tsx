@@ -36,9 +36,9 @@ export function ToggleVisibilityModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-neutral-100 px-6 py-5">
+        <div className="flex shrink-0 items-start justify-between border-b border-neutral-100 px-6 py-5">
           <div className="flex items-center gap-3">
             <div
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
@@ -73,7 +73,7 @@ export function ToggleVisibilityModal({
         </div>
 
         {/* Content */}
-        <div className="space-y-4 px-6 py-5">
+        <div className="min-h-0 space-y-4 overflow-y-auto overscroll-contain px-6 py-5">
           {/* Status Transition Pill */}
           <div className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50/80 p-3 text-xs">
             <div className="flex items-center gap-2">
@@ -117,9 +117,7 @@ export function ToggleVisibilityModal({
               className="size-12 rounded-lg object-cover"
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-xs text-neutral-900">
-                {deal.productName}
-              </p>
+              <p className="truncate font-semibold text-xs text-neutral-900">{deal.productName}</p>
               <p className="text-[11px] text-neutral-400">{deal.categoryName || "Product"}</p>
               {deal.minDealPrice != null && (
                 <p className="text-[11px] font-semibold text-red-600">
@@ -139,22 +137,22 @@ export function ToggleVisibilityModal({
           >
             {isCurrentlyHidden ? (
               <p>
-                <strong>Unhiding this deal</strong> will immediately make it visible to
-                customers in the SaveBite app, home feed, and search results. The deal
-                will sync to Redis cache instantly.
+                <strong>Unhiding this deal</strong> will immediately make it visible to customers in
+                the SaveBite app, home feed, and search results. The deal will sync to Redis cache
+                instantly.
               </p>
             ) : (
               <p>
                 <strong>Hiding this deal</strong> will temporarily remove it from customer
-                discovery. Customers will not be able to order this deal while hidden.
-                Existing placed orders are unaffected and you can unhide it at any time.
+                discovery. Customers will not be able to order this deal while hidden. Existing
+                placed orders are unaffected and you can unhide it at any time.
               </p>
             )}
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 border-t border-neutral-100 bg-neutral-50 px-6 py-4">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-neutral-100 bg-neutral-50 px-6 py-4">
           <button
             type="button"
             onClick={onClose}
@@ -181,8 +179,8 @@ export function ToggleVisibilityModal({
                   ? "Unhiding..."
                   : "Hiding..."
                 : isCurrentlyHidden
-                ? "Yes, Unhide Deal"
-                : "Yes, Hide Deal"}
+                  ? "Yes, Unhide Deal"
+                  : "Yes, Hide Deal"}
             </span>
           </button>
         </div>

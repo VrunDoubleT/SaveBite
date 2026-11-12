@@ -1,5 +1,6 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useId, useRef, type ReactNode } from "react";
-import { AlertCircle, LoaderCircle, Package, X } from "lucide-react";
+import { AlertCircle, Package, X } from "lucide-react";
 
 export const inputClass =
   "mt-1.5 w-full rounded-lg border border-border-default bg-white px-3.5 py-2.5 text-sm text-text-primary outline-none transition focus:border-primary-400 focus:ring-3 focus:ring-primary-100 disabled:bg-neutral-50 disabled:text-neutral-500";
@@ -44,16 +45,8 @@ export function Alert({ children, success = false }: { children: ReactNode; succ
     </div>
   );
 }
-export function Loading() {
-  return (
-    <div
-      role="status"
-      className="flex min-h-64 items-center justify-center gap-3 text-sm text-neutral-500"
-    >
-      <LoaderCircle className="size-5 animate-spin" />
-      Loading…
-    </div>
-  );
+export function Loading({ variant = "detail" }: { variant?: "detail" | "form" | "list" }) {
+  return <LoadingSkeleton variant={variant} label="Loading product information" />;
 }
 export function ErrorState({ error, retry }: { error: string; retry: () => void }) {
   return (
@@ -165,9 +158,9 @@ export function Modal({
         e.preventDefault();
         if (!busy) onClose();
       }}
-      className="fixed inset-0 m-auto w-[calc(100%_-_2rem)] max-w-md rounded-xl border-0 bg-white p-0 shadow-lg backdrop:bg-neutral-900/50"
+      className="fixed inset-0 m-auto flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden w-[calc(100%_-_2rem)] max-w-md rounded-xl border-0 bg-white p-0 shadow-lg backdrop:bg-neutral-900/50"
     >
-      <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
+      <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 bg-white px-5 py-4">
         <h2 id={id} className="font-semibold">
           {title}
         </h2>
@@ -181,7 +174,7 @@ export function Modal({
           <X className="size-5" />
         </button>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="min-h-0 overflow-y-auto overscroll-contain p-5">{children}</div>
     </dialog>
   );
 }

@@ -34,6 +34,7 @@ public class NoShowPenalty
     public DateTime CreatedAt { get; set; }
 
     public DateTime? RecoveredAt { get; set; }
+    public DateTime? SupersededAt { get; set; }
 
     public User User { get; set; } = null!;
     public Order Order { get; set; } = null!;

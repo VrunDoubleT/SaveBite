@@ -1,3 +1,5 @@
+import type { ArchiveFilters } from "../utils/filterAuditArchive";
+import type { AuditLogFilterOptions } from "../types/auditLog.types";
 import { httpClient } from "@/shared/api";
 import type { ApiResponse } from "@/shared/types";
 import {
@@ -22,11 +24,31 @@ export const auditArchiveApi = {
     );
     return response.data;
   },
-  async logs(id: string, page: number, signal: AbortSignal): Promise<{ items: AuditArchiveRow[] }> {
-    const response = await httpClient.get<ApiResponse<{ items: AuditArchiveRow[] }>>(
-      `${base}/${id}/logs`,
-      { params: { page, pageSize: ARCHIVE_PAGE_SIZE }, signal, timeout },
-    );
+  async logs(
+    id: string,
+    page: number,
+    signal: AbortSignal,
+    filters: ArchiveFilters,
+  ): Promise<{
+    items: AuditArchiveRow[];
+    totalItems: number;
+    filterOptions: AuditLogFilterOptions;
+  }> {
+    const response = await httpClient.get<
+      ApiResponse<{
+        items: AuditArchiveRow[];
+        totalItems: number;
+        filterOptions: AuditLogFilterOptions;
+      }>
+    >(`${base}/${id}/logs`, {
+      params: {
+        page,
+        pageSize: ARCHIVE_PAGE_SIZE,
+        ...Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== "")),
+      },
+      signal,
+      timeout,
+    });
     return response.data.data;
   },
   async download(id: string): Promise<Blob> {

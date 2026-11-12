@@ -1,3 +1,4 @@
+import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { authInputStyle } from "@/shared/components/ui/inputStyles";
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
@@ -82,6 +83,11 @@ export function RefundBankSelect({
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
         }}
       >
+        {!error && !items.length && (
+          <span className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center">
+            <InlineSkeleton label="Loading banks" className="w-40" />
+          </span>
+        )}
         <input
           ref={input}
           id={id}
@@ -99,11 +105,7 @@ export function RefundBankSelect({
           disabled={unavailable}
           value={expanded ? query : selected ? bankLabel(selected) : ""}
           placeholder={
-            error
-              ? "Bank list unavailable"
-              : items.length
-                ? "Select or type to search banks…"
-                : "Loading banks…"
+            error ? "Bank list unavailable" : items.length ? "Select or type to search banks…" : ""
           }
           className={`${authInputStyle} min-h-11 pr-12 disabled:bg-neutral-100`}
           onFocus={show}

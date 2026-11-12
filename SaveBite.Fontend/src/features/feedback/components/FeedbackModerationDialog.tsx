@@ -162,7 +162,7 @@ export function FeedbackModerationDialog({
       >
         {/* Header */}
         <div
-          className={`relative flex items-start gap-4 bg-gradient-to-b ${theme.glow} to-white px-5 pb-4 pt-5 sm:px-6 sm:pt-6`}
+          className={`relative shrink-0 flex items-start gap-4 bg-gradient-to-b ${theme.glow} to-white px-5 pb-4 pt-5 sm:px-6 sm:pt-6`}
         >
           <span
             className={`flex size-12 shrink-0 items-center justify-center rounded-2xl ring-1 ring-inset ${theme.iconWrap}`}

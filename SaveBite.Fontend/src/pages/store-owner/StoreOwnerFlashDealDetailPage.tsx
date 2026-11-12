@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { FlashDealStockHistory } from "@/features/restock/FlashDealStockHistory";
 import { useRestockWorkspace } from "@/features/restock/restockContext";
 import { useEffect, useState, useMemo } from "react";
@@ -5,7 +6,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Edit2,
-  Loader2,
   AlertCircle,
   EyeOff,
   Eye,
@@ -160,11 +160,7 @@ export function StoreOwnerFlashDealDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-emerald-600" />
-      </div>
-    );
+    return <LoadingSkeleton variant="detail" label="Loading flash deal" />;
   }
 
   if (!deal) {
@@ -276,7 +272,6 @@ export function StoreOwnerFlashDealDetailPage() {
                   <span>Hide Deal</span>
                 </button>
               )}
-
             </>
           )}
 
@@ -284,9 +279,7 @@ export function StoreOwnerFlashDealDetailPage() {
           <button
             type="button"
             disabled={shopSuspended}
-            onClick={() =>
-              navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id))
-            }
+            onClick={() => navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id))}
             className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Edit2 className="size-3.5" />

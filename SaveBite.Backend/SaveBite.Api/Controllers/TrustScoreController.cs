@@ -55,6 +55,17 @@ public sealed class TrustScoreController : ControllerBase
         return Ok(ApiResponse<IReadOnlyList<TrustLevelInfoResponse>>.Ok(result));
     }
 
+    [HttpGet("penalty-policy")]
+    public async Task<IActionResult> GetPenaltyPolicy([FromServices] ITrustConfigService config, CancellationToken ct)
+    {
+        var rules = await config.GetPenaltyRulesAsync(ct);
+        return Ok(ApiResponse<object>.Ok(rules.Where(r => r.IsActive && r.IsCurrent).Select(r => new
+        {
+            r.MinimumOccurrence, r.ScoreDeduction, r.RequiredOnlineOrders,
+            r.RequiredOnlineOrderValue, r.PermanentOfflineLock
+        })));
+    }
+
     // UC-48
     [HttpGet("me/penalties")]
     public async Task<ActionResult<ApiResponse<PagedResult<PenaltyItemResponse>>>> GetMyPenalties(

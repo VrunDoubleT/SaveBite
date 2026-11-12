@@ -1,7 +1,8 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Store } from "lucide-react";
-import { Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
+import { Card, ErrorState, MediaImage } from "@/shared/components/ui";
 import { getApiErrorMessage } from "@/shared/api";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
@@ -83,13 +84,7 @@ function RefundDetail({ refundId }: { refundId: string }) {
           onRetry={busy ? undefined : () => setRevision((old) => old + 1)}
         />
       )}
-      {!refund && !error && (
-        <div role="status" aria-label="Loading refund details" className="space-y-4">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-48" />
-          <Skeleton className="h-80" />
-        </div>
-      )}
+      {!refund && !error && <LoadingSkeleton variant="detail" label="Loading refund details" />}
       {refund && (
         <>
           <Card

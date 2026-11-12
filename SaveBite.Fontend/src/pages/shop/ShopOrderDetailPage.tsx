@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { OrderResalePanel } from "@/features/shop-orders/components/OrderResalePanel";
 import { ShopOrderRefunds } from "@/features/refunds/components/ShopOrderRefunds";
 import { paymentMethodLabel } from "@/features/payments/utils/paymentLabels";
@@ -134,9 +135,11 @@ function ShopOrderDetailPageContent() {
         </p>
       )}
       {!o || !data ? (
-        <p className="text-sm text-neutral-500">
-          {error ? "Unable to load order." : "Loading order…"}
-        </p>
+        error ? (
+          <p className="text-sm text-neutral-500">Unable to load order.</p>
+        ) : (
+          <LoadingSkeleton variant="detail" label="Loading order" />
+        )
       ) : (
         <>
           <header className="rounded-xl border border-neutral-200 bg-white p-4">

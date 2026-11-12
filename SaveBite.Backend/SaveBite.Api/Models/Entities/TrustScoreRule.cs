@@ -9,13 +9,11 @@ public class TrustScoreRule
     public TrustScoreRuleType RuleType { get; set; }
 
     public int ScoreDelta { get; set; }
+    public bool IsActive { get; set; } = true;
 
-    public DateTime EffectiveFrom { get; set; }
-    public DateTime? EffectiveTo { get; set; }
-
-    public Guid CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
 
-    public User CreatedByUser { get; set; } = null!;
+    public User? CreatedByUser { get; set; }
     public ICollection<TrustProgressHistory> Histories { get; set; } = new List<TrustProgressHistory>();
 }

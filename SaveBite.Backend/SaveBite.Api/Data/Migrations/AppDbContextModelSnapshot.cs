@@ -20,6 +20,7 @@ namespace SaveBite.Backend.Data.Migrations
                 .HasAnnotation("ProductVersion", "8.0.28")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "unaccent");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("SaveBite.Backend.Audit.Archives.AuditLogArchive", b =>
@@ -647,6 +648,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
+
+                    b.Property<DateTime?>("SupersededAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("superseded_at");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
@@ -2452,6 +2457,15 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("effective_to");
 
+                    b.Property<string>("EndJobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("end_job_id");
+
+                    b.Property<DateTime?>("EndProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_processed_at");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
@@ -2476,6 +2490,15 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Property<int>("ScoreDeduction")
                         .HasColumnType("integer")
                         .HasColumnName("score_deduction");
+
+                    b.Property<string>("StartJobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("start_job_id");
+
+                    b.Property<DateTime?>("StartProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_processed_at");
 
                     b.HasKey("Id");
 
@@ -3944,17 +3967,15 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<Guid>("CreatedBy")
+                    b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<DateTime>("EffectiveFrom")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("effective_from");
-
-                    b.Property<DateTime?>("EffectiveTo")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("effective_to");
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
 
                     b.Property<string>("RuleType")
                         .IsRequired()
@@ -3970,10 +3991,10 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.HasIndex("CreatedBy");
 
-                    b.ToTable("trust_score_rules", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_trust_score_rule_period", "\"effective_to\" IS NULL OR \"effective_to\" > \"effective_from\"");
-                        });
+                    b.HasIndex("RuleType")
+                        .IsUnique();
+
+                    b.ToTable("trust_score_rules", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.User", b =>
@@ -5473,8 +5494,7 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasOne("SaveBite.Backend.Models.Entities.User", "CreatedByUser")
                         .WithMany("CreatedTrustScoreRules")
                         .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("CreatedByUser");
                 });

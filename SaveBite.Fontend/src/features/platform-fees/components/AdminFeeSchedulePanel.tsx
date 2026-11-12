@@ -1,13 +1,8 @@
+import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useForm, useWatch } from "react-hook-form";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import {
-  CalendarClock,
-  CheckCircle2,
-  Clock3,
-  LoaderCircle,
-  Pencil,
-  X,
-} from "lucide-react";
+import { CalendarClock, CheckCircle2, Clock3, LoaderCircle, Pencil, X } from "lucide-react";
 import { platformFeeApi } from "../api/platformFeeApi";
 import type { PlatformFeeConfigResponse } from "../types/platformFee.types";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
@@ -24,9 +19,11 @@ interface FeeVersionForm {
 }
 
 function validateEffective(value: string, values: FeeVersionForm) {
-  return values.mode !== "scheduled"
-    || (Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now())
-    || "Choose a future start date and time.";
+  return (
+    values.mode !== "scheduled" ||
+    (Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now()) ||
+    "Choose a future start date and time."
+  );
 }
 
 const dateTime = (value?: string | null) =>
@@ -56,9 +53,22 @@ export function AdminFeeSchedulePanel() {
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [editing, setEditing] = useState<PlatformFeeConfigResponse | null>(null);
-  const { register, control, handleSubmit, reset: resetForm, setError, clearErrors,
-    formState: { errors, isSubmitting } } = useForm<FeeVersionForm>({
-    defaultValues: { rate: "", mode: "scheduled", effective: nextMonth(), reason: "", futurePolicy: "keep" },
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset: resetForm,
+    setError,
+    clearErrors,
+    formState: { errors, isSubmitting },
+  } = useForm<FeeVersionForm>({
+    defaultValues: {
+      rate: "",
+      mode: "scheduled",
+      effective: nextMonth(),
+      reason: "",
+      futurePolicy: "keep",
+    },
     mode: "onTouched",
   });
   const mode = useWatch({ control, name: "mode" });
@@ -86,7 +96,10 @@ export function AdminFeeSchedulePanel() {
       setHistoryPage(1);
       setLoadError("");
     } catch (e) {
-      setLoadError(getApiErrorMessage(e) || "Unable to load fee schedules. Please reopen this page to try again.");
+      setLoadError(
+        getApiErrorMessage(e) ||
+          "Unable to load fee schedules. Please reopen this page to try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -102,13 +115,21 @@ export function AdminFeeSchedulePanel() {
 
   function reset() {
     setEditing(null);
-    resetForm({ rate: "", mode: "scheduled", effective: nextMonth(), reason: "", futurePolicy: "keep" });
+    resetForm({
+      rate: "",
+      mode: "scheduled",
+      effective: nextMonth(),
+      reason: "",
+      futurePolicy: "keep",
+    });
   }
   async function submit(values: FeeVersionForm) {
     if (saving) return;
     clearErrors("root");
     if (full || loading || loadError) {
-      setError("root", { message: "Fee schedules are unavailable or all future slots are in use." });
+      setError("root", {
+        message: "Fee schedules are unavailable or all future slots are in use.",
+      });
       return;
     }
     const { rate, reason, effective, mode, futurePolicy } = values;
@@ -161,7 +182,9 @@ export function AdminFeeSchedulePanel() {
     <section className="space-y-4" aria-label="Commission fee schedules">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Commission Fee Schedules</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+            Commission Fee Schedules
+          </h1>
           <p className="mt-1.5 text-sm text-text-secondary">
             Each order keeps the rate in effect when it was completed. Times shown in {zone}.
           </p>
@@ -200,7 +223,13 @@ export function AdminFeeSchedulePanel() {
           </div>
           <div className="flex items-baseline gap-1 border-t border-white/20 pt-4 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0">
             <p className="text-5xl font-bold tracking-tight tabular-nums text-white sm:text-6xl">
-              {loading ? "…" : active ? active.feePercentage : "—"}
+              {loading ? (
+                <InlineSkeleton label="Loading current rate" className="w-16" />
+              ) : active ? (
+                active.feePercentage
+              ) : (
+                "—"
+              )}
             </p>
             {!loading && active && (
               <span className="text-2xl font-semibold text-emerald-100">%</span>
@@ -242,14 +271,7 @@ export function AdminFeeSchedulePanel() {
               No upcoming changes.
             </p>
           )}
-          {loading && (
-            <p
-              role="status"
-              className="mt-5 rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500"
-            >
-              Loading schedules…
-            </p>
-          )}
+          {loading && <LoadingSkeleton variant="list" label="Loading schedules…" />}
 
           <ol className="mt-3 divide-y divide-slate-100">
             {upcoming.map((item) => (
@@ -277,8 +299,13 @@ export function AdminFeeSchedulePanel() {
                       aria-label={`Replace ${item.feePercentage}% schedule starting ${dateTime(item.effectiveFrom)}`}
                       onClick={() => {
                         setEditing(item);
-                        resetForm({ rate: String(item.feePercentage), mode: "scheduled",
-                          effective: localInput(new Date(item.effectiveFrom)), reason: "", futurePolicy: "keep" });
+                        resetForm({
+                          rate: String(item.feePercentage),
+                          mode: "scheduled",
+                          effective: localInput(new Date(item.effectiveFrom)),
+                          reason: "",
+                          futurePolicy: "keep",
+                        });
                       }}
                     >
                       <Pencil size={13} aria-hidden="true" /> Replace
@@ -377,22 +404,36 @@ export function AdminFeeSchedulePanel() {
                 aria-describedby={errors.rate ? "fee-rate-error" : undefined}
                 {...register("rate", {
                   validate: {
-                    range: (value) => value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 100
-                      || "Enter a commission percentage between 0 and 100.",
-                    precision: (value) => Math.abs(Number(value) * 10000 - Math.round(Number(value) * 10000)) < 0.000001
-                      || "Use at most 4 decimal places.",
+                    range: (value) =>
+                      (value.trim() !== "" &&
+                        Number.isFinite(Number(value)) &&
+                        Number(value) >= 0 &&
+                        Number(value) <= 100) ||
+                      "Enter a commission percentage between 0 and 100.",
+                    precision: (value) =>
+                      Math.abs(Number(value) * 10000 - Math.round(Number(value) * 10000)) <
+                        0.000001 || "Use at most 4 decimal places.",
                   },
                 })}
                 placeholder="e.g. 5 for 5%"
               />
-              {errors.rate && <span id="fee-rate-error" role="alert" className="mt-1 block text-sm text-red-700">{errors.rate.message}</span>}
+              {errors.rate && (
+                <span id="fee-rate-error" role="alert" className="mt-1 block text-sm text-red-700">
+                  {errors.rate.message}
+                </span>
+              )}
             </label>
             {!editing && (
               <label className="block text-sm font-medium text-slate-800">
                 When to apply
                 <select
                   className={inputClass}
-                  {...register("mode", { onChange: () => { clearErrors("effective"); clearErrors("root"); } })}
+                  {...register("mode", {
+                    onChange: () => {
+                      clearErrors("effective");
+                      clearErrors("root");
+                    },
+                  })}
                 >
                   <option value="scheduled">Schedule for a future date</option>
                   <option value="now">Apply immediately</option>
@@ -411,7 +452,15 @@ export function AdminFeeSchedulePanel() {
                     validate: validateEffective,
                   })}
                 />
-                {errors.effective && <span id="fee-effective-error" role="alert" className="mt-1 block text-sm text-red-700">{errors.effective.message}</span>}
+                {errors.effective && (
+                  <span
+                    id="fee-effective-error"
+                    role="alert"
+                    className="mt-1 block text-sm text-red-700"
+                  >
+                    {errors.effective.message}
+                  </span>
+                )}
               </label>
             ) : (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -420,10 +469,7 @@ export function AdminFeeSchedulePanel() {
                 {upcoming.length > 0 && (
                   <label className="mt-3 block font-medium">
                     Existing future schedules
-                    <select
-                      className={inputClass}
-                      {...register("futurePolicy")}
-                    >
+                    <select className={inputClass} {...register("futurePolicy")}>
                       <option value="keep">Keep all {upcoming.length} future schedules</option>
                       <option value="cancel">Cancel all {upcoming.length} future schedules</option>
                     </select>
@@ -441,11 +487,20 @@ export function AdminFeeSchedulePanel() {
                 aria-invalid={Boolean(errors.reason)}
                 aria-describedby={errors.reason ? "fee-reason-error" : undefined}
                 {...register("reason", {
-                  validate: (value) => value.trim().length >= 3 && value.trim().length <= 500
-                    || "Enter a reason between 3 and 500 characters.",
+                  validate: (value) =>
+                    (value.trim().length >= 3 && value.trim().length <= 500) ||
+                    "Enter a reason between 3 and 500 characters.",
                 })}
               />
-              {errors.reason && <span id="fee-reason-error" role="alert" className="mt-1 block text-sm text-red-700">{errors.reason.message}</span>}
+              {errors.reason && (
+                <span
+                  id="fee-reason-error"
+                  role="alert"
+                  className="mt-1 block text-sm text-red-700"
+                >
+                  {errors.reason.message}
+                </span>
+              )}
             </label>
             <p className="text-xs leading-5 text-slate-500">
               Admins are notified when a version becomes effective. Shop owners are notified when
@@ -525,7 +580,8 @@ export function AdminFeeSchedulePanel() {
                   <td className="max-w-sm p-3">
                     <p>{item.reason || "Previous configuration"}</p>
                     <p className="mt-1 text-xs text-slate-500">
-                      Created by {item.createdByName || item.createdBy || "System"} · {dateTime(item.createdAt)}
+                      Created by {item.createdByName || item.createdBy || "System"} ·{" "}
+                      {dateTime(item.createdAt)}
                     </p>
                     {item.replacesConfigId && (
                       <p className="mt-1 break-all text-xs text-slate-500">

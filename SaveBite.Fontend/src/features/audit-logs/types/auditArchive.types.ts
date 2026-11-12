@@ -19,6 +19,10 @@ export type AuditArchiveRow = {
   targetId: string;
   createdAt: string;
   actorType: string;
+  actorUserId?: string | null;
+  actorName?: string;
+  actorEmail?: string;
+  correlationId?: string | null;
   oldValues: unknown;
   newValues: unknown;
   reason?: string;

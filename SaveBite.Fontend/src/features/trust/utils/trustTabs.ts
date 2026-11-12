@@ -13,7 +13,6 @@ export const ADMIN_TRUST_TABS = [
   { id: "levels", label: "Levels" },
   { id: "penalty-rules", label: "Penalty rules" },
   { id: "score-rules", label: "Trust Score rules" },
-  { id: "earning-rules", label: "Earning rules" },
 ] as const;
 
 export type CustomerTrustTab = (typeof CUSTOMER_TRUST_TABS)[number]["id"];

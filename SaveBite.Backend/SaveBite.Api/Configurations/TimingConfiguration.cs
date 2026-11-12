@@ -31,6 +31,16 @@ public static class TimingConfiguration
         public const int RabbitRetryMaxExponent = 4;
     }
 
+    public static class EmailReminders
+    {
+        public const string ScanCron = "*/5 * * * *";
+        public const int CustomerDetailsFirstHours = 12;
+        public const int CustomerDetailsFinalLeadHours = 6;
+        public const int ShopTransferFirstLeadHours = 24;
+        public const int ShopTransferFinalLeadHours = 2;
+        public const int InvitationLeadHours = 24;
+    }
+
     public static class Refund
     {
         public const int CustomerDetailsHours = 24;

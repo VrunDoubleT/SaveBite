@@ -51,9 +51,10 @@ public sealed class AdminAuditArchivesController(AuditArchiveService archives, A
         finally { System.IO.File.Delete(path); }
     }
     [HttpGet("{id:guid}/logs")]
-    public async Task<IActionResult> Logs(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 25, CancellationToken ct = default)
+    public async Task<IActionResult> Logs(Guid id, [FromQuery] SaveBite.Backend.Models.Requests.ArchiveLogQuery query, CancellationToken ct = default)
     {
-        page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
+        var page = Math.Max(1, query.Page); var pageSize = Math.Clamp(query.PageSize, 1, 100);
+        query.Validate();
         var archive = await archives.FindAsync(id, ct);
         var path = await archives.DownloadAsync(archive, ct);
         try
@@ -61,9 +62,14 @@ public sealed class AdminAuditArchivesController(AuditArchiveService archives, A
             var items = new List<object>();
             var skip = ((long)page - 1) * pageSize;
             var index = 0L;
+            var actions = new HashSet<string>();
+            var targets = new HashSet<string>();
             await foreach (var row in AuditArchiveFile.RowsAsync(path, ct))
             {
-                if (index++ < skip) continue;
+                targets.Add(row.TargetType);
+                if (string.IsNullOrEmpty(query.TargetType) || row.TargetType == query.TargetType) actions.Add(row.Action);
+                if (!query.Matches(row)) continue;
+                if (index++ < skip || items.Count >= pageSize) continue;
                 items.Add(new
                 {
                     row.Id,
@@ -75,11 +81,12 @@ public sealed class AdminAuditArchivesController(AuditArchiveService archives, A
                     OldValues = SaveBite.Backend.Helpers.AuditPayloadSanitizer.ToSafeDictionary(row.OldValuesJson),
                     NewValues = SaveBite.Backend.Helpers.AuditPayloadSanitizer.ToSafeDictionary(row.NewValuesJson),
                     row.Reason,
+                    row.CorrelationId,
                     row.CreatedAt
                 });
-                if (items.Count == pageSize) break;
+
             }
-            return Ok(ApiResponse<object>.Ok(new { Items = items, Page = page, PageSize = pageSize, TotalItems = archive.RecordCount }));
+            return Ok(ApiResponse<object>.Ok(new { Items = items, Page = page, PageSize = pageSize, TotalItems = index, FilterOptions = new { Actions = actions.Order().ToArray(), TargetTypes = targets.Order().ToArray() } }));
         }
         finally { System.IO.File.Delete(path); }
     }

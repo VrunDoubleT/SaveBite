@@ -16,32 +16,52 @@ interface AuditArchiveTableProps {
 
 export function AuditArchiveTable({ archives, busy, onView, onDownload }: AuditArchiveTableProps) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[900px] table-fixed text-left text-sm">
+    <div className="min-w-0 max-w-full overflow-x-auto">
+      <table className="w-full min-w-[560px] table-fixed text-left text-sm">
         <colgroup>
-          <col className="w-[14%]" />
-          <col className="w-[24%]" />
-          <col className="w-[30%]" />
-          <col className="w-[16%]" />
-          <col className="w-[16%]" />
+          <col className="w-[25%]" />
+          <col className="w-[20%]" />
+          <col className="w-[20%]" />
+          <col className="w-[35%]" />
         </colgroup>
         <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-text-secondary">
           <tr className="border-b border-border-default">
-            <th className="px-6 py-4">Month</th>
-            <th className="px-6 py-4">Created</th>
-            <th className="px-6 py-4">Status</th>
-            <th className="px-6 py-4">Records / size</th>
-            <th className="px-6 py-4">Actions</th>
+            <th className="px-3 py-3">Month</th>
+            <th className="px-3 py-3">Status</th>
+            <th className="px-3 py-3">Records / size</th>
+            <th className="px-3 py-3">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border-default text-sm text-text-primary">
           {archives.map((archive) => (
             <tr key={archive.id} className="border-b">
-              <td className="px-6 py-4">
-                {archive.year}-{String(archive.month).padStart(2, "0")}
+              <td className="px-3 py-3">
+                <p className="font-semibold">
+                  {archive.year}-{String(archive.month).padStart(2, "0")}
+                </p>
+                <details className="mt-2 text-xs text-neutral-500">
+                  <summary className="cursor-pointer">Details</summary>
+                  <dl className="mt-2 space-y-2 [overflow-wrap:anywhere]">
+                    <div>
+                      <dt>Created</dt>
+                      <dd>
+                        {new Date(archive.createdAt).toLocaleString("en-GB", {
+                          timeZone: "Asia/Ho_Chi_Minh",
+                        })}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Archive ID</dt>
+                      <dd>{archive.id}</dd>
+                    </div>
+                    <div>
+                      <dt>SHA-256</dt>
+                      <dd>{archive.sha256}</dd>
+                    </div>
+                  </dl>
+                </details>
               </td>
-              <td className="px-6 py-4">{new Date(archive.createdAt).toLocaleString()}</td>
-              <td className="px-6 py-4">
+              <td className="px-3 py-3">
                 <span className={STATUS_DETAILS[archive.status]?.className}>{archive.status}</span>
                 {STATUS_DETAILS[archive.status] && (
                   <p className={`text-xs ${STATUS_DETAILS[archive.status]?.className}`}>
@@ -50,11 +70,11 @@ export function AuditArchiveTable({ archives, busy, onView, onDownload }: AuditA
                 )}
                 {archive.error && <p className="max-w-xs text-xs text-red-700">{archive.error}</p>}
               </td>
-              <td className="px-6 py-4">
+              <td className="px-3 py-3">
                 {archive.recordCount.toLocaleString()} / {(archive.bytes / 1024).toFixed(1)} KB
               </td>
-              <td className="px-6 py-4">
-                <div className="flex gap-2">
+              <td className="px-3 py-3">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="secondary"
                     disabled={busy || archive.status !== "Completed"}
@@ -75,7 +95,7 @@ export function AuditArchiveTable({ archives, busy, onView, onDownload }: AuditA
           ))}
           {!archives.length && (
             <tr>
-              <td colSpan={5} className="p-6 text-center text-neutral-500">
+              <td colSpan={4} className="p-6 text-center text-neutral-500">
                 No audit archives yet.
               </td>
             </tr>

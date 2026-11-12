@@ -9,8 +9,9 @@ public sealed class TrustOrderService : ITrustOrderService
     private readonly ITrustOrderRepository _repository;
     private readonly TimeProvider _clock;
     private readonly ITrustNotificationService _notifications;
-    public TrustOrderService(ITrustOrderRepository repository, TimeProvider clock, ITrustNotificationService notifications)
-    { _repository = repository; _clock = clock; _notifications = notifications; }
+    private readonly BusinessEmailQueue? _emails;
+    public TrustOrderService(ITrustOrderRepository repository, TimeProvider clock, ITrustNotificationService notifications, BusinessEmailQueue? emails = null)
+    { _repository = repository; _clock = clock; _notifications = notifications; _emails = emails; }
 
     // Update score, progress, penalty snapshots, recovery and level history in one customer-scoped transaction.
     public async Task HandleAsync(Guid orderId, bool completed, CancellationToken ct = default)
@@ -56,19 +57,36 @@ public sealed class TrustOrderService : ITrustOrderService
                         RequiredOnlineOrderValue = rule.RequiredOnlineOrderValue, PermanentOfflineLock = rule.PermanentOfflineLock,
                         Status = NoShowPenaltyStatus.Recovering, CreatedAt = at };
                     _repository.Add(penalty);
+                    if (rule.PermanentOfflineLock && !score.IsOfflineLockedPermanently && _emails != null)
+                        await _emails.StageOfflineLockAsync(order.CustomerId, penalty.Id, ct);
                     score.IsOfflineLockedPermanently |= rule.PermanentOfflineLock;
                     ChangeScore(score, order, -penalty.ScoreDeducted, null, penalty.Id, TrustScoreEventType.NoShow, at,
                         progress.AccumulatedOrderValue, 0m);
                 }
             }
             // Reconcile eligible historical completions too, so delayed NoShow events do not lose recovery progress.
-            if (penalty != null) penalties.Add(penalty);
+            if (penalty != null)
+            {
+                penalties.Add(penalty);
+                var ordered = penalties.OrderBy(p => p.CreatedAt).ThenBy(p => p.OccurrenceNumber).ThenBy(p => p.Id).ToList();
+                for (var i = 0; i < ordered.Count - 1; i++)
+                {
+                    var previous = ordered[i];
+                    var next = ordered[i + 1];
+                    if (previous.Status == NoShowPenaltyStatus.Recovering || previous.RecoveredAt > next.CreatedAt || previous.SupersededAt > next.CreatedAt)
+                    {
+                        previous.Status = NoShowPenaltyStatus.Superseded;
+                        previous.SupersededAt = next.CreatedAt;
+                        previous.RecoveredAt = null;
+                    }
+                }
+            }
             var candidates = await _repository.RecoveryCandidatesAsync(order.CustomerId, ct);
             foreach (var p in penalties.Where(p => p.Status == NoShowPenaltyStatus.Recovering).OrderBy(x => x.CreatedAt).ThenBy(x => x.Id))
             {
                 if (p.PermanentOfflineLock) continue;
                 var recoveredAt = p.RecoveryOrders.Select(h => h.CreatedAt).DefaultIfEmpty(p.CreatedAt).Max();
-                foreach (var candidate in candidates.Where(x => x.CompletedAt >= p.CreatedAt && (!completed || x.CompletedAt <= at)).ToList())
+                foreach (var candidate in candidates.Where(x => x.CompletedAt >= p.CreatedAt && (!completed || x.CompletedAt <= at) && !penalties.Any(next => next.CreatedAt > p.CreatedAt && x.CompletedAt >= next.CreatedAt)).ToList())
                 {
                     if (Recovered(p)) break;
                     _repository.Add(new NoShowPenaltyOrderHistory { Id = Guid.NewGuid(), NoShowPenaltyId = p.Id,
@@ -83,7 +101,7 @@ public sealed class TrustOrderService : ITrustOrderService
             // Recovery consumes the whole order, including the one that satisfies the final requirement.
             // Event timestamps also keep delayed completion deliveries inside the original recovery interval.
             var recoveringAtCompletion = penalties.Any(p => p.CreatedAt <= at
-                && (p.Status == NoShowPenaltyStatus.Recovering || p.RecoveredAt >= at));
+                && (p.Status == NoShowPenaltyStatus.Recovering || p.RecoveredAt >= at || p.SupersededAt >= at));
             if (completed && !recoveringAtCompletion)
             {
                 progress.CompletedOrdersCount = checked(progress.CompletedOrdersCount + 1);

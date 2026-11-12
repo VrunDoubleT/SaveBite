@@ -20,7 +20,6 @@ public static class DbSeeder
         {
             await EnsureCategoriesSeededAsync(context);
             await EnsureDepositPoliciesSeededAsync(context);
-            await EnsureEarningRulesSeededAsync(context);
             await EnsureCanThoStoresSeededAsync(context);
             await EnsureFeedbackTestDataSeededAsync(context);
             return;
@@ -50,34 +49,11 @@ public static class DbSeeder
 
             await EnsureCategoriesSeededAsync(context);
             await EnsureDepositPoliciesSeededAsync(context);
-            await EnsureEarningRulesSeededAsync(context);
             await EnsureCanThoStoresSeededAsync(context);
             await EnsureFeedbackTestDataSeededAsync(context);
 
             await transaction.CommitAsync();
         });
-    }
-
-    // Add missing earning types without overwriting administrator-managed rule versions.
-    private static async Task EnsureEarningRulesSeededAsync(AppDbContext context)
-    {
-        var admin = await context.Users.Where(x => x.Email == MarkerEmail).Select(x => (Guid?)x.Id).FirstOrDefaultAsync();
-        if (!admin.HasValue) return;
-        var now = DateTime.UtcNow;
-        foreach (var entry in new[] { (TrustScoreRuleType.OnlineOrderCompleted, 3), (TrustScoreRuleType.PayAtShopOrderCompleted, 4) })
-        {
-            if (await context.TrustScoreRules.AnyAsync(x => x.RuleType == entry.Item1)) continue;
-            context.TrustScoreRules.Add(new TrustScoreRule
-            {
-                Id = Guid.NewGuid(),
-                RuleType = entry.Item1,
-                ScoreDelta = entry.Item2,
-                EffectiveFrom = now,
-                CreatedBy = admin.Value,
-                CreatedAt = now
-            });
-        }
-        await context.SaveChangesAsync();
     }
 
     private static async Task EnsureDepositPoliciesSeededAsync(AppDbContext context)
@@ -1234,16 +1210,6 @@ public static class DbSeeder
                 Id = Id(94),
                 RuleType = TrustScoreRuleType.OnlineOrderCompleted,
                 ScoreDelta = 3,
-                EffectiveFrom = now.AddMonths(-6),
-                CreatedBy = Id(1),
-                CreatedAt = now.AddMonths(-6)
-            },
-            new TrustScoreRule
-            {
-                Id = Id(95),
-                RuleType = TrustScoreRuleType.NoShow,
-                ScoreDelta = -20,
-                EffectiveFrom = now.AddMonths(-6),
                 CreatedBy = Id(1),
                 CreatedAt = now.AddMonths(-6)
             },
@@ -1351,7 +1317,7 @@ public static class DbSeeder
                 Id = Id(103),
                 UserId = Id(4),
                 OrderId = Id(51),
-                RuleId = Id(95),
+                RuleId = null,
                 NoShowPenaltyId = Id(97),
                 EventType = TrustScoreEventType.NoShow,
                 ScoreBefore = 100,

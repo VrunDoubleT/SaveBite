@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useRef } from "react";
 import { Flame, Search, X } from "lucide-react";
 import { DealGrid } from "@/features/flash-deals/components/DealGrid";
@@ -45,7 +46,7 @@ export function DealSection({
     !isLoading &&
     deals.length === 0 &&
     searchKeyword.trim().length > 0 &&
-    selectedCategories.length > 0
+    selectedCategories.length > 0,
   );
 
   useEffect(() => {
@@ -145,9 +146,12 @@ export function DealSection({
         {isCategoryMismatch && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-caption text-amber-900 shadow-sm animate-in fade-in duration-200">
             <div className="flex items-center gap-2">
-              <span className="text-base" aria-hidden="true">⚠️</span>
+              <span className="text-base" aria-hidden="true">
+                ⚠️
+              </span>
               <span>
-                No items match keyword <strong>“{searchKeyword}”</strong> in category <strong>{selectedCategories.map((c) => `“${c}”`).join(", ")}</strong>.
+                No items match keyword <strong>“{searchKeyword}”</strong> in category{" "}
+                <strong>{selectedCategories.map((c) => `“${c}”`).join(", ")}</strong>.
               </span>
             </div>
             {onClearCategory && (
@@ -178,6 +182,7 @@ export function DealSection({
         onClearSearch={searchKeyword ? onClearSearch : undefined}
         onClearCategory={selectedCategories.length > 0 ? onClearCategory : undefined}
       />
+      {isLoadingOlder && <LoadingSkeleton variant="cards" label="Loading more deals" />}
       {!isLoading && deals.length > 0 && (
         <div className="flex justify-center border-t border-border-default pt-5">
           {hasOlder ? (
@@ -185,7 +190,7 @@ export function DealSection({
               <Button
                 variant="secondary"
                 className="min-h-11"
-                loading={isLoadingOlder}
+                disabled={isLoadingOlder}
                 onClick={onLoadOlder}
               >
                 {isLoadingOlder ? "Loading more deals…" : "Load more deals"}

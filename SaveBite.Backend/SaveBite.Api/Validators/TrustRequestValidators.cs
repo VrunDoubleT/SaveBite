@@ -208,7 +208,6 @@ public sealed class UpdateTrustScoreRuleRequestValidator : AbstractValidator<Upd
     public UpdateTrustScoreRuleRequestValidator()
     {
         RuleFor(x => x.ScoreDelta)
-            .NotEqual(0)
-            .InclusiveBetween(-TrustValidationRules.MaxScoreDelta, TrustValidationRules.MaxScoreDelta);
+            .InclusiveBetween(1, TrustValidationRules.MaxScoreDelta);
     }
 }

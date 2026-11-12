@@ -9,37 +9,24 @@ public class TrustScoreRuleConfiguration
 {
     public void Configure(EntityTypeBuilder<TrustScoreRule> builder)
     {
-        builder.ToTable("trust_score_rules", table =>
-        {
-            table.HasCheckConstraint(
-                "ck_trust_score_rule_period",
-                "\"effective_to\" IS NULL OR " +
-                "\"effective_to\" > \"effective_from\"");
-        });
+        builder.ToTable("trust_score_rules");
 
         builder.Property(x => x.RuleType).HasColumnName("rule_type").HasConversion<string>().HasMaxLength(40).IsRequired();
         builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.RuleType).IsUnique();
 
         builder.Property(x => x.Id)
             .HasColumnName("id")
             .HasDefaultValueSql("gen_random_uuid()");
 
+        builder.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+
         builder.Property(x => x.ScoreDelta)
             .HasColumnName("score_delta")
             .IsRequired();
 
-        builder.Property(x => x.EffectiveFrom)
-            .HasColumnName("effective_from")
-            .HasColumnType("timestamp with time zone")
-            .IsRequired();
-
-        builder.Property(x => x.EffectiveTo)
-            .HasColumnName("effective_to")
-            .HasColumnType("timestamp with time zone");
-
         builder.Property(x => x.CreatedBy)
-            .HasColumnName("created_by")
-            .IsRequired();
+            .HasColumnName("created_by");
 
         builder.Property(x => x.CreatedAt)
             .HasColumnName("created_at")

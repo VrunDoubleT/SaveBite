@@ -1,5 +1,6 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useCallback, useEffect, useState } from "react";
-import { LoaderCircle, Store } from "lucide-react";
+import { Store } from "lucide-react";
 import { ownerShopApi } from "@/features/shops/api/ownerShopApi";
 import { ShopProfileHeader } from "@/features/shops/components/ShopProfileHeader";
 import { ShopProfileDetails } from "@/features/shops/components/ShopProfileDetails";
@@ -80,12 +81,7 @@ export function ShopProfilePage() {
     }
   }
 
-  if (loading && !shop)
-    return (
-      <div className="flex min-h-64 items-center justify-center gap-3 text-neutral-500">
-        <LoaderCircle className="animate-spin text-emerald-600" /> Loading shop profile…
-      </div>
-    );
+  if (loading && !shop) return <LoadingSkeleton variant="profile" label="Loading shop profile" />;
   if (!shop)
     return (
       <section className="mx-auto max-w-3xl rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-2xs">

@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Mail, UserRound } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -111,21 +112,7 @@ export function StaffDetailPage() {
     setPage(1);
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-40 animate-pulse rounded bg-gray-100" />
-
-        <div className="rounded-xl border border-neutral-200 bg-white p-6">
-          <div className="h-6 w-56 animate-pulse rounded bg-gray-100" />
-
-          <div className="mt-3 h-4 w-72 animate-pulse rounded bg-gray-100" />
-        </div>
-
-        <div className="h-64 animate-pulse rounded-2xl bg-gray-100" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingSkeleton variant="profile" label="Loading staff details" />;
 
   if (!staff) {
     return (
@@ -191,7 +178,11 @@ export function StaffDetailPage() {
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Joined date</p>
 
             <p className="mt-1 text-sm font-medium text-gray-900">
-              {new Date(staff.joinedAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}
+              {new Date(staff.joinedAt).toLocaleDateString("en-US", {
+                month: "short",
+                day: "2-digit",
+                year: "numeric",
+              })}
             </p>
           </div>
 

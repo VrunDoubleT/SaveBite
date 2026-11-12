@@ -22,6 +22,10 @@ public class RecoveryRequirementRule
     public Guid? CreatedByUserId { get; set; }
 
     public DateTime CreatedAt { get; set; }
+    public string? StartJobId { get; set; }
+    public string? EndJobId { get; set; }
+    public DateTime? StartProcessedAt { get; set; }
+    public DateTime? EndProcessedAt { get; set; }
 
     public User? CreatedByUser { get; set; }
     public ICollection<NoShowPenalty> NoShowPenalties { get; set; } = new List<NoShowPenalty>();

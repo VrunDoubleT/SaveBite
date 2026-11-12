@@ -1,9 +1,10 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { toast } from "@/shared/stores/toastStore";
 import { UploadDraftChoice } from "@/shared/uploads/UploadDraftChoice";
 
 import { UploadTaskGuard } from "@/shared/uploads/UploadTaskGuard";
 import { useEffect, useState } from "react";
-import { LoaderCircle, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { APP_PATHS } from "@/app/router/paths";
@@ -69,11 +70,7 @@ function ShopApplicationFormContent({ applicationId }: { applicationId?: string 
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-64 items-center justify-center rounded-lg border border-border-default bg-bg-surface">
-        <LoaderCircle className="animate-spin text-primary-600" />
-      </div>
-    );
+    return <LoadingSkeleton variant="form" label="Loading shop application" />;
   }
 
   if (error) {

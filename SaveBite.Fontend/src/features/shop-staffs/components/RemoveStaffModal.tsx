@@ -18,9 +18,9 @@ export function RemoveStaffModal({
 }: RemoveStaffModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+        <div className="flex shrink-0 items-start justify-between border-b border-gray-100 px-6 py-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">
               <AlertTriangle size={20} />
@@ -46,7 +46,7 @@ export function RemoveStaffModal({
         </div>
 
         {/* Content */}
-        <div className="px-6 py-5">
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-6 py-5">
           <div className="rounded-xl bg-gray-50 p-4">
             <p className="font-medium text-gray-900">
               {formatStaffName(staff.displayName, staff.staffNickname)}
@@ -65,7 +65,7 @@ export function RemoveStaffModal({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
           <button
             type="button"
             onClick={onClose}

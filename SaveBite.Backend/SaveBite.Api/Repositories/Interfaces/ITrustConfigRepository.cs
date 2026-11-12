@@ -60,6 +60,8 @@ public interface ITrustConfigRepository
         bool lockLevelsAndScores = false,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<RecoveryRequirementRule>> LockPenaltyRulesAsync(CancellationToken ct);
+
     // Penalty rules
     Task<IReadOnlyList<RecoveryRequirementRule>> GetPenaltyRulesAsync(CancellationToken cancellationToken = default);
 
@@ -86,9 +88,6 @@ public interface ITrustConfigRepository
     Task<IReadOnlyList<TrustScoreRule>> GetScoreRulesAsync(bool? earningOnly, CancellationToken cancellationToken = default);
 
     Task<TrustScoreRule?> GetScoreRuleForUpdateAsync(Guid ruleId, CancellationToken cancellationToken = default);
-
-    Task<bool> HasOverlappingScoreRuleAsync(
-        SaveBite.Backend.Models.Enums.TrustScoreRuleType ruleType, DateTime from, Guid excludeRuleId, CancellationToken cancellationToken = default);
 
     void AddScoreRule(TrustScoreRule rule);
 

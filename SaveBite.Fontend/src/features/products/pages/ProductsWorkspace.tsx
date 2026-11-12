@@ -20,7 +20,13 @@ export function ProductsWorkspace() {
         </div>
       </div>
     ) : (
-      <Loading />
+      <Loading
+        variant={
+          pathname === APP_PATHS.STORE_OWNER_PRODUCT_CREATE || pathname.endsWith("/edit")
+            ? "form"
+            : "detail"
+        }
+      />
     );
   if (error || !data)
     return <ErrorState error={error ?? "Unable to load shop information."} retry={reload} />;

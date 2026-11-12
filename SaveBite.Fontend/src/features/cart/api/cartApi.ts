@@ -3,15 +3,17 @@ import type { ApiResponse } from "@/shared/types";
 import type { Cart, CartPage, CartSummary, CartMutationResponse } from "../types/cart.types";
 
 export const cartApi = {
-  async getPage(cursor?: string | null): Promise<CartPage> {
+  async getPage(cursor?: string | null, signal?: AbortSignal): Promise<CartPage> {
     return (
       await httpClient.get<ApiResponse<CartPage>>(API_ENDPOINTS.CART.PAGE, {
         params: { cursor: cursor ?? undefined, pageSize: 5 },
+        signal,
       })
     ).data.data;
   },
-  async summary(): Promise<CartSummary> {
-    return (await httpClient.get<ApiResponse<CartSummary>>(API_ENDPOINTS.CART.SUMMARY)).data.data;
+  async summary(signal?: AbortSignal): Promise<CartSummary> {
+    return (await httpClient.get<ApiResponse<CartSummary>>(API_ENDPOINTS.CART.SUMMARY, { signal }))
+      .data.data;
   },
   async addItem(flashDealVariantId: string, quantity: number): Promise<Cart> {
     return (
@@ -22,10 +24,15 @@ export const cartApi = {
     ).data.data;
   },
   async updateQuantity(itemId: string, quantity: number): Promise<CartMutationResponse> {
-    return (await httpClient.put<ApiResponse<CartMutationResponse>>(API_ENDPOINTS.CART.ITEM(itemId), { quantity }))
-      .data.data;
+    return (
+      await httpClient.put<ApiResponse<CartMutationResponse>>(API_ENDPOINTS.CART.ITEM(itemId), {
+        quantity,
+      })
+    ).data.data;
   },
   async removeItem(itemId: string): Promise<CartMutationResponse> {
-    return (await httpClient.delete<ApiResponse<CartMutationResponse>>(API_ENDPOINTS.CART.ITEM(itemId))).data.data;
+    return (
+      await httpClient.delete<ApiResponse<CartMutationResponse>>(API_ENDPOINTS.CART.ITEM(itemId))
+    ).data.data;
   },
 };

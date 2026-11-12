@@ -33,9 +33,9 @@ export function CancelFlashDealModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-neutral-100 px-6 py-5">
+        <div className="flex shrink-0 items-start justify-between border-b border-neutral-100 px-6 py-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
               <AlertTriangle size={20} />
@@ -60,7 +60,7 @@ export function CancelFlashDealModal({
         </div>
 
         {/* Content */}
-        <div className="px-6 py-5 space-y-4">
+        <div className="min-h-0 space-y-4 overflow-y-auto overscroll-contain px-6 py-5">
           <div className="flex items-center gap-3 rounded-xl border border-neutral-100 bg-neutral-50 p-3">
             <img
               src={imageSrc}
@@ -80,13 +80,13 @@ export function CancelFlashDealModal({
 
           <p className="text-xs leading-5 text-neutral-600">
             Are you sure you want to cancel this Flash Deal for{" "}
-            <span className="font-bold text-neutral-900">{deal.productName}</span>?
-            Customers will no longer be able to discover or order this deal.
+            <span className="font-bold text-neutral-900">{deal.productName}</span>? Customers will
+            no longer be able to discover or order this deal.
           </p>
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 border-t border-neutral-100 bg-neutral-50 px-6 py-4">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-neutral-100 bg-neutral-50 px-6 py-4">
           <button
             type="button"
             onClick={onClose}

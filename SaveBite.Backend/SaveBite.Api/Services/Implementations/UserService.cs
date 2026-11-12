@@ -23,6 +23,7 @@ public sealed class UserService : IUserService
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<UserService> _logger;
+    private readonly BusinessEmailQueue _emails;
     private readonly ICloudinaryService _cloudinaryService;
     private readonly IRealtimePublisher _realtime;
 
@@ -33,8 +34,9 @@ public sealed class UserService : IUserService
         ILogger<UserService> logger,
         ICloudinaryService cloudinaryService,
         IRealtimePublisher realtime,
-        INotificationQueue notifications, IAdminAuditWriter audit, SaveBite.Backend.Data.AppDbContext db)
+        INotificationQueue notifications, IAdminAuditWriter audit, SaveBite.Backend.Data.AppDbContext db, BusinessEmailQueue emails)
     {
+        _emails = emails;
         _realtime = realtime;
         _audit = audit;
         _notifications = notifications;
@@ -198,6 +200,7 @@ public sealed class UserService : IUserService
     {
         await NotificationTransaction.RunAsync(_db, async () =>
         {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM users WHERE id = {targetUserId} FOR UPDATE", cancellationToken);
             var user = await GetAndValidateUserAsync(targetUserId, cancellationToken);
             var now = _timeProvider.GetUtcNow().UtcDateTime;
 
@@ -241,6 +244,14 @@ public sealed class UserService : IUserService
             }
 
             user.UpdatedAt = now;
+            if (request.IsSuspended)
+            {
+                var kind = request.IsCustomerProfile ? "customer-suspended" : "account-suspended";
+                await _emails.StageAsync($"email:{kind}:{targetUserId}:{now.Ticks}", user.Email,
+                    request.IsCustomerProfile ? "SaveBite: customer access suspended" : "SaveBite: account suspended",
+                    $"{(request.IsCustomerProfile ? "Your customer features have been suspended." : "Your account has been suspended.")} Reason: {request.Reason}\n{_emails.Link("/login")}",
+                    kind, targetUserId, null, null, cancellationToken);
+            }
             await _repository.SaveChangesAsync(cancellationToken);
 
             await _notifications.EnqueueAsync(NotificationTarget.AccountStatusSubject(targetUserId), new CreateNotificationCommand(

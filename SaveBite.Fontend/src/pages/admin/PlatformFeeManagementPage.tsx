@@ -1,9 +1,10 @@
+import { TableSkeletonRows } from "@/shared/components/ui/LoadingSkeleton";
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { Link } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { PlatformFeeStatisticsModal } from "@/features/platform-fees/components/PlatformFeeStatisticsModal";
 import { useEffect, useState, useCallback } from "react";
 import {
-  RefreshCw,
   ChartNoAxesCombined,
   CheckCircle2,
   Clock3,
@@ -346,15 +347,7 @@ export function PlatformFeeManagementPage() {
 
               <tbody className="divide-y divide-border-default text-sm text-text-primary">
                 {loadingStatements ? (
-                  <tr>
-                    <td colSpan={7} className="py-10 text-center text-sm text-slate-500">
-                      <RefreshCw
-                        aria-hidden="true"
-                        className="mx-auto mb-2 size-5 animate-spin text-emerald-600"
-                      />
-                      Loading statements data...
-                    </td>
-                  </tr>
+                  <TableSkeletonRows columns={7} />
                 ) : statements.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-sm text-slate-500">
@@ -440,12 +433,8 @@ export function PlatformFeeManagementPage() {
           {/* Mobile / Tablet */}
           <ul className="divide-y divide-border-default xl:hidden">
             {loadingStatements ? (
-              <li className="px-4 py-10 text-center text-sm text-slate-500">
-                <RefreshCw
-                  aria-hidden="true"
-                  className="mx-auto mb-2 size-5 animate-spin text-emerald-600"
-                />
-                Loading statements data...
+              <li className="p-4">
+                <LoadingSkeleton variant="list" label="Loading statements" />
               </li>
             ) : statements.length === 0 ? (
               <li className="px-4 py-10 text-center text-sm text-slate-500">

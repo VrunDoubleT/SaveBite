@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { resolveDealEnd } from "@/features/flash-deals/utils/flashDealTiming";
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -716,11 +717,7 @@ export function StoreOwnerFlashDealFormPage() {
   }
 
   if (initialLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-emerald-600" />
-      </div>
-    );
+    return <LoadingSkeleton variant="form" label="Loading flash deal form" />;
   }
 
   return (
@@ -738,7 +735,11 @@ export function StoreOwnerFlashDealFormPage() {
       {/* Title */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
-          {isDealEnded ? "Re-open Flash Deal" : isEditMode ? "Edit Flash Deal" : "Create Flash Deal"}
+          {isDealEnded
+            ? "Re-open Flash Deal"
+            : isEditMode
+              ? "Edit Flash Deal"
+              : "Create Flash Deal"}
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
           {isDealEnded
@@ -747,717 +748,738 @@ export function StoreOwnerFlashDealFormPage() {
         </p>
       </div>
 
-      <fieldset
-        disabled={shopSuspended}
-        className="space-y-6 disabled:opacity-60"
-      >
-      {/* Block 1: Product Selection */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
-        <h2 className="text-sm font-bold text-neutral-900">Product Information</h2>
+      <fieldset disabled={shopSuspended} className="space-y-6 disabled:opacity-60">
+        {/* Block 1: Product Selection */}
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
+          <h2 className="text-sm font-bold text-neutral-900">Product Information</h2>
 
-        <div>
-          <label className="block text-xs font-medium text-neutral-700">Selected Product</label>
+          <div>
+            <label className="block text-xs font-medium text-neutral-700">Selected Product</label>
 
-          {isEditMode ? (
-            <div className="mt-1">
-              <input
-                type="text"
-                disabled
-                value={currentProduct?.name || ""}
-                className="w-full rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-xs text-neutral-600 cursor-not-allowed font-medium"
-              />
-              <p className="mt-1 text-[11px] text-neutral-400">
-                Product cannot be changed when editing an existing deal.
-              </p>
-            </div>
-          ) : (
-            <div className="relative mt-1" ref={productDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsProductDropdownOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 transition hover:border-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs"
-              >
-                {currentProduct ? (
-                  <div className="flex items-center gap-2.5 truncate">
-                    <img
-                      src={
-                        currentProduct.imageUrl ||
-                        "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"
-                      }
-                      alt={currentProduct.name}
-                      className="size-7 rounded-md object-cover border border-neutral-100 shrink-0"
-                    />
-                    <div className="text-left truncate">
-                      <span className="font-semibold text-neutral-900">{currentProduct.name}</span>
-                      <span className="ml-2 text-[11px] text-neutral-400">
-                        {currentProduct.categoryName ? `(${currentProduct.categoryName})` : ""} •{" "}
-                        {currentProduct.variants.length} variant
-                        {currentProduct.variants.length !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-neutral-400">Select a product to put on flash deal...</span>
-                )}
-                <ChevronDown
-                  className={`size-4 text-neutral-400 transition-transform ${isProductDropdownOpen ? "rotate-180" : ""}`}
+            {isEditMode ? (
+              <div className="mt-1">
+                <input
+                  type="text"
+                  disabled
+                  value={currentProduct?.name || ""}
+                  className="w-full rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-xs text-neutral-600 cursor-not-allowed font-medium"
                 />
-              </button>
-
-              {isProductDropdownOpen && (
-                <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-neutral-200 bg-white p-1.5 shadow-lg">
-                  {eligibleProducts.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-neutral-400">
-                      No eligible products available
+                <p className="mt-1 text-[11px] text-neutral-400">
+                  Product cannot be changed when editing an existing deal.
+                </p>
+              </div>
+            ) : (
+              <div className="relative mt-1" ref={productDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsProductDropdownOpen((prev) => !prev)}
+                  className="flex w-full items-center justify-between rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 transition hover:border-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs"
+                >
+                  {currentProduct ? (
+                    <div className="flex items-center gap-2.5 truncate">
+                      <img
+                        src={
+                          currentProduct.imageUrl ||
+                          "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"
+                        }
+                        alt={currentProduct.name}
+                        className="size-7 rounded-md object-cover border border-neutral-100 shrink-0"
+                      />
+                      <div className="text-left truncate">
+                        <span className="font-semibold text-neutral-900">
+                          {currentProduct.name}
+                        </span>
+                        <span className="ml-2 text-[11px] text-neutral-400">
+                          {currentProduct.categoryName ? `(${currentProduct.categoryName})` : ""} •{" "}
+                          {currentProduct.variants.length} variant
+                          {currentProduct.variants.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
                     </div>
                   ) : (
-                    eligibleProducts.map((p) => {
-                      const isSelected = p.id === selectedProductId;
-                      return (
-                        <div
-                          key={p.id}
-                          onClick={() => {
-                            handleSelectProduct(p.id);
-                            setIsProductDropdownOpen(false);
-                          }}
-                          className={`flex items-center justify-between gap-3 rounded-md px-2.5 py-2 cursor-pointer transition ${
-                            isSelected
-                              ? "bg-emerald-50 text-emerald-900 font-semibold"
-                              : "hover:bg-neutral-50 text-neutral-800"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 truncate">
-                            <img
-                              src={
-                                p.imageUrl ||
-                                "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"
-                              }
-                              alt={p.name}
-                              className="size-9 rounded-md object-cover border border-neutral-100 shrink-0"
-                            />
-                            <div className="truncate text-left">
-                              <p className="flex items-center gap-1.5 text-xs font-semibold text-neutral-900">
-                                <span className="truncate">{p.name}</span>
-                                {p.hasActiveDeal && (
-                                  <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                                    Has Flash Deal
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-[11px] text-neutral-400">
-                                {p.categoryName || "Food"} • {p.variants.length} variant
-                                {p.variants.length !== 1 ? "s" : ""}
-                              </p>
-                            </div>
-                          </div>
-                          {isSelected && <Check className="size-4 text-emerald-600 shrink-0" />}
-                        </div>
-                      );
-                    })
+                    <span className="text-neutral-400">
+                      Select a product to put on flash deal...
+                    </span>
                   )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                  <ChevronDown
+                    className={`size-4 text-neutral-400 transition-transform ${isProductDropdownOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
 
-        {/* Product preview card */}
-        {currentProduct && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50/70 p-3">
-              <img
-                src={currentProduct.imageUrl || "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"}
-                alt={currentProduct.name}
-                className="size-14 rounded-lg object-cover"
-              />
-              <div>
-                <p className="font-semibold text-xs text-neutral-900">{currentProduct.name}</p>
-                <p className="text-[11px] text-neutral-400">
-                  {currentProduct.categoryName || "Food"}
-                </p>
-                {currentProduct.description && (
-                  <p className="mt-0.5 text-[11px] text-neutral-500 line-clamp-1">
-                    {currentProduct.description}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Warning banner when product has active deal (FIX-35) */}
-            {currentProduct.hasActiveDeal && (
-              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-2xs">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="size-5 shrink-0 text-amber-600 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-bold text-amber-900">Active Flash Deal Notice</h4>
-                    <p className="mt-1 text-xs text-amber-800 leading-relaxed">
-                      This product currently has an active flash deal running. Creating or scheduling a new deal will take effect alongside or after the existing deal.
-                    </p>
+                {isProductDropdownOpen && (
+                  <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-neutral-200 bg-white p-1.5 shadow-lg">
+                    {eligibleProducts.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-neutral-400">
+                        No eligible products available
+                      </div>
+                    ) : (
+                      eligibleProducts.map((p) => {
+                        const isSelected = p.id === selectedProductId;
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => {
+                              handleSelectProduct(p.id);
+                              setIsProductDropdownOpen(false);
+                            }}
+                            className={`flex items-center justify-between gap-3 rounded-md px-2.5 py-2 cursor-pointer transition ${
+                              isSelected
+                                ? "bg-emerald-50 text-emerald-900 font-semibold"
+                                : "hover:bg-neutral-50 text-neutral-800"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <img
+                                src={
+                                  p.imageUrl ||
+                                  "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=80&auto=format&fit=crop&q=60"
+                                }
+                                alt={p.name}
+                                className="size-9 rounded-md object-cover border border-neutral-100 shrink-0"
+                              />
+                              <div className="truncate text-left">
+                                <p className="flex items-center gap-1.5 text-xs font-semibold text-neutral-900">
+                                  <span className="truncate">{p.name}</span>
+                                  {p.hasActiveDeal && (
+                                    <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                                      Has Flash Deal
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-[11px] text-neutral-400">
+                                  {p.categoryName || "Food"} • {p.variants.length} variant
+                                  {p.variants.length !== 1 ? "s" : ""}
+                                </p>
+                              </div>
+                            </div>
+                            {isSelected && <Check className="size-4 text-emerald-600 shrink-0" />}
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
 
-      {/* Block 2: Sale Mode & Schedule (Unified 1-Container Layout, No Date Pickers) */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-neutral-100 pb-3.5">
-          <div>
-            <h2 className="text-sm font-bold text-neutral-900">Sale Mode & Schedule</h2>
-            <p className="mt-0.5 text-xs text-neutral-500">
-              Choose to sell immediately or schedule sale opening ahead (15m - 90m). Deal runs for 30m to 120m.
-              {shopOperatingHours?.openingTime && shopOperatingHours?.closingTime && (
-                <span className="block mt-1 font-semibold text-emerald-700">
-                  Shop operating hours: {shopOperatingHours.openingTime} - {shopOperatingHours.closingTime}
-                </span>
+          {/* Product preview card */}
+          {currentProduct && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50/70 p-3">
+                <img
+                  src={
+                    currentProduct.imageUrl ||
+                    "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=120&auto=format&fit=crop&q=60"
+                  }
+                  alt={currentProduct.name}
+                  className="size-14 rounded-lg object-cover"
+                />
+                <div>
+                  <p className="font-semibold text-xs text-neutral-900">{currentProduct.name}</p>
+                  <p className="text-[11px] text-neutral-400">
+                    {currentProduct.categoryName || "Food"}
+                  </p>
+                  {currentProduct.description && (
+                    <p className="mt-0.5 text-[11px] text-neutral-500 line-clamp-1">
+                      {currentProduct.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Warning banner when product has active deal (FIX-35) */}
+              {currentProduct.hasActiveDeal && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-2xs">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="size-5 shrink-0 text-amber-600 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-bold text-amber-900">Active Flash Deal Notice</h4>
+                      <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                        This product currently has an active flash deal running. Creating or
+                        scheduling a new deal will take effect alongside or after the existing deal.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
-            </p>
-          </div>
-
-          {/* Dynamic Live Status Badge */}
-          {scheduleSummary?.isValid ? (
-            scheduleSummary.isCurrentlyActive ? (
-              <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />⚡ Active
-                Immediately
-              </span>
-            ) : scheduleSummary.isUpcoming ? (
-              <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-inset ring-blue-600/20">
-                ⏰ Scheduled (Pending)
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
-                Ended
-              </span>
-            )
-          ) : (
-            <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
-              Incomplete / Invalid Timing
-            </span>
+            </div>
           )}
         </div>
 
-        {/* Mode selection buttons */}
-        {!isDealOnSale && (
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-2">
-              Select Selling Mode <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {/* Option 1: Sell Immediately */}
-              <button
-                type="button"
-                disabled={isEditMode && !isDealEnded}
-                onClick={() => handleSwitchMode("immediate")}
-                className={`group relative flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all ${
-                  saleMode === "immediate"
-                    ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
-                    : "border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50"
-                } ${isEditMode && !isDealEnded ? "opacity-75 cursor-not-allowed" : ""}`}
-              >
-                <div
-                  className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                    saleMode === "immediate"
-                      ? "bg-emerald-600 text-white shadow-2xs"
-                      : "bg-neutral-100 text-neutral-500 group-hover:bg-neutral-200"
-                  }`}
-                >
-                  <Zap className="size-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-neutral-900 truncate">Sell Immediately</p>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${
-                        saleMode === "immediate"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-neutral-100 text-neutral-600"
-                      }`}
-                    >
-                      Active Now
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
-                    Deal is activated immediately upon saving. Customers can order right away, you
-                    only need to select duration.
-                  </p>
-                </div>
-              </button>
-
-              {/* Option 2: Schedule for Later */}
-              <button
-                type="button"
-                disabled={isEditMode && !isDealEnded}
-                onClick={() => handleSwitchMode("scheduled")}
-                className={`group relative flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all ${
-                  saleMode === "scheduled"
-                    ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
-                    : "border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50"
-                } ${isEditMode && !isDealEnded ? "opacity-75 cursor-not-allowed" : ""}`}
-              >
-                <div
-                  className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                    saleMode === "scheduled"
-                      ? "bg-emerald-600 text-white shadow-2xs"
-                      : "bg-neutral-100 text-neutral-500 group-hover:bg-neutral-200"
-                  }`}
-                >
-                  <Clock className="size-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-neutral-900 truncate">
-                      Schedule for Later
-                    </p>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${
-                        saleMode === "scheduled"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-neutral-100 text-neutral-600"
-                      }`}
-                    >
-                      Ahead (15m - 90m)
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
-                    Schedule sale opening 15 to 90 minutes in advance. The deal will automatically
-                    go live at your chosen time.
-                  </p>
-                </div>
-              </button>
+        {/* Block 2: Sale Mode & Schedule (Unified 1-Container Layout, No Date Pickers) */}
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-neutral-100 pb-3.5">
+            <div>
+              <h2 className="text-sm font-bold text-neutral-900">Sale Mode & Schedule</h2>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Choose to sell immediately or schedule sale opening ahead (15m - 90m). Deal runs for
+                30m to 120m.
+                {shopOperatingHours?.openingTime && shopOperatingHours?.closingTime && (
+                  <span className="block mt-1 font-semibold text-emerald-700">
+                    Shop operating hours: {shopOperatingHours.openingTime} -{" "}
+                    {shopOperatingHours.closingTime}
+                  </span>
+                )}
+              </p>
             </div>
-          </div>
-        )}
 
-        {/* Unified Timing Controls (No Date Pickers) */}
-        <div className="rounded-xl border border-neutral-200/90 bg-neutral-50/50 p-4 space-y-4">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {/* Start Time Section */}
-            <div className="space-y-2">
-              <label className="flex items-center justify-between text-xs font-bold text-neutral-800">
-                <span className="flex items-center gap-1.5">
-                  {saleMode === "immediate" ? (
-                    <Zap className="size-4 text-emerald-600" />
-                  ) : (
-                    <Clock className="size-4 text-emerald-600" />
-                  )}
-                  <span>Sale Start Time</span>
+            {/* Dynamic Live Status Badge */}
+            {scheduleSummary?.isValid ? (
+              scheduleSummary.isCurrentlyActive ? (
+                <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />⚡ Active
+                  Immediately
                 </span>
-                <span className="text-[10px] text-neutral-400 font-normal">
-                  {saleMode === "immediate" ? "Automatic live start" : "15m - 90m in advance"}
+              ) : scheduleSummary.isUpcoming ? (
+                <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                  ⏰ Scheduled (Pending)
                 </span>
-              </label>
-
-              {saleMode === "immediate" ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-bold text-emerald-900">
-                      Starts immediately upon saving
-                    </span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-emerald-800">
-                    Customers will see and can order this deal as soon as it is saved.
-                  </p>
-                </div>
               ) : (
+                <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
+                  Ended
+                </span>
+              )
+            ) : (
+              <span className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                Incomplete / Invalid Timing
+              </span>
+            )}
+          </div>
+
+          {/* Mode selection buttons */}
+          {!isDealOnSale && (
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-2">
+                Select Selling Mode <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* Option 1: Sell Immediately */}
+                <button
+                  type="button"
+                  disabled={isEditMode && !isDealEnded}
+                  onClick={() => handleSwitchMode("immediate")}
+                  className={`group relative flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all ${
+                    saleMode === "immediate"
+                      ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
+                      : "border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50"
+                  } ${isEditMode && !isDealEnded ? "opacity-75 cursor-not-allowed" : ""}`}
+                >
+                  <div
+                    className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                      saleMode === "immediate"
+                        ? "bg-emerald-600 text-white shadow-2xs"
+                        : "bg-neutral-100 text-neutral-500 group-hover:bg-neutral-200"
+                    }`}
+                  >
+                    <Zap className="size-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-neutral-900 truncate">
+                        Sell Immediately
+                      </p>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${
+                          saleMode === "immediate"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-neutral-100 text-neutral-600"
+                        }`}
+                      >
+                        Active Now
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
+                      Deal is activated immediately upon saving. Customers can order right away, you
+                      only need to select duration.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Option 2: Schedule for Later */}
+                <button
+                  type="button"
+                  disabled={isEditMode && !isDealEnded}
+                  onClick={() => handleSwitchMode("scheduled")}
+                  className={`group relative flex items-start gap-3.5 rounded-xl border p-4 text-left transition-all ${
+                    saleMode === "scheduled"
+                      ? "border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-500"
+                      : "border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/50"
+                  } ${isEditMode && !isDealEnded ? "opacity-75 cursor-not-allowed" : ""}`}
+                >
+                  <div
+                    className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                      saleMode === "scheduled"
+                        ? "bg-emerald-600 text-white shadow-2xs"
+                        : "bg-neutral-100 text-neutral-500 group-hover:bg-neutral-200"
+                    }`}
+                  >
+                    <Clock className="size-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-neutral-900 truncate">
+                        Schedule for Later
+                      </p>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${
+                          saleMode === "scheduled"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-neutral-100 text-neutral-600"
+                        }`}
+                      >
+                        Ahead (15m - 90m)
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
+                      Schedule sale opening 15 to 90 minutes in advance. The deal will automatically
+                      go live at your chosen time.
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Unified Timing Controls (No Date Pickers) */}
+          <div className="rounded-xl border border-neutral-200/90 bg-neutral-50/50 p-4 space-y-4">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              {/* Start Time Section */}
+              <div className="space-y-2">
+                <label className="flex items-center justify-between text-xs font-bold text-neutral-800">
+                  <span className="flex items-center gap-1.5">
+                    {saleMode === "immediate" ? (
+                      <Zap className="size-4 text-emerald-600" />
+                    ) : (
+                      <Clock className="size-4 text-emerald-600" />
+                    )}
+                    <span>Sale Start Time</span>
+                  </span>
+                  <span className="text-[10px] text-neutral-400 font-normal">
+                    {saleMode === "immediate" ? "Automatic live start" : "15m - 90m in advance"}
+                  </span>
+                </label>
+
+                {saleMode === "immediate" ? (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs font-bold text-emerald-900">
+                        Starts immediately upon saving
+                      </span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-emerald-800">
+                      Customers will see and can order this deal as soon as it is saved.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="time"
+                      required
+                      disabled={isDealOnSale}
+                      value={startTime}
+                      onChange={(e) => handleStartTimeChange(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
+                    />
+                    {!isDealOnSale && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        <span className="text-[10px] text-neutral-400 font-medium">
+                          Quick start:
+                        </span>
+                        {[15, 30, 45, 60, 90].map((mins) => (
+                          <button
+                            key={mins}
+                            type="button"
+                            onClick={() => handleSetStartOffset(mins)}
+                            className="rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100 hover:border-emerald-400 hover:text-emerald-700 transition"
+                          >
+                            +{mins}m
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Cutoff Time & Duration Section */}
+              <div className="space-y-2">
+                <label className="flex items-center justify-between text-xs font-bold text-neutral-800">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="size-4 text-emerald-600" />
+                    <span>Order Cutoff Time</span>
+                  </span>
+                  <span className="text-[10px] text-neutral-400 font-normal">
+                    Duration: 30m - 120m
+                  </span>
+                </label>
+
                 <div className="space-y-2">
-                  <input
-                    type="time"
-                    required
-                    disabled={isDealOnSale}
-                    value={startTime}
-                    onChange={(e) => handleStartTimeChange(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
-                  />
-                  {!isDealOnSale && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                      <span className="text-[10px] text-neutral-400 font-medium">Quick start:</span>
-                      {[15, 30, 45, 60, 90].map((mins) => (
+                  <div className="relative">
+                    <input
+                      type="time"
+                      required
+                      value={selectedDuration !== null ? formatTime(scheduleSummary.end) : endTime}
+                      onChange={(e) => handleEndTimeChange(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
+                    />
+                    {scheduleSummary?.isNextDay && (
+                      <span className="absolute right-2.5 top-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                        Next Day
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Duration Chips */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[10px] text-neutral-400 font-medium">Duration:</span>
+                    {[30, 45, 60, 90, 120].map((mins) => {
+                      const isSelected = durationMins === mins;
+                      return (
                         <button
                           key={mins}
                           type="button"
-                          onClick={() => handleSetStartOffset(mins)}
-                          className="rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-600 hover:bg-neutral-100 hover:border-emerald-400 hover:text-emerald-700 transition"
+                          onClick={() => handleSelectDuration(mins)}
+                          className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold transition ${
+                            isSelected
+                              ? "border-emerald-500 bg-emerald-600 text-white shadow-2xs"
+                              : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 hover:border-emerald-400 hover:text-emerald-700"
+                          }`}
                         >
-                          +{mins}m
+                          {mins}m
                         </button>
-                      ))}
-                    </div>
-                  )}
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Schedule Summary inside this container */}
+            <div
+              className={`rounded-lg border p-3.5 text-xs transition-all ${
+                scheduleSummary?.isValid
+                  ? "border-emerald-200 bg-emerald-50/70 text-emerald-950"
+                  : "border-red-200 bg-red-50 text-red-700"
+              }`}
+            >
+              {scheduleSummary?.isValid ? (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold flex items-center gap-1">
+                      <Clock className="size-3.5 text-emerald-600" />
+                      Duration: {scheduleSummary.durationMins} mins
+                      {scheduleSummary.hours > 0 &&
+                        ` (${scheduleSummary.hours}h${scheduleSummary.minutes > 0 ? ` ${scheduleSummary.minutes}m` : ""})`}
+                    </span>
+                    <span className="text-neutral-300">•</span>
+                    <span>
+                      {saleMode === "immediate" ? "Live: Immediately" : `Starts: ${startTime}`}
+                    </span>
+                    <span className="text-neutral-400">➔</span>
+                    <span>
+                      Cutoff: <strong>{endTime}</strong>{" "}
+                      {scheduleSummary.isNextDay && (
+                        <strong className="text-amber-700">(Next Day)</strong>
+                      )}
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-medium text-neutral-600">
+                    🔒 Store Closes: <strong>{formatTime(scheduleSummary.closingTime)}</strong>{" "}
+                    (includes 30m pickup buffer)
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 font-medium">
+                  <AlertCircle className="size-4 shrink-0 text-red-500" />
+                  <span>
+                    {scheduleSummary?.errorMessage || "Please enter valid deal schedule timing."}
+                  </span>
                 </div>
               )}
             </div>
-
-            {/* Cutoff Time & Duration Section */}
-            <div className="space-y-2">
-              <label className="flex items-center justify-between text-xs font-bold text-neutral-800">
-                <span className="flex items-center gap-1.5">
-                  <Clock className="size-4 text-emerald-600" />
-                  <span>Order Cutoff Time</span>
-                </span>
-                <span className="text-[10px] text-neutral-400 font-normal">
-                  Duration: 30m - 120m
-                </span>
-              </label>
-
-              <div className="space-y-2">
-                <div className="relative">
-                  <input
-                    type="time"
-                    required
-                    value={selectedDuration !== null ? formatTime(scheduleSummary.end) : endTime}
-                    onChange={(e) => handleEndTimeChange(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
-                  />
-                  {scheduleSummary?.isNextDay && (
-                    <span className="absolute right-2.5 top-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
-                      Next Day
-                    </span>
-                  )}
-                </div>
-
-                {/* Duration Chips */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                  <span className="text-[10px] text-neutral-400 font-medium">Duration:</span>
-                  {[30, 45, 60, 90, 120].map((mins) => {
-                    const isSelected = durationMins === mins;
-                    return (
-                      <button
-                        key={mins}
-                        type="button"
-                        onClick={() => handleSelectDuration(mins)}
-                        className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold transition ${
-                          isSelected
-                            ? "border-emerald-500 bg-emerald-600 text-white shadow-2xs"
-                            : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 hover:border-emerald-400 hover:text-emerald-700"
-                        }`}
-                      >
-                        {mins}m
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
           </div>
+        </div>
 
-          {/* Live Schedule Summary inside this container */}
-          <div
-            className={`rounded-lg border p-3.5 text-xs transition-all ${
-              scheduleSummary?.isValid
-                ? "border-emerald-200 bg-emerald-50/70 text-emerald-950"
-                : "border-red-200 bg-red-50 text-red-700"
-            }`}
-          >
-            {scheduleSummary?.isValid ? (
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold flex items-center gap-1">
-                    <Clock className="size-3.5 text-emerald-600" />
-                    Duration: {scheduleSummary.durationMins} mins
-                    {scheduleSummary.hours > 0 &&
-                      ` (${scheduleSummary.hours}h${scheduleSummary.minutes > 0 ? ` ${scheduleSummary.minutes}m` : ""})`}
-                  </span>
-                  <span className="text-neutral-300">•</span>
-                  <span>
-                    {saleMode === "immediate" ? "Live: Immediately" : `Starts: ${startTime}`}
-                  </span>
-                  <span className="text-neutral-400">➔</span>
-                  <span>
-                    Cutoff: <strong>{endTime}</strong>{" "}
-                    {scheduleSummary.isNextDay && (
-                      <strong className="text-amber-700">(Next Day)</strong>
-                    )}
-                  </span>
-                </div>
-                <div className="text-[11px] font-medium text-neutral-600">
-                  🔒 Store Closes: <strong>{formatTime(scheduleSummary.closingTime)}</strong>{" "}
-                  (includes 30m pickup buffer)
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 font-medium">
-                <AlertCircle className="size-4 shrink-0 text-red-500" />
-                <span>
-                  {scheduleSummary?.errorMessage || "Please enter valid deal schedule timing."}
+        {/* Block 3: Discounted Variants (Checkbox-based selection) */}
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-neutral-100 pb-3">
+            <div>
+              <h2 className="text-sm font-bold text-neutral-900">Discounted Variants</h2>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Tick the variants you want to offer in this Flash Deal. Set deal price and inventory
+                quantity for each selected variant.
+              </p>
+            </div>
+
+            {variants.length > 0 && (
+              <div className="flex items-center gap-3 self-start sm:self-auto">
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                  {selectedVariantsCount} / {variants.length} selected
                 </span>
+                <button
+                  type="button"
+                  onClick={() => toggleSelectAll(selectedVariantsCount < variants.length)}
+                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
+                >
+                  {selectedVariantsCount < variants.length ? "Select All" : "Deselect All"}
+                </button>
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* Block 3: Discounted Variants (Checkbox-based selection) */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-neutral-100 pb-3">
-          <div>
-            <h2 className="text-sm font-bold text-neutral-900">Discounted Variants</h2>
-            <p className="mt-0.5 text-xs text-neutral-500">
-              Tick the variants you want to offer in this Flash Deal. Set deal price and inventory
-              quantity for each selected variant.
-            </p>
-          </div>
-
-          {variants.length > 0 && (
-            <div className="flex items-center gap-3 self-start sm:self-auto">
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
-                {selectedVariantsCount} / {variants.length} selected
-              </span>
-              <button
-                type="button"
-                onClick={() => toggleSelectAll(selectedVariantsCount < variants.length)}
-                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
-              >
-                {selectedVariantsCount < variants.length ? "Select All" : "Deselect All"}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {variants.length === 0 ? (
-          !selectedProductId ? (
-            <div className="rounded-lg border border-dashed border-neutral-200 py-8 text-center text-xs text-neutral-400">
-              Select a product from the dropdown above to load and configure its variants.
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-900">
-              <AlertCircle className="size-5 shrink-0 text-amber-600" />
-              <div>
-                <p className="font-bold">No variants found for {currentProduct?.name}</p>
-                <p className="mt-0.5 text-amber-700">
-                  This product has no active variants. Please choose another product or add variants
-                  in Menu Management.
-                </p>
+          {variants.length === 0 ? (
+            !selectedProductId ? (
+              <div className="rounded-lg border border-dashed border-neutral-200 py-8 text-center text-xs text-neutral-400">
+                Select a product from the dropdown above to load and configure its variants.
               </div>
-            </div>
-          )
-        ) : (
-          <div className="space-y-3">
-            {variants.map((v, index) => {
-              const priceNum = typeof v.dealPrice === "number" ? v.dealPrice : Number(v.dealPrice);
-              const isPriceEntered = v.dealPrice !== "" && !isNaN(priceNum);
-              const isNotMultipleOf1000 = isPriceEntered && priceNum > 0 && priceNum % 1000 !== 0;
-              const isPriceGteOriginal = isPriceEntered && priceNum >= v.originalPrice;
-              const isPriceTooLow = isPriceEntered && priceNum < MIN_AMOUNT_VND;
-              const hasPriceError = isNotMultipleOf1000 || isPriceGteOriginal || isPriceTooLow;
+            ) : (
+              <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-900">
+                <AlertCircle className="size-5 shrink-0 text-amber-600" />
+                <div>
+                  <p className="font-bold">No variants found for {currentProduct?.name}</p>
+                  <p className="mt-0.5 text-amber-700">
+                    This product has no active variants. Please choose another product or add
+                    variants in Menu Management.
+                  </p>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="space-y-3">
+              {variants.map((v, index) => {
+                const priceNum =
+                  typeof v.dealPrice === "number" ? v.dealPrice : Number(v.dealPrice);
+                const isPriceEntered = v.dealPrice !== "" && !isNaN(priceNum);
+                const isNotMultipleOf1000 = isPriceEntered && priceNum > 0 && priceNum % 1000 !== 0;
+                const isPriceGteOriginal = isPriceEntered && priceNum >= v.originalPrice;
+                const isPriceTooLow = isPriceEntered && priceNum < MIN_AMOUNT_VND;
+                const hasPriceError = isNotMultipleOf1000 || isPriceGteOriginal || isPriceTooLow;
 
-              const nearestFloor = isPriceEntered ? Math.max(MIN_AMOUNT_VND, Math.floor(priceNum / 1000) * 1000) : MIN_AMOUNT_VND;
-              const nearestCeil = isPriceEntered ? Math.max(MIN_AMOUNT_VND, Math.ceil(priceNum / 1000) * 1000) : MIN_AMOUNT_VND;
+                const nearestFloor = isPriceEntered
+                  ? Math.max(MIN_AMOUNT_VND, Math.floor(priceNum / 1000) * 1000)
+                  : MIN_AMOUNT_VND;
+                const nearestCeil = isPriceEntered
+                  ? Math.max(MIN_AMOUNT_VND, Math.ceil(priceNum / 1000) * 1000)
+                  : MIN_AMOUNT_VND;
 
-              const discountPercent =
-                isPriceEntered && v.originalPrice > 0 && priceNum < v.originalPrice && priceNum > 0
-                  ? Math.round(((v.originalPrice - priceNum) / v.originalPrice) * 100)
-                  : 0;
+                const discountPercent =
+                  isPriceEntered &&
+                  v.originalPrice > 0 &&
+                  priceNum < v.originalPrice &&
+                  priceNum > 0
+                    ? Math.round(((v.originalPrice - priceNum) / v.originalPrice) * 100)
+                    : 0;
 
-              const hasOrders = Boolean(
-                (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) > 0,
-              );
+                const hasOrders = Boolean(
+                  (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) >
+                  0,
+                );
 
-              return (
-                <div
-                  key={v.variantId}
-                  className={`flex flex-col gap-3.5 rounded-xl border p-4 transition-all sm:flex-row sm:items-center sm:justify-between shadow-2xs ${
-                    v.isSelected
-                      ? "border-emerald-300 bg-white ring-1 ring-emerald-500/10"
-                      : "border-neutral-200 bg-neutral-50/60 opacity-80 hover:opacity-100"
-                  }`}
-                >
-                  {/* Left: Checkbox + Variant Information (Vertically Centered) */}
+                return (
                   <div
-                    onClick={() => !hasOrders && toggleSelectVariant(v.variantId)}
-                    className="flex items-center gap-3.5 sm:w-72 shrink-0 cursor-pointer select-none"
+                    key={v.variantId}
+                    className={`flex flex-col gap-3.5 rounded-xl border p-4 transition-all sm:flex-row sm:items-center sm:justify-between shadow-2xs ${
+                      v.isSelected
+                        ? "border-emerald-300 bg-white ring-1 ring-emerald-500/10"
+                        : "border-neutral-200 bg-neutral-50/60 opacity-80 hover:opacity-100"
+                    }`}
                   >
-                    <input
-                      type="checkbox"
-                      id={`var-select-${v.variantId}`}
-                      checked={v.isSelected}
-                      disabled={hasOrders}
-                      onChange={() => toggleSelectVariant(v.variantId)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="size-4.5 rounded-md border-neutral-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed accent-emerald-600 shrink-0"
-                    />
+                    {/* Left: Checkbox + Variant Information (Vertically Centered) */}
+                    <div
+                      onClick={() => !hasOrders && toggleSelectVariant(v.variantId)}
+                      className="flex items-center gap-3.5 sm:w-72 shrink-0 cursor-pointer select-none"
+                    >
+                      <input
+                        type="checkbox"
+                        id={`var-select-${v.variantId}`}
+                        checked={v.isSelected}
+                        disabled={hasOrders}
+                        onChange={() => toggleSelectVariant(v.variantId)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="size-4.5 rounded-md border-neutral-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed accent-emerald-600 shrink-0"
+                      />
 
-                    <div className="min-w-0">
-                      <label
-                        htmlFor={`var-select-${v.variantId}`}
-                        className="font-bold text-xs text-neutral-900 cursor-pointer block truncate hover:text-emerald-700 transition-colors"
-                      >
-                        {v.variantName}
-                      </label>
-                      {v.sku && (
-                        <p className="text-[10px] text-neutral-400 font-mono mt-0.5">{v.sku}</p>
-                      )}
-                      <p className="mt-0.5 text-xs text-neutral-500">
-                        Original:{" "}
-                        <span className="font-semibold text-neutral-700">
-                          {v.originalPrice.toLocaleString("en-US")} VND
-                        </span>
-                      </p>
-                      {hasOrders && (
-                        <span className="mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
-                          Has orders (cannot uncheck)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right: Inputs & Actions */}
-                  {v.isSelected ? (
-                    <div className="flex flex-1 flex-wrap items-center justify-end gap-3 sm:gap-4">
-                      {/* Deal Price Input */}
-                      <div className="w-full sm:w-44">
-                        <label className="block text-[11px] font-medium text-neutral-600 mb-1">
-                          Flash Deal Price
+                      <div className="min-w-0">
+                        <label
+                          htmlFor={`var-select-${v.variantId}`}
+                          className="font-bold text-xs text-neutral-900 cursor-pointer block truncate hover:text-emerald-700 transition-colors"
+                        >
+                          {v.variantName}
                         </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min={MIN_AMOUNT_VND}
-                            step="1000"
-                            required
-                            value={v.dealPrice}
-                            onChange={(e) =>
-                              handleUpdateVariant(index, "dealPrice", e.target.value)
-                            }
-                            placeholder="25000"
-                            className={`w-full rounded-lg border py-1.5 pl-3 pr-7 text-xs text-neutral-900 shadow-2xs font-semibold focus:outline-none focus:ring-1 ${
-                              hasPriceError
-                                ? "border-amber-400 bg-amber-50/20 focus:border-amber-500 focus:ring-amber-500"
-                                : "border-neutral-300 bg-white focus:border-emerald-500 focus:ring-emerald-500"
-                            }`}
-                          />
-                          <span className="absolute right-2.5 top-1.5 text-xs text-neutral-400 font-medium">
-                            VND
+                        {v.sku && (
+                          <p className="text-[10px] text-neutral-400 font-mono mt-0.5">{v.sku}</p>
+                        )}
+                        <p className="mt-0.5 text-xs text-neutral-500">
+                          Original:{" "}
+                          <span className="font-semibold text-neutral-700">
+                            {v.originalPrice.toLocaleString("en-US")} VND
                           </span>
-                        </div>
+                        </p>
+                        {hasOrders && (
+                          <span className="mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                            Has orders (cannot uncheck)
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                        {/* Real-time Inline Validation Message & Nearest Suggestions */}
-                        {isNotMultipleOf1000 ? (
-                          <div className="mt-1 space-y-1">
-                            <p className="text-[10px] font-medium text-amber-600">
-                              Must be a multiple of 1,000 VND
-                            </p>
-                            <div className="flex items-center gap-1 text-[10px]">
-                              <span className="text-neutral-400">Nearest:</span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleUpdateVariant(index, "dealPrice", nearestFloor)
-                                }
-                                className="rounded bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 px-1.5 py-0.5 font-bold text-neutral-700 border border-neutral-200 transition text-[10px]"
-                              >
-                                {nearestFloor.toLocaleString("en-US")} VND
-                              </button>
-                              {nearestCeil !== nearestFloor && (
+                    {/* Right: Inputs & Actions */}
+                    {v.isSelected ? (
+                      <div className="flex flex-1 flex-wrap items-center justify-end gap-3 sm:gap-4">
+                        {/* Deal Price Input */}
+                        <div className="w-full sm:w-44">
+                          <label className="block text-[11px] font-medium text-neutral-600 mb-1">
+                            Flash Deal Price
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min={MIN_AMOUNT_VND}
+                              step="1000"
+                              required
+                              value={v.dealPrice}
+                              onChange={(e) =>
+                                handleUpdateVariant(index, "dealPrice", e.target.value)
+                              }
+                              placeholder="25000"
+                              className={`w-full rounded-lg border py-1.5 pl-3 pr-7 text-xs text-neutral-900 shadow-2xs font-semibold focus:outline-none focus:ring-1 ${
+                                hasPriceError
+                                  ? "border-amber-400 bg-amber-50/20 focus:border-amber-500 focus:ring-amber-500"
+                                  : "border-neutral-300 bg-white focus:border-emerald-500 focus:ring-emerald-500"
+                              }`}
+                            />
+                            <span className="absolute right-2.5 top-1.5 text-xs text-neutral-400 font-medium">
+                              VND
+                            </span>
+                          </div>
+
+                          {/* Real-time Inline Validation Message & Nearest Suggestions */}
+                          {isNotMultipleOf1000 ? (
+                            <div className="mt-1 space-y-1">
+                              <p className="text-[10px] font-medium text-amber-600">
+                                Must be a multiple of 1,000 VND
+                              </p>
+                              <div className="flex items-center gap-1 text-[10px]">
+                                <span className="text-neutral-400">Nearest:</span>
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    handleUpdateVariant(index, "dealPrice", nearestCeil)
+                                    handleUpdateVariant(index, "dealPrice", nearestFloor)
                                   }
                                   className="rounded bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 px-1.5 py-0.5 font-bold text-neutral-700 border border-neutral-200 transition text-[10px]"
                                 >
-                                  {nearestCeil.toLocaleString("en-US")} VND
+                                  {nearestFloor.toLocaleString("en-US")} VND
                                 </button>
-                              )}
+                                {nearestCeil !== nearestFloor && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateVariant(index, "dealPrice", nearestCeil)
+                                    }
+                                    className="rounded bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 px-1.5 py-0.5 font-bold text-neutral-700 border border-neutral-200 transition text-[10px]"
+                                  >
+                                    {nearestCeil.toLocaleString("en-US")} VND
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ) : isPriceGteOriginal ? (
-                          <p className="mt-1 text-[10px] font-medium text-red-500">
-                            Must be lower than {v.originalPrice.toLocaleString("en-US")} VND
-                          </p>
-                        ) : isPriceTooLow ? (
-                          <p className="mt-1 text-[10px] font-medium text-red-500">
-                            Must be at least {MIN_AMOUNT_TEXT} VND
-                          </p>
-                        ) : discountPercent > 0 ? (
-                          <p className="mt-1 text-[10px] font-semibold text-emerald-600">
-                            {discountPercent}% off original price
-                          </p>
-                        ) : (
-                          <p className="mt-1 text-[10px] text-neutral-400">Enter deal price</p>
-                        )}
-                      </div>
-
-                      {/* Quantity Input */}
-                      <div className="w-full sm:w-36">
-                        <label className="block text-[11px] font-medium text-neutral-600 mb-1">
-                          Deal Quantity
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          required
-                          value={v.totalQuantity}
-                          onChange={(e) =>
-                            handleUpdateVariant(index, "totalQuantity", e.target.value)
-                          }
-                          placeholder="50"
-                          className="w-full rounded-lg border border-neutral-300 py-1.5 px-3 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
-                        />
-                        {v.soldQuantity !== undefined ? (
-                          <p className="mt-1 text-[10px] text-neutral-400">
-                            Sold {v.soldQuantity}, reserved {v.reservedQuantity || 0}, stopped{" "}
-                            {v.unsellableQuantity || 0}
-                          </p>
-                        ) : (
-                          <p className="mt-1 text-[10px] text-neutral-400">Allocated deal stock</p>
-                        )}
-                      </div>
-
-                      {/* Status Toggle in Edit Mode */}
-                      {isEditMode && (
-                        <div className="w-full sm:w-28">
-                          <label className="block text-[11px] font-medium text-neutral-600 mb-1">
-                            Status
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newStatus =
-                                v.status === FlashDealVariantStatusEnum.Hide
-                                  ? FlashDealVariantStatusEnum.Active
-                                  : FlashDealVariantStatusEnum.Hide;
-                              handleUpdateVariant(index, "status", newStatus);
-                            }}
-                            className={`w-full inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2.5 text-xs font-semibold transition ${
-                              v.status === FlashDealVariantStatusEnum.Hide
-                                ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
-                                : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                            }`}
-                          >
-                            {v.status === FlashDealVariantStatusEnum.Hide ? (
-                              <>
-                                <EyeOff className="size-3.5" />
-                                <span>Hidden</span>
-                              </>
-                            ) : (
-                              <>
-                                <Eye className="size-3.5" />
-                                <span>Active</span>
-                              </>
-                            )}
-                          </button>
+                          ) : isPriceGteOriginal ? (
+                            <p className="mt-1 text-[10px] font-medium text-red-500">
+                              Must be lower than {v.originalPrice.toLocaleString("en-US")} VND
+                            </p>
+                          ) : isPriceTooLow ? (
+                            <p className="mt-1 text-[10px] font-medium text-red-500">
+                              Must be at least {MIN_AMOUNT_TEXT} VND
+                            </p>
+                          ) : discountPercent > 0 ? (
+                            <p className="mt-1 text-[10px] font-semibold text-emerald-600">
+                              {discountPercent}% off original price
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-[10px] text-neutral-400">Enter deal price</p>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex items-center justify-end py-2">
-                      <span className="text-xs text-neutral-400 italic">
-                        Not included in deal. Tick checkbox to sell this variant.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
+                        {/* Quantity Input */}
+                        <div className="w-full sm:w-36">
+                          <label className="block text-[11px] font-medium text-neutral-600 mb-1">
+                            Deal Quantity
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            required
+                            value={v.totalQuantity}
+                            onChange={(e) =>
+                              handleUpdateVariant(index, "totalQuantity", e.target.value)
+                            }
+                            placeholder="50"
+                            className="w-full rounded-lg border border-neutral-300 py-1.5 px-3 text-xs text-neutral-900 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
+                          />
+                          {v.soldQuantity !== undefined ? (
+                            <p className="mt-1 text-[10px] text-neutral-400">
+                              Sold {v.soldQuantity}, reserved {v.reservedQuantity || 0}, stopped{" "}
+                              {v.unsellableQuantity || 0}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-[10px] text-neutral-400">
+                              Allocated deal stock
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Status Toggle in Edit Mode */}
+                        {isEditMode && (
+                          <div className="w-full sm:w-28">
+                            <label className="block text-[11px] font-medium text-neutral-600 mb-1">
+                              Status
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newStatus =
+                                  v.status === FlashDealVariantStatusEnum.Hide
+                                    ? FlashDealVariantStatusEnum.Active
+                                    : FlashDealVariantStatusEnum.Hide;
+                                handleUpdateVariant(index, "status", newStatus);
+                              }}
+                              className={`w-full inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2.5 text-xs font-semibold transition ${
+                                v.status === FlashDealVariantStatusEnum.Hide
+                                  ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                              }`}
+                            >
+                              {v.status === FlashDealVariantStatusEnum.Hide ? (
+                                <>
+                                  <EyeOff className="size-3.5" />
+                                  <span>Hidden</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="size-3.5" />
+                                  <span>Active</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-end py-2">
+                        <span className="text-xs text-neutral-400 italic">
+                          Not included in deal. Tick checkbox to sell this variant.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </fieldset>
 
       {/* Footer Actions */}

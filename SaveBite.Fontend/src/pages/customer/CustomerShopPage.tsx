@@ -1,3 +1,4 @@
+import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
 import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 import { ShopFollowControls } from "@/features/shop-follows/components/ShopFollowControls";
@@ -58,11 +59,7 @@ function StoreUnavailable() {
 
 export function CustomerShopPage() {
   const { id } = useParams<{ id: string }>();
-  return id ? (
-    <ShopContent key={id} shopId={id} />
-  ) : (
-    <StoreUnavailable />
-  );
+  return id ? <ShopContent key={id} shopId={id} /> : <StoreUnavailable />;
 }
 
 function ShopContent({ shopId }: { shopId: string }) {
@@ -143,7 +140,8 @@ function ShopContent({ shopId }: { shopId: string }) {
   // Real-time synchronization when admin blocks/locks this store
   useEffect(() => {
     const handleShopStatus = (e: Event) => {
-      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
+      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>)
+        .detail;
       const rawShopId = detail?.shopId || (detail as any)?.ShopId;
       const rawStatus = detail?.status || (detail as any)?.Status;
       const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
@@ -315,9 +313,9 @@ function ShopContent({ shopId }: { shopId: string }) {
     );
   const operatingHours =
     profile.openingTime && profile.closingTime
-      ? (profile.openingTime.slice(0, 5) === profile.closingTime.slice(0, 5)
-          ? "Open 24/7"
-          : `${profile.openingTime.slice(0, 5)} – ${profile.closingTime.slice(0, 5)}`)
+      ? profile.openingTime.slice(0, 5) === profile.closingTime.slice(0, 5)
+        ? "Open 24/7"
+        : `${profile.openingTime.slice(0, 5)} – ${profile.closingTime.slice(0, 5)}`
       : "Opening hours not provided";
   const averageRating = reviewsSummary?.averageRating ?? profile.averageRating;
   const totalReviewsCount = reviewsSummary?.totalReviews ?? profile.totalReviews;
@@ -395,7 +393,7 @@ function ShopContent({ shopId }: { shopId: string }) {
                   </a>
                   <Badge tone={isDealsLoading ? "neutral" : "warning"}>
                     {isDealsLoading ? (
-                      "Loading deals…"
+                      <InlineSkeleton label="Loading deals" className="w-20" />
                     ) : (
                       <>
                         <Flame className="size-3" aria-hidden="true" />

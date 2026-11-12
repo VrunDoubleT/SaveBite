@@ -1,3 +1,4 @@
+import { TableLoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeStaffEvents } from "@/features/shop-staffs/realtime/subscribeStaffEvents";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -74,15 +75,15 @@ interface RevokeModalProps {
 function RevokeInvitationModal({ invitation, loading, onClose, onConfirm }: RevokeModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div className="border-b border-gray-100 px-6 py-5">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="shrink-0 border-b border-gray-100 px-6 py-5">
           <h2 className="text-lg font-semibold text-gray-900">Revoke invitation</h2>
           <p className="mt-1 text-sm text-gray-500">
             This invitation will no longer be available to the customer.
           </p>
         </div>
 
-        <div className="px-6 py-5">
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-6 py-5">
           <div className="rounded-xl bg-gray-50 p-4">
             <p className="font-medium text-gray-900">{invitation.invitedUserName}</p>
             <p className="mt-1 text-sm text-gray-500">{invitation.invitedUserEmail}</p>
@@ -93,7 +94,7 @@ function RevokeInvitationModal({ invitation, loading, onClose, onConfirm }: Revo
           </p>
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
           <button
             type="button"
             disabled={loading}
@@ -264,13 +265,10 @@ export function StoreOwnerStaffInvitationsPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="space-y-3">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="h-14 animate-pulse rounded-xl bg-gray-100" />
-            ))}
-          </div>
-        </div>
+        <TableLoadingSkeleton
+          headers={["Customer", "Status", "Sent date", "Expires", "Actions"]}
+          label="Loading staff records"
+        />
       ) : invitations.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white py-16 text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">

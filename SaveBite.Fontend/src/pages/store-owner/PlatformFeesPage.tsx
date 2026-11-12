@@ -1,6 +1,7 @@
+import { TableSkeletonRows } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Receipt, CreditCard, Filter, RefreshCw, Eye, ShieldAlert } from "lucide-react";
+import { Receipt, CreditCard, Filter, Eye, ShieldAlert } from "lucide-react";
 import { ownerShopApi, type OwnerShop } from "@/features/shops/api/ownerShopApi";
 import { platformFeeApi } from "@/features/platform-fees/api/platformFeeApi";
 import type {
@@ -282,12 +283,7 @@ export function PlatformFeesPage() {
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {loading || shopLoading ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-neutral-400">
-                    <RefreshCw className="mx-auto h-6 w-6 animate-spin text-emerald-600 mb-2" />
-                    Loading statements data...
-                  </td>
-                </tr>
+                <TableSkeletonRows columns={6} />
               ) : statements.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-neutral-400">
@@ -298,7 +294,9 @@ export function PlatformFeesPage() {
               ) : (
                 statements.map((stmt) => {
                   const normalizedStatus = normalizeStatementStatus(stmt.status);
-                  const canPay = !stmt.paymentPauseReason && (normalizedStatus === "Issued" || normalizedStatus === "Overdue");
+                  const canPay =
+                    !stmt.paymentPauseReason &&
+                    (normalizedStatus === "Issued" || normalizedStatus === "Overdue");
                   return (
                     <tr key={stmt.id} className="hover:bg-neutral-50/60 transition-colors">
                       <td className="px-5 py-4 font-bold text-neutral-900">
@@ -311,7 +309,11 @@ export function PlatformFeesPage() {
                         <StatusBadge status={stmt.status} />
                       </td>
                       <td className="px-5 py-4 text-neutral-600">
-                        {stmt.paymentPauseReason ? "Paused — system payment configuration" : stmt.dueAt ? new Date(stmt.dueAt).toLocaleDateString("en-US") : "—"}
+                        {stmt.paymentPauseReason
+                          ? "Paused — system payment configuration"
+                          : stmt.dueAt
+                            ? new Date(stmt.dueAt).toLocaleDateString("en-US")
+                            : "—"}
                       </td>
                       <td className="px-5 py-4 text-neutral-600">
                         {stmt.paidAt ? new Date(stmt.paidAt).toLocaleDateString("en-US") : "—"}

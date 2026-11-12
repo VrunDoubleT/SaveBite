@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { CustomerActionLink } from "@/shared/components/CustomerMutationControls";
 import { Badge, Card } from "@/shared/components/ui";
 import { Link } from "react-router-dom";
@@ -94,7 +95,7 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
             </CustomerActionLink>
           )}
           {!loaded && !error && (
-            <p className="mt-3 text-caption text-text-secondary">Loading refund eligibility…</p>
+            <LoadingSkeleton variant="list" label="Loading refund eligibility…" />
           )}
           {eligible && deadline !== null && (
             <p className="mt-2 text-caption text-text-secondary">

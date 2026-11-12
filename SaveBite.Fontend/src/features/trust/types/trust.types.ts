@@ -48,11 +48,7 @@ export interface TrustScoreOverview {
 }
 
 export type ProgressMetricKey =
-  | "score"
-  | "completedOrders"
-  | "orderValue"
-  | "onlineOrders"
-  | "onlineOrderValue";
+  "score" | "completedOrders" | "orderValue" | "onlineOrders" | "onlineOrderValue";
 
 export interface ProgressMetric {
   key: ProgressMetricKey;
@@ -107,7 +103,7 @@ export interface TrustScoreHistoryItem {
   newLevelName?: string | null;
 }
 
-export type PenaltyStatus = "Recovering" | "Recovered";
+export type PenaltyStatus = "Recovering" | "Recovered" | "Superseded";
 
 export interface PenaltyItem {
   id: string;

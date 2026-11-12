@@ -39,8 +39,7 @@ public sealed class TrustOrderRepository : ITrustOrderRepository
         => _db.TrustLevels.Include(x => x.Requirement).Where(x => x.IsActive).OrderBy(x => x.Rank).ToListAsync(ct);
     // Use the order event timestamp, not delayed consumer execution time, to resolve rule versions.
     public Task<TrustScoreRule?> EarningAsync(TrustScoreRuleType type, DateTime at, CancellationToken ct)
-        => _db.TrustScoreRules.Where(x => x.RuleType == type && x.ScoreDelta > 0 && x.EffectiveFrom <= at
-            && (x.EffectiveTo == null || at < x.EffectiveTo)).OrderByDescending(x => x.EffectiveFrom).FirstOrDefaultAsync(ct);
+        => _db.TrustScoreRules.Where(x => x.RuleType == type && x.IsActive && x.ScoreDelta > 0).FirstOrDefaultAsync(ct);
     public Task<int> OccurrencesAsync(Guid userId, int year, int month, CancellationToken ct)
         => _db.NoShowPenalties.CountAsync(x => x.UserId == userId && x.PenaltyYear == year && x.PenaltyMonth == month, ct);
     public Task<RecoveryRequirementRule?> PenaltyRuleAsync(int occurrence, DateTime at, CancellationToken ct)

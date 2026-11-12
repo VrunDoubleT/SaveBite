@@ -1,3 +1,5 @@
+import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { User, PackageCheck, RefreshCw } from "lucide-react";
@@ -61,9 +63,11 @@ export function RestockTaskList({
     <div className="space-y-4" aria-busy={updating}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-neutral-500">
-          {data
-            ? `${data.totalItems} ${pendingOnly ? "orders awaiting decisions" : "orders in restock history"}`
-            : "Loading restock tasks…"}
+          {data ? (
+            `${data.totalItems} ${pendingOnly ? "orders awaiting decisions" : "orders in restock history"}`
+          ) : (
+            <InlineSkeleton label="Loading restock tasks" className="w-48" />
+          )}
         </p>
         <button
           type="button"
@@ -82,11 +86,7 @@ export function RestockTaskList({
           {error || workspaceError}
         </p>
       )}
-      {updating && (
-        <p role="status" className="text-sm text-neutral-500">
-          Updating restock tasks…
-        </p>
-      )}
+      {updating && <LoadingSkeleton label="Loading restock tasks" variant="list" />}
       {data?.items.length === 0 && !updating && (
         <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center">
           <PackageCheck className="mx-auto mb-3 size-8 text-emerald-600" aria-hidden />

@@ -29,6 +29,8 @@ public static class ServiceExtensions
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<EmailDeliveryService>();
+        services.AddScoped<BusinessEmailQueue>();
+        services.AddScoped<BusinessEmailReminderService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IShopApplicationService, ShopApplicationService>();

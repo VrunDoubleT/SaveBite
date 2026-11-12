@@ -4,11 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
 import { RecordId } from "@/shared/components/RecordId";
 import type { TrustScoreRule, UpdateScoreRulePayload } from "../types/adminTrust.types";
-import {
-  buildScoreRuleSchema,
-  toIsoOrUndefined,
-  type ScoreRuleFormData,
-} from "../schemas/trust.schema";
+import { buildScoreRuleSchema, type ScoreRuleFormData } from "../schemas/trust.schema";
 import { inputClass } from "../utils/formStyles";
 import { FormField, ModalActions } from "./FormField";
 
@@ -19,7 +15,7 @@ interface ScoreRuleModalProps {
   onSave: (ruleId: string, payload: UpdateScoreRulePayload) => Promise<string | null>;
 }
 
-// UC-136 / UC-138: saving creates a new version of the score rule.
+// Fixed system earning rules: points and status are edited together, effective immediately.
 export function ScoreRuleModal({ rule, onClose, onSave }: ScoreRuleModalProps) {
   const [serverError, setServerError] = useState<string | null>(null);
   const kind = rule?.kind ?? "Earning";
@@ -32,12 +28,12 @@ export function ScoreRuleModal({ rule, onClose, onSave }: ScoreRuleModalProps) {
     formState: { errors, isSubmitting },
   } = useForm<ScoreRuleFormData>({
     resolver: zodResolver(schema),
-    defaultValues: { scoreDelta: 0, effectiveFrom: "" },
+    defaultValues: { scoreDelta: 0, isActive: true },
   });
 
   useEffect(() => {
     if (!rule) return;
-    reset({ scoreDelta: rule.scoreDelta, effectiveFrom: "" });
+    reset({ scoreDelta: rule.scoreDelta, isActive: rule.isActive });
   }, [rule, reset]);
 
   const handleClose = () => {
@@ -49,7 +45,7 @@ export function ScoreRuleModal({ rule, onClose, onSave }: ScoreRuleModalProps) {
     if (!rule) return;
     const error = await onSave(rule.id, {
       scoreDelta: data.scoreDelta,
-      effectiveFrom: toIsoOrUndefined(data.effectiveFrom),
+      isActive: data.isActive,
     });
     if (error) setServerError(error);
     else handleClose();
@@ -63,8 +59,8 @@ export function ScoreRuleModal({ rule, onClose, onSave }: ScoreRuleModalProps) {
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <p className="text-sm text-text-secondary">
-          Saving creates a new version of this rule. Score changes already recorded are not
-          recalculated.
+          Changes apply immediately to subsequent order completions. Previously awarded points stay
+          unchanged.
         </p>
         {rule && <RecordId id={rule.id} variant="full" />}
 
@@ -87,23 +83,19 @@ export function ScoreRuleModal({ rule, onClose, onSave }: ScoreRuleModalProps) {
           />
         </FormField>
 
-        <FormField
-          label="Take effect at"
-          htmlFor="sr-effective"
-          hint="Leave empty to start immediately."
-        >
-          <input
-            id="sr-effective"
-            type="datetime-local"
-            {...register("effectiveFrom")}
-            className={inputClass(false)}
-          />
-        </FormField>
+        <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
+          <input type="checkbox" {...register("isActive")} className="size-4 accent-primary-700" />
+          Active — award points for this order type
+        </label>
+        <p className="text-sm text-text-secondary">
+          Inactive stops points only. Eligible order counts and accumulated value still increase
+          outside penalty recovery.
+        </p>
 
         <ModalActions
           onCancel={handleClose}
           isSubmitting={isSubmitting}
-          submitLabel="Save new version"
+          submitLabel="Save changes"
           serverError={serverError}
         />
       </form>

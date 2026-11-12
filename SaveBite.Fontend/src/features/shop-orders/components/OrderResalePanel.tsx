@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { httpClient, getApiErrorMessage } from "@/shared/api";
@@ -120,11 +121,7 @@ export function OrderResalePanel({
           </button>
         </p>
       )}
-      {!data && !error && (
-        <p role="status" className="mt-2 text-sm">
-          Loading return quantities…
-        </p>
-      )}
+      {!data && !error && <LoadingSkeleton variant="list" label="Loading return quantities…" />}
       {data && (
         <>
           <p className="mt-2 text-xs text-neutral-500">

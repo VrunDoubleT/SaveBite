@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { RefundCustomerInfo } from "@/features/refunds/components/RefundCustomerInfo";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -236,7 +237,7 @@ export function ShopRefundsPage() {
         </p>
       )}
 
-      {!data && !error && <p className="py-8 text-sm text-neutral-500">Loading refunds…</p>}
+      {!data && !error && <LoadingSkeleton variant="list" label="Loading refunds…" />}
 
       {data?.items.length === 0 && (
         <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500">

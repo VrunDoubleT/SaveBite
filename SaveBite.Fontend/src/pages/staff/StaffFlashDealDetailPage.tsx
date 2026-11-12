@@ -1,10 +1,10 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { FlashDealStockHistory } from "@/features/restock/FlashDealStockHistory";
 import { useRestockWorkspace } from "@/features/restock/restockContext";
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Loader2,
   AlertCircle,
   EyeOff,
   Package,
@@ -95,11 +95,7 @@ export function StaffFlashDealDetailPage() {
   }, [deal]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-emerald-600" />
-      </div>
-    );
+    return <LoadingSkeleton variant="detail" label="Loading flash deal" />;
   }
 
   if (!deal) {

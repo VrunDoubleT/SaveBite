@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
@@ -81,12 +82,7 @@ export function PlatformFeeDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-96 flex-col items-center justify-center text-slate-400">
-        <RefreshCw className="h-8 w-8 animate-spin text-emerald-600 mb-3" />
-        <p className="text-sm font-medium">Loading statement details...</p>
-      </div>
-    );
+    return <LoadingSkeleton variant="detail" label="Loading statement details" />;
   }
 
   if (!statement) {
@@ -108,7 +104,9 @@ export function PlatformFeeDetailPage() {
   }
 
   const normalizedStatus = normalizeStatementStatus(statement.status);
-  const canPay = !statement.paymentPauseReason && (normalizedStatus === "Issued" || normalizedStatus === "Overdue");
+  const canPay =
+    !statement.paymentPauseReason &&
+    (normalizedStatus === "Issued" || normalizedStatus === "Overdue");
 
   return (
     <div className="space-y-6 pb-12">
@@ -123,9 +121,13 @@ export function PlatformFeeDetailPage() {
       </div>
 
       {statement.paymentPauseReason && (
-        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          Payment is temporarily unavailable due to the platform's payment configuration. Your deadline is paused.
-          You will be notified when payment is restored and will have a new 7-day payment window.
+        <div
+          role="status"
+          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+        >
+          Payment is temporarily unavailable due to the platform's payment configuration. Your
+          deadline is paused. You will be notified when payment is restored and will have a new
+          7-day payment window.
         </div>
       )}
       {/* Statement Header Card */}
@@ -290,17 +292,22 @@ export function PlatformFeeDetailPage() {
                       </td>
                       <td className="px-5 py-3.5 font-semibold text-slate-600">
                         {Number((ord.feeRate * 100).toFixed(4))}%
-                              <span className="mt-1 block break-all font-mono text-xs text-slate-500">Version {ord.feeConfigId}</span>
+                        <span className="mt-1 block break-all font-mono text-xs text-slate-500">
+                          Version {ord.feeConfigId}
+                        </span>
                       </td>
                       <td className="px-5 py-3.5 font-black text-emerald-600">
-                        {formatVnd(ord.netFeeAmount ?? Math.max(0, ord.feeAmount - (ord.refundCreditAmount ?? 0)))}
-                              {(ord.refundCreditAmount ?? 0) > 0 && (
-                                <div className="mt-1 space-y-0.5 text-xs font-medium text-slate-600">
-                                  <p>Original fee: {formatVnd(ord.feeAmount)}</p>
-                                  <p>Refund credit: −{formatVnd(ord.refundCreditAmount ?? 0)}</p>
-                                  <p>Credit may be applied to this or a later bill.</p>
-                                </div>
-                              )}
+                        {formatVnd(
+                          ord.netFeeAmount ??
+                            Math.max(0, ord.feeAmount - (ord.refundCreditAmount ?? 0)),
+                        )}
+                        {(ord.refundCreditAmount ?? 0) > 0 && (
+                          <div className="mt-1 space-y-0.5 text-xs font-medium text-slate-600">
+                            <p>Original fee: {formatVnd(ord.feeAmount)}</p>
+                            <p>Refund credit: −{formatVnd(ord.refundCreditAmount ?? 0)}</p>
+                            <p>Credit may be applied to this or a later bill.</p>
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-slate-500">
                         {new Date(ord.calculatedAt).toLocaleString("en-US")}
@@ -337,7 +344,9 @@ export function PlatformFeeDetailPage() {
                 ) : (
                   statement.adjustments.map((adj) => (
                     <tr key={adj.id} className="hover:bg-slate-50/50 transition">
-                      <td className="px-5 py-3.5 font-bold text-slate-800">{adj.refundId ? "Refund credit" : "Fee adjustment"}</td>
+                      <td className="px-5 py-3.5 font-bold text-slate-800">
+                        {adj.refundId ? "Refund credit" : "Fee adjustment"}
+                      </td>
                       <td
                         className={`px-5 py-3.5 font-extrabold ${
                           adj.amount < 0 ? "text-rose-600" : "text-emerald-600"
@@ -452,7 +461,11 @@ export function PlatformFeeDetailPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
-                          {h.changeType === "PaymentPaused" ? "Payment paused" : h.changeType === "PaymentResumed" ? "Payment restored" : h.changeType}
+                          {h.changeType === "PaymentPaused"
+                            ? "Payment paused"
+                            : h.changeType === "PaymentResumed"
+                              ? "Payment restored"
+                              : h.changeType}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-slate-600">{formatVnd(h.previousAmount)}</td>

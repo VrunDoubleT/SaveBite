@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import {
   Badge,
   Button,
@@ -7,7 +8,6 @@ import {
   ErrorState,
   MediaImage,
   PageHeader,
-  Skeleton,
 } from "@/shared/components/ui";
 import { CheckoutRouteMap } from "@/features/checkout/components/CheckoutRouteMap";
 import { useEffect, useRef, useState } from "react";
@@ -277,10 +277,10 @@ function CheckoutFlow({ shopId }: { shopId: string }) {
         >
           <span className="sr-only">Checking your cart and payment policy…</span>
           <div className="space-y-4">
-            <Skeleton className="h-72" />
-            <Skeleton className="h-96" />
+            <LoadingSkeleton variant="detail" rows={1} label="Loading checkout items" />
+            <LoadingSkeleton variant="form" rows={2} label="Loading payment options" />
           </div>
-          <Skeleton className="h-96" />
+          <LoadingSkeleton variant="detail" rows={1} label="Loading order summary" />
         </div>
       )}
       {data && data.shop.items.length === 0 && (

@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useState } from "react";
 import { RecordId } from "@/shared/components/RecordId";
 import {
@@ -289,14 +290,7 @@ export function ShopFeedbackManagementPanel({
 
       {/* Reviews list */}
       {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-44 animate-pulse rounded-xl border border-neutral-200 bg-white p-5 shadow-2xs"
-            />
-          ))}
-        </div>
+        <LoadingSkeleton variant="list" label="Loading reviews" />
       ) : feedbacks.length > 0 ? (
         <div className="space-y-4">
           {feedbacks.map((item) => (

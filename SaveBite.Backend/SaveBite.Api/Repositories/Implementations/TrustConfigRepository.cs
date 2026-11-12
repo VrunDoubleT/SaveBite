@@ -179,13 +179,19 @@ public sealed class TrustConfigRepository : ITrustConfigRepository
         });
     }
 
+    public async Task<IReadOnlyList<RecoveryRequirementRule>> LockPenaltyRulesAsync(CancellationToken ct)
+    {
+        await _dbContext.Database.ExecuteSqlRawAsync("LOCK TABLE recovery_requirement_rules IN SHARE ROW EXCLUSIVE MODE", ct);
+        return await _dbContext.RecoveryRequirementRules.ToListAsync(ct);
+    }
+
     // --------------------------------------------------------- Penalty rules
 
     public async Task<IReadOnlyList<RecoveryRequirementRule>> GetPenaltyRulesAsync(CancellationToken cancellationToken = default)
         => await _dbContext.RecoveryRequirementRules.AsNoTracking()
             .Include(rule => rule.CreatedByUser)
             .OrderBy(rule => rule.MinimumOccurrence)
-            .ThenByDescending(rule => rule.EffectiveFrom)
+            .ThenByDescending(rule => rule.CreatedAt)
             .ToListAsync(cancellationToken);
 
     public Task<RecoveryRequirementRule?> GetPenaltyRuleForUpdateAsync(Guid ruleId, CancellationToken cancellationToken = default)
@@ -241,26 +247,17 @@ public sealed class TrustConfigRepository : ITrustConfigRepository
             .Include(rule => rule.CreatedByUser)
             .AsQueryable();
 
-        if (earningOnly == true)
-            query = query.Where(rule => rule.ScoreDelta > 0);
+        query = query.Where(rule => rule.RuleType != SaveBite.Backend.Models.Enums.TrustScoreRuleType.NoShow);
 
         return await query
             .OrderByDescending(rule => rule.ScoreDelta > 0)
-            .ThenByDescending(rule => rule.EffectiveFrom)
+            .ThenByDescending(rule => rule.CreatedAt)
             .ToListAsync(cancellationToken);
     }
 
     public Task<TrustScoreRule?> GetScoreRuleForUpdateAsync(Guid ruleId, CancellationToken cancellationToken = default)
         => _dbContext.TrustScoreRules
             .SingleOrDefaultAsync(rule => rule.Id == ruleId, cancellationToken);
-
-    public Task<bool> HasOverlappingScoreRuleAsync(
-        SaveBite.Backend.Models.Enums.TrustScoreRuleType ruleType, DateTime from, Guid excludeRuleId, CancellationToken cancellationToken = default)
-        => _dbContext.TrustScoreRules.AsNoTracking()
-            .AnyAsync(rule => rule.Id != excludeRuleId
-                              && rule.RuleType == ruleType
-                              && (rule.EffectiveTo == null || rule.EffectiveTo > from),
-                cancellationToken);
 
     public void AddScoreRule(TrustScoreRule rule) => _dbContext.TrustScoreRules.Add(rule);
 

@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { Search, Send, User, X } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -56,8 +57,8 @@ export function InviteStaffModal({ loading = false, onClose, onSubmit }: InviteS
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Invite Staff</h2>
 
@@ -74,7 +75,7 @@ export function InviteStaffModal({ loading = false, onClose, onSubmit }: InviteS
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto overscroll-contain">
           <div className="space-y-4 px-6 py-5">
             <div className="relative">
               <Search
@@ -96,7 +97,7 @@ export function InviteStaffModal({ loading = false, onClose, onSubmit }: InviteS
               />
             </div>
 
-            {searching && <p className="text-sm text-gray-500">Searching...</p>}
+            {searching && <LoadingSkeleton variant="list" rows={2} label="Searching staff" />}
 
             {!searching && keyword.trim() && candidates.length === 0 && (
               <p className="text-sm text-gray-500">No available account found.</p>

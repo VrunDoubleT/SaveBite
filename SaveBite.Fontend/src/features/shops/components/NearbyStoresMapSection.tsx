@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -1052,7 +1053,9 @@ export function NearbyStoresMapSection({
           <h2 className="text-section font-semibold text-text-primary">Nearby stores</h2>
           <span className="text-xs font-semibold text-text-secondary">
             ({storeFilter === "deals_only" ? dealsStoresCount : allStoresCount} store
-            {(storeFilter === "deals_only" ? dealsStoresCount : allStoresCount) === 1 ? "" : "s"}{" "}
+            {(storeFilter === "deals_only" ? dealsStoresCount : allStoresCount) === 1
+              ? ""
+              : "s"}{" "}
             found)
           </span>
         </div>
@@ -1123,10 +1126,12 @@ export function NearbyStoresMapSection({
         {/* Loading overlay when fetching shops */}
         {isLoading && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-bg-surface/60 backdrop-blur-xs">
-            <div className="flex items-center gap-2.5 rounded-2xl bg-bg-surface px-4 py-2.5 text-xs font-bold text-primary-800 shadow-md">
-              <RefreshCw size={15} className="animate-spin text-primary-700" />
-              <span>Loading nearby stores…</span>
-            </div>
+            <LoadingSkeleton
+              variant="list"
+              rows={2}
+              label="Loading nearby stores"
+              className="w-full max-w-sm p-4"
+            />
           </div>
         )}
 
@@ -1293,7 +1298,9 @@ export function NearbyStoresMapSection({
                 {formatShopOperatingHours(selectedShop.openingTime, selectedShop.closingTime) && (
                   <p className="mt-1 text-xs text-text-secondary flex items-center gap-1.5">
                     <Clock size={13} className="text-text-muted shrink-0" />
-                    <span>{formatShopOperatingHours(selectedShop.openingTime, selectedShop.closingTime)}</span>
+                    <span>
+                      {formatShopOperatingHours(selectedShop.openingTime, selectedShop.closingTime)}
+                    </span>
                   </p>
                 )}
 

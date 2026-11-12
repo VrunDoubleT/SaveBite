@@ -1,3 +1,4 @@
+import { TableLoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useCallback, useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
@@ -12,7 +13,7 @@ import type {
 } from "../types/adminTrust.types";
 import { formatCurrency, formatDateTime } from "../utils/format";
 import { getRuleStatus, isFutureRule } from "../utils/ruleStatus";
-import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
+import { PanelEmpty, PanelError } from "./PanelState";
 import { PenaltyRuleModal } from "./PenaltyRuleModal";
 import { RuleStatusBadge } from "./RuleStatusBadge";
 import { RecordId } from "@/shared/components/RecordId";
@@ -75,7 +76,22 @@ export function PenaltyRulesPanel() {
   };
 
   if (error && !data) return <PanelError message={error} onRetry={reload} />;
-  if (!data) return <PanelSkeleton rows={3} />;
+  if (!data)
+    return (
+      <TableLoadingSkeleton
+        headers={[
+          "ID",
+          "From no-show #",
+          "Points deducted",
+          "Recovery requirement",
+          "Pay at shop",
+          "Status",
+          "Effective period",
+          "Actions",
+        ]}
+        label="Loading trust rules"
+      />
+    );
 
   const rows = data.filter((rule) => showHistory || getRuleStatus(rule, now) !== "replaced");
 
@@ -159,14 +175,17 @@ export function PenaltyRulesPanel() {
                       <p>{formatCurrency(rule.requiredOnlineOrderValue)}</p>
                     </td>
                     <td className="px-3 py-3 text-xs">
-                      {rule.permanentOfflineLock ? "Turned off permanently" : "Not affected"}
+                      {rule.permanentOfflineLock
+                        ? "Turned off permanently"
+                        : "Online only until recovered"}
                     </td>
                     <td className="px-3 py-3">
                       <RuleStatusBadge status={status} />
                     </td>
                     <td className="px-3 py-3 text-xs">
                       <p>
-                        From: <span className="font-medium">{formatDateTime(rule.effectiveFrom)}</span>
+                        From:{" "}
+                        <span className="font-medium">{formatDateTime(rule.effectiveFrom)}</span>
                       </p>
                       <p className="text-text-secondary">
                         Until:{" "}
@@ -242,7 +261,8 @@ export function PenaltyRulesPanel() {
             </p>
             <div className="rounded-lg border border-border-default bg-neutral-50 p-3 text-xs text-text-secondary space-y-1">
               <p>
-                Points deducted: <strong className="text-danger">-{deletingRule.scoreDeduction}</strong>
+                Points deducted:{" "}
+                <strong className="text-danger">-{deletingRule.scoreDeduction}</strong>
               </p>
               <p>
                 Scheduled from: <strong>{formatDateTime(deletingRule.effectiveFrom)}</strong>

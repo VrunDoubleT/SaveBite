@@ -1,5 +1,12 @@
+import {
+  EMPTY_ARCHIVE_FILTERS,
+  archiveFilterOptions,
+  filterArchiveRows,
+  type ArchiveFilters,
+} from "../utils/filterAuditArchive";
+import type { AuditLogFilterOptions } from "../types/auditLog.types";
 import { ChevronDown } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Modal } from "@/shared/components/ui";
 import { getApiErrorMessage } from "@/shared/api";
 import { toast } from "@/shared/stores/toastStore";
@@ -24,6 +31,17 @@ export function AuditArchivePanel() {
   const [localFile, setLocalFile] = useState<{ name: string; rows: AuditArchiveRow[] }>();
   const [readingFile, setReadingFile] = useState(false);
   const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState<ArchiveFilters>(EMPTY_ARCHIVE_FILTERS);
+  const [filterOptions, setFilterOptions] = useState<AuditLogFilterOptions>({
+    actions: [],
+    targetTypes: [],
+  });
+  const [remoteTotal, setRemoteTotal] = useState(0);
+  const [viewerError, setViewerError] = useState("");
+  const updateFilters = (next: ArchiveFilters) => {
+    setFilters(next);
+    setPage(1);
+  };
   const [rows, setRows] = useState<AuditArchiveRow[]>([]);
   const [loadingRows, setLoadingRows] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -43,25 +61,32 @@ export function AuditArchivePanel() {
   useEffect(() => {
     if (!selected) return;
     const controller = new AbortController();
-    void Promise.resolve().then(() => {
-      if (!controller.signal.aborted) {
-        setLoadingRows(true);
-        setRows([]);
-      }
-    });
-    void auditArchiveApi
-      .logs(selected.id, page, controller.signal)
-      .then((response) => {
-        if (!controller.signal.aborted) setRows(response.items);
-      })
-      .catch((e: unknown) => {
-        if (!controller.signal.aborted) setError(getApiErrorMessage(e));
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoadingRows(false);
-      });
-    return () => controller.abort();
-  }, [selected, page]);
+    const timer = window.setTimeout(() => {
+      setLoadingRows(true);
+      setViewerError("");
+      setRows([]);
+      void auditArchiveApi
+        .logs(selected.id, page, controller.signal, filters)
+        .then((response) => {
+          if (controller.signal.aborted) return;
+          setRows(response.items);
+          setRemoteTotal(response.totalItems);
+          setFilterOptions(response.filterOptions);
+          const lastPage = Math.max(1, Math.ceil(response.totalItems / ARCHIVE_PAGE_SIZE));
+          if (page > lastPage) setPage(lastPage);
+        })
+        .catch((e: unknown) => {
+          if (!controller.signal.aborted) setViewerError(getApiErrorMessage(e));
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoadingRows(false);
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [selected, page, filters]);
   async function run(action: () => Promise<unknown>) {
     if (busy) return;
     setBusy(true);
@@ -98,16 +123,26 @@ export function AuditArchivePanel() {
       setLoadingRows(false);
       setLocalFile({ name: file.name, rows: parsed });
       setPage(1);
+      setFilters(EMPTY_ARCHIVE_FILTERS);
+      setViewerError("");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Unable to read this JSONL file.");
     } finally {
       setReadingFile(false);
     }
   }
+  const filteredLocal = useMemo(
+    () => (localFile ? filterArchiveRows(localFile.rows, filters) : []),
+    [localFile, filters],
+  );
+  const localOptions = useMemo(
+    () => archiveFilterOptions(localFile?.rows ?? [], filters.targetType),
+    [localFile, filters.targetType],
+  );
   const visibleRows = localFile
-    ? localFile.rows.slice((page - 1) * ARCHIVE_PAGE_SIZE, page * ARCHIVE_PAGE_SIZE)
+    ? filteredLocal.slice((page - 1) * ARCHIVE_PAGE_SIZE, page * ARCHIVE_PAGE_SIZE)
     : rows;
-  const totalRows = localFile?.rows.length ?? selected?.recordCount ?? 0;
+  const totalRows = localFile ? filteredLocal.length : remoteTotal;
   async function download(archive: AuditArchive) {
     const blob = await auditArchiveApi.download(archive.id);
     const url = URL.createObjectURL(blob);
@@ -119,7 +154,7 @@ export function AuditArchivePanel() {
   }
   return (
     <section
-      className="rounded-xl border border-neutral-200 bg-white p-5"
+      className="min-w-0 max-w-full rounded-xl border border-neutral-200 bg-white p-4 sm:p-5"
       aria-labelledby="audit-archives-title"
     >
       <button
@@ -195,6 +230,11 @@ export function AuditArchivePanel() {
             onView={(archive) => {
               setLocalFile(undefined);
               setSelected(archive);
+              setFilters(EMPTY_ARCHIVE_FILTERS);
+              setViewerError("");
+              setRemoteTotal(0);
+              setRows([]);
+              setLoadingRows(true);
               setPage(1);
             }}
             onDownload={(archive) => void run(() => download(archive))}
@@ -202,6 +242,10 @@ export function AuditArchivePanel() {
         </div>
       </div>
       <AuditArchiveViewer
+        filters={filters}
+        filterOptions={localFile ? localOptions : filterOptions}
+        onFiltersChange={updateFilters}
+        error={viewerError}
         open={Boolean(selected || localFile)}
         source={
           localFile

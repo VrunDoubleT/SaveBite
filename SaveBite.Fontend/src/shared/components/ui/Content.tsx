@@ -126,7 +126,7 @@ export function Skeleton({ className = "", ...props }: ComponentProps<"div">) {
     <div
       {...props}
       aria-hidden="true"
-      className={`animate-pulse rounded-md bg-neutral-200 ${className}`}
+      className={`animate-pulse motion-reduce:animate-none rounded-md bg-neutral-200 ${className}`}
     />
   );
 }
@@ -185,13 +185,32 @@ export function DataTable<T>({
     return (
       <div
         role="status"
-        aria-label="Loading data"
-        className="space-y-3 rounded-lg border border-border-default bg-bg-surface p-4"
+        aria-label={`Loading ${caption}`}
+        className="overflow-x-auto rounded-lg border border-border-default bg-bg-surface"
       >
-        <span className="sr-only">Loading data</span>
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-10" />
-        ))}
+        <span className="sr-only">Loading {caption}</span>
+        <table aria-hidden="true" className="w-full text-left text-body">
+          <thead className="bg-neutral-50">
+            <tr>
+              {columns.map((column) => (
+                <th key={column.key} className={`px-4 py-3 font-medium ${column.className ?? ""}`}>
+                  {column.header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border-default">
+            {[0, 1, 2, 3].map((row) => (
+              <tr key={row}>
+                {columns.map((column) => (
+                  <td key={column.key} className={`px-4 py-4 ${column.className ?? ""}`}>
+                    <Skeleton className="h-4 w-4/5" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   if (error) return <ErrorState description={error} onRetry={onRetry} />;

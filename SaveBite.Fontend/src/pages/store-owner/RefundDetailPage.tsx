@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -80,7 +81,7 @@ function ShopRefundDetail({ refundId }: { refundId: string }) {
           </button>
         </p>
       )}
-      {!refund && !error && <p className="py-6 text-sm text-neutral-500">Loading refund…</p>}
+      {!refund && !error && <LoadingSkeleton variant="detail" label="Loading refund…" />}
       {refund && (
         <ShopRefundCard
           key={`${refund.id}:${refund.status}:${refund.amount}`}

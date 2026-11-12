@@ -1,3 +1,4 @@
+import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -292,7 +293,11 @@ export function ShopManagementPage() {
               <p className="text-xs font-medium text-slate-500 truncate">All Stores</p>
 
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.total}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.total
+                )}
               </p>
             </div>
           </div>
@@ -308,7 +313,11 @@ export function ShopManagementPage() {
               <p className="text-xs font-medium text-slate-500 truncate">Active</p>
 
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.active}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.active
+                )}
               </p>
             </div>
           </div>
@@ -324,7 +333,11 @@ export function ShopManagementPage() {
               <p className="text-xs font-medium text-slate-500 truncate">Suspended</p>
 
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.suspended}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.suspended
+                )}
               </p>
             </div>
           </div>
@@ -340,7 +353,11 @@ export function ShopManagementPage() {
               <p className="text-xs font-medium text-slate-500 truncate">With Flash Deals</p>
 
               <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {loadingStats ? "–" : counts.withDeals}
+                {loadingStats ? (
+                  <InlineSkeleton label="Loading statistics" className="w-16" />
+                ) : (
+                  counts.withDeals
+                )}
               </p>
             </div>
           </div>

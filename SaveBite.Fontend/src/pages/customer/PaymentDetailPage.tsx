@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { paymentTypeLabel, paymentMethodLabel } from "@/features/payments/utils/paymentLabels";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -9,14 +10,7 @@ import { PaymentStatusBadge } from "@/features/payments/components/PaymentStatus
 import { OrderPickupDeadlines } from "@/features/checkout/components/OrderPickupDeadlines";
 import { OrderPickupCode } from "@/features/checkout/components/OrderPickupCode";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
-import {
-  AmountSummary,
-  ButtonLink,
-  Card,
-  ErrorState,
-  MediaImage,
-  Skeleton,
-} from "@/shared/components/ui";
+import { AmountSummary, ButtonLink, Card, ErrorState, MediaImage } from "@/shared/components/ui";
 import { OrderStatusPanel } from "@/features/checkout/components/OrderStatusPanel";
 import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
 import { getApiErrorMessage } from "@/shared/api";
@@ -62,12 +56,7 @@ function PaymentDetails({ paymentId }: { paymentId: string }) {
           onRetry={() => setRetry((value) => value + 1)}
         />
       )}
-      {!data && !error && (
-        <div role="status" aria-label="Loading payment details" className="space-y-4">
-          <Skeleton className="h-48" />
-          <Skeleton className="h-80" />
-        </div>
-      )}
+      {!data && !error && <LoadingSkeleton variant="detail" label="Loading payment details" />}
       {payment && order && (
         <>
           <Card padding="none" aria-label="Payment details" className="overflow-hidden">

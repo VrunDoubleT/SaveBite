@@ -40,6 +40,10 @@ public static class HangfireExtensions
         services.AddScoped<RabbitFailureRecoveryJob>();
         services.AddScoped<CartAvailabilityRecoveryJob>();
         services.AddScoped<FlashDealRecoveryJob>();
+        services.AddScoped<IPenaltyRuleScheduler, PenaltyRuleScheduler>();
+        services.AddScoped<PenaltyRuleBoundaryJob>();
+        services.AddScoped<PenaltyRuleRecoveryJob>();
+        services.AddScoped<BusinessEmailReminderJob>();
         services.AddScoped<PlatformFeeRecoveryJob>();
         services.AddScoped<PlatformFeeScheduleActivationJob>();
         services.AddScoped<PlatformFeeOverdueJob>();
@@ -102,7 +106,11 @@ public static class HangfireExtensions
         recurring.AddOrUpdate<PlatformFeeRecoveryJob>("platform-fee-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.PlatformFeeRecoveryCron);
         recurring.AddOrUpdate<UploadCleanupJob>("temporary-upload-cleanup", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.UploadCleanupCron);
         recurring.RemoveIfExists("pickup-deadline-reminder-recovery");
+        recurring.AddOrUpdate<PenaltyRuleRecoveryJob>("penalty-rule-schedule-recovery", job => job.ExecuteAsync(CancellationToken.None), "* * * * *");
+        recurring.AddOrUpdate<BusinessEmailReminderJob>("business-email-reminders", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.EmailReminders.ScanCron);
         var jobs = app.Services.GetRequiredService<IBackgroundJobClient>();
+        jobs.Enqueue<BusinessEmailReminderJob>(job => job.ExecuteAsync(CancellationToken.None));
+        jobs.Enqueue<PenaltyRuleRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None));
         var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("BackgroundJobStartup");
         SafeSchedule.Try(() => jobs.Enqueue<RefundDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "refund-startup", Guid.Empty);
         SafeSchedule.Try(() => jobs.Enqueue<StaffInvitationRecoveryJob>(job => job.ExecuteAsync(true, CancellationToken.None)), logger, "invitation-startup", Guid.Empty);

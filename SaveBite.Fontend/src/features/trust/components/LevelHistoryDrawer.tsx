@@ -55,7 +55,9 @@ export function LevelHistoryDrawer({ level, onClose }: LevelHistoryDrawerProps) 
   );
 
   const { data, error, reload } = useApiResource(
-    level ? `admin-trust:level-history:${level.id}:${level.updatedAt}` : "admin-trust:level-history:none",
+    level
+      ? `admin-trust:level-history:${level.id}:${level.updatedAt}`
+      : "admin-trust:level-history:none",
     fetchHistory,
   );
 
@@ -72,7 +74,7 @@ export function LevelHistoryDrawer({ level, onClose }: LevelHistoryDrawerProps) 
         aria-label={`${level.name} version history`}
         className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl"
       >
-        <header className="flex items-center justify-between border-b border-border-default px-6 py-4">
+        <header className="flex shrink-0 items-center justify-between border-b border-border-default px-6 py-4">
           <div className="flex items-center gap-2.5">
             <span className="flex size-9 items-center justify-center rounded-lg bg-primary-50 text-primary-700">
               <History className="size-5" />
@@ -149,8 +151,8 @@ export function LevelHistoryDrawer({ level, onClose }: LevelHistoryDrawerProps) 
 
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-secondary">
                         <span>
-                          Level name: <strong className="text-text-primary">{item.name}</strong> (Rank{" "}
-                          {item.rank})
+                          Level name: <strong className="text-text-primary">{item.name}</strong>{" "}
+                          (Rank {item.rank})
                         </span>
                         <span className="inline-flex items-center gap-1">
                           <Users className="size-3.5" />

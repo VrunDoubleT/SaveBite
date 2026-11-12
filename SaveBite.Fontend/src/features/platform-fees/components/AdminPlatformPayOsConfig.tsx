@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { SecretInput } from "@/shared/components/ui/SecretInput";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Clock3, KeyRound, RefreshCw, Save, ShieldCheck } from "lucide-react";
@@ -75,7 +76,10 @@ export function AdminPlatformPayOsConfig() {
         const changes = await platformFeeApi.getPayOsConfigHistory();
         setHistory(changes);
       } catch (error) {
-        toast.error(getApiErrorMessage(error) || "Settings were saved, but change history could not be loaded.");
+        toast.error(
+          getApiErrorMessage(error) ||
+            "Settings were saved, but change history could not be loaded.",
+        );
       }
     } catch (error) {
       toast.error(getApiErrorMessage(error) || "Unable to update PayOS settings.");
@@ -96,8 +100,10 @@ export function AdminPlatformPayOsConfig() {
           <div>
             <h2 className="text-lg font-bold text-slate-900">Payment credentials</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
-              Manage the PayOS credentials used to create platform-fee payment links and verify webhooks.
-              Saving verifies the keys with a temporary payment link that is immediately cancelled. No payment is made. Verified settings restore paused statements with a new 7-day deadline.
+              Manage the PayOS credentials used to create platform-fee payment links and verify
+              webhooks. Saving verifies the keys with a temporary payment link that is immediately
+              cancelled. No payment is made. Verified settings restore paused statements with a new
+              7-day deadline.
             </p>
           </div>
         </div>
@@ -115,117 +121,148 @@ export function AdminPlatformPayOsConfig() {
         </button>
       </div>
 
-      <div
-        className={`mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border px-4 py-3 text-sm ${
-          configured
-            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-            : "border-amber-200 bg-amber-50 text-amber-950"
-        }`}
-        role="status"
-      >
-        <span className="inline-flex items-center gap-2 font-semibold">
-          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-          {configured ? "PayOS is ready" : "PayOS verification required — fee deadlines are paused"}
-        </span>
-        {config?.maskedClientId && (
-          <span className="font-mono text-slate-700">Client ID: {config.maskedClientId}</span>
-        )}
-        {config?.updatedAt && (
-          <span className="text-slate-700">
-            Updated {config.updatedByName ? `by ${config.updatedByName} ` : ""}
-            on {formatDate(config.updatedAt)}
-          </span>
-        )}
-      </div>
-
-      <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block text-sm font-semibold text-slate-800">
-            Client ID
-            <input
-              className={inputClassName}
-              autoComplete="off"
-              value={clientId}
-              onChange={(event) => setClientId(event.target.value)}
-              placeholder={config?.hasClientId ? "Enter a new value to replace it" : "Enter your PayOS Client ID"}
-            />
-            <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
-              {config?.hasClientId ? `Current value: ${config.maskedClientId}` : "Required if no value is configured."}
-            </span>
-          </label>
-          <label className="block text-sm font-semibold text-slate-800">
-            API Key
-            <SecretInput
-              className={inputClassName}
-              secretLabel="API Key"
-              autoComplete="new-password"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              placeholder={config?.hasApiKey ? "Leave blank to keep the current key" : "Enter your PayOS API Key"}
-            />
-            <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
-              Secret values cannot be viewed after saving. Leave blank to keep the current key.
-            </span>
-          </label>
-          <label className="block text-sm font-semibold text-slate-800">
-            Checksum Key
-            <SecretInput
-              className={inputClassName}
-              secretLabel="Checksum Key"
-              autoComplete="new-password"
-              value={checksumKey}
-              onChange={(event) => setChecksumKey(event.target.value)}
-              placeholder={config?.hasChecksumKey ? "Leave blank to keep the current key" : "Enter your PayOS checksum key"}
-            />
-            <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
-              Used to verify PayOS responses and payment webhooks.
-            </span>
-          </label>
-        </div>
-        <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="max-w-2xl text-xs leading-5 text-slate-500">
-            Every change is recorded in the change history and audit log. History stores a masked Client ID and
-            changed field names only; API and checksum keys are never stored there.
-          </p>
-          <button
-            type="submit"
-            disabled={loading || saving}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      {loading ? (
+        <LoadingSkeleton
+          variant="form"
+          rows={4}
+          label="Loading payment credentials"
+          className="mt-5"
+        />
+      ) : (
+        <>
+          <div
+            className={`mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border px-4 py-3 text-sm ${
+              configured
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-amber-200 bg-amber-50 text-amber-950"
+            }`}
+            role="status"
           >
-            <Save className="h-4 w-4" aria-hidden="true" />
-            {saving ? "Verifying and saving..." : "Verify and save PayOS settings"}
-          </button>
-        </div>
-      </form>
+            <span className="inline-flex items-center gap-2 font-semibold">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              {configured
+                ? "PayOS is ready"
+                : "PayOS verification required — fee deadlines are paused"}
+            </span>
+            {config?.maskedClientId && (
+              <span className="font-mono text-slate-700">Client ID: {config.maskedClientId}</span>
+            )}
+            {config?.updatedAt && (
+              <span className="text-slate-700">
+                Updated {config.updatedByName ? `by ${config.updatedByName} ` : ""}
+                on {formatDate(config.updatedAt)}
+              </span>
+            )}
+          </div>
 
-      <div className="mt-7 border-t border-slate-100 pt-5">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-          <Clock3 className="h-4 w-4 text-slate-500" aria-hidden="true" />
-          Recent changes
-        </h3>
-        {history.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">No configuration changes yet.</p>
-        ) : (
-          <ol className="mt-3 divide-y divide-slate-100">
-            {history.map((item) => (
-              <li key={item.id} className="flex flex-col gap-2 py-3 text-sm sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="font-semibold text-slate-800">{item.changedByName}</p>
-                  <p className="mt-1 text-slate-600">
-                    {item.changedFields.map((field) => fieldLabels[field] ?? field).join(", ")}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Client ID: {item.previousMaskedClientId ?? "—"} → {item.maskedClientId}
-                  </p>
-                </div>
-                <time className="shrink-0 text-xs text-slate-500" dateTime={item.changedAt}>
-                  {formatDate(item.changedAt)}
-                </time>
-              </li>
-            ))}
-          </ol>
-        )}
-      </div>
+          <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block text-sm font-semibold text-slate-800">
+                Client ID
+                <input
+                  className={inputClassName}
+                  autoComplete="off"
+                  value={clientId}
+                  onChange={(event) => setClientId(event.target.value)}
+                  placeholder={
+                    config?.hasClientId
+                      ? "Enter a new value to replace it"
+                      : "Enter your PayOS Client ID"
+                  }
+                />
+                <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
+                  {config?.hasClientId
+                    ? `Current value: ${config.maskedClientId}`
+                    : "Required if no value is configured."}
+                </span>
+              </label>
+              <label className="block text-sm font-semibold text-slate-800">
+                API Key
+                <SecretInput
+                  className={inputClassName}
+                  secretLabel="API Key"
+                  autoComplete="new-password"
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value)}
+                  placeholder={
+                    config?.hasApiKey
+                      ? "Leave blank to keep the current key"
+                      : "Enter your PayOS API Key"
+                  }
+                />
+                <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
+                  Secret values cannot be viewed after saving. Leave blank to keep the current key.
+                </span>
+              </label>
+              <label className="block text-sm font-semibold text-slate-800">
+                Checksum Key
+                <SecretInput
+                  className={inputClassName}
+                  secretLabel="Checksum Key"
+                  autoComplete="new-password"
+                  value={checksumKey}
+                  onChange={(event) => setChecksumKey(event.target.value)}
+                  placeholder={
+                    config?.hasChecksumKey
+                      ? "Leave blank to keep the current key"
+                      : "Enter your PayOS checksum key"
+                  }
+                />
+                <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
+                  Used to verify PayOS responses and payment webhooks.
+                </span>
+              </label>
+            </div>
+            <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="max-w-2xl text-xs leading-5 text-slate-500">
+                Every change is recorded in the change history and audit log. History stores a
+                masked Client ID and changed field names only; API and checksum keys are never
+                stored there.
+              </p>
+              <button
+                type="submit"
+                disabled={loading || saving}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-xs transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Save className="h-4 w-4" aria-hidden="true" />
+                {saving ? "Verifying and saving..." : "Verify and save PayOS settings"}
+              </button>
+            </div>
+          </form>
+
+          <div className="mt-7 border-t border-slate-100 pt-5">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <Clock3 className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              Recent changes
+            </h3>
+            {history.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">No configuration changes yet.</p>
+            ) : (
+              <ol className="mt-3 divide-y divide-slate-100">
+                {history.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-col gap-2 py-3 text-sm sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-800">{item.changedByName}</p>
+                      <p className="mt-1 text-slate-600">
+                        {item.changedFields.map((field) => fieldLabels[field] ?? field).join(", ")}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Client ID: {item.previousMaskedClientId ?? "—"} → {item.maskedClientId}
+                      </p>
+                    </div>
+                    <time className="shrink-0 text-xs text-slate-500" dateTime={item.changedAt}>
+                      {formatDate(item.changedAt)}
+                    </time>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </>
+      )}
     </section>
   );
 }

@@ -191,9 +191,7 @@ public sealed record TrustScoreRuleResponse(
     Guid Id,
     int ScoreDelta,
     string Kind,
-    DateTime EffectiveFrom,
-    DateTime? EffectiveTo,
-    bool IsCurrent,
     string? CreatedByName,
     DateTime CreatedAt,
-    string RuleType = "OnlineOrderCompleted");
+    string RuleType = "OnlineOrderCompleted",
+    bool IsActive = true);

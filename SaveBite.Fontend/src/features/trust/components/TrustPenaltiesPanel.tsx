@@ -9,9 +9,10 @@ import { formatCurrency, formatDateTime } from "../utils/format";
 import { Badge, Button, Card, FilterBar } from "@/shared/components/ui";
 import { APP_PATHS } from "@/app/router/paths";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
+import { CurrentPenaltyPolicy } from "./CurrentPenaltyPolicy";
 import { PenaltyRecoveryModal } from "./PenaltyRecoveryModal";
 
-const STATUS_FILTERS = ["Recovering", "Recovered"] as const;
+const STATUS_FILTERS = ["Recovering", "Recovered", "Superseded"] as const;
 const STATUS_OPTIONS = STATUS_FILTERS.map((value) => ({ value, label: value }));
 
 // UC-48 (history) and UC-49 (recovery progress of one penalty).
@@ -47,6 +48,18 @@ export function TrustPenaltiesPanel() {
 
   return (
     <section className="space-y-4">
+      <details className="rounded-lg border border-border-default bg-white p-4">
+        <summary className="cursor-pointer font-semibold text-primary-700">
+          View penalty policy
+        </summary>
+        <div className="mt-4">
+          <CurrentPenaltyPolicy />
+        </div>
+      </details>
+      <p className="text-sm text-text-secondary">
+        A new no-show replaces unfinished recovery and starts a new recovery target from zero.
+        Recovery orders do not earn points or level progress. Deducted points are not refunded.
+      </p>
       <FilterBar
         filters={[
           {
@@ -86,7 +99,9 @@ export function TrustPenaltiesPanel() {
                     </p>
                   </div>
                   <Badge tone={penalty.status === "Recovered" ? "primary" : "warning"}>
-                    {penalty.status}
+                    {penalty.status === "Superseded"
+                      ? "Replaced by a later penalty"
+                      : penalty.status}
                   </Badge>
                 </div>
                 {penalty.reason && (
@@ -123,6 +138,12 @@ export function TrustPenaltiesPanel() {
                     </dd>
                   </div>
                 </dl>
+                {penalty.status === "Superseded" && (
+                  <p className="text-sm text-text-secondary">
+                    Historical progress is retained. Complete the latest penalty’s recovery
+                    requirements instead.
+                  </p>
+                )}
                 {penalty.permanentOfflineLock && (
                   <p className="rounded-md bg-danger-soft p-3 text-caption text-danger-strong">
                     Pay at shop is permanently unavailable for this account.

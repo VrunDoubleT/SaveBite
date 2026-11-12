@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useRef, useState } from "react";
 import {
   Bell,
@@ -31,8 +32,6 @@ function formatRelativeTime(isoDate: string): string {
   if (days < 30) return `${days}d ago`;
   return date.toLocaleDateString("en-US");
 }
-
-
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -155,7 +154,11 @@ export function NotificationBell() {
                   className="flex items-center gap-0.5 text-[11px] text-neutral-300 transition-colors hover:text-white"
                 >
                   {expandStack ? "Stack" : "Expand"}
-                  {expandStack ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                  {expandStack ? (
+                    <ChevronUp className="size-3" />
+                  ) : (
+                    <ChevronDown className="size-3" />
+                  )}
                 </button>
                 <button
                   type="button"
@@ -366,9 +369,11 @@ export function NotificationBell() {
           {/* Notification Items List - Uniform height, balanced card layout */}
           <div className="flex-1 divide-y divide-neutral-100 overflow-y-auto bg-neutral-50/50">
             {isLoading && items.length === 0 ? (
-              <div className="flex min-h-[140px] items-center justify-center p-6 text-center text-xs text-text-secondary">
-                Loading notifications...
-              </div>
+              <LoadingSkeleton
+                variant="notifications"
+                label="Loading notifications"
+                className="p-3"
+              />
             ) : items.length === 0 ? (
               <div className="flex min-h-[180px] flex-col items-center justify-center p-6 text-center">
                 <Inbox className="size-9 text-neutral-300" aria-hidden="true" />

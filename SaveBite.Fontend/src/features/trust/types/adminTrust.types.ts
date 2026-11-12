@@ -68,9 +68,7 @@ export interface TrustScoreRule {
   ruleType: "OnlineOrderCompleted" | "PayAtShopOrderCompleted" | "NoShow";
   scoreDelta: number;
   kind: TrustScoreRuleKind;
-  effectiveFrom: string;
-  effectiveTo?: string | null;
-  isCurrent: boolean;
+  isActive: boolean;
   createdByName?: string | null;
   createdAt: string;
 }
@@ -137,6 +135,5 @@ export interface UpdatePenaltyRulePayload {
 
 export interface UpdateScoreRulePayload {
   scoreDelta: number;
-  /** ISO string. Omit to start the new version immediately. */
-  effectiveFrom?: string;
+  isActive: boolean;
 }

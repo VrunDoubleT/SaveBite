@@ -30,6 +30,10 @@ public class RecoveryRequirementRuleConfiguration
                 "\"effective_to\" > \"effective_from\"");
         });
 
+        builder.Property(x => x.StartJobId).HasColumnName("start_job_id").HasMaxLength(100);
+        builder.Property(x => x.EndJobId).HasColumnName("end_job_id").HasMaxLength(100);
+        builder.Property(x => x.StartProcessedAt).HasColumnName("start_processed_at");
+        builder.Property(x => x.EndProcessedAt).HasColumnName("end_processed_at");
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)
