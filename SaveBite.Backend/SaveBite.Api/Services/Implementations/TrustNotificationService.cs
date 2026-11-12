@@ -16,18 +16,18 @@ public sealed class TrustNotificationService(ITrustNotificationRepository reposi
                 NotificationType.TrustScoreChanged,
                 NotificationMessages.TrustAndPenalties.TrustScoreUpdatedTitle,
                 NotificationMessages.TrustAndPenalties.TrustScoreUpdatedBody(change.ScoreBefore, change.ScoreAfter, change.Reason),
-                "/account/trust-score", $"trust-score:{change.Id}"), ct);
+                NotificationActionUrls.CustomerTrustScore(), $"trust-score:{change.Id}"), ct);
         foreach (var penalty in await repository.PenaltiesAsync(orderId, ct))
             await notifications.EnqueueAsync(NotificationTarget.User(penalty.UserId), new CreateNotificationCommand(
                 NotificationType.NoShowPenaltyCreated,
                 NotificationMessages.TrustAndPenalties.MissedPickupPenaltyTitle,
                 NotificationMessages.TrustAndPenalties.MissedPickupPenaltyBody(penalty.ScoreDeducted),
-                "/account/trust-score", $"trust-penalty:{penalty.Id}"), ct);
+                NotificationActionUrls.CustomerTrustScore(), $"trust-penalty:{penalty.Id}"), ct);
         foreach (var level in (await repository.LevelChangesAsync(orderId, ct)).Where(h => h.PreviousTrustLevelId != null))
             await notifications.EnqueueAsync(NotificationTarget.User(level.UserId), new CreateNotificationCommand(
                 NotificationType.TrustLevelChanged,
                 NotificationMessages.TrustAndPenalties.TrustLevelUpdatedTitle,
                 NotificationMessages.TrustAndPenalties.TrustLevelUpdatedBody(level.NewTrustLevel.Name),
-                "/account/trust-score", $"trust-level:{level.Id}"), ct);
+                NotificationActionUrls.CustomerTrustScore(), $"trust-level:{level.Id}"), ct);
     }
 }

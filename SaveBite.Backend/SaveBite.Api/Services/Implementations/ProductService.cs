@@ -493,7 +493,7 @@ public sealed class ProductService : IProductService
             await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
                 NotificationType.ProductContentApproved, NotificationMessages.DealsAndProducts.ProductContentApprovedTitle,
                 NotificationMessages.DealsAndProducts.ProductContentApprovedBody(product.Name),
-                $"/store-owner/products/{productId}", $"product:{productId}:revision:{revisionId}:approved"), ct);
+                NotificationActionUrls.StoreOwnerProduct(productId), $"product:{productId}:revision:{revisionId}:approved"), ct);
             return new ModerationActionResponse { TargetId = productId, Action = "PRODUCT_CONTENT_APPROVED", Message = "Current content revision approved." };
 
         }, ct);
@@ -699,7 +699,7 @@ public sealed class ProductService : IProductService
             await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
                 NotificationType.ProductRemoved, NotificationMessages.DealsAndProducts.ProductRemovedViolationTitle,
                 NotificationMessages.DealsAndProducts.ProductRemovedViolationBody(product.Name, reason),
-                "/store-owner/products", $"product-removed:{auditEntry.Id}"), ct);
+                NotificationActionUrls.StoreOwnerProducts(), $"product-removed:{auditEntry.Id}"), ct);
 
             return new ModerationActionResponse
             {

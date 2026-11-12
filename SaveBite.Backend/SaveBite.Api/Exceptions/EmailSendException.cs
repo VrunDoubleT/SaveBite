@@ -1,4 +1,4 @@
-namespace SaveBite.Backend.Services.Implementations;
+namespace SaveBite.Backend.Exceptions;
 
 public sealed class EmailSendException(string message, bool mayHaveBeenSent, Exception inner) : Exception(message, inner)
 {

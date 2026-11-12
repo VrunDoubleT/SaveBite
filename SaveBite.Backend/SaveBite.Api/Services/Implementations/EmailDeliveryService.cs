@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
+using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Messaging.Events;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Services.Interfaces;

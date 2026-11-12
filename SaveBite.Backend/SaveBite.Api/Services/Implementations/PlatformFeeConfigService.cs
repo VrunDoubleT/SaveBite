@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.DTOs;
@@ -156,7 +157,7 @@ public sealed class PlatformFeeConfigService(AppDbContext db, TimeProvider clock
                 NotificationType.PlatformFeeScheduleActivated, "Platform fee schedule is effective",
                 $"Schedule {current.Id} became effective at {when}. Fee: {from} → {to}. "
                     + (changed ? "The commission rate changed." : "The commission rate is unchanged."),
-                "/admin/platform-fees", $"fee-schedule:{current.Id}:activated:admin"), ct);
+                NotificationActionUrls.AdminPlatformFees(), $"fee-schedule:{current.Id}:activated:admin"), ct);
             if (changed)
             {
                 // A catch-up run targets owners whose shops existed at this effective time.
@@ -167,7 +168,7 @@ public sealed class PlatformFeeConfigService(AppDbContext db, TimeProvider clock
                         NotificationType.PlatformFeeRateChanged, "Platform commission rate changed",
                         $"The platform commission changed from {from} to {to}, effective {when}. "
                             + "Orders completed from that time use this rate until the next fee schedule. Fees already recorded on earlier orders remain unchanged.",
-                        "/store-owner/platform-fees", $"fee-schedule:{current.Id}:rate-changed"), ct);
+                        NotificationActionUrls.StoreOwnerPlatformFees(), $"fee-schedule:{current.Id}:rate-changed"), ct);
             }
             current.ActivationProcessedAt = now;
         }

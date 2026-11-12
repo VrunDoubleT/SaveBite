@@ -164,7 +164,7 @@ public sealed class TrustReconciliationService : ITrustReconciliationService
                         NotificationType.TrustLevelChanged,
                         NotificationMessages.TrustAndPenalties.TrustLevelUpdatedTitle,
                         NotificationMessages.TrustAndPenalties.TrustLevelUpdatedFromConfigBody(item.LevelName),
-                        "/account/trust-score",
+                        NotificationActionUrls.CustomerTrustScore(),
                         $"trust-level:{item.HistoryId}"),
                     cancellationToken);
 

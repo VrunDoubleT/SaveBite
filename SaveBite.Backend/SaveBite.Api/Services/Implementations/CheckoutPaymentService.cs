@@ -389,7 +389,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                     NotificationType.PaymentFailed,
                     NotificationMessages.Payments.ShopPaymentConfigInvalidTitle,
                     NotificationMessages.Payments.ShopPaymentConfigInvalidBody,
-                    "/store-owner/payment-settings",
+                    NotificationActionUrls.StoreOwnerPaymentSettings(),
                     $"shop-payment-config-invalid:{order.ShopId}:{revision}"), ct);
             throw;
         }

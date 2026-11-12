@@ -10,6 +10,6 @@ public static class RefundNotificationCommands
         => new(NotificationType.RefundDestinationRequired,
             NotificationMessages.Refunds.DestinationRequiredTitle,
             NotificationMessages.Refunds.DestinationRequiredBody(orderCode, deadlineUtc),
-            $"/account/refunds/{refundId}",
+            NotificationActionUrls.CustomerRefund(refundId),
             $"refund:{refundId}:destination-required:customer");
 }

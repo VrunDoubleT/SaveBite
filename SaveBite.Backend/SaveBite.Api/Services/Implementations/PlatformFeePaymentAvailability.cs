@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Configurations;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Models.DTOs;
@@ -43,13 +44,13 @@ public sealed class PlatformFeePaymentAvailability(AppDbContext db, IConfigurati
         await notifications.EnqueueAsync(NotificationTarget.ShopOwner(statement.ShopId), new(
             NotificationType.PaymentFailed, "Platform fee payment temporarily unavailable",
             "Your statement is available, but payment is temporarily unavailable due to the platform's payment configuration. The payment deadline is paused. You will receive a new 7-day deadline when payment is restored.",
-            $"/store-owner/platform-fees/{statement.Id}",
+            NotificationActionUrls.StoreOwnerPlatformFee(statement.Id),
             $"platform-fee:{statement.Id}:paused:{statement.PaymentPausedAt?.Ticks / 10 ?? 0}"), ct);
         var revision = await db.PlatformPayOsConfigs.Select(c => (long?)c.Revision).SingleOrDefaultAsync(ct) ?? 0;
         await notifications.EnqueueAsync(NotificationTarget.Admins(), new(
             NotificationType.PaymentFailed, "Action required: platform payOS configuration",
             "Platform fee payments are paused because payOS credentials are missing, unverified or rejected. Verify and save the platform payOS configuration to restore payment deadlines.",
-            "/admin/platform-fees", $"platform-fee-config-unavailable:{revision}"), ct);
+            NotificationActionUrls.AdminPlatformFees(), $"platform-fee-config-unavailable:{revision}"), ct);
     }
 
     public async Task PauseOutstandingAsync(string reason, CancellationToken ct)
@@ -105,7 +106,7 @@ public sealed class PlatformFeePaymentAvailability(AppDbContext db, IConfigurati
             await notifications.EnqueueAsync(NotificationTarget.ShopOwner(statement.ShopId), new(
                 NotificationType.PlatformFeeStatementIssued, "Platform fee payment is now available",
                 $"You can now pay your platform fee statement. Your new payment deadline is {statement.DueAt:yyyy-MM-dd HH:mm} UTC (7 days from restoration).",
-                $"/store-owner/platform-fees/{statement.Id}", $"platform-fee:{statement.Id}:resumed:{revision}"), ct);
+                NotificationActionUrls.StoreOwnerPlatformFee(statement.Id), $"platform-fee:{statement.Id}:resumed:{revision}"), ct);
         }
         await db.SaveChangesAsync(ct);
         await ResolveFeeSuspensionsAsync(ct);

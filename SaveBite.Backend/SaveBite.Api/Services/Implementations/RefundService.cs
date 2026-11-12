@@ -387,7 +387,7 @@ public class RefundService : IRefundService
                 await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
                     NotificationType.ShopStatusChanged, NotificationMessages.Shop.ShopStatusUpdatedTitle,
                     shop.Status == ShopStatus.Suspended ? ShopSuspensionRules.Reason(shop)! : "All overdue mandatory refunds have been paid. Your shop has been reactivated.",
-                    "/store-owner/refunds?status=Overdue", $"shop-refunds:{shop.Id}:{shop.Status}:{id}"), ct);
+                    NotificationActionUrls.StoreOwnerRefunds("Overdue"), $"shop-refunds:{shop.Id}:{shop.Status}:{id}"), ct);
             }
             await _orders.SaveAsync(ct);
             await NotifyRefundAsync(id, ct);
@@ -423,16 +423,16 @@ public class RefundService : IRefundService
             await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.Shop.OwnerUserId), new CreateNotificationCommand(
                 NotificationType.RefundRequestCreated, NotificationMessages.Refunds.NewRefundRequestTitle,
                 NotificationMessages.Refunds.NewRefundRequestBody(refund.Order.Customer.FullName, refund.Order.OrderCode),
-                $"/store-owner/orders/{refund.OrderId}", $"refund:{id}:requested:owner"), ct);
+                NotificationActionUrls.StoreOwnerOrder(refund.OrderId), $"refund:{id}:requested:owner"), ct);
             return;
         }
         if (refund.Status == RefundStatus.Overdue)
         {
             var command = new CreateNotificationCommand(NotificationType.RefundOverdue, "Mandatory refund overdue",
-                RefundRules.MandatoryRefundOverdue, $"/account/refunds/{id}", $"refund:{id}:overdue:customer");
+                RefundRules.MandatoryRefundOverdue, NotificationActionUrls.CustomerRefund(id), $"refund:{id}:overdue:customer");
             await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.CustomerId), command, ct);
             await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.Shop.OwnerUserId), command with
-                { ActionUrl = $"/store-owner/refunds/{id}", DeduplicationKey = $"refund:{id}:overdue:owner" }, ct);
+                { ActionUrl = NotificationActionUrls.StoreOwnerRefund(id), DeduplicationKey = $"refund:{id}:overdue:owner" }, ct);
             return;
         }
         var type = refund.Status switch {
@@ -444,7 +444,7 @@ public class RefundService : IRefundService
         if (type == null) return;
         await _notifications.EnqueueAsync(NotificationTarget.User(refund.Order.CustomerId), new CreateNotificationCommand(
             type.Value, NotificationMessages.Refunds.RefundStatusUpdatedTitle, NotificationMessages.Refunds.RefundStatusUpdatedBody(refund.Order.OrderCode, refund.Status, refund.RejectReason),
-            $"/account/refunds/{id}", $"refund:{id}:{type}"), ct);
+            NotificationActionUrls.CustomerRefund(id), $"refund:{id}:{type}"), ct);
     }
     private async Task<Refund> LoadAsync(Guid id, bool tracked, CancellationToken ct)
     {

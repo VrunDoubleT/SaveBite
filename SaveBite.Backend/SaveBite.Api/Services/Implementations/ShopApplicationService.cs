@@ -518,7 +518,7 @@ public sealed class ShopApplicationService : IShopApplicationService
             await _notifications.EnqueueAsync(NotificationTarget.User(application.ApplicantUserId), new CreateNotificationCommand(
                 notificationType, NotificationMessages.ShopApplications.ApplicationReviewedTitle,
                 NotificationMessages.ShopApplications.ApplicationReviewedBody(application.Name, nextStatus, request.Note),
-                "/account/shop-application", $"shop-application:{application.Id}:revision:{application.RevisionNumber}:{nextStatus}"), cancellationToken);
+                NotificationActionUrls.CustomerShopApplication(), $"shop-application:{application.Id}:revision:{application.RevisionNumber}:{nextStatus}"), cancellationToken);
 
             return (Response: Map(application), application.ApplicantUserId, application.Id,
                 Status: nextStatus.ToString(), application.RevisionNumber);

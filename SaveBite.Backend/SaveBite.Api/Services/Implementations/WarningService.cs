@@ -166,7 +166,7 @@ public sealed class WarningService : IWarningService
             await _notifications.EnqueueAsync(NotificationTarget.User(product.Shop.OwnerUserId), new CreateNotificationCommand(
                 NotificationType.ProductNeedsRevision, NotificationMessages.DealsAndProducts.ProductCorrectionRequestedTitle,
                 NotificationMessages.DealsAndProducts.ProductCorrectionRequestedBody(product.Name, reason, requiredCorrection),
-                "/store-owner/warnings", $"product-warning:{warningId}"), ct);
+                NotificationActionUrls.StoreOwnerWarnings(), $"product-warning:{warningId}"), ct);
 
             return new ModerationActionResponse
             {

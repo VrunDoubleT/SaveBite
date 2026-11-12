@@ -45,6 +45,7 @@ public static class HangfireExtensions
         services.AddScoped<PenaltyRuleRecoveryJob>();
         services.AddScoped<BusinessEmailReminderJob>();
         services.AddScoped<PlatformFeeRecoveryJob>();
+        services.AddScoped<PlatformFeePaymentReconciliationJob>();
         services.AddScoped<PlatformFeeScheduleActivationJob>();
         services.AddScoped<PlatformFeeOverdueJob>();
         services.AddScoped<PlatformFeeMonthlyStatementJob>();
@@ -104,6 +105,8 @@ public static class HangfireExtensions
         recurring.AddOrUpdate<PlatformFeeScheduleActivationJob>("platform-fee-schedule-activation",
             job => job.ExecuteAsync(CancellationToken.None), "* * * * *");
         recurring.AddOrUpdate<PlatformFeeRecoveryJob>("platform-fee-recovery", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.PlatformFeeRecoveryCron);
+        recurring.AddOrUpdate<PlatformFeePaymentReconciliationJob>("platform-fee-payment-reconciliation",
+            job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.PlatformFeePaymentReconciliationCron);
         recurring.AddOrUpdate<UploadCleanupJob>("temporary-upload-cleanup", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.Jobs.UploadCleanupCron);
         recurring.RemoveIfExists("pickup-deadline-reminder-recovery");
         recurring.AddOrUpdate<PenaltyRuleRecoveryJob>("penalty-rule-schedule-recovery", job => job.ExecuteAsync(CancellationToken.None), "* * * * *");
@@ -119,6 +122,7 @@ public static class HangfireExtensions
         SafeSchedule.Try(() => jobs.Enqueue<OrderOutboxRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "outbox-startup", Guid.Empty);
         SafeSchedule.Try(() => jobs.Enqueue<PlatformFeeScheduleActivationJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "fee-schedule-startup", Guid.Empty);
         SafeSchedule.Try(() => jobs.Enqueue<PlatformFeeRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "fee-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<PlatformFeePaymentReconciliationJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "fee-payment-startup", Guid.Empty);
         var options = app.Services.GetRequiredService<IOptions<HangfireOptions>>().Value;
         if (app.Environment.IsDevelopment() && options.DashboardEnabled)
         {

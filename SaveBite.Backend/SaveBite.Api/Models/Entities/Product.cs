@@ -1,3 +1,5 @@
+using SaveBite.Backend.Models.Enums;
+
 namespace SaveBite.Backend.Models.Entities;
 
 public class Product

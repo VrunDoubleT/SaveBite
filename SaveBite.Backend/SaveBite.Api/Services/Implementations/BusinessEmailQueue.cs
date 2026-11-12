@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Messaging.Constants;
@@ -40,7 +41,7 @@ public sealed class BusinessEmailQueue(AppDbContext db, TimeProvider clock, ICon
     {
         var address = await db.Users.Where(u => u.Id == userId).Select(u => u.Email).SingleAsync(ct);
         await StageAsync($"email:permanent-offline-lock:{userId}", address, "SaveBite: pay at shop permanently restricted",
-            $"Repeated missed pickups have permanently disabled payment at the shop for your account. Full online payment is required. Completing recovery orders does not remove this permanent restriction. Penalty reference: {penaltyId}.\n{Link("/account/trust-score/penalties")}",
+            $"Repeated missed pickups have permanently disabled payment at the shop for your account. Full online payment is required. Completing recovery orders does not remove this permanent restriction. Penalty reference: {penaltyId}.\n{Link(NotificationActionUrls.CustomerTrustScorePenalties())}",
             "offline-locked", userId, null, null, ct);
     }
 

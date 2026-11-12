@@ -135,7 +135,7 @@ public class ShopStaffService(
            if (previousStatus != staff.Status)
                await notifications.EnqueueAsync(NotificationTarget.User(staff.UserId), new CreateNotificationCommand(
                    NotificationType.StaffStatusChanged, NotificationMessages.Staff.StaffStatusUpdatedTitle,
-                   NotificationMessages.Staff.StaffStatusUpdatedBody(shop.Name, staff.Status), "/account/workspace",
+                   NotificationMessages.Staff.StaffStatusUpdatedBody(shop.Name, staff.Status), NotificationActionUrls.StaffWorkspace(),
                    $"staff-status:{staff.Id}:{staff.Status}:{Guid.NewGuid()}"), cancellationToken);
 
            return (staff.UserId, StatusChanged: previousStatus != staff.Status, ShopId: shop.Id);
@@ -215,7 +215,7 @@ public class ShopStaffService(
             );
             await notifications.EnqueueAsync(NotificationTarget.User(staff.UserId), new CreateNotificationCommand(
                 NotificationType.StaffStatusChanged, NotificationMessages.Staff.StaffMembershipRemovedTitle,
-                NotificationMessages.Staff.StaffMembershipRemovedBody(shop.Name), "/account/workspace",
+                NotificationMessages.Staff.StaffMembershipRemovedBody(shop.Name), NotificationActionUrls.StaffWorkspace(),
                 $"staff-removed:{staff.Id}:{Guid.NewGuid()}"), cancellationToken);
 
             return staff.UserId;
@@ -521,7 +521,7 @@ public class ShopStaffService(
             );
             await notifications.EnqueueAsync(NotificationTarget.User(staff.Shop.OwnerUserId), new CreateNotificationCommand(
                 NotificationType.StaffLeftShop, NotificationMessages.Staff.StaffLeftShopTitle,
-                NotificationMessages.Staff.StaffLeftShopBody(staff.DisplayName, staff.Shop.Name), "/store-owner/staff",
+                NotificationMessages.Staff.StaffLeftShopBody(staff.DisplayName, staff.Shop.Name), NotificationActionUrls.StoreOwnerStaff(),
                 $"staff-left:{staff.Id}:{Guid.NewGuid()}"), cancellationToken);
 
             return staff.Shop.OwnerUserId;

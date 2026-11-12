@@ -649,7 +649,7 @@ public sealed class ShopService : IShopService
             await _notifications.EnqueueAsync(NotificationTarget.User(shop.OwnerUserId), new CreateNotificationCommand(
                 NotificationType.ShopStatusChanged, NotificationMessages.Shop.ShopStatusUpdatedTitle,
                 NotificationMessages.Shop.ShopStatusUpdatedBody(shop.Name, currentStatus, targetStatus, reason),
-                "/store-owner/profile", $"shop-status:{auditEntry.Id}"), ct);
+                NotificationActionUrls.StoreOwnerProfile(), $"shop-status:{auditEntry.Id}"), ct);
         }
         await transaction.CommitAsync(ct);
 

@@ -249,7 +249,7 @@ public sealed class UserService : IUserService
                 var kind = request.IsCustomerProfile ? "customer-suspended" : "account-suspended";
                 await _emails.StageAsync($"email:{kind}:{targetUserId}:{now.Ticks}", user.Email,
                     request.IsCustomerProfile ? "SaveBite: customer access suspended" : "SaveBite: account suspended",
-                    $"{(request.IsCustomerProfile ? "Your customer features have been suspended." : "Your account has been suspended.")} Reason: {request.Reason}\n{_emails.Link("/login")}",
+                    $"{(request.IsCustomerProfile ? "Your customer features have been suspended." : "Your account has been suspended.")} Reason: {request.Reason}\n{_emails.Link(NotificationActionUrls.Login())}",
                     kind, targetUserId, null, null, cancellationToken);
             }
             await _repository.SaveChangesAsync(cancellationToken);
@@ -262,7 +262,7 @@ public sealed class UserService : IUserService
                 request.IsCustomerProfile
                     ? NotificationMessages.Accounts.CustomerAccessUpdatedBody(request.IsSuspended, request.Reason)
                     : NotificationMessages.Accounts.AccountAccessUpdatedBody(request.IsSuspended, request.Reason),
-                "/account/profile", $"account-status:{targetUserId}:{now.Ticks}"), cancellationToken);
+                NotificationActionUrls.CustomerProfile(), $"account-status:{targetUserId}:{now.Ticks}"), cancellationToken);
 
         }, cancellationToken);
 

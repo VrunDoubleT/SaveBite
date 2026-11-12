@@ -54,6 +54,11 @@ public interface IPlatformFeeStatementService
         JsonElement body,
         CancellationToken ct = default);
 
+    // Reconcile a pending platform fee payment against PayOS (BR-097, BR-167, BR-195)
+    Task ReconcilePendingPaymentAsync(
+        Guid paymentId,
+        CancellationToken ct = default);
+
     // BR-093: Accrue platform fee on completed order revenue
     Task AccrueOrderPlatformFeeAsync(
         Guid orderId,

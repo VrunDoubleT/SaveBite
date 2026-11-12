@@ -121,14 +121,14 @@ public sealed class FeedbackService : IFeedbackService
                 await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
                     NotificationType.FeedbackRemovedByAdmin, NotificationMessages.Feedback.ReviewRemovedByAdminTitle,
                     NotificationMessages.Feedback.ReviewRemovedByAdminBody(productName, cleanReason),
-                    "/account/reviews", $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
+                    NotificationActionUrls.CustomerReviews(), $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
             }
             else
             {
                 await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
                     NotificationType.FeedbackReceived, NotificationMessages.Feedback.ReviewRestoredByAdminTitle,
                     NotificationMessages.Feedback.ReviewRestoredByAdminBody(productName),
-                    "/account/reviews", $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
+                    NotificationActionUrls.CustomerReviews(), $"feedback:{feedbackId}:moderation:{moderationId}"), ct);
             }
 
             var shopId = feedback.Product?.ShopId;
@@ -239,10 +239,10 @@ public sealed class FeedbackService : IFeedbackService
             var body = NotificationMessages.Feedback.NewCustomerReviewBody(created.User.FullName, created.Rating, created.OrderItem.ProductNameSnapshot);
             await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(shopId), new CreateNotificationCommand(
                 NotificationType.FeedbackReceived, NotificationMessages.Feedback.NewCustomerReviewTitle, body,
-                "/store-owner/reviews", $"feedback:{created.Id}:created:owner"), ct);
+                NotificationActionUrls.StoreOwnerReviews(), $"feedback:{created.Id}:created:owner"), ct);
             await _notifications.EnqueueAsync(NotificationTarget.ShopStaff(shopId), new CreateNotificationCommand(
                 NotificationType.FeedbackReceived, NotificationMessages.Feedback.NewCustomerReviewTitle, body,
-                $"/staff/shops/{shopId}/reviews", $"feedback:{created.Id}:created:staff"), ct);
+                NotificationActionUrls.ShopStaffReviews(shopId), $"feedback:{created.Id}:created:staff"), ct);
 
             return MapToResponse(created);
 
@@ -328,10 +328,10 @@ public sealed class FeedbackService : IFeedbackService
                 var body = NotificationMessages.Feedback.ReviewUpdatedLowRatingBody(customerName, request.Rating, productName);
                 await _notifications.EnqueueAsync(NotificationTarget.ShopOwner(shopId.Value), new CreateNotificationCommand(
                     NotificationType.FeedbackReceived, NotificationMessages.Feedback.ReviewUpdatedLowRatingTitle, body,
-                    "/store-owner/reviews", $"feedback:{feedback.Id}:edited:owner:{now.Ticks}"), ct);
+                    NotificationActionUrls.StoreOwnerReviews(), $"feedback:{feedback.Id}:edited:owner:{now.Ticks}"), ct);
                 await _notifications.EnqueueAsync(NotificationTarget.ShopStaff(shopId.Value), new CreateNotificationCommand(
                     NotificationType.FeedbackReceived, NotificationMessages.Feedback.ReviewUpdatedLowRatingTitle, body,
-                    $"/staff/shops/{shopId.Value}/reviews", $"feedback:{feedback.Id}:edited:staff:{now.Ticks}"), ct);
+                    NotificationActionUrls.ShopStaffReviews(shopId.Value), $"feedback:{feedback.Id}:edited:staff:{now.Ticks}"), ct);
             }
 
             return MapToResponse(feedback);
@@ -392,7 +392,7 @@ public sealed class FeedbackService : IFeedbackService
             await _notifications.EnqueueAsync(NotificationTarget.User(feedback.UserId), new CreateNotificationCommand(
                 NotificationType.FeedbackReplied, NotificationMessages.Feedback.ReviewRepliedTitle,
                 NotificationMessages.Feedback.ReviewRepliedBody(PurchaseSnapshots.ShopName(feedback.OrderItem.Order), feedback.OrderItem.ProductNameSnapshot),
-                $"/account/reviews?feedbackId={feedbackId}", $"feedback:{feedbackId}:reply:{created.Id}"), ct);
+                NotificationActionUrls.CustomerReviews(feedbackId), $"feedback:{feedbackId}:reply:{created.Id}"), ct);
 
             return new FeedbackResponses.FeedbackReplyResponse(
                 created.Id,
@@ -515,7 +515,7 @@ public sealed class FeedbackService : IFeedbackService
                 var shopId = feedback?.OrderItem?.Order?.ShopId ?? feedback?.Product?.ShopId;
                 var now = DateTime.UtcNow;
                 var ownerName = user?.FullName ?? "The store owner";
-                var url = shopId.HasValue ? $"/staff/shops/{shopId.Value}/reviews" : "/staff/reviews";
+                var url = NotificationActionUrls.ShopStaffReviews(shopId);
                 await _notifications.EnqueueAsync(NotificationTarget.User(repliedStaffId), new CreateNotificationCommand(
                     NotificationType.FeedbackReceived,
                     NotificationMessages.Feedback.FeedbackReplyRemovedTitle,

@@ -3,6 +3,7 @@ using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
 using SaveBite.Backend.Configurations;
+using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Messaging.Configuration;
 using SaveBite.Backend.Messaging.Interfaces;
 using SaveBite.Backend.Services.Interfaces;

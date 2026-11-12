@@ -9,8 +9,8 @@ namespace SaveBite.Backend.Services.Implementations;
 // Publishes through NotificationQueue immediately; no Hangfire notification dispatch.
 public sealed class StaffInvitationNotificationService(IStaffInvitationRepository repository, INotificationQueue notifications)
 {
-    public const string CustomerUrl = "/account/staff-invitations";
-    public const string OwnerUrl = "/store-owner/staff/invitations";
+    public static readonly string CustomerUrl = NotificationActionUrls.CustomerStaffInvitations();
+    public static readonly string OwnerUrl = NotificationActionUrls.StoreOwnerStaffInvitations();
 
     public async Task NotifyAsync(Guid invitationId, StaffInvitationStatus status, CancellationToken ct)
     {

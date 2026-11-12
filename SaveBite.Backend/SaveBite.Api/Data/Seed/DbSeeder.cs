@@ -1392,7 +1392,7 @@ public static class DbSeeder
                 Type = NotificationType.OrderCompleted,
                 Title = NotificationMessages.Orders.OrderCompletedTitle,
                 Body = "Order SB-SEED-0001 has been completed. Feel free to leave a review.",
-                ActionUrl = $"/orders/{Id(50)}",
+                ActionUrl = NotificationActionUrls.CustomerOrder(Id(50)),
                 DeduplicationKey = "seed-order-completed-0001",
                 ReadAt = now.AddDays(-9),
                 CreatedAt = now.AddDays(-10).AddMinutes(28)
@@ -1404,7 +1404,7 @@ public static class DbSeeder
                 Type = NotificationType.RefundRequestCreated,
                 Title = NotificationMessages.Refunds.NewRefundRequestTitle,
                 Body = "A customer requested a refund for order SB-SEED-0001.",
-                ActionUrl = $"/shops/orders/{Id(50)}/refund",
+                ActionUrl = NotificationActionUrls.StoreOwnerOrder(Id(50)),
                 DeduplicationKey = "seed-refund-created-0001",
                 CreatedAt = now.AddDays(-9)
             });
@@ -1593,7 +1593,7 @@ public static class DbSeeder
                 Type = NotificationType.ShopApplicationApproved,
                 Title = NotificationMessages.ShopApplications.ApplicationReviewedTitle,
                 Body = "The shop application for Quan Nho Thu Ha has been approved.",
-                ActionUrl = $"/shops/{Id(127)}",
+                ActionUrl = NotificationActionUrls.Shop(Id(127)),
                 DeduplicationKey = "seed-shop-approved-0002",
                 ReadAt = now.AddDays(-14),
                 DismissedAt = now.AddDays(-13),
@@ -1606,7 +1606,7 @@ public static class DbSeeder
                 Type = NotificationType.StaffInvitationAccepted,
                 Title = NotificationMessages.Staff.StaffJoinedShopTitle,
                 Body = "You have joined Bep Xanh Cuoi Ngay as a staff member.",
-                ActionUrl = $"/shops/{Id(22)}",
+                ActionUrl = NotificationActionUrls.Shop(Id(22)),
                 DeduplicationKey = "seed-staff-accepted-0001",
                 ReadAt = now.AddMonths(-1),
                 CreatedAt = now.AddMonths(-1)
@@ -1999,7 +1999,7 @@ public static class DbSeeder
                 Type = NotificationType.PaymentSucceeded,
                 Title = NotificationMessages.Payments.PaymentSucceededTitle,
                 Body = "Payment for order SB-SEED-0003 was successful.",
-                ActionUrl = $"/orders/{Id(52)}",
+                ActionUrl = NotificationActionUrls.CustomerOrder(Id(52)),
                 DeduplicationKey = "seed-payment-success-0003",
                 ReadAt = now.AddDays(-2),
                 CreatedAt = now.AddDays(-3)
@@ -2011,7 +2011,7 @@ public static class DbSeeder
                 Type = NotificationType.NoShowPenaltyCreated,
                 Title = NotificationMessages.TrustAndPenalties.MissedPickupPenaltyTitle,
                 Body = "Your account was restricted due to a missed pickup on order SB-SEED-0002.",
-                ActionUrl = "/account/trust-score",
+                ActionUrl = NotificationActionUrls.CustomerTrustScore(),
                 DeduplicationKey = "seed-no-show-penalty-0002",
                 ReadAt = now.AddDays(-7),
                 CreatedAt = now.AddDays(-8)
@@ -2023,7 +2023,7 @@ public static class DbSeeder
                 Type = NotificationType.ProductNeedsRevision,
                 Title = NotificationMessages.DealsAndProducts.ProductCorrectionRequestedTitle,
                 Body = "Banh mi thit nuong requires ingredient information corrections.",
-                ActionUrl = $"/products/{Id(31)}/revisions",
+                ActionUrl = NotificationActionUrls.StoreOwnerProduct(Id(31)),
                 DeduplicationKey = "seed-product-revision-0002",
                 CreatedAt = now.AddDays(-6)
             },
@@ -2034,7 +2034,7 @@ public static class DbSeeder
                 Type = NotificationType.RefundApproved,
                 Title = NotificationMessages.Refunds.RefundStatusUpdatedTitle,
                 Body = "The refund request for order SB-SEED-0001 has been approved.",
-                ActionUrl = $"/refunds/{Id(79)}",
+                ActionUrl = NotificationActionUrls.CustomerRefund(Id(79)),
                 DeduplicationKey = "seed-refund-approved-0001",
                 ReadAt = now.AddDays(-8),
                 CreatedAt = now.AddDays(-9).AddHours(1)

@@ -1,3 +1,5 @@
+using Hangfire;
+using SaveBite.Backend.Configurations;
 using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.BackgroundJobs.Jobs;
@@ -18,10 +20,13 @@ public sealed class PlatformFeeOverdueJob
         _logger = logger;
     }
 
+    [DisableConcurrentExecution(TimingConfiguration.Jobs.ConcurrencyLockTimeoutSeconds)]
     public async Task ExecuteAsync(CancellationToken ct)
     {
-        _logger.LogInformation("Executing PlatformFeeOverdueJob check...");
         var suspendedCount = await _feeStatementService.CheckAndSuspendOverdueShopsAsync(ct);
-        _logger.LogInformation("PlatformFeeOverdueJob check completed. Suspended {Count} delinquent shop(s).", suspendedCount);
+        if (suspendedCount > 0)
+        {
+            _logger.LogInformation("PlatformFeeOverdueJob check completed. Suspended {Count} delinquent shop(s).", suspendedCount);
+        }
     }
 }
