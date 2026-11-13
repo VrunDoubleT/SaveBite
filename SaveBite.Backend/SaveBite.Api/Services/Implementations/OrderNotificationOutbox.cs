@@ -66,6 +66,18 @@ public static class OrderNotificationOutbox
     }
     public static void StageRemainingPayment(AppDbContext db, Order order)
     {
+        foreach (var (target, url, recipient) in new[] {
+            (NotificationTarget.ShopOwner(order.ShopId), NotificationActionUrls.StoreOwnerOrder(order.Id), "owner"),
+            (NotificationTarget.ShopStaff(order.ShopId), NotificationActionUrls.ShopStaffOrder(order.ShopId, order.Id), "staff") })
+        {
+            var messageId = Guid.NewGuid();
+            db.Add(new OrderEventOutbox { Id = messageId, OrderId = order.Id, CreatedAt = DateTime.UtcNow,
+                EventKey = $"order-notification:{order.Id}:remaining-paid:{recipient}", RoutingKey = RabbitMqRoutingKeys.NotificationRequested,
+                PayloadJson = JsonSerializer.Serialize(new NotificationRequestedEvent(messageId, target,
+                    new CreateNotificationCommand(NotificationType.PaymentSucceeded, "Remaining payment received",
+                        $"The remaining balance for order {order.OrderCode} has been verified as paid. Do not collect it again.",
+                        url, $"order-remaining-paid:{order.Id}:{recipient}"))) });
+        }
         var id = Guid.NewGuid();
         db.Add(new OrderEventOutbox { Id = id, OrderId = order.Id, CreatedAt = DateTime.UtcNow,
             EventKey = $"order-notification:{order.Id}:remaining-paid:customer", RoutingKey = RabbitMqRoutingKeys.NotificationRequested,

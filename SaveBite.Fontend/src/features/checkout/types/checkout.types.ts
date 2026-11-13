@@ -60,6 +60,8 @@ export interface CheckoutGps {
   capturedAt: string;
 }
 export interface CheckoutOrder {
+  isCheckoutSession?: boolean;
+  paymentId?: string | null;
   id: string;
   orderCode: string;
   shopId: string;

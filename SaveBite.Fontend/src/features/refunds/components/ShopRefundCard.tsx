@@ -23,6 +23,7 @@ const historyLabels: Record<string, string> = {
   Rejected: "Refund declined",
   Transferred: "Transfer recorded",
   Withdrawn: "Request withdrawn",
+  CustomerDetailsExpired: "Customer details deadline passed",
   DeadlineExpired: "Processing deadline passed",
   MandatoryRefundOverdue: "Mandatory refund overdue",
   LegacySnapshot: "Imported refund record",
@@ -86,7 +87,8 @@ export function ShopRefundCard({
     qr.accountNumber === refund.accountNumber
       ? qr
       : null;
-  const summary = overdue
+  const customerExpired = refund.status === "CustomerDetailsExpired";
+  const summary = customerExpired ? "The customer did not provide and confirm refund details within 24 hours. The system closed this request; this is not a shop rejection." : overdue
     ? refund.type === "ShopCancellation"
       ? "This mandatory refund is overdue and remains payable. Pay all overdue mandatory refunds to remove the shop suspension."
       : "The 72-hour processing deadline has passed. This customer refund will be declined automatically."
@@ -104,7 +106,7 @@ export function ShopRefundCard({
               ? "The customer withdrew this request. No further action is required."
               : "Waiting for the customer to provide and email-confirm their refund destination.";
   const outcomeTone =
-    overdue || refund.status === "Rejected"
+    overdue || customerExpired || refund.status === "Rejected"
       ? "border-red-200 bg-red-50 text-red-800"
       : transferable || transferred
         ? "border-primary-200 bg-primary-50 text-primary-800"
@@ -161,7 +163,9 @@ export function ShopRefundCard({
                     ? "Ready for bank transfer"
                     : transferred
                       ? "Refund transferred"
-                      : refund.status === "Rejected"
+                      : customerExpired
+                        ? "Customer details deadline passed"
+                        : refund.status === "Rejected"
                         ? timedOut
                           ? "Refund closed"
                           : "Request declined"
@@ -438,7 +442,7 @@ export function ShopRefundCard({
           {[...refund.history].reverse().map((entry) => (
             <li key={entry.id} className="relative border-l border-neutral-200 pb-5 pl-5 last:pb-0">
               <span
-                className={`absolute -left-1.5 top-1 size-3 rounded-full ring-4 ring-white ${["Rejected", "DeadlineExpired"].includes(entry.decision) ? "bg-red-500" : "bg-primary-500"}`}
+                className={`absolute -left-1.5 top-1 size-3 rounded-full ring-4 ring-white ${["Rejected", "DeadlineExpired", "CustomerDetailsExpired"].includes(entry.decision) ? "bg-red-500" : "bg-primary-500"}`}
               />
               <p className="text-sm font-semibold">
                 {historyLabels[entry.decision] || entry.decision}

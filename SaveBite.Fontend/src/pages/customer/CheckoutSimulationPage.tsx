@@ -1,4 +1,5 @@
 import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { APP_PATHS } from "@/app/router/paths";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { paymentApi } from "@/features/payments/api/paymentApi";
@@ -35,7 +36,7 @@ function Simulation({ orderId, paymentId }: { orderId: string; paymentId?: strin
       window.clearInterval(timer);
     };
   }, [orderId, paymentId]);
-  const receipt = `/checkout?orderId=${encodeURIComponent(orderId)}`;
+  const orderDetails = APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(orderId));
   const expired = !order?.paymentExpiresAt || Date.parse(order.paymentExpiresAt) <= now;
   const outdatedOrder =
     !paymentId && order?.status === "Pending" && order.paymentStatus === "Pending";
@@ -48,8 +49,13 @@ function Simulation({ orderId, paymentId }: { orderId: string; paymentId?: strin
     setBusy(true);
     setError("");
     try {
-      await paymentApi.simulate(orderId, outcome, paymentId);
-      navigate(receipt, { replace: true });
+      const result = await paymentApi.simulate(orderId, outcome, paymentId);
+      const destination = result.paymentStatus === "Succeeded" && !result.isCheckoutSession && !result.paymentReviewRequired
+        ? orderDetails
+        : (paymentId || result.paymentId)
+        ? APP_PATHS.ACCOUNT_PAYMENT_DETAIL.replace(":paymentId", encodeURIComponent(paymentId || result.paymentId!))
+        : orderDetails;
+      navigate(destination, { replace: true });
     } catch (cause) {
       setError(getApiErrorMessage(cause));
       setBusy(false);
@@ -128,9 +134,11 @@ function Simulation({ orderId, paymentId }: { orderId: string; paymentId?: strin
           </p>
         </div>
       )}
-      <Link to={receipt} className="mt-6 inline-block text-emerald-700 underline">
-        View order details
-      </Link>
+      {order && !order.isCheckoutSession && (
+        <Link to={orderDetails} className="mt-6 inline-block text-emerald-700 underline">
+          View order details
+        </Link>
+      )}
     </main>
   );
 }

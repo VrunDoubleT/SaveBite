@@ -11,6 +11,19 @@ public sealed class TrustNotificationService(ITrustNotificationRepository reposi
 {
     public async Task PublishForOrderAsync(Guid orderId, CancellationToken ct)
     {
+        foreach (var recovery in await repository.RecoveryChangesAsync(orderId, ct))
+        {
+            var penalty = recovery.NoShowPenalty;
+            var finished = penalty.Status == NoShowPenaltyStatus.Recovered && penalty.RecoveredAt == recovery.CreatedAt;
+            var body = $"Completed order {recovery.Order.OrderCode} was used to repay no-show penalty #{penalty.OccurrenceNumber}. "
+                + "This order does not earn trust points, completed-order totals or accumulated purchase value. "
+                + (finished ? "Your penalty recovery is complete. Your next eligible completed order can earn progress again. "
+                    : "Complete the remaining recovery requirements before earning progress again. ")
+                + (penalty.PermanentOfflineLock ? "Your permanent pay-at-shop restriction remains in place." : "");
+            await notifications.EnqueueAsync(NotificationTarget.User(penalty.UserId), new CreateNotificationCommand(
+                NotificationType.PenaltyRecoveryProgress, "Completed order applied to penalty recovery", body,
+                NotificationActionUrls.CustomerTrustScorePenalties(), $"trust-recovery:{recovery.Id}"), ct);
+        }
         foreach (var change in (await repository.ScoreChangesAsync(orderId, ct)).Where(h => h.ScoreDelta != 0))
             await notifications.EnqueueAsync(NotificationTarget.User(change.UserId), new CreateNotificationCommand(
                 NotificationType.TrustScoreChanged,

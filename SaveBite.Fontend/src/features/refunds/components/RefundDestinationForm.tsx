@@ -30,6 +30,7 @@ export function RefundDestinationForm({
     accountHolder: refund.accountHolder ?? "",
   });
   const [files, setFiles] = useState<File[]>([]);
+  const [hasUploadedNewQr, setHasUploadedNewQr] = useState(false);
   const [code, setCode] = useState("");
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const qrErrorId = useId();
@@ -79,9 +80,9 @@ export function RefundDestinationForm({
               !qr && !/^[0-9]{1,50}$/.test(bank.accountNumber)
                 ? "Enter an account number containing 1–50 digits."
                 : undefined,
-            holder: !bank.accountHolder.trim()
+            holder: !qr && !bank.accountHolder.trim()
               ? "Enter the account holder's name."
-              : bank.accountHolder.trim().length > 150
+              : !qr && bank.accountHolder.trim().length > 150
                 ? "Use no more than 150 characters."
                 : undefined,
             qr: qr && !files.length && !bank.qrImageUrl ? "Choose your bank QR image." : undefined,
@@ -113,9 +114,11 @@ export function RefundDestinationForm({
                 bankBin: image.bankBin!,
                 bankName: name,
                 accountNumber: image.accountNumber!,
-                accountHolder: bank.accountHolder.trim() || image.accountHolder || "",
+                accountHolder: image.accountHolder || "",
               };
               setBank(destination);
+              setHasUploadedNewQr(true);
+              setFiles([]);
             }
             const result = await refundApi.destination(refund.id, destination);
             return result;
@@ -136,6 +139,7 @@ export function RefundDestinationForm({
               disabled={disabled}
               onChange={(selected) => {
                 setFiles(selected);
+                setHasUploadedNewQr(false);
                 clear("qr");
                 setBank((old) => ({
                   ...old,
@@ -164,8 +168,8 @@ export function RefundDestinationForm({
             )}
             {bank.accountNumber && (
               <p className="rounded-lg bg-primary-50 p-3 text-caption text-primary-800">
-                Account detected: {bank.bankName} · {bank.accountNumber}. Check the account holder
-                below.
+                {hasUploadedNewQr ? "Account detected" : "Saved refund account"}: {bank.bankName} · {bank.accountNumber}.
+                {hasUploadedNewQr && " Please check the bank and account number."}
               </p>
             )}
           </fieldset>
@@ -205,7 +209,7 @@ export function RefundDestinationForm({
             </label>
           </>
         )}
-        <label className="text-caption font-medium sm:col-span-2">
+        {!qr && <label className="text-caption font-medium sm:col-span-2">
           Account holder
           <Input
             variant="auth"
@@ -225,7 +229,7 @@ export function RefundDestinationForm({
               {errors.holder}
             </p>
           )}
-        </label>
+        </label>}
         <CustomerActionButton
           type="submit"
           loading={busy}

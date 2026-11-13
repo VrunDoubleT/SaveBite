@@ -72,6 +72,8 @@ public sealed class OrderService : IOrderService
     {
         var order = await _repository.GetOrderForHistoryAsync(orderId, userId, ct)
             ?? throw AppException.NotFound("Order not found.");
+        if (order.Payments.Count > 0 && order.Payments.All(p => p.OrderId == null))
+            throw AppException.NotFound("No order has been placed for this payment. View payment history instead.");
         return CheckoutOrderMapper.Map(order, now: Now);
     }
 

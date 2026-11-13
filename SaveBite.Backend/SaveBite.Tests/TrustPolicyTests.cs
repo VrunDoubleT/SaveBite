@@ -112,6 +112,20 @@ public class TrustPolicyTests
         Assert.Equal(NoShowPenaltyStatus.Recovering, repo.Penalties[1].Status);
     }
 
+    [Fact] public async Task CompletionOnlyAdvancesLatestPenaltyWhenAnOldPenaltyStillSaysRecovering()
+    {
+        var repo = new MemoryTrustRepository(); var service = Service(repo);
+        await Handle(service, repo, false, 0);
+        await Handle(service, repo, false, 2);
+        repo.Penalties[0].Status = NoShowPenaltyStatus.Recovering;
+        repo.Penalties[0].SupersededAt = null;
+        await Handle(service, repo, true, 3);
+        Assert.Equal(NoShowPenaltyStatus.Superseded, repo.Penalties[0].Status);
+        Assert.Equal(0, repo.Penalties[0].CompletedOnlineOrders);
+        Assert.Equal(1, repo.Penalties[1].CompletedOnlineOrders);
+        Assert.Equal(Day.AddHours(2), repo.Penalties[0].SupersededAt);
+    }
+
     [Fact] public async Task DuplicateOrderEventCannotApplyPenaltyTwice()
     {
         var repo = new MemoryTrustRepository(); var service = Service(repo);
@@ -142,6 +156,36 @@ public class TrustPolicyTests
         Assert.Equal(5, repo.Progress.CompletedOrdersCount);
         Assert.Equal(100000, repo.Progress.AccumulatedOrderValue);
         Assert.Equal(0, repo.Penalties[1].CompletedOnlineOrders);
+    }
+
+    [Fact] public async Task PermanentLockRecoveryConsumesFinalOrderThenNormalEarningResumes()
+    {
+        var repo = new MemoryTrustRepository(); var service = Service(repo);
+        await Handle(service, repo, false, 0);
+        await Handle(service, repo, false, 1);
+        var penalty = repo.Penalties[1];
+        penalty.PermanentOfflineLock = true;
+        penalty.RequiredOnlineOrders = 1;
+        penalty.RequiredOnlineOrderValue = 50000;
+        repo.Score.IsOfflineLockedPermanently = true;
+        var order = await Handle(service, repo, true, 2);
+        Assert.Equal(70, repo.Score.CurrentScore);
+        Assert.Equal(5, repo.Progress.CompletedOrdersCount);
+        Assert.Equal(100000, repo.Progress.AccumulatedOrderValue);
+        Assert.True(repo.Score.IsOfflineLockedPermanently);
+        Assert.True(penalty.PermanentOfflineLock);
+        Assert.Equal(NoShowPenaltyStatus.Recovered, penalty.Status);
+        Assert.Equal(1, penalty.CompletedOnlineOrders);
+        Assert.Equal(50000, penalty.CompletedOnlineOrderValue);
+        Assert.NotNull(penalty.RecoveredAt);
+        await service.HandleAsync(order.Id, true);
+        Assert.Equal(100000, repo.Progress.AccumulatedOrderValue);
+        Assert.Equal(5, repo.Progress.CompletedOrdersCount);
+        await Handle(service, repo, true, 3);
+        Assert.Equal(73, repo.Score.CurrentScore);
+        Assert.Equal(6, repo.Progress.CompletedOrdersCount);
+        Assert.Equal(150000, repo.Progress.AccumulatedOrderValue);
+        Assert.True(repo.Score.IsOfflineLockedPermanently);
     }
 
     [Fact] public void ArchiveFilteringUsesVietnamDatesAndMatchesIdentifiers()

@@ -2,7 +2,7 @@ import type { CheckoutOrder } from "@/features/checkout/types/checkout.types";
 
 export interface CustomerPayment {
   id: string;
-  orderId: string;
+  orderId: string | null;
   orderCode: string;
   shopName: string;
   shopLogoUrl?: string;

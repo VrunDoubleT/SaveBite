@@ -54,5 +54,9 @@ public enum NotificationType
     RefundDestinationRequired = 43,
     RefundOverdue = 44,
     PlatformFeeScheduleActivated = 45,
-    PlatformFeeRateChanged = 46
+    PlatformFeeRateChanged = 46,
+    PaymentCancelled = 47,
+    PaymentExpired = 48,
+    RefundCustomerDetailsExpired = 49,
+    PenaltyRecoveryProgress = 50
 }

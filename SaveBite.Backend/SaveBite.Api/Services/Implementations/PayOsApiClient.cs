@@ -21,7 +21,7 @@ public sealed class PayOsApiClient(IHttpClientFactory clients, ILogger<PayOsApiC
             // Authentication can fail with an empty/non-JSON body; classify before parsing.
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 throw InvalidCredentials();
-            logger?.LogInformation("PayOS request {Method} completed with HTTP {StatusCode}.", method.Method, (int)response.StatusCode);
+            logger?.LogInformation("PayOS request {Method} {Path} completed with HTTP {StatusCode}.", method.Method, path, (int)response.StatusCode);
             if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                 throw ProviderError("Too many PayOS requests. Please wait a moment before trying again.", ErrorCodes.PayOsRateLimited);
             if ((int)response.StatusCode >= 500)
@@ -36,9 +36,22 @@ public sealed class PayOsApiClient(IHttpClientFactory clients, ILogger<PayOsApiC
                     && root.TryGetProperty("desc", out var description) && description.ValueKind == JsonValueKind.String
                     && IsCredentialRejection(description.GetString()!))
                     throw InvalidCredentials();
+                if (path == "confirm-webhook")
+                {
+                    var reason = root.TryGetProperty("desc", out var desc) && desc.ValueKind == JsonValueKind.String
+                        ? desc.GetString() ?? "No reason supplied" : "No reason supplied";
+                    foreach (var secret in new[] { config.ClientId, config.ApiKey, config.ChecksumKey })
+                        reason = reason.Replace(secret, "[redacted]", StringComparison.Ordinal);
+                    reason = reason.Replace('\r', ' ').Replace('\n', ' ');
+                    if (reason.Length > 500) reason = reason[..500];
+                    throw ProviderError($"PayOS rejected webhook registration (HTTP {(int)response.StatusCode}): {reason}", ErrorCodes.PayOsRequestRejected);
+                }
                 throw ProviderError("PayOS rejected this request. Please try again or contact support if the issue continues.", ErrorCodes.PayOsRequestRejected);
             }
             var data = root.GetProperty("data");
+            // confirm-webhook has no response signature in the PayOS API contract.
+            // Authentication uses the channel keys; the caller validates the confirmed URL.
+            if (path == "confirm-webhook") return data.Clone();
             if (!root.TryGetProperty("signature", out var signature) || signature.ValueKind != JsonValueKind.String
                 || string.IsNullOrEmpty(signature.GetString()))
                 throw ProviderError("The PayOS response could not be verified. Please retry.", ErrorCodes.PayOsInvalidResponse);

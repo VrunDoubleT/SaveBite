@@ -37,12 +37,6 @@ public sealed class PaymentsController : ControllerBase
     public async Task<ActionResult<ApiResponse<CustomerPaymentDetailResponse>>> Details(Guid paymentId, CancellationToken ct)
         => Ok(ApiResponse<CustomerPaymentDetailResponse>.Ok(await _history.GetAsync(UserId(), paymentId, ct)));
 
-    // Create or resume the order's required initial payment link using its recorded full-payment or deposit amount.
-    [HttpPost("orders/{orderId:guid}/payment-link")]
-    [CustomerAccess]
-    public async Task<ActionResult<ApiResponse<CheckoutOrderResponse>>> Payment(Guid orderId, CancellationToken ct)
-        => Ok(ApiResponse<CheckoutOrderResponse>.Ok(await _payments.StartAsync(UserId(), orderId, ct)));
-
     // Explicitly query the provider and apply verified payment changes for the customer's own order.
     [HttpPost("orders/{orderId:guid}/reconcile")]
     [CustomerAccess]

@@ -17,6 +17,7 @@ export const REALTIME_EVENTS = {
   CUSTOMER_ORDERS_CHANGED: "customer.orders.changed",
   SHOP_ORDERS_CHANGED: "shop.orders.changed",
   SHOP_STATUS_CHANGED: "shop.status.changed",
+  PLATFORM_FEE_CHANGED: "platform-fee.changed",
   CART_CHANGED: "cart.changed",
   NOTIFICATION_RECEIVED: "notification.received",
   NOTIFICATION_READ: "notification.read",

@@ -109,6 +109,7 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
         var creatingDatabaseConfig = config is null;
         if (config is not null && fields.Count == 0 && config.VerifiedAt != null && !config.IsInvalid)
         {
+            await _validator.ValidatePlatformAsync(newCredentials, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return ToResponse(config);
         }
@@ -116,7 +117,7 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
         if (creatingDatabaseConfig && fields.Count == 0)
             fields.Add("ConfigurationSource");
 
-        await _validator.ValidateAsync(newCredentials, cancellationToken);
+        await _validator.ValidatePlatformAsync(newCredentials, cancellationToken);
         // Preserve legacy pending links before rotating the global credential set.
         if (!string.IsNullOrWhiteSpace(old.ClientId) && !string.IsNullOrWhiteSpace(old.ApiKey)
             && !string.IsNullOrWhiteSpace(old.ChecksumKey))

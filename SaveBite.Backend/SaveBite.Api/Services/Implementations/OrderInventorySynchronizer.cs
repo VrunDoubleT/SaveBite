@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.Helpers;
 
 namespace SaveBite.Backend.Services.Implementations;
 
@@ -21,6 +22,16 @@ public sealed class OrderInventorySynchronizer : IOrderInventorySynchronizer
     {
         var dealIds = await _dbContext.Orders.Where(x => x.Id == orderId).SelectMany(x => x.Items)
             .Select(x => x.FlashDealVariant.FlashDealId).Distinct().OrderBy(id => id).ToListAsync(ct);
+        if (dealIds.Count == 0)
+        {
+            var session = await _dbContext.CheckoutSessions.AsNoTracking().SingleOrDefaultAsync(s => s.Id == orderId, ct);
+            if (session != null)
+            {
+                var variantIds = CheckoutSessionSnapshot.Read(session.SnapshotJson).Items.Select(i => i.FlashDealVariantId).ToList();
+                dealIds = await _dbContext.FlashDealVariants.Where(v => variantIds.Contains(v.Id))
+                    .Select(v => v.FlashDealId).Distinct().OrderBy(id => id).ToListAsync(ct);
+            }
+        }
         foreach (var dealId in dealIds)
             await _inventory.ReconcileAsync(dealId, ct);
     }

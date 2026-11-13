@@ -5,6 +5,7 @@ export const refundStatusLabels: Record<string, string> = {
   AwaitingTransfer: "Ready to transfer",
   Transferred: "Transferred",
   Completed: "Completed",
+  CustomerDetailsExpired: "Customer details deadline passed",
   Rejected: "Declined",
   Withdrawn: "Withdrawn",
 };

@@ -3,6 +3,12 @@ import type { ApiResponse } from "@/shared/types";
 import type { OrderRefund, ShopOrder, ShopOrderPage } from "../types/shopOrder.types";
 const base = API_ENDPOINTS.ORDERS.SHOP;
 export const shopOrderApi = {
+  async reconcilePayment(shopId: string, orderId: string, signal?: AbortSignal): Promise<ShopOrder> {
+    return (await httpClient.post<ApiResponse<ShopOrder>>(
+      `/orders/shops/${encodeURIComponent(shopId)}/${encodeURIComponent(orderId)}/payment-reconciliation`,
+      undefined, { signal },
+    )).data.data;
+  },
   async ownerShop(signal?: AbortSignal) {
     return (await httpClient.get<ApiResponse<string>>(API_ENDPOINTS.ORDERS.MY_SHOP, { signal })).data
       .data;

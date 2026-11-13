@@ -64,7 +64,7 @@ public sealed class ShopApplicationService : IShopApplicationService
         if (request.ApplicationId.HasValue)
             existing = await _repository.GetByIdForApplicantAsync(request.ApplicationId.Value, userId, cancellationToken)
                 ?? throw AppException.NotFound("Shop application was not found.");
-        await _payOsValidator.ValidateAsync(new(
+        await _payOsValidator.ValidateShopAsync(new(
             string.IsNullOrWhiteSpace(request.ClientId) ? existing?.PayosClientId ?? "" : request.ClientId.Trim(),
             string.IsNullOrWhiteSpace(request.ApiKey) ? existing?.PayosApiKey ?? "" : request.ApiKey.Trim(),
             string.IsNullOrWhiteSpace(request.ChecksumKey) ? existing?.PayosChecksumKey ?? "" : request.ChecksumKey.Trim()), cancellationToken);
@@ -98,7 +98,7 @@ public sealed class ShopApplicationService : IShopApplicationService
 
         if (await _repository.HasActiveApplicationAsync(userId, cancellationToken))
             throw AppException.Conflict("You already have an active shop application.");
-        await _payOsValidator.ValidateAsync(new(request.PayosClientId.Trim(), request.PayosApiKey.Trim(),
+        await _payOsValidator.ValidateShopAsync(new(request.PayosClientId.Trim(), request.PayosApiKey.Trim(),
             request.PayosChecksumKey.Trim()), cancellationToken);
 
         var now = DateTime.UtcNow;
@@ -183,7 +183,7 @@ public sealed class ShopApplicationService : IShopApplicationService
 
         var now = DateTime.UtcNow;
 
-        await _payOsValidator.ValidateAsync(new(
+        await _payOsValidator.ValidateShopAsync(new(
             string.IsNullOrWhiteSpace(request.PayosClientId) ? application.PayosClientId : request.PayosClientId.Trim(),
             string.IsNullOrWhiteSpace(request.PayosApiKey) ? application.PayosApiKey : request.PayosApiKey.Trim(),
             string.IsNullOrWhiteSpace(request.PayosChecksumKey) ? application.PayosChecksumKey : request.PayosChecksumKey.Trim()), cancellationToken);

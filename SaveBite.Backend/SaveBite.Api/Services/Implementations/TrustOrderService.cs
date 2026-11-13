@@ -65,26 +65,24 @@ public sealed class TrustOrderService : ITrustOrderService
                 }
             }
             // Reconcile eligible historical completions too, so delayed NoShow events do not lose recovery progress.
-            if (penalty != null)
+            if (penalty != null) penalties.Add(penalty);
+            // Normalize old/replayed penalties on every event, not just a new violation.
+            // Only the latest penalty may own current recovery progress.
+            var ordered = penalties.OrderBy(p => p.CreatedAt).ThenBy(p => p.OccurrenceNumber).ThenBy(p => p.Id).ToList();
+            for (var i = 0; i < ordered.Count - 1; i++)
             {
-                penalties.Add(penalty);
-                var ordered = penalties.OrderBy(p => p.CreatedAt).ThenBy(p => p.OccurrenceNumber).ThenBy(p => p.Id).ToList();
-                for (var i = 0; i < ordered.Count - 1; i++)
+                var previous = ordered[i];
+                var next = ordered[i + 1];
+                if (previous.Status == NoShowPenaltyStatus.Recovering || previous.RecoveredAt > next.CreatedAt || previous.SupersededAt > next.CreatedAt)
                 {
-                    var previous = ordered[i];
-                    var next = ordered[i + 1];
-                    if (previous.Status == NoShowPenaltyStatus.Recovering || previous.RecoveredAt > next.CreatedAt || previous.SupersededAt > next.CreatedAt)
-                    {
-                        previous.Status = NoShowPenaltyStatus.Superseded;
-                        previous.SupersededAt = next.CreatedAt;
-                        previous.RecoveredAt = null;
-                    }
+                    previous.Status = NoShowPenaltyStatus.Superseded;
+                    previous.SupersededAt = next.CreatedAt;
+                    previous.RecoveredAt = null;
                 }
             }
             var candidates = await _repository.RecoveryCandidatesAsync(order.CustomerId, ct);
-            foreach (var p in penalties.Where(p => p.Status == NoShowPenaltyStatus.Recovering).OrderBy(x => x.CreatedAt).ThenBy(x => x.Id))
+            foreach (var p in ordered.TakeLast(1).Where(p => p.Status == NoShowPenaltyStatus.Recovering))
             {
-                if (p.PermanentOfflineLock) continue;
                 var recoveredAt = p.RecoveryOrders.Select(h => h.CreatedAt).DefaultIfEmpty(p.CreatedAt).Max();
                 foreach (var candidate in candidates.Where(x => x.CompletedAt >= p.CreatedAt && (!completed || x.CompletedAt <= at) && !penalties.Any(next => next.CreatedAt > p.CreatedAt && x.CompletedAt >= next.CreatedAt)).ToList())
                 {

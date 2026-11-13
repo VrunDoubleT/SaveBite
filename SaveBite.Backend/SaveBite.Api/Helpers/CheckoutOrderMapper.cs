@@ -32,6 +32,8 @@ public static class CheckoutOrderMapper
             ? 0 : Math.Max(0, order.TotalAmount - paidAmount);
         return new CheckoutOrderResponse
         {
+            IsCheckoutSession = order.Payments.Count > 0 && order.Payments.All(p => p.OrderId == null),
+            PaymentId = payment?.Id,
             Id = order.Id,
             OrderCode = order.OrderCode,
             ShopId = order.ShopId,

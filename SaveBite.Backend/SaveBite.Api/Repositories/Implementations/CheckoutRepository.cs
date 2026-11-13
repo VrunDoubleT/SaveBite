@@ -12,7 +12,7 @@ using SaveBite.Backend.Repositories.Interfaces;
 namespace SaveBite.Backend.Repositories.Implementations;
 
 // Persist checkout, payment and stock changes with transaction and row-lock coordination.
-public sealed class CheckoutRepository : ICheckoutRepository
+public sealed partial class CheckoutRepository : ICheckoutRepository
 {
     private readonly AppDbContext _dbContext;
     private readonly ICartRepository _cartRepository;
@@ -55,7 +55,7 @@ public sealed class CheckoutRepository : ICheckoutRepository
     {
         var matches = await Orders.Where(x => x.CustomerId == userId && (x.CheckoutRequestId == requestId || x.CheckoutQuoteId == quoteId)).Take(2).ToListAsync(ct);
         if (matches.Count > 1) throw AppException.Conflict("This request ID belongs to a different checkout.");
-        return matches.SingleOrDefault();
+        return matches.SingleOrDefault() ?? await FindSessionRequestAsync(userId, requestId, quoteId, ct);
     }
     // Reject order access unless this account has active Customer access.
     private async Task RequireActiveCustomerAsync(Guid userId, CancellationToken ct)
@@ -77,7 +77,8 @@ public sealed class CheckoutRepository : ICheckoutRepository
     public async Task<Order?> GetOrderAsync(Guid orderId, Guid? userId, CancellationToken ct)
     {
         if (userId.HasValue) await RequireActiveCustomerAsync(userId.Value, ct);
-        return await Orders.SingleOrDefaultAsync(x => x.Id == orderId && (!userId.HasValue || x.CustomerId == userId), ct);
+        return await Orders.SingleOrDefaultAsync(x => x.Id == orderId && (!userId.HasValue || x.CustomerId == userId), ct)
+            ?? await LoadSessionAsync(orderId, userId, ct);
     }
 
     // Read an existing order for history/detail screens. Customer suspension blocks new actions,
@@ -86,7 +87,7 @@ public sealed class CheckoutRepository : ICheckoutRepository
     {
         await RequireCustomerHistoryAccessAsync(userId, ct);
         return await Orders.AsNoTracking().SingleOrDefaultAsync(
-            x => x.Id == orderId && x.CustomerId == userId, ct);
+            x => x.Id == orderId && x.CustomerId == userId, ct) ?? await LoadSessionAsync(orderId, userId, ct);
     }
 
     private async Task RequireCustomerHistoryAccessAsync(Guid userId, CancellationToken ct)
@@ -117,16 +118,26 @@ public sealed class CheckoutRepository : ICheckoutRepository
     }
     // Resolve a provider payment code to its associated order for webhook handling.
     public Task<Guid?> FindGatewayOrderAsync(long gatewayCode, CancellationToken ct)
-        => _dbContext.Payments.AsNoTracking().Where(x => x.GatewayOrderCode == gatewayCode).Select(x => (Guid?)x.OrderId).SingleOrDefaultAsync(ct);
+        => _dbContext.Payments.AsNoTracking().Where(x => x.GatewayOrderCode == gatewayCode).Select(x => x.OrderId ?? x.CheckoutSessionId).SingleOrDefaultAsync(ct);
     // Track a new order so it is saved with the current checkout transaction.
     public void AddOrder(Order order)
     {
+        if (order.Status == OrderStatus.AwaitingPayment)
+        {
+            AddSession(order);
+            return;
+        }
         _dbContext.Orders.Add(order);
         // This request is saved atomically with a new zero-deposit Pending order.
         if (order.Status == OrderStatus.Pending) OrderNotificationOutbox.Stage(_dbContext, order, null);
     }
     // Track an order history entry in the same transaction as the state change.
-    public void AddHistory(OrderStatusHistory history) => _dbContext.OrderStatusHistories.Add(history);
+    public void AddHistory(OrderStatusHistory history)
+    {
+        if (_sessions.TryGetValue(history.OrderId, out var session) && session.Order.Payments.All(p => p.OrderId == null))
+            session.Order.StatusHistories.Add(history);
+        else _dbContext.OrderStatusHistories.Add(history);
+    }
     // Atomically reserve each variant only when enough stock remains available.
     public async Task ReserveAsync(IReadOnlyList<CartItem> items, CancellationToken ct)
     {
@@ -180,7 +191,11 @@ public sealed class CheckoutRepository : ICheckoutRepository
     public async Task RemoveShopCartAsync(Guid userId, Guid shopId, CancellationToken ct)
         => cartChanged |= await _dbContext.CartItems.Where(x => x.UserId == userId && x.FlashDealVariant.FlashDeal.ShopId == shopId).ExecuteDeleteAsync(ct) > 0;
     // Persist tracked checkout, payment and history changes inside the current transaction.
-    public async Task SaveAsync(CancellationToken ct) => await _dbContext.SaveChangesAsync(ct);
+    public async Task SaveAsync(CancellationToken ct)
+    {
+        PersistSessions();
+        await _dbContext.SaveChangesAsync(ct);
+    }
 
     // Lock the customer and checkout dependencies before creating an order and committing cart changes.
     public async Task<T> WithUserLockAsync<T>(Guid userId, Guid shopId, Func<Task<T>> action, CancellationToken ct)
@@ -190,7 +205,7 @@ public sealed class CheckoutRepository : ICheckoutRepository
         // Lock parents before stock rows in a stable order. Status/price/policy cannot change during commit.
         await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM shops WHERE id = {shopId} FOR SHARE", ct);
         await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT d.id FROM flash_deals d JOIN flash_deal_variants v ON v.flash_deal_id = d.id JOIN cart_items c ON c.flash_deal_variant_id = v.id WHERE c.user_id = {userId} AND d.shop_id = {shopId} ORDER BY d.id FOR SHARE OF d", ct);
-        await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT p.id FROM \"Products\" p JOIN flash_deals d ON d.product_id = p.id JOIN flash_deal_variants v ON v.flash_deal_id = d.id JOIN cart_items c ON c.flash_deal_variant_id = v.id WHERE c.user_id = {userId} AND d.shop_id = {shopId} ORDER BY p.id FOR SHARE OF p", ct);
+        await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT p.id FROM products p JOIN flash_deals d ON d.product_id = p.id JOIN flash_deal_variants v ON v.flash_deal_id = d.id JOIN cart_items c ON c.flash_deal_variant_id = v.id WHERE c.user_id = {userId} AND d.shop_id = {shopId} ORDER BY p.id FOR SHARE OF p", ct);
         await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT p.id FROM product_variants p JOIN flash_deal_variants v ON v.variant_id = p.id JOIN flash_deals d ON d.id = v.flash_deal_id JOIN cart_items c ON c.flash_deal_variant_id = v.id WHERE c.user_id = {userId} AND d.shop_id = {shopId} ORDER BY p.id FOR SHARE OF p", ct);
         await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT v.id FROM flash_deal_variants v JOIN cart_items c ON c.flash_deal_variant_id = v.id JOIN flash_deals d ON d.id = v.flash_deal_id WHERE c.user_id = {userId} AND d.shop_id = {shopId} ORDER BY v.id FOR UPDATE OF v", ct);
         await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM user_trust_scores WHERE user_id = {userId} FOR SHARE", ct);
@@ -200,6 +215,7 @@ public sealed class CheckoutRepository : ICheckoutRepository
         await _dbContext.Database.ExecuteSqlRawAsync("SELECT id FROM trust_level_deposit_ranges ORDER BY id FOR SHARE", ct);
         // A unique-code retry must reread cart/order state instead of reusing entities from a rolled-back attempt.
         _dbContext.ChangeTracker.Clear();
+        _sessions.Clear();
         cartChanged = false;
         var result = await action();
         await tx.CommitAsync(ct);
@@ -212,21 +228,27 @@ public sealed class CheckoutRepository : ICheckoutRepository
     public async Task<T> WithOrderLockAsync<T>(Guid orderId, Func<Task<T>> action, CancellationToken ct)
     {
         var ownerId = await _dbContext.Orders.AsNoTracking().Where(x => x.Id == orderId).Select(x => (Guid?)x.CustomerId).SingleOrDefaultAsync(ct);
+        ownerId ??= await _dbContext.CheckoutSessions.AsNoTracking().Where(x => x.Id == orderId).Select(x => (Guid?)x.CustomerId).SingleOrDefaultAsync(ct);
         await using var tx = await _dbContext.Database.BeginTransactionAsync(ct);
         // Same lock order as cart/checkout: customer -> order -> stock. Cancellation's FK to users must not deadlock a new checkout.
         if (ownerId.HasValue)
             await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM users WHERE id = {ownerId.Value} FOR UPDATE", ct);
         await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM orders WHERE id = {orderId} FOR UPDATE", ct);
+        await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM checkout_sessions WHERE id = {orderId} FOR UPDATE", ct);
         var shopId = await _dbContext.Orders.AsNoTracking().Where(o => o.Id == orderId)
             .Select(o => (Guid?)o.ShopId).SingleOrDefaultAsync(ct);
+        shopId ??= await _dbContext.CheckoutSessions.AsNoTracking().Where(o => o.Id == orderId).Select(o => (Guid?)o.ShopId).SingleOrDefaultAsync(ct);
         if (shopId.HasValue)
         {
             var lockName = $"payos-shop:{shopId.Value}";
             await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({lockName}, 0))", ct);
         }
         _dbContext.ChangeTracker.Clear();
+        _sessions.Clear();
         var before = await _dbContext.Orders.AsNoTracking().Where(o => o.Id == orderId)
             .Select(o => (OrderStatus?)o.Status).SingleOrDefaultAsync(ct);
+        before ??= await _dbContext.CheckoutSessions.AsNoTracking().Where(s => s.Id == orderId)
+            .Select(s => (OrderStatus?)s.Status).SingleOrDefaultAsync(ct);
         var paidBefore = await _dbContext.Payments.CountAsync(p => p.OrderId == orderId
             && p.PaymentType == PaymentType.Remaining && p.Status == PaymentStatus.Succeeded, ct);
         var result = await action();
@@ -243,6 +265,9 @@ public sealed class CheckoutRepository : ICheckoutRepository
             await _dbContext.SaveChangesAsync(ct);
         }
         await tx.CommitAsync(ct);
+        if (cartChanged && ownerId.HasValue && _realtimePublisher != null)
+            await _realtimePublisher.SendToUserAsync(ownerId.Value, RealtimeEvents.CartChanged, new CartChangedEvent(RealtimeEvents.CartReasons.Checkout));
+        cartChanged = false;
         return result;
     }
 }

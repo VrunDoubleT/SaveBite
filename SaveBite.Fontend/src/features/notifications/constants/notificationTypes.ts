@@ -58,11 +58,14 @@ export const NOTIFICATION_TYPES = {
   // Payment
   PAYMENT_SUCCEEDED: "PaymentSucceeded",
   PAYMENT_FAILED: "PaymentFailed",
+  PAYMENT_CANCELLED: "PaymentCancelled",
+  PAYMENT_EXPIRED: "PaymentExpired",
 
   // Refund
   REFUND_REQUEST_CREATED: "RefundRequestCreated",
   REFUND_DESTINATION_REQUIRED: "RefundDestinationRequired",
   REFUND_OVERDUE: "RefundOverdue",
+  REFUND_CUSTOMER_DETAILS_EXPIRED: "RefundCustomerDetailsExpired",
   REFUND_APPROVED: "RefundApproved",
   REFUND_REJECTED: "RefundRejected",
   REFUND_TRANSFERRED: "RefundTransferred",
@@ -96,6 +99,7 @@ export const NOTIFICATION_TYPES = {
 
   // Trust & penalties
   TRUST_SCORE_CHANGED: "TrustScoreChanged",
+  PENALTY_RECOVERY_PROGRESS: "PenaltyRecoveryProgress",
   TRUST_LEVEL_CHANGED: "TrustLevelChanged",
   NO_SHOW_PENALTY_CREATED: "NoShowPenaltyCreated",
   ACCOUNT_STATUS_CHANGED: "AccountStatusChanged",
@@ -161,6 +165,10 @@ export const NOTIFICATION_TYPE_BY_ID: Record<number, NotificationType> = {
   44: NOTIFICATION_TYPES.REFUND_OVERDUE,
   45: NOTIFICATION_TYPES.PLATFORM_FEE_SCHEDULE_ACTIVATED,
   46: NOTIFICATION_TYPES.PLATFORM_FEE_RATE_CHANGED,
+  47: NOTIFICATION_TYPES.PAYMENT_CANCELLED,
+  48: NOTIFICATION_TYPES.PAYMENT_EXPIRED,
+  49: NOTIFICATION_TYPES.REFUND_CUSTOMER_DETAILS_EXPIRED,
+  50: NOTIFICATION_TYPES.PENALTY_RECOVERY_PROGRESS,
 };
 
 export interface NotificationVisualConfig {
@@ -231,8 +239,23 @@ export const NOTIFICATION_VISUALS: Record<NotificationType, NotificationVisualCo
     bg: "bg-rose-100 text-rose-700",
     label: "Payment failed",
   },
+  [NOTIFICATION_TYPES.PAYMENT_CANCELLED]: {
+    Icon: CircleAlert,
+    bg: "bg-amber-100 text-amber-700",
+    label: "Payment cancelled",
+  },
+  [NOTIFICATION_TYPES.PAYMENT_EXPIRED]: {
+    Icon: CircleAlert,
+    bg: "bg-rose-100 text-rose-700",
+    label: "Payment expired",
+  },
 
   // Refunds
+  [NOTIFICATION_TYPES.REFUND_CUSTOMER_DETAILS_EXPIRED]: {
+    Icon: CircleAlert,
+    bg: "bg-amber-100 text-amber-700",
+    label: "Customer details deadline passed",
+  },
   [NOTIFICATION_TYPES.REFUND_OVERDUE]: {
     Icon: AlertTriangle,
     bg: "bg-rose-100 text-rose-700",
@@ -372,6 +395,11 @@ export const NOTIFICATION_VISUALS: Record<NotificationType, NotificationVisualCo
     Icon: Shield,
     bg: "bg-cyan-100 text-cyan-700",
     label: "Trust score updated",
+  },
+  [NOTIFICATION_TYPES.PENALTY_RECOVERY_PROGRESS]: {
+    Icon: Shield,
+    bg: "bg-amber-100 text-amber-700",
+    label: "Order applied to penalty recovery",
   },
   [NOTIFICATION_TYPES.TRUST_LEVEL_CHANGED]: {
     Icon: ShieldCheck,

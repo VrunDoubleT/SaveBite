@@ -1,7 +1,7 @@
 import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { CustomerSuspensionBanner } from "@/shared/components/CustomerSuspensionBanner";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import { useHomePreferencesStore } from "@/features/shops/stores/homePreferencesStore";
@@ -74,6 +74,27 @@ export function CustomerHomePage() {
   const setIsMapOpen = useHomePreferencesStore((state) => state.setStoresExpanded);
   const [shopSearchKeyword, setShopSearchKeyword] = useState("");
   const [isCategoryAnimationPaused, setIsCategoryAnimationPaused] = useState(false);
+  const shouldAnimateCategories = categories.length > 0;
+  const [categoryRepeatCount, setCategoryRepeatCount] = useState(1);
+  const categoryViewportRef = useRef<HTMLDivElement>(null);
+  const categoryGroupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const viewport = categoryViewportRef.current;
+    const group = categoryGroupRef.current;
+    if (!viewport || !group) return;
+    const measure = () => {
+      const sequenceWidth = group.scrollWidth / categoryRepeatCount;
+      if (sequenceWidth > 0) {
+        setCategoryRepeatCount(Math.max(1, Math.ceil(viewport.clientWidth / sequenceWidth)));
+      }
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    observer.observe(group);
+    measure();
+    return () => observer.disconnect();
+  }, [categories, categoryRepeatCount]);
 
   const activeFilterCount =
     filters.category.length +
@@ -216,7 +237,7 @@ export function CustomerHomePage() {
               {isLoadingCategories && (
                 <InlineSkeleton label="Loading categories" className="w-16" />
               )}
-              {categories.length > 0 && (
+              {categories.length > 0 && shouldAnimateCategories && (
                 <button
                   type="button"
                   aria-label={
@@ -237,26 +258,31 @@ export function CustomerHomePage() {
               )}
             </div>
             {categories.length > 0 ? (
-              <div className="overflow-hidden pb-1 [mask-image:linear-gradient(90deg,transparent,#000_5%,#000_95%,transparent)]">
+              <div
+                ref={categoryViewportRef}
+                className={`overflow-hidden pb-1 ${shouldAnimateCategories ? "[mask-image:linear-gradient(90deg,transparent,#000_5%,#000_95%,transparent)]" : ""}`}
+              >
                 <div
-                  className={`flex w-max animate-[categoryScroll_38s_linear_infinite] motion-reduce:animate-none hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] ${
+                  className={`flex w-max ${shouldAnimateCategories ? "animate-[categoryScroll_38s_linear_infinite]" : ""} motion-reduce:animate-none hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] ${
                     isCategoryAnimationPaused ? "[animation-play-state:paused]" : ""
                   }`}
                 >
-                  {[0, 1].map((copy) => (
+                  {(shouldAnimateCategories ? [0, 1] : [0]).map((copy) => (
                     <div
                       key={copy}
+                      ref={copy === 0 ? categoryGroupRef : undefined}
                       aria-hidden={copy === 1 ? true : undefined}
                       className="flex shrink-0 gap-4 pr-4"
                     >
-                      {categories.map((category) => (
+                      {Array.from({ length: categoryRepeatCount }, (_, repeat) => categories.map((category) => (
                         <span
-                          key={category}
+                          key={`${repeat}:${category}`}
+                          aria-hidden={repeat > 0 ? true : undefined}
                           className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-white/60 bg-white/95 px-5 text-sm font-semibold text-slate-800 shadow-md backdrop-blur-md"
                         >
                           {category}
                         </span>
-                      ))}
+                      )))}
                     </div>
                   ))}
                 </div>

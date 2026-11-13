@@ -98,6 +98,10 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         {
             var order = await _checkoutRepository.GetOrderAsync(orderId, userId, ct) ?? throw AppException.NotFound("Order not found.");
             expirationJobId = order.PaymentExpirationJobId;
+            var cancellingPaymentOnly = cancel && order.Status == OrderStatus.AwaitingPayment;
+            if (cancel && order.Status is (OrderStatus.Cancelled or OrderStatus.Expired)
+                && order.Payments.All(p => p.OrderId == null && p.Status != PaymentStatus.Pending))
+                return CheckoutOrderMapper.Map(order, now: Now);
             notifyShopCancellation = cancel && order.Status is (OrderStatus.Pending or OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.ReadyForPickup);
             // Validate cancellation eligibility and make repeated customer cancellation idempotent.
             if (cancel)
@@ -164,13 +168,13 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                     if (status.Status == "PAID" && status.AmountPaid >= payment.Amount)
                     {
                         notifyShopPending |= await PaidAsync(order, payment, status, ct);
-                        if (cancel) await CancelCustomerOrderAsync(order, payment, ct);
+                        if (cancel && !cancellingPaymentOnly) await CancelCustomerOrderAsync(order, payment, ct);
                     }
                     // Close confirmed inactive links; a missing link remains retryable before the payment deadline.
                     else if (status.Status is "CANCELLED" or "EXPIRED" or "NOT_FOUND")
                     {
                         if (cancel || expired || status.Status != "NOT_FOUND")
-                            await CloseAsync(order, payment, cancel ? OrderStatus.Cancelled : OrderStatus.Expired, ct);
+                            await CloseAsync(order, payment, cancel || (status.Status == "CANCELLED" && !expired) ? OrderStatus.Cancelled : OrderStatus.Expired, ct);
                         else message = "A payment link has not been created. Please retry payment.";
                     }
                     else if (cancel || expired)
@@ -181,7 +185,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                         if (closed.Status == "PAID" && closed.AmountPaid >= payment.Amount)
                         {
                             notifyShopPending |= await PaidAsync(order, payment, closed, ct);
-                            if (cancel) await CancelCustomerOrderAsync(order, payment, ct);
+                            if (cancel && !cancellingPaymentOnly) await CancelCustomerOrderAsync(order, payment, ct);
                         }
                         else if (closed.Status is "CANCELLED" or "EXPIRED")
                             await CloseAsync(order, payment, cancel ? OrderStatus.Cancelled : OrderStatus.Expired, ct);
@@ -315,6 +319,12 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     // Expire an unpaid order after provider closure is confirmed or when link creation was never attempted.
     private async Task CloseAsync(Order order, Payment payment, OrderStatus status, CancellationToken ct)
     {
+        if (order.Status is OrderStatus.Cancelled or OrderStatus.Expired && !order.InventoryReservationActive) return;
+        if (order.Status == OrderStatus.AwaitingPayment)
+        {
+            await CloseUnpaidCheckoutAsync(order, payment, status, ct);
+            return;
+        }
         if (status == OrderStatus.Cancelled)
         {
             await CancelCustomerOrderAsync(order, payment, ct);
@@ -335,6 +345,11 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     // Cancel an eligible customer order without refunding collected money and release its applicable inventory.
     private async Task CancelCustomerOrderAsync(Order order, Payment? payment, CancellationToken ct)
     {
+        if (order.Status == OrderStatus.AwaitingPayment && payment != null && payment.Status != PaymentStatus.Succeeded)
+        {
+            await CloseUnpaidCheckoutAsync(order, payment, OrderStatus.Cancelled, ct);
+            return;
+        }
         CheckoutRules.ValidateCustomerCancellation(order, Now);
         var previous = order.Status;
         if (order.Status == OrderStatus.AwaitingPayment && order.InventoryReservationActive)
@@ -361,6 +376,31 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             Note = CheckoutRules.CustomerCancellationPolicy + " Inventory released for an unpaid reservation or held pending a five-minute shop resale decision.",
             CreatedAt = Now
         });
+    }
+
+    private async Task CloseUnpaidCheckoutAsync(Order order, Payment payment, OrderStatus status, CancellationToken ct)
+    {
+        // The session row lock and terminal status make release/restoration/notification idempotent.
+        await _checkoutRepository.CompleteInventoryAsync(order, false, ct);
+        await _checkoutRepository.RestoreCartAsync(order, ct);
+        var cancelled = status == OrderStatus.Cancelled;
+        order.Status = status;
+        order.UpdatedAt = Now;
+        order.RemainingAmount = 0;
+        order.PaymentReviewRequired |= payment.CollectedAmount > 0;
+        if (cancelled) { order.CancelledAt = Now; order.CancelledBy = order.CustomerId; }
+        else order.ExpiredAt = Now;
+        payment.Status = cancelled ? PaymentStatus.Cancelled : PaymentStatus.Expired;
+        payment.GatewayCheckoutUrl = null;
+        payment.GatewayQrCode = null;
+        payment.UpdatedAt = Now;
+        await _notifications.EnqueueAsync(NotificationTarget.User(order.CustomerId), new CreateNotificationCommand(
+            cancelled ? NotificationType.PaymentCancelled : NotificationType.PaymentExpired,
+            cancelled ? "Payment cancelled" : "Payment expired",
+            cancelled
+                ? "Your payment was cancelled. No order was placed. The items have been returned to your cart."
+                : "Your payment link expired. No order was placed. The items have been returned to your cart. Availability will be checked again at checkout.",
+            NotificationActionUrls.CustomerCart(), $"checkout-payment:{payment.Id}:closed"), ct);
     }
 
     private void CaptureCredentials(Payment payment, ShopPaymentConfig? config)

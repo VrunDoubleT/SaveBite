@@ -9,6 +9,9 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
     public void Configure(EntityTypeBuilder<Payment> builder)
     {
         builder.ToTable("payments");
+        builder.Property(x => x.CheckoutSessionId).HasColumnName("checkout_session_id");
+        builder.HasOne(x => x.CheckoutSession).WithMany().HasForeignKey(x => x.CheckoutSessionId)
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.Property(x => x.GatewayQrCode).HasColumnName("gateway_qr_code").HasColumnType("text");
         builder.HasIndex(x => x.OrderId).HasDatabaseName("IX_payments_order_id");
@@ -22,8 +25,7 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .HasDefaultValueSql("gen_random_uuid()");
 
         builder.Property(x => x.OrderId)
-            .HasColumnName("order_id")
-            .IsRequired();
+            .HasColumnName("order_id");
 
         builder.Property(x => x.PaymentType)
             .HasColumnName("payment_type")

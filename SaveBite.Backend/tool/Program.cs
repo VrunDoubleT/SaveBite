@@ -136,7 +136,7 @@ internal class Program
                     c.name AS category_name
                 FROM public.flash_deals fd
                 JOIN public.shops s ON fd.shop_id = s.id
-                JOIN public.""Products"" p ON fd.product_id = p.id
+                JOIN public.products p ON fd.product_id = p.id
                 LEFT JOIN public.categories c ON p.category_id = c.id
                 WHERE fd.status = 'OnSale' AND s.status = 'Active' AND p.status = 'Active'
                 ORDER BY s.name, p.name;
@@ -492,7 +492,7 @@ internal class Program
         const string candidates = """
             WITH eligible AS (
                 SELECT p.id, p.shop_id, ROW_NUMBER() OVER (PARTITION BY p.shop_id ORDER BY p.created_at DESC, p.id) AS position
-                FROM "Products" p JOIN shops s ON s.id = p.shop_id
+                FROM products p JOIN shops s ON s.id = p.shop_id
                 WHERE p.status = 'Active' AND p.deleted_at IS NULL AND s.status = 'Active'
                   AND EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.is_active AND v.original_price > 0 AND v.deal_price > 0)
             ), selected_shops AS (SELECT DISTINCT shop_id FROM eligible ORDER BY shop_id LIMIT 3)

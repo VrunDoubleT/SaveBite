@@ -72,6 +72,20 @@ public class TrustConfigTests
         Assert.Single(fixture.Audit.Entries);
     }
 
+    [Theory]
+    [InlineData(-2)]
+    [InlineData(2)]
+    public async Task StartedPenaltyCannotMoveItsEffectiveFrom(int newStart)
+    {
+        var fixture = new Fixture();
+        var rule = Rule(1, -5);
+        fixture.Proxy.Rules.Add(rule);
+        await Assert.ThrowsAsync<AppException>(() => fixture.Service.UpdatePenaltyRuleAsync(
+            Guid.NewGuid(), rule.Id, new() { EffectiveFrom = Now.AddDays(newStart) }));
+        Assert.Equal(Now.AddDays(-5), rule.EffectiveFrom);
+        Assert.Empty(fixture.Scheduler.Synced);
+    }
+
     private sealed class Fixture
     {
         public ConfigProxy Proxy { get; }

@@ -39,8 +39,8 @@ public sealed class PayOsCheckoutGateway : ICheckoutPaymentGateway
         var frontend = _configuration["Checkout:FrontendBaseUrl"] ?? "http://localhost:5173";
         if (!Uri.TryCreate(frontend, UriKind.Absolute, out var baseUri) || baseUri.Scheme is not ("https" or "http"))
             throw AppException.ServiceUnavailable("The payment return address is not configured.");
-        var returnUrl = $"{frontend.TrimEnd('/')}/checkout?orderId={order.Id}";
-        var cancelUrl = returnUrl + "&cancelled=1";
+        var returnUrl = $"{frontend.TrimEnd('/')}/account/payments/{payment.Id}?checkoutId={order.Id}";
+        var cancelUrl = $"{frontend.TrimEnd('/')}/account/payments/{payment.Id}?cancelled=1&checkoutId={order.Id}";
         var code = payment.GatewayOrderCode ?? throw AppException.InternalError();
         if (payment.Amount < MoneyLimits.MinAmountVnd || decimal.Truncate(payment.Amount) != payment.Amount || payment.Amount > long.MaxValue)
             throw AppException.BadRequest($"Online payment amounts must be whole VND values of at least {MoneyLimits.MinAmountVnd:N0}.");

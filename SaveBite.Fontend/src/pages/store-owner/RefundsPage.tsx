@@ -26,6 +26,7 @@ const statuses: Record<string, string> = {
   AwaitingCustomerDetails: "Waiting for customer",
   AwaitingTransfer: "Ready to transfer",
   Transferred: "Transferred",
+  CustomerDetailsExpired: "Customer details deadline passed",
   Rejected: "Declined",
   Withdrawn: "Withdrawn",
 };

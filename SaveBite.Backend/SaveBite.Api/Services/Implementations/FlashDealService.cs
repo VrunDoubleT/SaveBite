@@ -631,9 +631,10 @@ public sealed class FlashDealService : IFlashDealService
 
 
         var now = DateTime.UtcNow;
-        var previousStatus = deal.Status;
-        var isReopening = deal.Status is FlashDealStatus.Closed or FlashDealStatus.Cancelled || deal.OrderEndTime <= now;
-        if ((isReopening || deal.Status == FlashDealStatus.Pending) &&
+        if (deal.Status is FlashDealStatus.Closed or FlashDealStatus.Cancelled || deal.OrderEndTime <= now)
+            throw AppException.BadRequest("Ended flash deals cannot be edited or reopened. Create a new flash deal instead.");
+
+        if (deal.Status == FlashDealStatus.Pending &&
             request.DurationMinutes.HasValue)
         {
             var window = FlashDealTiming.ImmediateWindow(now, request.DurationMinutes.Value,
@@ -667,7 +668,7 @@ public sealed class FlashDealService : IFlashDealService
         }
 
 
-        if (isReopening || deal.Status == FlashDealStatus.Pending)
+        if (deal.Status == FlashDealStatus.Pending)
         {
             // As with creation, a valid 30-120 minute window may cross midnight.
             var duration = request.OrderEndTime - request.SaleStartTime;
@@ -700,22 +701,7 @@ public sealed class FlashDealService : IFlashDealService
                 deal.Status = FlashDealStatus.OnSale;
             }
 
-            if (isReopening)
-            {
-                deal.FeedPublishedAt = now;
-                deal.VisibilityVersion++;
-                deal.PublicationId = Guid.NewGuid();
-                _db.FlashDealStatusHistories.Add(new FlashDealStatusHistory
-                {
-                    Id = Guid.NewGuid(),
-                    FlashDealId = deal.Id,
-                    FromStatus = previousStatus,
-                    ToStatus = deal.Status,
-                    ChangedByType = "Shop",
-                    ChangedByUserId = userId,
-                    CreatedAt = now
-                });
-            }
+
         }
         else if (deal.Status is FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
         {
@@ -780,13 +766,6 @@ public sealed class FlashDealService : IFlashDealService
             }
         }
         await _dealRepository.UpdateAsync(deal, cancellationToken);
-
-        if (isReopening && deal.Status == FlashDealStatus.OnSale)
-        {
-            var openingMessageId = await ShopDealOpenedOutbox.StageAsync(_db, deal.Id, shop.Id, now, cancellationToken);
-            _db.TrackNotificationOutbox(openingMessageId);
-            FlashDealLifecycleOutbox.StageOpened(_db, deal.Id, now: now);
-        }
 
         await RefreshScheduleAsync(deal, cancellationToken);
         LifecycleOutbox.InventoryDeals(_db, new[] { deal.Id }, null, DateTime.UtcNow);
@@ -932,7 +911,7 @@ public sealed class FlashDealService : IFlashDealService
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
-    // 7. Unhide / Re-open Flash Deal (Pause & Resume Duration)
+    // 7. Unhide Flash Deal (Pause & Resume Duration)
     public async Task UnhideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
@@ -948,7 +927,10 @@ public sealed class FlashDealService : IFlashDealService
         var now = DateTime.UtcNow;
 
         if (await WarningDealPolicy.IsBlockedAsync(_db, deal.ProductId, cancellationToken))
-            throw AppException.Conflict("Product has an overdue warning and cannot reopen deals.");
+            throw AppException.Conflict("Product has an overdue warning and cannot unhide deals.");
+
+        if (deal.OrderEndTime <= now)
+            throw AppException.BadRequest("Ended flash deals cannot be restored. Create a new flash deal instead.");
 
         // 1. Retrieve preserved remaining duration when the deal was hidden
         TimeSpan remainingDuration = TimeSpan.Zero;
@@ -1003,7 +985,7 @@ public sealed class FlashDealService : IFlashDealService
             var startLocalTime = TimeOnly.FromDateTime(deal.SaleStartTime.AddHours(7));
             if (!IsWithinOperatingHours(shop.OpeningTime.Value, shop.ClosingTime.Value, startLocalTime))
             {
-                throw AppException.BadRequest($"Cannot reopen deal outside shop operating hours ({shop.OpeningTime.Value:HH:mm} - {shop.ClosingTime.Value:HH:mm}).");
+                throw AppException.BadRequest($"Cannot unhide deal outside shop operating hours ({shop.OpeningTime.Value:HH:mm} - {shop.ClosingTime.Value:HH:mm}).");
             }
         }
 

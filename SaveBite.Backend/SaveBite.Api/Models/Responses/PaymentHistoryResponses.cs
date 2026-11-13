@@ -4,7 +4,7 @@ namespace SaveBite.Backend.Models.Responses;
 public sealed class CustomerPaymentResponse
 {
     public Guid Id { get; init; }
-    public Guid OrderId { get; init; }
+    public Guid? OrderId { get; init; }
     public string OrderCode { get; init; } = string.Empty;
     public string ShopName { get; init; } = string.Empty;
     public string? ShopLogoUrl { get; init; }

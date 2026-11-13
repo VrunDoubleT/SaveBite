@@ -19,6 +19,7 @@ const decisions: Record<string, string> = {
   Rejected: "Shop declined the request",
   Transferred: "Shop recorded the transfer",
   Withdrawn: "Request withdrawn",
+  CustomerDetailsExpired: "Customer details deadline passed",
   DeadlineExpired: "Processing deadline passed",
   VietQrGenerated: "Shop generated transfer QR",
   LegacySnapshot: "Imported refund record",
@@ -36,6 +37,7 @@ export function CustomerRefundDetailContent({
   mutate: (action: () => Promise<Refund>) => Promise<void>;
 }) {
   const [withdraw, setWithdraw] = useState(false);
+  const customerExpired = refund.status === "CustomerDetailsExpired";
   const rejected = refund.status === "Rejected";
   const paid = ["Transferred", "Completed"].includes(refund.status);
   const overdue = refund.isOverdue;
@@ -54,14 +56,14 @@ export function CustomerRefundDetailContent({
     .reverse()
     .find((item) => ["Approved", "Rejected"].includes(item.decision));
   const tone =
-    rejected || overdue
+    rejected || customerExpired || overdue
       ? "border-danger-soft bg-danger-soft text-danger-strong"
       : paid || approved || required
         ? "border-primary-200 bg-primary-50 text-primary-800"
         : withdrawn
           ? "border-border-default bg-neutral-50 text-text-secondary"
           : "border-secondary-100 bg-secondary-50 text-secondary-700";
-  const title = rejected
+  const title = customerExpired ? "The deadline to confirm your refund details has passed" : rejected
     ? timedOut
       ? "Refund closed because the deadline passed"
       : "The shop declined your refund request"
@@ -79,13 +81,13 @@ export function CustomerRefundDetailContent({
                 ? "The shop is reviewing your request"
                 : "Confirm your refund destination to continue";
   const transfer = [...refund.history].reverse().find((item) => item.decision === "Transferred");
-  const outcomeActor = timedOut ? "System" : paid ? transfer?.actorName : decision?.actorName;
-  const outcomeAt = timedOut
+  const outcomeActor = customerExpired ? "System" : timedOut ? "System" : paid ? transfer?.actorName : decision?.actorName;
+  const outcomeAt = customerExpired ? refund.customerDetailsDeadlineAt : timedOut
     ? timeout?.createdAt
     : paid
       ? refund.transferredAt || transfer?.createdAt
       : refund.reviewedAt || decision?.createdAt;
-  const outcomeLabel = rejected
+  const outcomeLabel = customerExpired ? "Customer confirmation deadline" : rejected
     ? timedOut
       ? "Closure reason"
       : "Reason for declining"
@@ -96,7 +98,7 @@ export function CustomerRefundDetailContent({
         : approved
           ? "Approved amount"
           : "What happens next";
-  const outcomeText = rejected
+  const outcomeText = customerExpired ? "You did not provide and email-confirm your refund destination within 24 hours. The system closed this request; the shop did not reject it." : rejected
     ? refund.rejectReason || decision?.note || "No reason was recorded."
     : overdue
       ? required
@@ -125,7 +127,7 @@ export function CustomerRefundDetailContent({
       : refund.destinationConfirmedAt
         ? 1
         : 0;
-  const stopped = rejected || overdue || withdrawn;
+  const stopped = rejected || customerExpired || overdue || withdrawn;
   return (
     <div className="space-y-4">
       <section
@@ -151,11 +153,11 @@ export function CustomerRefundDetailContent({
                   {outcomeText}
                 </p>
               </div>
-              {(rejected || approved || paid) && (
+              {(rejected || customerExpired || approved || paid) && (
                 <div className="flex flex-col items-start gap-1 border-t border-current/15 pt-3 text-xs">
                   <span>
                     {outcomeActor
-                      ? `${outcomeActor}${timedOut ? "" : " · Shop owner"}`
+                      ? `${outcomeActor}${timedOut || customerExpired ? "" : " · Shop owner"}`
                       : refund.shopName}
                   </span>
                   <span>{time(outcomeAt)}</span>

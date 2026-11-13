@@ -330,10 +330,12 @@ public sealed class ShopService : IShopService
         var checksumChanged = !string.IsNullOrWhiteSpace(request.PayosChecksumKey) && paymentConfig.PayosChecksumKey != request.PayosChecksumKey.Trim();
         if (!clientChanged && !apiKeyChanged && !checksumChanged)
         {
+            await _payOsValidator.ValidateShopAsync(new(paymentConfig.PayosClientId,
+                paymentConfig.PayosApiKey, paymentConfig.PayosChecksumKey), cancellationToken);
             await tx.CommitAsync(cancellationToken);
             return MapPaymentConfigResponse(paymentConfig);
         }
-        await _payOsValidator.ValidateAsync(new(
+        await _payOsValidator.ValidateShopAsync(new(
             string.IsNullOrWhiteSpace(request.PayosClientId) ? paymentConfig.PayosClientId : request.PayosClientId.Trim(),
             string.IsNullOrWhiteSpace(request.PayosApiKey) ? paymentConfig.PayosApiKey : request.PayosApiKey.Trim(),
             string.IsNullOrWhiteSpace(request.PayosChecksumKey) ? paymentConfig.PayosChecksumKey : request.PayosChecksumKey.Trim()), cancellationToken);

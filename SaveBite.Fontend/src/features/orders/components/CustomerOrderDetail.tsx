@@ -1,12 +1,11 @@
-import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
 import { Card, ErrorState, MediaImage, Skeleton } from "@/shared/components/ui";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { subscribeCustomerOrderEvents } from "@/features/orders/realtime/subscribeCustomerOrderEvents";
 import { CustomerOrderRefunds } from "@/features/refunds/components/CustomerOrderRefunds";
-import { OrderPickupDeadlines } from "./OrderPickupDeadlines";
-import { OrderPickupCode } from "./OrderPickupCode";
-import { OrderStatusPanel } from "./OrderStatusPanel";
-import { CancelOrderAction } from "./CancelOrderAction";
+import { OrderPickupDeadlines } from "@/features/checkout/components/OrderPickupDeadlines";
+import { OrderPickupCode } from "@/features/checkout/components/OrderPickupCode";
+import { OrderStatusPanel } from "@/features/checkout/components/OrderStatusPanel";
+import { CancelOrderAction } from "@/features/checkout/components/CancelOrderAction";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { CreditCard, Clock3, Store, MapPin, ShoppingBag } from "lucide-react";
@@ -16,16 +15,15 @@ import { RateOrderModal } from "@/features/feedbacks/components/RateOrderModal";
 import { EditReviewModal } from "@/features/feedbacks/components/EditReviewModal";
 import { APP_PATHS } from "@/app/router/paths";
 import { orderApi } from "@/features/orders/api/orderApi";
-import { paymentApi } from "@/features/payments/api/paymentApi";
-import type { CheckoutOrder } from "../types/checkout.types";
-import { checkoutTime, safePaymentUrl } from "../utils/checkoutPolicy";
+import type { CheckoutOrder } from "@/features/checkout/types/checkout.types";
+import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
 import { getApiErrorMessage } from "@/shared/api";
 import { useCartStore } from "@/features/cart/stores/cartStore";
 import { getUploadDraft } from "@/shared/uploads/uploadDraftStore";
 import { useAuthStore } from "@/shared/stores/authStore";
 
-export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
+export function CustomerOrderDetail({ orderId }: { orderId: string }) {
   const realtime = useRealtimeSubscriptions();
   const location = useLocation();
   const navigate = useNavigate();
@@ -43,8 +41,6 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
   const alive = useRef(true);
   const revision = useRef(0);
   const operation = useRef(false);
-  const pending = order?.paymentStatus === "Pending" && order.status === "AwaitingPayment";
-  const expired = !!order?.paymentExpiresAt && Date.parse(order.paymentExpiresAt) <= now;
   const resumeUploadDraftId = (location.state as { uploadDraftId?: string } | null)?.uploadDraftId;
 
   useEffect(() => {
@@ -125,33 +121,7 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
       controller.abort();
     };
   }, [orderId, realtime, busy]);
-  useEffect(() => {
-    if (!pending) return;
-    const controller = new AbortController();
-    let reading = false;
-    const timer = window.setInterval(async () => {
-      if (operation.current || reading || document.visibilityState !== "visible") return;
-      reading = true;
-      const current = ++revision.current;
-      try {
-        const next = await orderApi.order(orderId, controller.signal);
-        if (alive.current && current === revision.current) {
-          setOrder(next);
-          setError(null);
-        }
-      } catch (error) {
-        if (!controller.signal.aborted && alive.current && current === revision.current)
-          setError(getApiErrorMessage(error));
-      } finally {
-        reading = false;
-      }
-    }, 5000);
-    return () => {
-      controller.abort();
-      window.clearInterval(timer);
-    };
-  }, [pending, orderId]);
-  async function update(action: () => Promise<CheckoutOrder>, redirect = false) {
+  async function update(action: () => Promise<CheckoutOrder>) {
     if (operation.current) return;
     operation.current = true;
     setBusy(true);
@@ -162,8 +132,6 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
       if (!alive.current || current !== revision.current) return;
       setOrder(next);
       void useCartStore.getState().refresh();
-      const url = safePaymentUrl(next.checkoutUrl);
-      if (redirect && next.paymentStatus === "Pending" && url) window.location.assign(url);
     } catch (error) {
       if (alive.current && current === revision.current) setError(getApiErrorMessage(error));
     } finally {
@@ -226,7 +194,9 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
             </li>
           </ol>
         </nav>
-        <h1 className="text-page font-semibold text-text-primary">Order details</h1>
+        <h1 className="text-page font-semibold text-text-primary">
+          Order details
+        </h1>
       </div>
       {error && (
         <div className="mb-5">
@@ -400,28 +370,6 @@ export function CheckoutOrderReceipt({ orderId }: { orderId: string }) {
                     </dd>
                   </div>
                 </dl>
-                {pending && (
-                  <div className="space-y-3 border-t border-border-default pt-4">
-                    <p className="text-caption text-text-secondary">
-                      Payment deadline: {checkoutTime(order.paymentExpiresAt)}
-                    </p>
-                    <CustomerActionButton
-                      loading={busy}
-                      size="md"
-                      type="button"
-                      disabled={busy || expired}
-                      onClick={() => void update(() => paymentApi.payment(orderId), true)}
-                      className="min-h-11 w-full whitespace-normal !px-3 py-2"
-                    >
-                      <CreditCard aria-hidden="true" size={18} className="shrink-0" />
-                      {busy
-                        ? "Checking…"
-                        : expired
-                          ? "Payment expired · Verifying"
-                          : `${order.paymentMethod === "PayAtShop" ? "Pay deposit" : "Pay online"} ${money(order.requiredOnlineAmount)}`}
-                    </CustomerActionButton>
-                  </div>
-                )}
                 {order.policy && (
                   <div className="rounded-md bg-neutral-50 p-3">
                     <p className="text-caption font-medium text-text-secondary">

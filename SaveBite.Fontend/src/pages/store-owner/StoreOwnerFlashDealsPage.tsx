@@ -585,11 +585,11 @@ export function StoreOwnerFlashDealsPage() {
                             <Eye className="size-3.5" />
                           </button>
 
-                          {/* Edit - ended deals can be reopened; suspension disables actions */}
+                          {/* Ended deals cannot be edited. */}
                           <button
                             type="button"
-                            disabled={shopSuspended}
-                            title={state === "ended" ? "Edit deal timing to re-open" : "Edit deal"}
+                            disabled={shopSuspended || state === "ended"}
+                            title={state === "ended" ? "Ended deals cannot be edited" : "Edit deal"}
                             onClick={() =>
                               navigate(
                                 APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id),

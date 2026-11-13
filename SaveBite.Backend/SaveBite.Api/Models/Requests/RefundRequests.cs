@@ -20,7 +20,7 @@ public class RefundBankRequest
     [Required, RegularExpression("^[0-9]{6}$")] public string BankBin { get; set; } = string.Empty;
     [Required, StringLength(100)] public string BankName { get; set; } = string.Empty;
     [Required, RegularExpression("^[0-9]{1,50}$")] public string AccountNumber { get; set; } = string.Empty;
-    [Required, StringLength(150)] public string AccountHolder { get; set; } = string.Empty;
+    [StringLength(150)] public string AccountHolder { get; set; } = string.Empty;
 }
 public class RefundTransferRequest
 {

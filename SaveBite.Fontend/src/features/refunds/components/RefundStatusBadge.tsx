@@ -1,6 +1,7 @@
 import type { Refund } from "../types/refund.types";
 import { refundStatusLabels } from "../utils/refundStatus";
 const colors: Record<string, string> = {
+  CustomerDetailsExpired: "border-accent-100 bg-accent-50 text-accent-700",
   Overdue: "border-danger-soft bg-danger-soft text-danger-strong",
   AwaitingCustomerDetails: "border-accent-100 bg-accent-50 text-accent-700",
   PendingVerification: "border-secondary-100 bg-secondary-50 text-secondary-700",
@@ -38,7 +39,7 @@ export function RefundProgress({ refund }: { refund: Refund }) {
     refund.type === "CustomerRequest"
       ? ["Customer details", "Shop review", "Bank transfer", "Refunded"]
       : ["Customer details", "Bank transfer", "Refunded"];
-  const stopped = ["Rejected", "Withdrawn"].includes(refund.status);
+  const stopped = ["Rejected", "Withdrawn", "CustomerDetailsExpired"].includes(refund.status);
   const current = ["Transferred", "Completed"].includes(refund.status)
     ? steps.length - 1
     : ["AwaitingTransfer", "Overdue"].includes(refund.status)

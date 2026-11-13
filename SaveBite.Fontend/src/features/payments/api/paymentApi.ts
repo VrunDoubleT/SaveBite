@@ -1,5 +1,5 @@
 import type { CustomerPaymentPage, CustomerPaymentDetail } from "../types/paymentHistory.types";
-import { API_ENDPOINTS, httpClient } from "@/shared/api";
+import { httpClient } from "@/shared/api";
 import type { ApiResponse } from "@/shared/types";
 import type { CheckoutOrder } from "@/features/checkout/types/checkout.types";
 
@@ -34,9 +34,9 @@ export const paymentApi = {
       )
     ).data.data;
   },
-  async payment(orderId: string): Promise<CheckoutOrder> {
-    return (
-      await httpClient.post<ApiResponse<CheckoutOrder>>(API_ENDPOINTS.PAYMENTS.LINK(orderId))
-    ).data.data;
+  async reconcile(orderId: string, signal?: AbortSignal): Promise<CheckoutOrder> {
+    return (await httpClient.post<ApiResponse<CheckoutOrder>>(
+      `/payments/orders/${encodeURIComponent(orderId)}/reconcile`, undefined, { signal },
+    )).data.data;
   },
 };

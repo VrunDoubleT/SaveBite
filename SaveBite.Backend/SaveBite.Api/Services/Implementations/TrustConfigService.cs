@@ -819,6 +819,9 @@ public sealed class TrustConfigService : ITrustConfigService
         {
             var rules = await _repository.LockPenaltyRulesAsync(ct);
             var rule = rules.SingleOrDefault(r => r.Id == ruleId) ?? throw AppException.NotFound("Penalty rule not found.");
+            if (rule.EffectiveFrom <= now && request.EffectiveFrom.HasValue
+                && request.EffectiveFrom.Value != rule.EffectiveFrom)
+                throw AppException.BadRequest("Effective from cannot be changed after a penalty rule has started.");
             var old = SnapshotPenaltyRule(rule);
             rule.MinimumOccurrence = request.MinimumOccurrence;
             rule.ScoreDeduction = request.ScoreDeduction;

@@ -41,17 +41,22 @@ public sealed class PaymentHistoryService : IPaymentHistoryService
     {
         await _payments.RequireCustomerAsync(userId, ct);
         var payment = await _payments.GetAsync(userId, paymentId, ct) ?? throw AppException.NotFound("Payment not found.");
-        var order = await _orders.GetOrderForHistoryAsync(payment.OrderId, userId, ct) ?? throw AppException.NotFound("Order not found.");
+        var order = await _orders.GetOrderForHistoryAsync((payment.OrderId ?? payment.CheckoutSessionId)!.Value, userId, ct)
+            ?? throw AppException.NotFound("Payment checkout not found.");
         return new CustomerPaymentDetailResponse { Payment = Map(payment), Order = CheckoutOrderMapper.Map(order, now: _clock.GetUtcNow().UtcDateTime) };
     }
 
     // Map a payment with its order and shop identity without changing payment state.
-    private static CustomerPaymentResponse Map(Payment payment) => new()
+    private static CustomerPaymentResponse Map(Payment payment)
     {
-        Id = payment.Id, OrderId = payment.OrderId, OrderCode = payment.Order.OrderCode,
-        ShopName = PurchaseSnapshots.ShopName(payment.Order), ShopLogoUrl = PurchaseSnapshots.ShopLogo(payment.Order),
+        var purchase = payment.Order ?? CheckoutSessionSnapshot.Read(payment.CheckoutSession!.SnapshotJson);
+        return new CustomerPaymentResponse
+        {
+        Id = payment.Id, OrderId = payment.OrderId, OrderCode = payment.OrderId.HasValue ? purchase.OrderCode : string.Empty,
+        ShopName = PurchaseSnapshots.ShopName(purchase), ShopLogoUrl = PurchaseSnapshots.ShopLogo(purchase),
         Type = payment.PaymentType.ToString(), Method = payment.Method.ToString(), Status = payment.Status.ToString(),
         Amount = payment.Amount, CollectedAmount = CheckoutOrderMapper.Collected(payment),
         CreatedAt = payment.CreatedAt, PaidAt = payment.PaidAt
-    };
+        };
+    }
 }

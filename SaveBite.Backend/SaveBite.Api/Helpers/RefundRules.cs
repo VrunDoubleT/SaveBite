@@ -11,7 +11,8 @@ public static class RefundRules
 {
     public const int ShopProcessingHours = TimingConfiguration.Refund.ShopProcessingHours;
     public static RefundStatus ExpiredStatus(Refund refund) =>
-        refund.Status != RefundStatus.AwaitingCustomerDetails && refund.RefundType == RefundType.ShopCancellation
+        refund.Status == RefundStatus.AwaitingCustomerDetails ? RefundStatus.CustomerDetailsExpired :
+        refund.RefundType == RefundType.ShopCancellation
         && refund.RequestedAmount > refund.TransferredAmount ? RefundStatus.Overdue : RefundStatus.Rejected;
     public static Expression<Func<Refund, bool>> ShopActionRequiredAt(DateTime now) => refund =>
         refund.DestinationConfirmedAt != null && (refund.ReviewDeadlineAt > now || (refund.RefundType == RefundType.ShopCancellation && refund.Status == RefundStatus.Overdue))
@@ -46,13 +47,14 @@ public static class RefundRules
         if (request.BankBin == null || request.BankBin.Length != 6 || !request.BankBin.All(char.IsAsciiDigit)
             || string.IsNullOrWhiteSpace(request.BankName) || request.BankName.Length > 100
             || string.IsNullOrEmpty(request.AccountNumber) || request.AccountNumber.Length > 50 || !request.AccountNumber.All(char.IsAsciiDigit)
-            || string.IsNullOrWhiteSpace(request.AccountHolder) || request.AccountHolder.Length > 150)
+            || (request.ReceiverMethod != "QrImage" && string.IsNullOrWhiteSpace(request.AccountHolder)) || request.AccountHolder.Length > 150)
             throw AppException.BadRequest("Supply a valid bank BIN, bank name, account number and account holder.");
     }
     public static void RequireDestinationFields(Refund refund, bool requireBankBin = false)
     {
         ValidateBank(new RefundBankRequest
         {
+            ReceiverMethod = refund.ReceiverMethod?.ToString() ?? "BankAccount",
             BankBin = refund.ReceiverBankBin ?? (requireBankBin ? "" : "000000"),
             BankName = refund.ReceiverBankName!,
             AccountNumber = refund.ReceiverAccountNumber!,

@@ -5,7 +5,9 @@ namespace SaveBite.Backend.Models.Entities;
 public class Payment
 {
     public Guid Id { get; set; }
-    public Guid OrderId { get; set; }
+    public Guid? OrderId { get; set; }
+    public Guid? CheckoutSessionId { get; set; }
+    public CheckoutSession? CheckoutSession { get; set; }
 
     public PaymentType PaymentType { get; set; }
     public PaymentMethod Method { get; set; }

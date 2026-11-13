@@ -113,6 +113,7 @@ public class AppDbContext : DbContext
     // Cart & Orders.
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<CheckoutSession> CheckoutSessions => Set<CheckoutSession>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();

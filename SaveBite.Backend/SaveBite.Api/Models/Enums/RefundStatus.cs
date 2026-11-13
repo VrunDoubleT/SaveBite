@@ -10,5 +10,6 @@ public enum RefundStatus
     Completed,
     Withdrawn,
     // Mandatory refunds remain payable after their processing deadline.
-    Overdue
+    Overdue,
+    CustomerDetailsExpired
 }

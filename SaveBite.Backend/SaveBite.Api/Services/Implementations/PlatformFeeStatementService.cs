@@ -19,6 +19,27 @@ namespace SaveBite.Backend.Services.Implementations;
 
 public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 {
+    private readonly IRealtimePublisher? _feeRealtime;
+
+    private async Task PublishPaidFeeAsync(Guid statementId, CancellationToken ct)
+    {
+        if (_feeRealtime == null) return;
+        try
+        {
+            var statement = await _db.PlatformFeeStatements.AsNoTracking().Include(s => s.Shop)
+                .SingleOrDefaultAsync(s => s.Id == statementId && s.Status == PlatformFeeStatementStatus.Paid, ct);
+            if (statement == null) return;
+            var recipients = await _db.Users.Where(u => u.Role == UserRole.Admin).Select(u => u.Id).ToListAsync(ct);
+            recipients.Add(statement.Shop.OwnerUserId);
+            foreach (var recipient in recipients.Distinct())
+            {
+                try { await _feeRealtime.SendToUserAsync(recipient, RealtimeEvents.PlatformFeeChanged,
+                    new { StatementId = statement.Id, ShopId = statement.ShopId, Status = "Paid" }); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Could not publish paid fee {StatementId} to {UserId}.", statementId, recipient); }
+            }
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Could not publish paid fee {StatementId}.", statementId); }
+    }
     public async Task<PlatformFeePeriodStatisticsResponse> GetPeriodStatisticsAsync(int? year, int? month, CancellationToken ct = default)
     {
         if (year < 1 || year > 9999 || month < 1 || month > 12)
@@ -55,9 +76,10 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         IPlatformPayOsConfigService payOsConfig,
         IShopSuspensionCleanupService suspensionCleanup,
         IShopStatusEventService shopStatusEvents, PlatformFeePaymentAvailability availability,
-        IPayOsApiClient payOsApi, IPayOsCredentialProtector credentialProtector)
+        IPayOsApiClient payOsApi, IPayOsCredentialProtector credentialProtector, IRealtimePublisher? feeRealtime = null)
     {
         _availability = availability;
+        _feeRealtime = feeRealtime;
         _payOsApi = payOsApi;
         _credentialProtector = credentialProtector;
         _audit = audit;
@@ -664,6 +686,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             {
                 var reactivatedShopId = await SettleFeePaymentAsync(freshPayment, collectedAmount, ct);
                 await tx.CommitAsync(ct);
+                await PublishPaidFeeAsync(freshPayment.StatementId, ct);
                 if (reactivatedShopId.HasValue)
                 {
                     await _shopStatusEvents.NotifyChangedAsync(reactivatedShopId.Value, ShopStatus.Active.ToString(), ct);
@@ -735,10 +758,22 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
     // UC-151: Update Platform Fee Payment Status via Webhook (BR-097, BR-167, BR-195)
     public async Task ProcessFeeWebhookAsync(JsonElement body, CancellationToken ct = default)
     {
+        if (body.ValueKind != JsonValueKind.Object || !body.TryGetProperty("data", out var data)
+            || data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("orderCode", out var code)
+            || code.ValueKind != JsonValueKind.Number || !code.TryGetInt64(out var orderCode))
+            throw AppException.BadRequest("Invalid payment notification.");
+        // confirm-webhook sends a sample while config saving holds the fee lock.
+        // Acknowledge unknown codes before acquiring that lock to avoid a circular wait.
+        var gatewayCode = orderCode.ToString();
+        if (!await _db.PlatformFeePayments.AsNoTracking().AnyAsync(p => p.GatewayTransactionId == gatewayCode, ct))
+            return;
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
         var reactivatedShopId = await ProcessFeeWebhookCoreAsync(body, ct);
         await transaction.CommitAsync(ct);
+        var statementId = await _db.PlatformFeePayments.AsNoTracking()
+            .Where(p => p.GatewayTransactionId == gatewayCode).Select(p => (Guid?)p.StatementId).SingleOrDefaultAsync(ct);
+        if (statementId.HasValue) await PublishPaidFeeAsync(statementId.Value, ct);
         if (reactivatedShopId.HasValue)
             await _shopStatusEvents.NotifyChangedAsync(reactivatedShopId.Value, ShopStatus.Active.ToString(), ct);
     }

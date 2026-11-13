@@ -44,6 +44,7 @@ export function PenaltyRuleModal({
   onSave,
 }: PenaltyRuleModalProps) {
   const isEditMode = rule !== null;
+  const isEffectiveFromLocked = !!rule && Date.parse(rule.effectiveFrom) <= Date.now();
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -140,7 +141,7 @@ export function PenaltyRuleModal({
 
       const parsedFromMs = new Date(data.effectiveFrom).getTime();
       const originalFromMs = new Date(rule.effectiveFrom).getTime();
-      const unchangedFrom = Math.abs(parsedFromMs - originalFromMs) < ONE_MINUTE_MS;
+      const unchangedFrom = isEffectiveFromLocked || Math.abs(parsedFromMs - originalFromMs) < ONE_MINUTE_MS;
 
       if (!unchangedFrom && parsedFromMs < nowMs - ONE_MINUTE_MS) {
         setError("effectiveFrom", {
@@ -371,12 +372,14 @@ export function PenaltyRuleModal({
             label="Effective from"
             htmlFor="pr-effective-from"
             error={errors.effectiveFrom?.message}
-            hint={isEditMode ? "Start of effective period." : "Leave empty to start immediately."}
+            hint={isEffectiveFromLocked ? "The start time cannot be changed after the rule has started." : isEditMode ? "Start of effective period." : "Leave empty to start immediately."}
           >
             <input
               id="pr-effective-from"
               type="datetime-local"
               {...register("effectiveFrom")}
+              readOnly={isEffectiveFromLocked}
+              aria-readonly={isEffectiveFromLocked}
               className={inputClass(!!errors.effectiveFrom)}
             />
           </FormField>

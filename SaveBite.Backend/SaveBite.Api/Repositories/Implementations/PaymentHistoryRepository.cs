@@ -21,12 +21,13 @@ public sealed class PaymentHistoryRepository : IPaymentHistoryRepository
             throw AppException.Forbidden("An active account is required to view payment history.");
     }
 
-    private IQueryable<Payment> Payments => _db.Payments.AsNoTracking().Include(x => x.Order).ThenInclude(x => x.Shop);
+    private IQueryable<Payment> Payments => _db.Payments.AsNoTracking().Include(x => x.Order).ThenInclude(x => x.Shop)
+        .Include(x => x.CheckoutSession);
 
     // Scope both rows and totals to the authenticated customer's orders before applying pagination.
     public async Task<(IReadOnlyList<Payment> Items, int TotalItems)> PageAsync(Guid userId, PaymentStatus? status, int page, int pageSize, CancellationToken ct)
     {
-        var query = Payments.Where(x => x.Order.CustomerId == userId);
+        var query = Payments.Where(x => x.Order.CustomerId == userId || x.CheckoutSession!.CustomerId == userId);
         if (status.HasValue) query = query.Where(x => x.Status == status.Value);
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
@@ -36,5 +37,5 @@ public sealed class PaymentHistoryRepository : IPaymentHistoryRepository
 
     // Read one payment only when it belongs to the authenticated account.
     public Task<Payment?> GetAsync(Guid userId, Guid paymentId, CancellationToken ct)
-        => Payments.SingleOrDefaultAsync(x => x.Id == paymentId && x.Order.CustomerId == userId, ct);
+        => Payments.SingleOrDefaultAsync(x => x.Id == paymentId && (x.Order.CustomerId == userId || x.CheckoutSession!.CustomerId == userId), ct);
 }

@@ -38,22 +38,24 @@ export function CancelOrderAction({
         className="min-h-11 !text-danger-strong hover:!bg-danger-soft"
       >
         <XCircle aria-hidden="true" size={16} />
-        Cancel order
+        {order.isCheckoutSession ? "Cancel payment" : "Cancel order"}
       </CustomerActionButton>
       <Modal
         isOpen={confirming}
         onClose={close}
         closeOnClickOutside={!busy}
-        title={canCancel ? "Cancel this order?" : "Cancellation unavailable"}
+        title={canCancel ? (order.isCheckoutSession ? "Cancel this payment?" : "Cancel this order?") : "Cancellation unavailable"}
       >
         <p className="text-body leading-relaxed text-text-secondary">
           {canCancel
-            ? "Any payment or deposit already paid will not be refunded, including payments confirmed while cancellation is being processed. This action cannot be undone."
+            ? order.isCheckoutSession
+              ? "Your items will be returned to your cart. If the payment provider has already confirmed payment, your paid order will be kept."
+              : "Any payment or deposit already paid will not be refunded, including payments confirmed while cancellation is being processed. This action cannot be undone."
             : reason}
         </p>
         <div className="mt-5 flex flex-wrap justify-end gap-3">
           <Button variant="secondary" disabled={busy} onClick={close} className="min-h-11">
-            {canCancel ? "Keep order" : "Close"}
+            {canCancel ? (order.isCheckoutSession ? "Continue payment" : "Keep order") : "Close"}
           </Button>
           {canCancel && (
             <CustomerActionButton

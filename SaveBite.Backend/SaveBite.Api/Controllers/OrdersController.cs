@@ -16,6 +16,7 @@ namespace SaveBite.Backend.Controllers;
 [Route("api/orders")]
 public sealed class OrdersController : ControllerBase
 {
+    private readonly ICheckoutPaymentService _payments;
     private readonly IOrderService _orders;
     private readonly IShopOrderService _shopOrders;
 
@@ -25,9 +26,10 @@ public sealed class OrdersController : ControllerBase
     private readonly ILogger<OrdersController> _logger;
 
     public OrdersController(IOrderService orders, IShopOrderService shopOrders, IRefundService refunds,
-        TimeProvider clock, IShopOrderEventService events, ILogger<OrdersController> logger)
+        TimeProvider clock, IShopOrderEventService events, ILogger<OrdersController> logger, ICheckoutPaymentService payments)
     {
         _orders = orders;
+        _payments = payments;
         _shopOrders = shopOrders;
         _refunds = refunds; _clock = clock; _events = events; _logger = logger;
     }
@@ -56,6 +58,15 @@ public sealed class OrdersController : ControllerBase
     public async Task<ActionResult<ApiResponse<CheckoutOrderResponse>>> Cancel(Guid orderId, CancellationToken ct)
         => Ok(ApiResponse<CheckoutOrderResponse>.Ok(await _orders.CancelAsync(UserId(), orderId, ct)));
 
+
+    [HttpPost("shops/{shopId:guid}/{orderId:guid}/payment-reconciliation")]
+    [StoreOwnerOrStaffAnyStatusAccess]
+    public async Task<ActionResult<ApiResponse<ShopOrderResponse>>> ReconcilePayment(Guid shopId, Guid orderId, CancellationToken ct)
+    {
+        await _shopOrders.GetAsync(UserId(), shopId, orderId, ct);
+        await _payments.ReconcileOrderAsync(orderId, ct: ct);
+        return Ok(ApiResponse<ShopOrderResponse>.Ok(await _shopOrders.GetAsync(UserId(), shopId, orderId, ct)));
+    }
 
     // Resolve the active owner's shop for the order workspace.
     [HttpGet("my-shop")]

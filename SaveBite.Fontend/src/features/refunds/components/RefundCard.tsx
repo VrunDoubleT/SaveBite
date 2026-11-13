@@ -14,6 +14,7 @@ const labels: Record<string, string> = {
   AwaitingCustomerDetails: "Bank details required",
   PendingVerification: "Waiting for shop review",
   AwaitingTransfer: "Waiting for bank transfer",
+  CustomerDetailsExpired: "Customer details deadline passed",
   Rejected: "Request declined",
   Transferred: "Refund transferred",
   Completed: "Refund completed",
@@ -49,7 +50,7 @@ export function RefundCard({
       <p className="mt-2 text-caption text-text-secondary">{refund.reason}</p>
       {refund.rejectReason && (
         <p className="mt-2 text-caption text-danger-strong">
-          {refund.history.some((entry) => entry.decision === "DeadlineExpired")
+          {refund.history.some((entry) => ["DeadlineExpired", "CustomerDetailsExpired"].includes(entry.decision))
             ? "Closed by system"
             : "Shop decision"}
           : {refund.rejectReason}

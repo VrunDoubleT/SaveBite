@@ -397,7 +397,7 @@ public sealed class PlatformAnalyticsService : IPlatformAnalyticsService
             totalRefunds,
             RefundCount(RefundStatus.Transferred, RefundStatus.Completed),
             RefundCount(RefundStatus.AwaitingCustomerDetails, RefundStatus.PendingVerification, RefundStatus.AwaitingTransfer),
-            RefundCount(RefundStatus.Rejected, RefundStatus.Withdrawn),
+            RefundCount(RefundStatus.Rejected, RefundStatus.Withdrawn, RefundStatus.CustomerDetailsExpired),
             refundStatusRows.Sum(r => r.RequestedAmount),
             transferred,
             refundStatusBreakdown,

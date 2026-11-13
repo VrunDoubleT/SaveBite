@@ -5,6 +5,7 @@ public static class NotificationActionUrls
     // Orders
     public static string CustomerOrder(Guid orderId) => $"/orders/{orderId}";
     public static string CustomerOrders() => "/orders";
+    public static string CustomerCart() => "/cart";
     public static string StoreOwnerOrder(Guid orderId) => $"/store-owner/orders/{orderId}";
     public static string StoreOwnerOrders() => "/store-owner/orders";
     public static string ShopStaffOrder(Guid shopId, Guid orderId) => $"/staff/shops/{shopId}/orders/{orderId}";

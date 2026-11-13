@@ -10,6 +10,13 @@ public sealed class OrderDeadlineRecoveryJob(IServiceScopeFactory scopes, TimePr
     public async Task ExecuteAsync(CancellationToken ct)
     {
         var now = clock.GetUtcNow().UtcDateTime;
+        await Group("remaining-payments", () => RecoveryBatch.RunAsync(scopes, logger, "remaining-payment", db => db.Orders
+            .Where(o => o.Payments.Any(p => p.PaymentType == PaymentType.Remaining && p.Method == PaymentMethod.OnlinePayment
+                && p.Status == PaymentStatus.Pending && p.GatewayCreationAttempted)).Select(o => o.Id),
+            async (sp, id) => { await sp.GetRequiredService<ICheckoutPaymentService>().ReconcileOrderAsync(id, ct: ct); }, ct), ct);
+        await Group("checkout-payments", () => RecoveryBatch.RunAsync(scopes, logger, "checkout-payment", db => db.CheckoutSessions
+            .Where(s => s.Status == OrderStatus.AwaitingPayment && s.PaymentExpiresAt <= now).Select(s => s.Id),
+            (sp, id) => sp.GetRequiredService<ICheckoutPaymentService>().ExpireAsync(id, ct), ct), ct);
         await Group("payments", () => RecoveryBatch.RunAsync(scopes, logger, "order-payment", db => db.Orders
             .Where(o => o.Status == OrderStatus.AwaitingPayment && o.PaymentExpiresAt <= now
                 && o.Payments.Any(p => p.Status == PaymentStatus.Pending && p.Amount > 0

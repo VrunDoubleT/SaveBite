@@ -180,7 +180,7 @@ public class RefundService : IRefundService
         var result = await CommandAsync(refundId, async f =>
         {
             await AuthorizeAsync(userId, false, f, ct);
-            if (f.Status == RefundStatus.Rejected) throw AppException.Conflict("This refund has been closed.");
+            if (f.Status is RefundStatus.Rejected or RefundStatus.CustomerDetailsExpired) throw AppException.Conflict("This refund has been closed.");
             if (f.Status == RefundStatus.AwaitingCustomerDetails) RefundRules.ValidateCustomerDetailsDeadline(f, Now);
             var matches = MatchesCode(f, code);
             if (f.DestinationConfirmedAt.HasValue && matches) { valid = true; return; }
@@ -310,7 +310,7 @@ public class RefundService : IRefundService
         var result = await CommandAsync(refundId, f =>
         {
             if (deadline > Now) return Task.CompletedTask;
-            if (f.Status == RefundStatus.Rejected && f.History.Any(h => h.Decision == "DeadlineExpired")
+            if (f.Status is (RefundStatus.Rejected or RefundStatus.CustomerDetailsExpired) && f.History.Any(h => h.Decision is "DeadlineExpired" or "CustomerDetailsExpired")
                 && (RefundRules.SameDeadline(f.ReviewDeadlineAt, deadline) || RefundRules.SameDeadline(f.CustomerDetailsDeadlineAt, deadline)))
             { notify = true; return Task.CompletedTask; }
             if (!RefundRules.SameDeadline(RefundRules.Deadline(f), deadline)) return Task.CompletedTask;
@@ -325,9 +325,9 @@ public class RefundService : IRefundService
             }
             else
             {
-                f.Status = RefundStatus.Rejected;
+                f.Status = RefundRules.ExpiredStatus(f);
                 f.RejectReason = customerExpired ? RefundRules.CustomerConfirmationExpired : RefundRules.ShopProcessingExpired;
-                Audit(f, before, null, "System", "System", "DeadlineExpired", f.RejectReason);
+                Audit(f, before, null, "System", "System", customerExpired ? "CustomerDetailsExpired" : "DeadlineExpired", f.RejectReason);
             }
             notify = true;
             return Task.CompletedTask;
@@ -438,6 +438,7 @@ public class RefundService : IRefundService
         var type = refund.Status switch {
             RefundStatus.AwaitingTransfer => (NotificationType?)NotificationType.RefundApproved,
             RefundStatus.Rejected => NotificationType.RefundRejected,
+            RefundStatus.CustomerDetailsExpired => NotificationType.RefundCustomerDetailsExpired,
             RefundStatus.Transferred or RefundStatus.Completed => NotificationType.RefundTransferred,
             _ => null
         };
@@ -599,7 +600,7 @@ public class RefundService : IRefundService
     private string ShopAction(Refund f)
     {
         if (f.Status == RefundStatus.AwaitingCustomerDetails) return "WaitingCustomer";
-        if (f.Status is RefundStatus.Rejected or RefundStatus.Withdrawn or RefundStatus.Transferred or RefundStatus.Completed) return "Closed";
+        if (f.Status is RefundStatus.CustomerDetailsExpired or RefundStatus.Rejected or RefundStatus.Withdrawn or RefundStatus.Transferred or RefundStatus.Completed) return "Closed";
         if (f.RefundType == RefundType.ShopCancellation && f.Status == RefundStatus.Overdue && f.DestinationConfirmedAt != null) return "TransferRequired";
         if (!f.ReviewDeadlineAt.HasValue || f.ReviewDeadlineAt <= Now) return "DeadlinePassed";
         if (f.DestinationConfirmedAt == null) return "WaitingCustomer";

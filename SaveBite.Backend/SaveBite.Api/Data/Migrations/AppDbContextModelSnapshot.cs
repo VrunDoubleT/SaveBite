@@ -271,6 +271,63 @@ namespace SaveBite.Backend.Data.Migrations
                     b.ToTable("categories", (string)null);
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.CheckoutSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<DateTime>("PaymentExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("payment_expires_at");
+
+                    b.Property<Guid>("QuoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quote_id");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("snapshot_json");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShopId");
+
+                    b.HasIndex("CustomerId", "QuoteId")
+                        .IsUnique();
+
+                    b.HasIndex("CustomerId", "RequestId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "PaymentExpiresAt");
+
+                    b.ToTable("checkout_sessions", (string)null);
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.DealNotificationRecipient", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1299,6 +1356,10 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("amount");
 
+                    b.Property<Guid?>("CheckoutSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("checkout_session_id");
+
                     b.Property<decimal>("CollectedAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
@@ -1336,7 +1397,7 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("method");
 
-                    b.Property<Guid>("OrderId")
+                    b.Property<Guid?>("OrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("order_id");
 
@@ -1365,6 +1426,8 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnName("updated_at");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CheckoutSessionId");
 
                     b.HasIndex("GatewayOrderCode")
                         .IsUnique();
@@ -1905,7 +1968,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.HasIndex("ShopId", "DeletedAt", "CreatedAt");
 
-                    b.ToTable("products");
+                    b.ToTable("products", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.ProductAttribute", b =>
@@ -4515,6 +4578,21 @@ namespace SaveBite.Backend.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.CheckoutSession", b =>
+                {
+                    b.HasOne("SaveBite.Backend.Models.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SaveBite.Backend.Models.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.DealNotificationRecipient", b =>
                 {
                     b.HasOne("SaveBite.Backend.Models.Entities.User", "User")
@@ -4750,11 +4828,17 @@ namespace SaveBite.Backend.Data.Migrations
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Payment", b =>
                 {
+                    b.HasOne("SaveBite.Backend.Models.Entities.CheckoutSession", "CheckoutSession")
+                        .WithMany()
+                        .HasForeignKey("CheckoutSessionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("SaveBite.Backend.Models.Entities.Order", "Order")
                         .WithMany("Payments")
                         .HasForeignKey("OrderId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("CheckoutSession");
 
                     b.Navigation("Order");
                 });

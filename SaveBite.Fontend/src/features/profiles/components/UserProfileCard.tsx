@@ -162,11 +162,11 @@ export function UserProfileCard() {
     <Card padding="none" aria-labelledby="profile-heading" className="overflow-hidden">
       <div className="flex flex-col gap-4 border-b border-border-default bg-primary-50/50 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="relative shrink-0">
+          <div className="relative size-20 shrink-0 sm:size-24">
             <Avatar
               fullName={user.fullName}
               avatarUrl={displayedAvatarUrl}
-              className="!size-14 !text-lg ring-4 ring-bg-surface"
+              className="size-full! text-2xl! ring-4 ring-bg-surface"
             />
 
             {isEditing && (
@@ -177,7 +177,7 @@ export function UserProfileCard() {
                   onClick={openAvatarPicker}
                   disabled={isSavingProfile}
                   aria-label="Change avatar"
-                  className="absolute -bottom-1 -right-1 flex !size-11 items-center justify-center rounded-full border border-primary-200 bg-primary-50 text-primary-700 ring-2 ring-bg-surface transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="absolute -bottom-1 -right-1 size-9! rounded-full! border-primary-200 bg-primary-50 text-primary-700 ring-2 ring-bg-surface transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Camera className="size-4" aria-hidden="true" />
                 </IconButton>

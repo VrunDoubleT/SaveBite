@@ -22,7 +22,7 @@ public class CreateFlashDealVariantRequest
 
 public class UpdateFlashDealRequest
 {
-    // Relative duration requests an immediate opening/reopening. Running deals keep their original start.
+    // Relative duration requests an immediate opening. Running deals keep their original start.
     public int? DurationMinutes { get; set; }
     public DateTime SaleStartTime { get; set; }
     public DateTime OrderEndTime { get; set; }

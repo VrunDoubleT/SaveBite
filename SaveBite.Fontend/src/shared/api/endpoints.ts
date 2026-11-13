@@ -37,9 +37,6 @@ export const API_ENDPOINTS = {
     MY_SHOP: "/orders/my-shop",
     SHOP: (shopId: string) => `/orders/shops/${encodeURIComponent(shopId)}`,
   },
-  PAYMENTS: {
-    LINK: (id: string) => `/payments/orders/${encodeURIComponent(id)}/payment-link`,
-  },
   CART: {
     PAGE: "/cart/page",
     SUMMARY: "/cart/summary",

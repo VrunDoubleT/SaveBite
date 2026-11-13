@@ -88,6 +88,8 @@ public sealed record CheckoutOrderItemResponse
 // Expose order identity, payment totals, pickup deadlines and current order state.
 public sealed record CheckoutOrderResponse
 {
+    public bool IsCheckoutSession { get; init; }
+    public Guid? PaymentId { get; init; }
     public Guid Id { get; init; }
     public string OrderCode { get; init; } = string.Empty;
     public Guid ShopId { get; init; }

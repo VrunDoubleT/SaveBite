@@ -121,7 +121,7 @@ export function PaymentsPage() {
         <Card
           padding="none"
           key={payment.id}
-          aria-label={`Payment for order ${payment.orderCode}`}
+          aria-label={payment.orderId ? `Payment for order ${payment.orderCode}` : "Checkout payment"}
           className="overflow-hidden"
         >
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
@@ -137,7 +137,9 @@ export function PaymentsPage() {
                 <h2 className="text-section font-semibold text-text-primary [overflow-wrap:anywhere]">
                   {payment.shopName}
                 </h2>
-                <p className="mt-1 text-caption text-text-secondary">Order {payment.orderCode}</p>
+                <p className="mt-1 text-caption text-text-secondary">
+                  {payment.orderId ? `Order ${payment.orderCode}` : "Checkout payment · No order placed"}
+                </p>
               </div>
             </div>
             <PaymentStatusBadge status={payment.status} />

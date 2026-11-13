@@ -33,7 +33,6 @@ import type {
   CheckoutQuote,
 } from "@/features/checkout/types/checkout.types";
 import { DepositPolicyPanel } from "@/features/checkout/components/DepositPolicyPanel";
-import { CheckoutOrderReceipt } from "@/features/checkout/components/CheckoutOrderReceipt";
 import {
   checkoutSelection,
   checkoutTime,
@@ -90,8 +89,6 @@ export function CheckoutPage() {
   const [params] = useSearchParams();
   const userId = useAuthStore((state) => state.user?.id);
   const shopId = params.get("shopId");
-  const orderId = params.get("orderId");
-  if (orderId) return <CheckoutOrderReceipt key={`${userId}:${orderId}`} orderId={orderId} />;
   if (!shopId)
     return (
       <div className="space-y-6 py-6 sm:py-8">
@@ -192,7 +189,12 @@ function CheckoutFlow({ shopId }: { shopId: string }) {
       const order = await checkoutApi.place(quote.id, selection.method, requestId.current);
       if (!alive.current) return;
       void useCartStore.getState().refresh();
-      navigate(`${APP_PATHS.CHECKOUT}?orderId=${order.id}`, { replace: true });
+      const destination = order.paymentStatus === "Succeeded" && !order.isCheckoutSession
+        ? APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id))
+        : order.paymentId
+        ? APP_PATHS.ACCOUNT_PAYMENT_DETAIL.replace(":paymentId", encodeURIComponent(order.paymentId))
+        : APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id));
+      navigate(destination, { replace: true });
       const url = safePaymentUrl(order.checkoutUrl);
       if (order.paymentStatus === "Pending" && url) window.location.assign(url);
     } catch (error) {

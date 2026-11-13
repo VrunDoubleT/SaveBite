@@ -22,6 +22,7 @@ public interface ICheckoutRepository
     Task ReleaseCancelledInventoryAsync(Order order, CancellationToken ct);
     Task CompleteInventoryAsync(Order order, bool sold, CancellationToken ct);
     Task RemoveShopCartAsync(Guid userId, Guid shopId, CancellationToken ct);
+    Task RestoreCartAsync(Order order, CancellationToken ct);
     Task SaveAsync(CancellationToken ct);
     Task<T> WithUserLockAsync<T>(Guid userId, Guid shopId, Func<Task<T>> action, CancellationToken ct);
     Task<T> WithOrderLockAsync<T>(Guid orderId, Func<Task<T>> action, CancellationToken ct);

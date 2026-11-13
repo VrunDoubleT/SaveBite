@@ -78,6 +78,34 @@ function ShopOrderDetailPageContent() {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+  const hasPendingRemaining = data?.payments.some(p => p.type === "Remaining" && p.status === "Pending") ?? false;
+  useEffect(() => {
+    if (!shopId || !hasPendingRemaining || busy) return;
+    const abort = new AbortController();
+    let checking = false;
+    async function checkPayment() {
+      if (checking || inFlight.current || document.visibilityState !== "visible") return;
+      checking = true;
+      const current = ++revision.current;
+      try {
+        const next = await shopOrderApi.reconcilePayment(shopId, orderId, abort.signal);
+        if (!abort.signal.aborted && current === revision.current) { setData(next); setError(""); }
+      } catch (cause) {
+        if (!abort.signal.aborted && current === revision.current) setError(getApiErrorMessage(cause));
+      } finally { checking = false; }
+    }
+    void checkPayment();
+    const timer = window.setInterval(() => void checkPayment(), 5000);
+    const resume = () => { void checkPayment(); };
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      abort.abort();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [shopId, orderId, hasPendingRemaining, busy]);
   async function act(action: string, body?: object) {
     if (inFlight.current) return;
     inFlight.current = true;

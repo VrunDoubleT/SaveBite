@@ -212,24 +212,18 @@ export function StoreOwnerFlashDealFormPage() {
             new Date(deal.orderEndTime).getTime() <= Date.now();
 
           if (isEnded) {
-            setSaleMode("immediate");
-            const now = new Date();
-            const start = new Date(now.getTime() + 15 * 60 * 1000);
-            const end = new Date(now.getTime() + 60 * 60 * 1000);
-            setStartTime(formatTime(start));
-            setEndTime(formatTime(end));
-            setDurationMins(60);
-          } else {
-            setSaleMode(deal.status === FlashDealStatusEnum.OnSale ? "immediate" : "scheduled");
-            setSelectedDuration(null);
-
-            const start = new Date(deal.saleStartTime);
-            const end = new Date(deal.orderEndTime);
-            setStartTime(formatTime(start));
-            setEndTime(formatTime(end));
-            const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
-            setDurationMins(diff > 0 ? diff : 60);
+            toast.error("Ended flash deals cannot be edited. Create a new flash deal instead.");
+            navigate(APP_PATHS.STORE_OWNER_FLASH_DEALS);
+            return;
           }
+          setSaleMode(deal.status === FlashDealStatusEnum.OnSale ? "immediate" : "scheduled");
+          setSelectedDuration(null);
+          const start = new Date(deal.saleStartTime);
+          const end = new Date(deal.orderEndTime);
+          setStartTime(formatTime(start));
+          setEndTime(formatTime(end));
+          const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
+          setDurationMins(diff > 0 ? diff : 60);
 
           const prod = products.find((p) => p.id === deal.productId);
           const existingMap = new Map(deal.variants.map((v) => [v.variantId, v]));
@@ -601,6 +595,10 @@ export function StoreOwnerFlashDealFormPage() {
   // Submit form
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isDealEnded) {
+      toast.error("Ended flash deals cannot be edited. Create a new flash deal instead.");
+      return;
+    }
     if (shopSuspended) return;
 
     if (!selectedProductId) {
@@ -686,7 +684,7 @@ export function StoreOwnerFlashDealFormPage() {
           })),
         });
         toast.success(
-          isDealEnded ? "Flash deal re-opened successfully!" : "Flash deal updated successfully!",
+          "Flash deal updated successfully!",
         );
       } else {
         await flashDealApi.createFlashDeal({
@@ -735,20 +733,14 @@ export function StoreOwnerFlashDealFormPage() {
       {/* Title */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
-          {isDealEnded
-            ? "Re-open Flash Deal"
-            : isEditMode
-              ? "Edit Flash Deal"
-              : "Create Flash Deal"}
+          {isEditMode ? "Edit Flash Deal" : "Create Flash Deal"}
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          {isDealEnded
-            ? "Configure new deal timing and prices to re-open this flash deal for sale."
-            : "Select a product, configure deal timing, and tick variants to offer special flash prices."}
+          Select a product, configure deal timing, and tick variants to offer special flash prices.
         </p>
       </div>
 
-      <fieldset disabled={shopSuspended} className="space-y-6 disabled:opacity-60">
+      <fieldset disabled={shopSuspended || Boolean(isDealEnded)} className="space-y-6 disabled:opacity-60">
         {/* Block 1: Product Selection */}
         <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
           <h2 className="text-sm font-bold text-neutral-900">Product Information</h2>
@@ -1493,11 +1485,11 @@ export function StoreOwnerFlashDealFormPage() {
         </button>
         <button
           type="submit"
-          disabled={submitting || shopSuspended}
+          disabled={submitting || shopSuspended || Boolean(isDealEnded)}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-60"
         >
           {submitting && <Loader2 className="size-3.5 animate-spin" />}
-          <span>{isDealEnded ? "Re-open Flash Deal" : "Save Flash Deal"}</span>
+          <span>Save Flash Deal</span>
         </button>
       </div>
     </form>
