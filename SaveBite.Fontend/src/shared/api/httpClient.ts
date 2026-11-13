@@ -173,7 +173,24 @@ httpClient.interceptors.response.use(
 
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
-    return error.response?.data?.message ?? error.message;
+    const data = error.response?.data;
+    if (data?.errors && typeof data.errors === "object") {
+      const messages = Object.values(data.errors)
+        .flat()
+        .filter((msg): msg is string => typeof msg === "string" && msg.trim().length > 0);
+      if (messages.length > 0) {
+        if (
+          !data.message ||
+          data.message === "Invalid Data" ||
+          data.message === "Validation failed" ||
+          data.message === "One or more validation errors occurred."
+        ) {
+          return messages.join("; ");
+        }
+        return `${data.message}: ${messages.join("; ")}`;
+      }
+    }
+    return data?.message ?? error.message;
   }
 
   return error instanceof Error ? error.message : "An unknown error occurred.";

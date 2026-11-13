@@ -264,7 +264,7 @@ export function PenaltyRuleModal({
       }
       maxWidthClass="max-w-lg"
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         {rule && <RecordId id={rule.id} variant="full" />}
         <p className="text-sm text-text-secondary">
           Configure the points deducted, recovery requirements, and effective period. Rules with the

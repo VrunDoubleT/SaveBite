@@ -504,34 +504,45 @@ export function AdminLevelsPanel() {
         </div>
       </section>
 
-      <CreateLevelModal
-        isOpen={isCreateOpen}
-        existingLevels={data}
-        onClose={() => setIsCreateOpen(false)}
-        onCreate={createLevel}
-      />
+      {isCreateOpen && (
+        <CreateLevelModal
+          isOpen={isCreateOpen}
+          existingLevels={data}
+          onClose={() => setIsCreateOpen(false)}
+          onCreate={createLevel}
+        />
+      )}
 
-      <LevelInfoModal level={infoLevel} onClose={() => setInfoLevel(null)} onSave={saveInfo} />
+      {infoLevel && (
+        <LevelInfoModal level={infoLevel} onClose={() => setInfoLevel(null)} onSave={saveInfo} />
+      )}
 
-      <LevelStatusModal
-        level={statusLevel}
-        onClose={() => setStatusLevel(null)}
-        onConfirm={saveStatus}
-      />
+      {statusLevel && (
+        <LevelStatusModal
+          level={statusLevel}
+          onClose={() => setStatusLevel(null)}
+          onConfirm={saveStatus}
+        />
+      )}
 
       <LevelHistoryDrawer level={historyLevel} onClose={() => setHistoryLevel(null)} />
 
-      <LevelBenefitsModal
-        level={benefitsLevel}
-        onClose={() => setBenefitsLevel(null)}
-        onSave={saveBenefits}
-      />
+      {benefitsLevel && (
+        <LevelBenefitsModal
+          level={benefitsLevel}
+          existingLevels={data}
+          onClose={() => setBenefitsLevel(null)}
+          onSave={saveBenefits}
+        />
+      )}
 
-      <LevelRequirementModal
-        level={requirementLevel}
-        onClose={() => setRequirementLevel(null)}
-        onSave={saveRequirement}
-      />
+      {requirementLevel && (
+        <LevelRequirementModal
+          level={requirementLevel}
+          onClose={() => setRequirementLevel(null)}
+          onSave={saveRequirement}
+        />
+      )}
     </div>
   );
 }

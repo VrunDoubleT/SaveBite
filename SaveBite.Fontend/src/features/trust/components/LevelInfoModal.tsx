@@ -23,9 +23,12 @@ export function LevelInfoModal({ level, onClose, onSave }: LevelInfoModalProps) 
     register,
     handleSubmit,
     reset,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<LevelInfoFormData>({
     resolver: zodResolver(levelInfoSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: { name: "" },
   });
 
@@ -53,7 +56,7 @@ export function LevelInfoModal({ level, onClose, onSave }: LevelInfoModalProps) 
       onClose={handleClose}
       title={level ? `Rename ${level.name} (Rank ${level.rank})` : undefined}
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         {level && <RecordId id={level.id} variant="full" />}
         <p className="text-sm text-text-secondary">
           Update the display name of this level. Rank ({level?.rank}), requirements, and deposit
@@ -70,7 +73,9 @@ export function LevelInfoModal({ level, onClose, onSave }: LevelInfoModalProps) 
             id="level-info-name"
             type="text"
             maxLength={100}
-            {...register("name")}
+            {...register("name", {
+              onChange: () => trigger("name"),
+            })}
             className={inputClass(!!errors.name)}
             placeholder="e.g. Emerald"
           />
