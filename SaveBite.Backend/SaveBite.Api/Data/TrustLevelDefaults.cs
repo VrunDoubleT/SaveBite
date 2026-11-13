@@ -21,7 +21,7 @@ public static class TrustLevelDefaults
             {
                 Id = Guid.NewGuid(),
                 Name = "Bronze",
-                Description = "Cap khoi dau.",
+                Description = "Starting level.",
                 Rank = 1,
                 IsActive = true,
                 CreatedAt = now,

@@ -1189,7 +1189,7 @@ public static class DbSeeder
             {
                 Id = Id(90),
                 Name = "Bronze",
-                Description = "Cap khoi dau.",
+                Description = "Starting level.",
                 Rank = 1,
                 IsActive = true,
                 CreatedAt = now.AddMonths(-6),

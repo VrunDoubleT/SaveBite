@@ -8,6 +8,8 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 {
     public void Configure(EntityTypeBuilder<Product> builder)
     {
+        builder.ToTable("products");
+
         builder.HasIndex(x => new { x.ShopId, x.DeletedAt, x.CreatedAt });
 
         builder.HasKey(x => x.Id);

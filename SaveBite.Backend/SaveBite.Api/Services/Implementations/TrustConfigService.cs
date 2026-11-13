@@ -634,6 +634,9 @@ public sealed class TrustConfigService : ITrustConfigService
         Guid adminId, Guid levelId, UpdateTrustLevelRequirementRequest request, CancellationToken cancellationToken = default)
     {
         var level = await GetLevelAsync(levelId, cancellationToken);
+        if (level.Rank == 1)
+            throw AppException.BadRequest("Starting level requirements cannot be edited.");
+
         var counts = await _repository.GetUserCountsByLevelAsync(cancellationToken);
 
         if (level.IsActive)
