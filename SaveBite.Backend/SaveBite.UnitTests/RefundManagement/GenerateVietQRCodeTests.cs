@@ -62,7 +62,7 @@ public class GenerateVietQRCodeTests
             _loggerMock.Object,
             new Mock<INotificationQueue>().Object,
             new Mock<ITrustNotificationService>().Object,
-            TestDbContextFactory.Create()
+            TestDbContextFactory.Create(), TestDbContextFactory.CreateScopeFactory()
         );
         _shopRepoMock.Setup(s => s.OwnerShopAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(ValidShopId);
         _shopRepoMock.Setup(s => s.RequireAccessAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
@@ -254,7 +254,7 @@ public class GenerateVietQRCodeTests
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
         ex.Which.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        ex.Which.Message.Should().Be("The 24-hour shop processing deadline has passed. This refund can no longer be processed.");
+        ex.Which.Message.Should().Be("The 72-hour shop processing deadline has passed. This refund can no longer be processed.");
 
         _output.WriteLine($"[TCID05] Passed: Expired deadline correctly threw 409 Conflict. Message: {ex.Which.Message}");
     }

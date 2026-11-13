@@ -164,6 +164,8 @@ public sealed class TrustConfigService : ITrustConfigService
                 WriteLevelHistory(newLevel, 1, TrustLevelChangeType.Created, affectedUserCount: 0, adminId, now);
                 WriteAudit(adminId, AuditActionTypes.CreateTrustLevel, "TrustLevel", newLevel.Id, null, SnapshotTrustLevel(newLevel), now);
 
+                await _repository.IncrementPolicyVersionAndQueueOutboxAsync($"Level {newLevel.Name} created", ct);
+
                 await _repository.SaveChangesAsync(ct);
                 _logger.LogInformation("New Trust Level created. LevelId: {LevelId}, Name: {Name}, Rank: {Rank}",
                     newLevel.Id, newLevel.Name, newLevel.Rank);
@@ -221,16 +223,14 @@ public sealed class TrustConfigService : ITrustConfigService
         return ToLevelResponse(level, counts);
     }
 
-    // UC-155: Update Level Status (Deactivate / Reactivate)
+        // UC-155: Deactivate or reactivate a level
     public async Task<AdminTrustLevelResponse> UpdateLevelStatusAsync(
         Guid adminId, Guid levelId, UpdateTrustLevelStatusRequest request, CancellationToken cancellationToken = default)
     {
-        var notices = new List<(Guid UserId, Guid HistoryId, string Name)>();
         try
         {
             var result = await _repository.ExecuteInTransactionAsync(async ct =>
             {
-                notices.Clear();
                 var level = await GetLevelAsync(levelId, ct);
                 var counts = await _repository.GetUserCountsByLevelAsync(ct);
 
@@ -252,7 +252,6 @@ public sealed class TrustConfigService : ITrustConfigService
                     if (remainingActive.Count == 0)
                         throw AppException.BadRequest("Cannot deactivate the only active trust level.");
 
-                    // BR-158: Do not allow deactivating the lowest-ranked active level.
                     var currentLowestActive = activeLevels.OrderBy(l => l.Rank).First();
                     if (currentLowestActive.Id == level.Id)
                     {
@@ -261,7 +260,6 @@ public sealed class TrustConfigService : ITrustConfigService
                             "Every customer must qualify for at least one active level with zero minimum requirements.");
                     }
 
-                    // Ensure remaining active levels still satisfy BR-157 and BR-158.
                     var lowestRemaining = remainingActive[0];
                     ValidateThresholds(
                         remainingActive,
@@ -277,66 +275,29 @@ public sealed class TrustConfigService : ITrustConfigService
                     level.IsActive = false;
                     level.UpdatedAt = now;
 
-                    // Recalculate every customer currently on this level to the highest active level they meet (BR-051, BR-207).
-                    var affectedScores = await _repository.GetUserScoresByLevelForUpdateAsync(level.Id, ct);
-                    var userIds = affectedScores.Select(s => s.UserId).ToList();
-                    var progressMap = await _repository.GetUserProgressMapAsync(userIds, ct);
-
-                    var levelHistories = new List<UserTrustLevelHistory>(affectedScores.Count);
-                    foreach (var userScore in affectedScores)
-                    {
-                        progressMap.TryGetValue(userScore.UserId, out var progress);
-                        var completedOrders = progress?.CompletedOrdersCount ?? 0;
-                        var accumulatedValue = progress?.AccumulatedOrderValue ?? 0m;
-
-                        var targetLevel = remainingActive
-                            .Where(candidate => candidate.Requirement != null
-                                                && userScore.CurrentScore >= candidate.Requirement.MinScore
-                                                && completedOrders >= candidate.Requirement.MinCompletedOrders
-                                                && accumulatedValue >= candidate.Requirement.MinTotalOrderValue)
-                            .OrderByDescending(candidate => candidate.Rank)
-                            .FirstOrDefault() ?? remainingActive[0];
-
-                        userScore.TrustLevelId = targetLevel.Id;
-                        userScore.UpdatedAt = now;
-
-                        var historyId = Guid.NewGuid();
-                        notices.Add((userScore.UserId, historyId, targetLevel.Name));
-                        levelHistories.Add(new UserTrustLevelHistory
-                        {
-                            Id = historyId,
-                            UserId = userScore.UserId,
-                            PreviousTrustLevelId = level.Id,
-                            NewTrustLevelId = targetLevel.Id,
-                            Reason = TrustLevelChangeReason.AdminAdjustment,
-                            OrderId = null,
-                            NoShowPenaltyId = null,
-                            CreatedAt = now
-                        });
-                    }
-
-                    if (levelHistories.Count > 0)
-                        _repository.AddUserTrustLevelHistories(levelHistories);
+                    var affectedUserCount = counts.GetValueOrDefault(level.Id);
 
                     WriteLevelHistory(
                         level,
                         nextVersion,
                         TrustLevelChangeType.Deactivated,
-                        affectedScores.Count,
+                        affectedUserCount,
                         adminId,
                         now);
                     WriteAudit(adminId, AuditActionTypes.DeactivateTrustLevel, "TrustLevel", level.Id, oldValues,
-                        new { Level = SnapshotTrustLevel(level), AffectedUserCount = affectedScores.Count }, now);
+                        new { Level = SnapshotTrustLevel(level), AffectedUserCount = affectedUserCount }, now);
+
+                    // Increment Policy Version & Process Outbox in the background
+                    await _repository.IncrementPolicyVersionAndQueueOutboxAsync(
+                        $"Level {level.Name} deactivated", ct);
 
                     await _repository.SaveChangesAsync(ct);
 
-                    _logger.LogInformation(
-                        "Trust level deactivated. LevelId: {LevelId}, ReassignedUsers: {ReassignedCount}",
-                        level.Id, affectedScores.Count);
+                    _logger.LogInformation("Trust level deactivated. LevelId: {LevelId}", level.Id);
                 }
                 else
                 {
-                    // Reactivating a level: verify requirement & deposit policy and validate BR-157 / BR-158.
+                    // Reactivating a level
                     if (level.Requirement is null)
                         throw AppException.BadRequest("Configure level requirements before activating this level.");
 
@@ -371,18 +332,19 @@ public sealed class TrustConfigService : ITrustConfigService
                         now);
                     WriteAudit(adminId, AuditActionTypes.ReactivateTrustLevel, "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
 
+                    // Increment Policy Version & Process Outbox in the background
+                    await _repository.IncrementPolicyVersionAndQueueOutboxAsync(
+                        $"Level {level.Name} reactivated", ct);
+
                     await _repository.SaveChangesAsync(ct);
 
                     _logger.LogInformation("Trust level reactivated. LevelId: {LevelId}", level.Id);
                 }
 
-                foreach (var notice in notices)
-                    await _notifications.EnqueueAsync(NotificationTarget.User(notice.UserId), new CreateNotificationCommand(
-                        NotificationType.TrustLevelChanged, NotificationMessages.TrustAndPenalties.TrustLevelUpdatedTitle, NotificationMessages.TrustAndPenalties.TrustLevelUpdatedFromConfigBody(notice.Name),
-                        "/account/trust-score", $"trust-level:{notice.HistoryId}"), ct);
                 var updatedCounts = await _repository.GetUserCountsByLevelAsync(ct);
                 return ToLevelResponse(level, updatedCounts);
-            }, lockLevelsAndScores: true, cancellationToken);
+            }, cancellationToken: cancellationToken);
+
             return result;
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
@@ -663,7 +625,7 @@ public sealed class TrustConfigService : ITrustConfigService
         DepositPolicy = SnapshotDepositPolicy(level.DepositPolicy)
     };
 
-    // UC-132: the thresholds a customer must reach to be on a level.
+        // UC-132: the thresholds a customer must reach to be on a level.
     public async Task<AdminTrustLevelResponse> UpdateLevelRequirementAsync(
         Guid adminId, Guid levelId, UpdateTrustLevelRequirementRequest request, CancellationToken cancellationToken = default)
     {
@@ -683,44 +645,55 @@ public sealed class TrustConfigService : ITrustConfigService
 
         if (!unchanged)
         {
-            var oldValues = SnapshotTrustLevel(level);
-            var now = _timeProvider.GetUtcNow().UtcDateTime;
-            var nextVersion = await _repository.GetNextLevelHistoryVersionAsync(level.Id, cancellationToken);
-
-            if (level.Requirement is null)
+            await _repository.ExecuteInTransactionAsync(async ct =>
             {
-                level.Requirement = new TrustLevelRequirement
+                var trackedLevel = await GetLevelAsync(levelId, ct);
+                var oldValues = SnapshotTrustLevel(trackedLevel);
+                var now = _timeProvider.GetUtcNow().UtcDateTime;
+                var nextVersion = await _repository.GetNextLevelHistoryVersionAsync(trackedLevel.Id, ct);
+
+                if (trackedLevel.Requirement is null)
                 {
-                    Id = Guid.NewGuid(),
-                    TrustLevelId = level.Id
-                };
-                _repository.AddRequirement(level.Requirement);
-            }
+                    trackedLevel.Requirement = new TrustLevelRequirement
+                    {
+                        Id = Guid.NewGuid(),
+                        TrustLevelId = trackedLevel.Id
+                    };
+                    _repository.AddRequirement(trackedLevel.Requirement);
+                }
 
-            level.Requirement.MinScore = request.MinScore;
-            level.Requirement.MinCompletedOrders = request.MinCompletedOrders;
-            level.Requirement.MinTotalOrderValue = request.MinTotalOrderValue;
-            level.UpdatedAt = now;
+                trackedLevel.Requirement.MinScore = request.MinScore;
+                trackedLevel.Requirement.MinCompletedOrders = request.MinCompletedOrders;
+                trackedLevel.Requirement.MinTotalOrderValue = request.MinTotalOrderValue;
+                trackedLevel.UpdatedAt = now;
 
-            WriteLevelHistory(
-                level,
-                nextVersion,
-                TrustLevelChangeType.RequirementUpdated,
-                counts.GetValueOrDefault(level.Id),
-                adminId,
-                now);
-            WriteAudit(adminId, AuditActionTypes.UpdateTrustLevelRequirement, "TrustLevel", level.Id, oldValues, SnapshotTrustLevel(level), now);
+                WriteLevelHistory(
+                    trackedLevel,
+                    nextVersion,
+                    TrustLevelChangeType.RequirementUpdated,
+                    counts.GetValueOrDefault(trackedLevel.Id),
+                    adminId,
+                    now);
+                WriteAudit(adminId, AuditActionTypes.UpdateTrustLevelRequirement, "TrustLevel", trackedLevel.Id, oldValues, SnapshotTrustLevel(trackedLevel), now);
 
-            try
-            {
-                await _repository.SaveChangesAsync(cancellationToken);
-            }
-            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
-            {
-                throw AppException.Conflict("A concurrent update occurred on this trust level. Please retry.");
-            }
+                // Increment the policy version and add it to the Outbox for the Reconciliation Consumer to process in the background
+                await _repository.IncrementPolicyVersionAndQueueOutboxAsync(
+                    $"Requirement updated for level {trackedLevel.Name}", ct);
 
-            _logger.LogInformation("Trust level requirement updated. LevelId: {LevelId}", level.Id);
+                try
+                {
+                    await _repository.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+                {
+                    throw AppException.Conflict("A concurrent update occurred on this trust level. Please retry.");
+                }
+
+                _logger.LogInformation("Trust level requirement updated. LevelId: {LevelId}", trackedLevel.Id);
+                return true;
+            }, cancellationToken: cancellationToken);
+
+            level = await GetLevelAsync(levelId, cancellationToken);
         }
 
         return ToLevelResponse(level, counts);

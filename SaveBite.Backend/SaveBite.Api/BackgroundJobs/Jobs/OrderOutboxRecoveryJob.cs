@@ -1,10 +1,11 @@
+using SaveBite.Backend.Configurations;
 using Hangfire;
 using SaveBite.Backend.Models.Entities;
 namespace SaveBite.Backend.BackgroundJobs.Jobs;
 
 public sealed class OrderOutboxRecoveryJob(IServiceScopeFactory scopes, ILogger<OrderOutboxRecoveryJob> logger)
 {
-    [DisableConcurrentExecution(600)]
+    [DisableConcurrentExecution(TimingConfiguration.Jobs.ConcurrencyLockTimeoutSeconds)]
     public Task ExecuteAsync(CancellationToken ct)
         => RecoveryBatch.RunAsync(scopes, logger, "order-outbox",
             db => db.Set<OrderEventOutbox>().Where(m => m.PublishedAt == null).Select(m => m.Id),

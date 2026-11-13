@@ -35,7 +35,7 @@ public class ViewNearbyStoresTests
         _output = output;
         _shopRepoMock.Setup(r => r.GetActiveDealCountsForShopsAsync(It.IsAny<List<Guid>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<Guid, int>());
-        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object, new Mock<IAdminAuditWriter>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object, new Mock<IRealtimePublisher>().Object);
+        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryServiceMock.Object, new Mock<IAdminAuditWriter>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object, new Mock<IRealtimePublisher>().Object, new Mock<IPayOsCredentialsValidator>().Object, new Mock<IPayOsCredentialProtector>().Object);
     }
 
     private List<Shop> CreateSampleShops()

@@ -122,7 +122,7 @@ public class UnhideFlashDealTests
         // Assert & Log
         await act.Should().NotThrowAsync();
         deal.Status.Should().Be(FlashDealStatus.OnSale);
-        _dealRepoMock.Verify(r => r.UpdateAsync(deal, It.IsAny<CancellationToken>()), Times.Once);
+        _dealRepoMock.Verify(r => r.UpdateAsync(deal, It.IsAny<CancellationToken>()), Times.Exactly(2));
         _publisherMock.Verify(p => p.PublishAsync(RabbitMqRoutingKeys.FlashDealOpened, It.Is<FlashDealEvent>(e => e.FlashDealId == _existingHiddenDealId), It.IsAny<CancellationToken>()), Times.Once);
 
         PrintSuccess("UTCID01", "Hidden flash deal restored to OnSale successfully.");
@@ -185,15 +185,15 @@ public class UnhideFlashDealTests
     }
 
     // =========================================================================
-    // UTCID04: Hidden deal has already expired -> Throws BadRequest (Abnormal - A)
+    // UTCID04: Hidden deal with past window -> Resumes remaining duration and restores OnSale (Normal - N)
     // =========================================================================
     [Fact]
-    public async Task UTCID04_UnhideDeal_DealAlreadyExpired_ThrowsBadRequest_Abnormal()
+    public async Task UTCID04_UnhideDeal_PreviouslyExpiredWindow_ResumesDuration_Normal()
     {
         // Arrange
         var now = DateTime.UtcNow;
         var shop = CreateSampleShop();
-        var expiredDeal = CreateSampleDeal(_expiredHiddenDealId, FlashDealStatus.Hidden, now.AddHours(-3), now.AddHours(-1)); // Ended 1h ago!
+        var expiredDeal = CreateSampleDeal(_expiredHiddenDealId, FlashDealStatus.Hidden, now.AddHours(-3), now.AddHours(-1));
 
         _shopRepoMock
             .Setup(r => r.GetShopByOwnerUserIdAsync(_ownerUserId, It.IsAny<CancellationToken>()))
@@ -204,13 +204,12 @@ public class UnhideFlashDealTests
             .ReturnsAsync(expiredDeal);
 
         // Act
-        Func<Task> act = async () => await _service.UnhideDealAsync(_ownerUserId, _expiredHiddenDealId);
+        await _service.UnhideDealAsync(_ownerUserId, _expiredHiddenDealId);
 
         // Assert & Log
-        var exception = await act.Should().ThrowAsync<AppException>();
-        PrintError("UTCID04", (int)exception.Which.StatusCode, exception.Which.Message);
-        exception.Which.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        exception.Which.Message.Should().Be("This deal has already expired and cannot be restored.");
+        expiredDeal.Status.Should().Be(FlashDealStatus.OnSale);
+        expiredDeal.OrderEndTime.Should().BeAfter(now);
+        PrintSuccess("UTCID04", "Hidden flash deal resumed with preserved duration.");
     }
 
     private void PrintSuccess(string tcid, string message)

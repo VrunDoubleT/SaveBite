@@ -109,57 +109,18 @@ public sealed class AdminPlatformFeeController : ControllerBase
     }
 
     /// <summary>
-    /// Record external payment reconciliation for a fee statement (BR-096, BR-194, BR-195).
-    /// </summary>
-    [HttpPost("platform-fee-statements/{statementId:guid}/reconciliation")]
-    public async Task<ActionResult<ApiResponse<string>>> RecordExternalPayment(
-        Guid statementId,
-        [FromBody] RecordExternalFeePaymentRequest request,
-        CancellationToken ct)
-    {
-        var adminId = GetAuthenticatedUserId();
-        await _feeStatementService.RecordExternalPaymentAsync(adminId, statementId, request, ct);
-        return Ok(ApiResponse<string>.Ok("External payment recorded successfully and shop status updated."));
-    }
-    
-    /// <summary>
     /// Cancel an upcoming scheduled platform fee configuration.
     /// </summary>
     [HttpDelete("platform-fee-configs/scheduled/{configId:guid}")]
     public async Task<ActionResult<ApiResponse<string>>> CancelScheduledConfig(
         Guid configId,
+        [FromBody] CancelPlatformFeeScheduleRequest request,
         CancellationToken ct)
     {
         var adminId = GetAuthenticatedUserId();
-        await _feeConfigService.CancelScheduledConfigAsync(adminId, configId, ct);
+        await _feeConfigService.CancelScheduledConfigAsync(adminId, configId, ct, request.Reason);
         return Ok(ApiResponse<string>.Ok("Upcoming scheduled fee configuration cancelled successfully."));
     }
-
-    /// <summary>
-    /// Trigger background check to mark overdue statements and suspend delinquent shops (BR-095, BR-193).
-    /// </summary>
-    [HttpPost("platform-fee-statements/process-overdue")]
-    public async Task<ActionResult<ApiResponse<int>>> ProcessOverdueStatements(CancellationToken ct)
-    {
-        var adminId = GetAuthenticatedUserId();
-        var count = await _feeStatementService.CheckAndSuspendOverdueShopsAsync(ct, adminId);
-        return Ok(ApiResponse<int>.Ok(count));
-    }
-    
-    /// <summary>
-    /// Aggregate unbilled order fees into monthly fee statements for shops (BR-093, BR-192).
-    /// </summary>
-    [HttpPost("platform-fee-statements/generate-monthly")]
-    public async Task<ActionResult<ApiResponse<int>>> GenerateMonthlyStatements(
-        [FromQuery] int year,
-        [FromQuery] short month,
-        CancellationToken ct)
-    {
-        var adminId = GetAuthenticatedUserId();
-        var count = await _feeStatementService.GenerateMonthlyStatementsAsync(year, month, ct, adminId);
-        return Ok(ApiResponse<int>.Ok(count, $"Generated {count} monthly platform fee statement(s) for period {year}-{month}."));
-    }
-
 
     private Guid GetAuthenticatedUserId()
     {

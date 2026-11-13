@@ -18,6 +18,7 @@ namespace SaveBite.Backend.Services.Implementations;
 public sealed class CheckoutPaymentService : ICheckoutPaymentService
 {
     private readonly IAuditWriter _audit;
+    private readonly IPayOsCredentialProtector _credentialProtector;
     private readonly OrderResaleService _resale;
     private readonly ICheckoutRepository _checkoutRepository;
     private readonly INotificationQueue _notifications;
@@ -38,9 +39,10 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         ILogger<CheckoutPaymentService> logger,
         OrderConfirmationScheduling confirmation,
         IShopOrderEventService shopOrderEvents,
-        INotificationQueue notifications, OrderResaleService resale, IAuditWriter audit)
+        INotificationQueue notifications, OrderResaleService resale, IAuditWriter audit, IPayOsCredentialProtector credentialProtector)
     {
         _audit = audit;
+        _credentialProtector = credentialProtector;
         _resale = resale;
         _checkoutRepository = repository;
         _notifications = notifications;
@@ -72,6 +74,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             if (payment?.Status == PaymentStatus.Pending && payment.Amount > 0 && order.Status == OrderStatus.AwaitingPayment
                 && order.PaymentExpiresAt > Now && !payment.GatewayCreationAttempted)
             {
+                CaptureCredentials(payment, order.Shop.PaymentConfig);
                 payment.GatewayCreationAttempted = true;
                 await _checkoutRepository.SaveAsync(ct);
             }
@@ -140,10 +143,11 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                     // Create a link only for a payable AwaitingPayment order without an existing checkout URL.
                     if (createLink && !expired && order.Status == OrderStatus.AwaitingPayment && payment.Status == PaymentStatus.Pending && payment.GatewayCheckoutUrl == null)
                     {
+                        CaptureCredentials(payment, order.Shop.PaymentConfig);
                         payment.GatewayCreationAttempted = true;
                         // Persist attempts even if the provider times out: do not assume a link was never created.
                         await _checkoutRepository.SaveAsync(ct);
-                        try { status = await _paymentGateway.CreateAsync(order, payment, config!, ct); }
+                        try { status = await CreatePaymentLinkAsync(order, payment, config!, ct); }
                         catch (AppException) { status = await _paymentGateway.GetAsync(payment, config!, ct); }
                     }
                     else if (!payment.GatewayCreationAttempted)
@@ -359,6 +363,38 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         });
     }
 
+    private void CaptureCredentials(Payment payment, ShopPaymentConfig? config)
+    {
+        if (_paymentGateway is DevelopmentCheckoutGateway || config == null || payment.ProtectedPayOsCredentials != null) return;
+        payment.ProtectedPayOsCredentials = _credentialProtector.Protect(new(config.PayosClientId, config.PayosApiKey, config.PayosChecksumKey));
+    }
+
+    private async Task<GatewayPayment> CreatePaymentLinkAsync(
+        Order order, Payment payment, ShopPaymentConfig config, CancellationToken ct)
+    {
+        CaptureCredentials(payment, config);
+        await _checkoutRepository.SaveAsync(ct);
+        try
+        {
+            return await _paymentGateway.CreateAsync(order, payment, config, ct);
+        }
+        catch (AppException ex) when (ex.ErrorCode == ErrorCodes.PaymentCredentialsInvalid)
+        {
+            // One owner alert per configuration revision, across customers and retries.
+            // The key contains no credentials. NotificationQueue deduplicates atomically.
+            var revision = (config.UpdatedAt ?? config.CreatedAt)?.Ticks / 10 ?? 0;
+            await _notifications.EnqueueAsync(
+                NotificationTarget.User(order.Shop.OwnerUserId),
+                new CreateNotificationCommand(
+                    NotificationType.PaymentFailed,
+                    NotificationMessages.Payments.ShopPaymentConfigInvalidTitle,
+                    NotificationMessages.Payments.ShopPaymentConfigInvalidBody,
+                    "/store-owner/payment-settings",
+                    $"shop-payment-config-invalid:{order.ShopId}:{revision}"), ct);
+            throw;
+        }
+    }
+
     // Verify the separate PayAtShop balance payment before the shop can complete an order.
     private async Task ReconcileRemainingAsync(Order order, bool createLink, bool cancel, CancellationToken ct)
     {
@@ -383,7 +419,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                 else if (closed) status = await _paymentGateway.CancelAsync(payment, order.Shop.PaymentConfig!, ct);
                 else if (createLink && payment.GatewayCheckoutUrl == null && payment.Status == PaymentStatus.Pending)
                 {
-                    try { status = await _paymentGateway.CreateAsync(order, payment, order.Shop.PaymentConfig!, ct); }
+                    try { status = await CreatePaymentLinkAsync(order, payment, order.Shop.PaymentConfig!, ct); }
                     catch (AppException) { status = await _paymentGateway.GetAsync(payment, order.Shop.PaymentConfig!, ct); }
                 }
                 else status = await _paymentGateway.GetAsync(payment, order.Shop.PaymentConfig!, ct);
@@ -427,8 +463,19 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         var id = await _checkoutRepository.FindGatewayOrderAsync(gatewayCode, ct);
         if (!id.HasValue) return; // Includes payOS's webhook-registration sample; it never creates orders.
         var order = await _checkoutRepository.GetOrderAsync(id.Value, null, ct) ?? throw AppException.NotFound();
-        if (!_paymentGateway.IsConfigured(order.Shop.PaymentConfig) || !_paymentGateway.VerifyWebhook(body, order.Shop.PaymentConfig!))
-            throw AppException.Forbidden("Invalid payment notification signature.");
+        var webhookConfig = order.Shop.PaymentConfig;
+        var webhookPayment = order.Payments.SingleOrDefault(p => p.GatewayOrderCode == gatewayCode);
+        if (webhookPayment?.ProtectedPayOsCredentials != null)
+        {
+            var credentials = _credentialProtector.Unprotect(webhookPayment.ProtectedPayOsCredentials);
+            webhookConfig = new ShopPaymentConfig { PayosClientId = credentials.ClientId,
+                PayosApiKey = credentials.ApiKey, PayosChecksumKey = credentials.ChecksumKey };
+        }
+        var verified = _paymentGateway.IsConfigured(webhookConfig) && _paymentGateway.VerifyWebhook(body, webhookConfig!);
+        if (!verified && webhookConfig?.PayosClientId == order.Shop.PaymentConfig?.PayosClientId
+            && _paymentGateway.IsConfigured(order.Shop.PaymentConfig))
+            verified = _paymentGateway.VerifyWebhook(body, order.Shop.PaymentConfig!);
+        if (!verified) throw AppException.Forbidden("Invalid payment notification signature.");
         // Never accept success, amounts or order state from client URLs or the webhook alone.
         await ProcessAsync(id.Value, null, false, false, ct);
     }

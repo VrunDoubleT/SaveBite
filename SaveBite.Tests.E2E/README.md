@@ -12,8 +12,10 @@ SaveBite.Tests.E2E/
 ├── tests/                    # Kịch bản kiểm thử (Test Specs)
 │   ├── smoke/               # Smoke tests (kiểm tra tính sẵn sàng của hệ thống)
 │   │   └── system-health.spec.ts
-│   └── auth/                # Kiểm thử phân hệ xác thực
-│       └── login.spec.ts
+│   └── auth/                # Kiểm thử phân hệ xác thực (đánh số theo thứ tự Excel)
+│       ├── 01-login.spec.ts
+│       ├── 02-register-and-reset.spec.ts
+│       └── 03-account-security.spec.ts
 ├── playwright.config.ts      # Cấu hình Playwright, baseURL, webServer
 ├── package.json              # Scripts và dependencies riêng cho E2E
 └── .env.example              # Biến môi trường mẫu

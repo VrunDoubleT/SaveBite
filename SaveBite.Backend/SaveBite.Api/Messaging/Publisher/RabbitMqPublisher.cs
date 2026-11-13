@@ -59,6 +59,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher
                        || routingKey == Constants.RabbitMqRoutingKeys.RefundTransferred
                        || routingKey == Constants.RabbitMqRoutingKeys.InventoryChanged
                        || routingKey == Constants.RabbitMqRoutingKeys.UserVerified
+                       || routingKey == Constants.RabbitMqRoutingKeys.PlatformPayOsVerified
                        || routingKey == Constants.RabbitMqRoutingKeys.NotificationRequested,
             basicProperties: properties,
             body: body,

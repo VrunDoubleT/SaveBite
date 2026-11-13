@@ -23,4 +23,8 @@ public static class RabbitMqQueues
     public const string OrderPlatformFeeDeadLetterQueueName = "order_platform_fee_dead_letter_queue";
     public const string ModerationQueueName = "moderation_queue";
     public const string ModerationDeadLetterQueueName = "moderation_dead_letter_queue";
+    public const string PlatformPayOsVerifiedQueueName = "platform_payos_verified_queue";
+    public const string PlatformPayOsVerifiedDeadLetterQueueName = "platform_payos_verified_dead_letter_queue";
+    public const string TrustLevelReconcileQueueName = "trust_level_reconcile_queue";
+    public const string TrustLevelReconcileDeadLetterQueueName = "trust_level_reconcile_dead_letter_queue";
 }

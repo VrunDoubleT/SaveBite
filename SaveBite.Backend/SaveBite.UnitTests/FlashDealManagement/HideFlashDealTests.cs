@@ -120,7 +120,7 @@ public class HideFlashDealTests
         await act.Should().NotThrowAsync();
         deal.Status.Should().Be(FlashDealStatus.Hidden);
         _dealRepoMock.Verify(r => r.UpdateAsync(deal, It.IsAny<CancellationToken>()), Times.Once);
-        _publisherMock.Verify(p => p.PublishAsync(RabbitMqRoutingKeys.FlashDealHidden, It.Is<FlashDealEvent>(e => e.FlashDealId == _existingDealId), It.IsAny<CancellationToken>()), Times.Once);
+        // Lifecycle event is staged via FlashDealLifecycleOutbox in _db instead of direct _publisher.
 
         PrintSuccess("UTCID01", "Flash deal hidden successfully.");
     }

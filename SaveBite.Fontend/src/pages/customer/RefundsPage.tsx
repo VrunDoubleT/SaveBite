@@ -22,6 +22,7 @@ import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import type { RefundPage } from "@/features/refunds/types/refund.types";
 const statuses: Record<string, string> = {
   All: "All statuses",
+  Overdue: "Overdue — payment required",
   AwaitingCustomerDetails: "Bank details required",
   PendingVerification: "Waiting for shop review",
   AwaitingTransfer: "Waiting for transfer",

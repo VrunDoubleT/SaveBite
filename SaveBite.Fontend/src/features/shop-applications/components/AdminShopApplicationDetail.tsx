@@ -8,6 +8,7 @@ import {
   NOTE_MAX_LENGTH,
 } from "../schemas/adminShopApplication.schema";
 import { Notice, Panel, InfoRow, StatusBadge } from "./AdminShopApplicationShared";
+import { RecordId } from "@/shared/components/RecordId";
 
 type Props = {
   app: ShopApplication;
@@ -56,40 +57,44 @@ export function AdminShopApplicationDetail({
           <img
             src={app.coverImageUrl}
             alt={`${app.name} cover`}
-            className="h-32 w-full object-cover sm:h-44"
+            className="h-48 w-full object-cover sm:h-64"
           />
         ) : (
-          <div className="h-16 w-full bg-slate-100 sm:h-20" aria-hidden="true" />
+          <div
+            className="h-48 w-full bg-gradient-to-br from-emerald-900 via-emerald-700 to-teal-500 sm:h-64"
+            aria-hidden="true"
+          />
         )}
 
-        <div className="flex flex-wrap items-end justify-between gap-4 px-5 pb-5">
-          <div className="-mt-8 flex min-w-0 items-end gap-4">
+        <div className="flex flex-col gap-4 px-6 pb-5 pt-4 sm:flex-row sm:items-end sm:gap-5 sm:px-8">
+          <div className="relative z-10 -mt-20 flex size-32 shrink-0 items-center justify-center overflow-hidden rounded-3xl border-4 border-white bg-white shadow-lg ring-1 ring-gray-200/70 sm:-mt-24 sm:size-36">
             {app.logoUrl ? (
-              <img
-                src={app.logoUrl}
-
-                alt={`${app.name} logo`}
-
-                className="size-16 shrink-0 rounded-xl border-2 border-white bg-white object-cover shadow-sm sm:size-20"
-              />
+              <img src={app.logoUrl} alt={`${app.name} logo`} className="size-full object-cover" />
             ) : (
-              <span className="flex size-16 shrink-0 items-center justify-center rounded-xl border-2 border-white bg-slate-200 text-xl font-semibold text-slate-600 shadow-sm sm:size-20">
+              <span className="flex size-full items-center justify-center bg-emerald-50 text-2xl font-bold text-emerald-700 sm:text-3xl">
                 {app.name.slice(0, 1).toUpperCase()}
               </span>
             )}
-
-            <div className="min-w-0 pb-0.5">
-              <h1 className="truncate text-xl font-semibold text-slate-900 sm:text-2xl">
-                {app.name}
-              </h1>
-
-              <p className="mt-0.5 text-sm text-slate-500">
-                Revision {app.revisionNumber}, submitted {dateTime(app.createdAt)}
-              </p>
-            </div>
           </div>
 
-          <StatusBadge status={app.status} />
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="min-w-0 space-y-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                <h1 className="min-w-0 truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                  {app.name}
+                </h1>
+                <StatusBadge status={app.status} />
+              </div>
+              <p className="text-sm font-medium text-slate-600">
+                Revision {app.revisionNumber}, submitted {dateTime(app.createdAt)}
+              </p>
+              <RecordId
+                id={app.id}
+                variant="full"
+                className="[&_button]:border-emerald-200 [&_button]:bg-emerald-50 [&_button]:text-emerald-800 [&_button:hover]:border-emerald-300 [&_button:hover]:bg-emerald-100"
+              />
+            </div>
+          </div>
         </div>
       </header>
 

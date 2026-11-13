@@ -48,7 +48,7 @@ const navigation = [
   },
   {
     to: APP_PATHS.ADMIN_FEEDBACK,
-    label: "Feedback",
+    label: "Feedbacks",
     icon: MessageSquare,
   },
   {

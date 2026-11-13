@@ -85,6 +85,10 @@ public class ShopConfiguration : IEntityTypeConfiguration<Shop>
             .HasColumnType("time without time zone");
 
         builder.Property(x => x.SuspendedForPlatformFees).HasColumnName("suspended_for_platform_fees").HasDefaultValue(false);
+        builder.Property(x => x.SuspendedByAdmin).HasColumnName("suspended_by_admin").HasDefaultValue(false).IsConcurrencyToken();
+        builder.Property(x => x.SuspendedForOverdueRefunds).HasColumnName("suspended_for_overdue_refunds").HasDefaultValue(false).IsConcurrencyToken();
+        builder.Property(x => x.SuspendedForPlatformFees).IsConcurrencyToken();
+        builder.Property(x => x.Status).IsConcurrencyToken();
 
         builder.Property(x => x.Status)
             .HasColumnName("status")

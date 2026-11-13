@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { userApi } from "@/features/users/api/userApi";
 import type { AdminUser, UserDetailsResponse } from "@/features/users/types/user.types";
 import { getApiErrorMessage } from "@/shared/api";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 export const USER_PAGE_SIZE = 5;
 
@@ -12,10 +13,6 @@ export interface UpdateUserStatusPayload {
   reason: string;
 }
 
-/**
- * Handles data fetching, search (debounced), pagination (via URL params)
- * and all user actions for the admin user management page.
- */
 export function useUserManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Number(searchParams.get("page")) || 1;
@@ -27,23 +24,23 @@ export function useUserManagement() {
   const [searchInput, setSearchInput] = useState(currentSearch);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Debounce the search input into the URL
+  // Debounce the search input into the URL using useDebounce
+  const debouncedSearch = useDebounce(searchInput, 400);
+
   useEffect(() => {
-    const handler = setTimeout(() => {
-      if (searchInput !== currentSearch) {
-        setSearchParams(
-          (prev) => {
-            if (searchInput) prev.set("search", searchInput);
-            else prev.delete("search");
-            prev.set("page", "1");
-            return prev;
-          },
-          { replace: true },
-        );
-      }
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchInput, currentSearch, setSearchParams]);
+    const trimmed = debouncedSearch.trim();
+    if (trimmed !== currentSearch) {
+      setSearchParams(
+        (prev) => {
+          if (trimmed) prev.set("search", trimmed);
+          else prev.delete("search");
+          prev.set("page", "1");
+          return prev;
+        },
+        { replace: true },
+      );
+    }
+  }, [debouncedSearch, currentSearch, setSearchParams]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -72,7 +69,6 @@ export function useUserManagement() {
     });
   };
 
-  /** Suspend / reactivate an account or customer profile. Returns true on success. */
   const updateUserStatus = async (
     userId: string,
     payload: UpdateUserStatusPayload,
@@ -87,7 +83,6 @@ export function useUserManagement() {
     }
   };
 
-  /** Load the profile + logs of a user. Returns null (and shows an error) on failure. */
   const fetchUserDetails = async (id: string): Promise<UserDetailsResponse | null> => {
     try {
       return await userApi.getUserDetails(id);

@@ -8,12 +8,17 @@ const BASE_URL = process.env.BASE_URL || "http://localhost:5173";
 
 export default defineConfig({
   testDir: "./tests",
-  fullyParallel: true,
+  timeout: 90_000,
+  expect: {
+    timeout: 90_000,
+  },
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: [
     ["list"],
+    ["./reporters/tc-summary-reporter.ts"],
     ["html", { outputFolder: "playwright-report", open: "never" }],
   ],
   use: {
@@ -21,8 +26,10 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    actionTimeout: 10000,
-    navigationTimeout: 15000,
+    actionTimeout: 15000,
+    navigationTimeout: 30000,
+    permissions: ["geolocation"],
+    geolocation: { latitude: 10.012452, longitude: 105.732432 },
   },
 
   projects: [

@@ -22,7 +22,7 @@ public sealed class PlatformAnalyticsRepository : IPlatformAnalyticsRepository
     public Task<PlatformFeeConfig?> GetCurrentFeeConfigAsync(DateTime nowUtc, CancellationToken ct = default)
         => _db.PlatformFeeConfigs
             .AsNoTracking()
-            .Where(x => x.EffectiveFrom <= nowUtc && (x.EffectiveTo == null || x.EffectiveTo > nowUtc))
+            .Where(x => x.LifecycleStatus == "Published" && x.EffectiveFrom <= nowUtc && (x.EffectiveTo == null || x.EffectiveTo > nowUtc))
             .OrderByDescending(x => x.EffectiveFrom)
             .FirstOrDefaultAsync(ct);
 

@@ -14,6 +14,8 @@ export interface OwnerShop {
   ownerUserId?: string;
   followerCount?: number;
   suspendedForPlatformFees?: boolean;
+  suspendedByAdmin?: boolean;
+  suspendedForOverdueRefunds?: boolean;
   name: string;
   description?: string | null;
   addressLine?: string;

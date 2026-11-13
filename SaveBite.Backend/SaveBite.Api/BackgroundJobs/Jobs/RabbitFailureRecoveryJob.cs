@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using Hangfire;
 using RabbitMQ.Client;
 using SaveBite.Backend.Messaging.Configuration;
@@ -19,14 +20,15 @@ public sealed class RabbitFailureRecoveryJob(IConnection connection, RabbitMqTop
         (RabbitMqQueues.UserTrustDeadLetterQueueName, RabbitMqQueues.UserTrustQueueName),
         (RabbitMqQueues.OrderTrustDeadLetterQueueName, RabbitMqQueues.OrderTrustQueueName),
         (RabbitMqQueues.OrderPlatformFeeDeadLetterQueueName, RabbitMqQueues.OrderPlatformFeeQueueName),
+        (RabbitMqQueues.PlatformPayOsVerifiedDeadLetterQueueName, RabbitMqQueues.PlatformPayOsVerifiedQueueName),
         (RabbitMqQueues.RefundPlatformFeeQueueName + "_dead_letter", RabbitMqQueues.RefundPlatformFeeQueueName),
         (RabbitMqQueues.RefundTrustQueueName + "_dead_letter", RabbitMqQueues.RefundTrustQueueName),
         (RabbitMqQueues.InventoryQueueName + "_dead_letter", RabbitMqQueues.InventoryQueueName)
     };
 
-    public static TimeSpan Delay(int attempt) => TimeSpan.FromMinutes(Math.Min(60, 5 * (1 << Math.Clamp(attempt, 0, 4))));
+    public static TimeSpan Delay(int attempt) => TimeSpan.FromMinutes(Math.Min(TimingConfiguration.Jobs.RabbitRetryMaxMinutes, TimingConfiguration.Jobs.RabbitRetryBaseMinutes * (1 << Math.Clamp(attempt, 0, TimingConfiguration.Jobs.RabbitRetryMaxExponent))));
 
-    [DisableConcurrentExecution(600)]
+    [DisableConcurrentExecution(TimingConfiguration.Jobs.ConcurrencyLockTimeoutSeconds)]
     public async Task ExecuteAsync(CancellationToken ct)
     {
         await topology.Ready.WaitAsync(ct);

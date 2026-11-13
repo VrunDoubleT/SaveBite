@@ -9,6 +9,9 @@ public sealed class PlatformPayOsConfigConfiguration : IEntityTypeConfiguration<
     public void Configure(EntityTypeBuilder<PlatformPayOsConfig> builder)
     {
         builder.ToTable("platform_payos_configs");
+        builder.Property(x => x.Revision).HasColumnName("revision");
+        builder.Property(x => x.VerifiedAt).HasColumnName("verified_at");
+        builder.Property(x => x.IsInvalid).HasColumnName("is_invalid");
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");

@@ -1,3 +1,4 @@
+using SaveBite.Backend.Helpers;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,8 @@ public sealed class ShopService : IShopService
     private readonly IShopSuspensionCleanupService _suspensionCleanup;
     private readonly IShopStatusEventService _shopStatusEvents;
     private readonly IRealtimePublisher _realtime;
+    private readonly IPayOsCredentialsValidator _payOsValidator;
+    private readonly IPayOsCredentialProtector _credentialProtector;
 
     public ShopService(
         IShopRepository shopRepository,
@@ -40,9 +43,12 @@ public sealed class ShopService : IShopService
         AppDbContext db,
         IShopSuspensionCleanupService suspensionCleanup,
         IShopStatusEventService shopStatusEvents,
-        IRealtimePublisher realtime)
+        IRealtimePublisher realtime, IPayOsCredentialsValidator payOsValidator,
+        IPayOsCredentialProtector credentialProtector)
     {
         _realtime = realtime;
+        _payOsValidator = payOsValidator;
+        _credentialProtector = credentialProtector;
         _db = db;
         _notifications = notifications;
         _shopRepository = shopRepository;
@@ -193,6 +199,8 @@ public sealed class ShopService : IShopService
                         shop.Status, f.NotificationStatus, f.FollowedAt)).SingleOrDefaultAsync(cancellationToken)
                 : null,
             SuspendedForPlatformFees = shop.SuspendedForPlatformFees,
+            SuspendedByAdmin = shop.SuspendedByAdmin,
+            SuspendedForOverdueRefunds = shop.SuspendedForOverdueRefunds,
             Id = shop.Id,
             Name = shop.Name,
             Description = shop.Description,
@@ -300,14 +308,34 @@ public sealed class ShopService : IShopService
     public async Task<ShopPaymentConfigResponse> UpdateOwnerPaymentConfigAsync(Guid ownerUserId, UpdateShopPaymentConfigRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
         var paymentConfig = await _shopRepository.GetPaymentConfigByOwnerUserIdAsync(ownerUserId, cancellationToken);
         if (paymentConfig == null)
             throw AppException.NotFound("Shop payment configuration not found.");
 
+        // Match checkout's user -> order -> shop locking order when an owner is also a customer.
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM users WHERE id = {ownerUserId} FOR UPDATE", cancellationToken);
+        var lockName = $"payos-shop:{paymentConfig.ShopId}";
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({lockName}, 0))", cancellationToken);
+        await _db.Entry(paymentConfig).ReloadAsync(cancellationToken);
         var clientChanged = !string.IsNullOrWhiteSpace(request.PayosClientId) && paymentConfig.PayosClientId != request.PayosClientId.Trim();
         var apiKeyChanged = !string.IsNullOrWhiteSpace(request.PayosApiKey) && paymentConfig.PayosApiKey != request.PayosApiKey.Trim();
         var checksumChanged = !string.IsNullOrWhiteSpace(request.PayosChecksumKey) && paymentConfig.PayosChecksumKey != request.PayosChecksumKey.Trim();
-        if (!clientChanged && !apiKeyChanged && !checksumChanged) return MapPaymentConfigResponse(paymentConfig);
+        if (!clientChanged && !apiKeyChanged && !checksumChanged)
+        {
+            await tx.CommitAsync(cancellationToken);
+            return MapPaymentConfigResponse(paymentConfig);
+        }
+        await _payOsValidator.ValidateAsync(new(
+            string.IsNullOrWhiteSpace(request.PayosClientId) ? paymentConfig.PayosClientId : request.PayosClientId.Trim(),
+            string.IsNullOrWhiteSpace(request.PayosApiKey) ? paymentConfig.PayosApiKey : request.PayosApiKey.Trim(),
+            string.IsNullOrWhiteSpace(request.PayosChecksumKey) ? paymentConfig.PayosChecksumKey : request.PayosChecksumKey.Trim()), cancellationToken);
+        // Preserve existing links before replacing the shop's active credential set.
+        var legacy = await _db.Payments.Where(p => p.Order.ShopId == paymentConfig.ShopId
+            && p.GatewayCreationAttempted && p.ProtectedPayOsCredentials == null)
+            .ToListAsync(cancellationToken);
+        foreach (var payment in legacy) payment.ProtectedPayOsCredentials = _credentialProtector.Protect(new(
+            paymentConfig.PayosClientId, paymentConfig.PayosApiKey, paymentConfig.PayosChecksumKey));
 
         if (!string.IsNullOrWhiteSpace(request.PayosClientId))
             paymentConfig.PayosClientId = request.PayosClientId.Trim();
@@ -333,6 +361,7 @@ public sealed class ShopService : IShopService
         });
         paymentConfig.UpdatedAt = DateTime.UtcNow;
         await _shopRepository.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
         return MapPaymentConfigResponse(paymentConfig);
     }
 
@@ -418,6 +447,8 @@ public sealed class ShopService : IShopService
             OwnerUserId = shop.OwnerUserId,
             FollowerCount = await _db.Set<ShopFollow>().CountAsync(f => f.ShopId == shop.Id && f.CustomerId != shop.OwnerUserId, cancellationToken),
             SuspendedForPlatformFees = shop.SuspendedForPlatformFees,
+            SuspendedByAdmin = shop.SuspendedByAdmin,
+            SuspendedForOverdueRefunds = shop.SuspendedForOverdueRefunds,
             Id = shop.Id,
             Name = shop.Name,
             Description = shop.Description,
@@ -482,19 +513,26 @@ public sealed class ShopService : IShopService
         var shop = await _shopRepository.GetShopContentAsync(shopId, ct)
                    ?? throw AppException.NotFound("Shop not found.");
 
-        var auditLogs = await _shopRepository.GetShopStatusHistoryAsync(shopId, ct);
-        var statusHistory = auditLogs.Select(log => new ShopStatusHistoryResponse
+        var histories = await _shopRepository.GetShopStatusHistoryAsync(shopId, ct);
+        var statusHistory = histories.Select(log => new ShopStatusHistoryResponse
         {
             Id = log.Id,
-            FromStatus = ReadStatus(log.OldValuesJson),
-            ToStatus = ReadStatus(log.NewValuesJson) ?? string.Empty,
+            FromStatus = log.FromStatus?.ToString(),
+            ToStatus = log.ToStatus.ToString(),
             Reason = log.Reason,
+            ChangedByType = log.ChangedByType,
+            ChangedByUserId = log.ChangedByUserId,
+            SuspendedByAdmin = log.SuspendedByAdmin,
+            SuspendedForPlatformFees = log.SuspendedForPlatformFees,
+            SuspendedForOverdueRefunds = log.SuspendedForOverdueRefunds,
             CreatedAt = log.CreatedAt
         }).ToArray();
 
         var currentStatusReason = shop.Status.ToString() is "Paused" or "Suspended"
             ? statusHistory.FirstOrDefault(item => item.ToStatus == shop.Status.ToString())?.Reason
             : null;
+        if (shop.Status == ShopStatus.Suspended)
+            currentStatusReason = string.Join(" ", new[] { currentStatusReason, ShopSuspensionRules.Reason(shop) }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
         return new ShopContentResponse
         {
@@ -579,9 +617,12 @@ public sealed class ShopService : IShopService
             Status = currentStatus.ToString()
         };
 
-        if (statusChanged)
+        if (targetStatus == ShopStatus.Active && (shop.SuspendedForPlatformFees || shop.SuspendedForOverdueRefunds))
+            throw AppException.Conflict("Settle all overdue platform fees and mandatory refunds before reactivating the shop.");
+        if (statusChanged || targetStatus == ShopStatus.Suspended)
         {
-            shop.SuspendedForPlatformFees = false; // An administrator decision must never be undone by fee payment.
+            _db.RecordAdminShopStatusChange(shopId, adminId, reason);
+            shop.SuspendedByAdmin = targetStatus == ShopStatus.Suspended;
             shop.Status = targetStatus;
             shop.UpdatedAt = DateTime.UtcNow;
             var auditEntry = _audit.Record(new AuditLog
@@ -627,21 +668,6 @@ public sealed class ShopService : IShopService
                 ? $"Shop status changed from {currentStatus} to {targetStatus}."
                 : "Shop suspension cleanup was retried."
         };
-    }
-
-    // Manage Shops.
-    private static string? ReadStatus(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return null;
-
-        using var document = JsonDocument.Parse(json);
-        if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
-        foreach (var property in document.RootElement.EnumerateObject())
-        {
-            if (property.Name.Equals("Status", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
-                return property.Value.GetString();
-        }
-        return null;
     }
 
     private async Task ValidateOperatingHoursChangeAsync(

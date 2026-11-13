@@ -12,6 +12,7 @@ import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney"
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import { getApiErrorMessage } from "@/shared/api";
 import { useAuthStore } from "@/shared/stores/authStore";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 const statuses = [
   "All",
@@ -40,9 +41,8 @@ function ShopOrdersPageContent() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("All");
   const [input, setInput] = useState("");
-  const [search, setSearch] = useState("");
+  const debouncedInput = useDebounce(input, 350);
   const [orderDate, setOrderDate] = useState("");
-  const [searchDate, setSearchDate] = useState<string | undefined>();
   const [data, setData] = useState<ShopOrderPage | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -72,12 +72,15 @@ function ShopOrdersPageContent() {
     return () => abort.abort();
   }, [staffShopId]);
 
+  const trimmedSearch = debouncedInput.trim();
+  const searchDateParam = /^\d{1,6}$/.test(trimmedSearch) ? orderDate || undefined : undefined;
+
   useEffect(() => {
     if (!shopId) return;
     const abort = new AbortController();
     const current = ++generation.current;
     void shopOrderApi
-      .page(shopId, status, search, page, abort.signal, searchDate)
+      .page(shopId, status, trimmedSearch, page, abort.signal, searchDateParam)
       .then((next) => {
         if (current === generation.current && !abort.signal.aborted) {
           const lastPage = Math.max(1, next.page.totalPages);
@@ -99,7 +102,7 @@ function ShopOrdersPageContent() {
         }
       });
     return () => abort.abort();
-  }, [shopId, status, search, searchDate, page, retry, shopRevision, reconnectRevision]);
+  }, [shopId, status, trimmedSearch, searchDateParam, page, retry, shopRevision, reconnectRevision]);
 
   function reset() {
     setPage(1);
@@ -116,20 +119,22 @@ function ShopOrdersPageContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Shop Orders</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Confirm paid orders within 5 minutes, prepare items and verify payment before handover.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Store Orders</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Track customer pickups, prepare items, and confirm fulfillment.
+        </p>
       </div>
 
-      {/* 4 Stats Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+      {/* Overview Stat Cards with icons (no hover, non-clickable) */}
+      <div
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4"
+        role="region"
+        aria-label="Shop orders summary metrics"
+      >
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
               <ShoppingBag className="size-5" />
             </span>
             <div>
@@ -138,35 +143,35 @@ function ShopOrdersPageContent() {
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
               <Clock className="size-5" />
             </span>
             <div>
-              <p className="text-xs font-medium text-neutral-500">Pending confirmation</p>
-              <p className="text-xl font-bold text-amber-600">{data?.statusCounts?.Pending ?? 0}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-              <Package className="size-5" />
-            </span>
-            <div>
-              <p className="text-xs font-medium text-neutral-500">Preparing & Ready</p>
-              <p className="text-xl font-bold text-blue-600">
-                {(data?.statusCounts?.Confirmed ?? 0) +
-                  (data?.statusCounts?.Preparing ?? 0) +
-                  (data?.statusCounts?.ReadyForPickup ?? 0)}
+              <p className="text-xs font-medium text-neutral-500">Pending</p>
+              <p className="text-xl font-bold text-amber-600">
+                {data?.statusCounts?.Pending ?? 0}
               </p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <Package className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-medium text-neutral-500">Ready for pickup</p>
+              <p className="text-xl font-bold text-emerald-600">
+                {data?.statusCounts?.ReadyForPickup ?? 0}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
               <CheckCircle2 className="size-5" />
             </span>
             <div>
@@ -179,37 +184,24 @@ function ShopOrdersPageContent() {
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <form
-        className="flex max-w-lg gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          reset();
-          setSearch(input.trim());
-          setSearchDate(/^\d{1,6}$/.test(input.trim()) ? orderDate || undefined : undefined);
-          setRetry((value) => value + 1);
-        }}
-      >
+      {/* Realtime Search without Search Button */}
+      <div className="flex max-w-lg gap-2">
         <label className="relative min-w-0 flex-1">
-          <Search size={16} className="absolute left-3 top-3 text-neutral-400" />
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
           <span className="sr-only">Order ID or order code</span>
           <input
             value={input}
             onChange={(e) => {
               const value = e.target.value;
               setInput(value);
+              setPage(1);
               if (!value.trim()) {
                 setOrderDate("");
-                if (search || searchDate) {
-                  reset();
-                  setSearch("");
-                  setSearchDate(undefined);
-                }
               }
             }}
             maxLength={64}
             placeholder="Pickup code or exact order ID"
-            className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm focus:border-emerald-500 focus:outline-none"
+            className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
           />
         </label>
         {/^\d{1,6}$/.test(input.trim()) && (
@@ -226,17 +218,17 @@ function ShopOrdersPageContent() {
                   day: "2-digit",
                 }).format(new Date(now))
               }
-              onChange={(e) => setOrderDate(e.target.value)}
+              onChange={(e) => {
+                setOrderDate(e.target.value);
+                setPage(1);
+              }}
               required
               aria-label="Order date (Vietnam time)"
-              className="h-10 rounded-lg border border-neutral-200 bg-white px-2 text-sm focus:border-emerald-500 focus:outline-none"
+              className="h-10 rounded-lg border border-neutral-200 bg-white px-2 text-sm text-neutral-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
             />
           </label>
         )}
-        <button className="rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
-          Search
-        </button>
-      </form>
+      </div>
       {/^\d{1,6}$/.test(input.trim()) && (
         <p className="text-xs text-neutral-500">
           Pickup codes repeat daily. Select the order date in Vietnam time, especially for overnight
@@ -246,7 +238,7 @@ function ShopOrdersPageContent() {
 
       {/* Filter Tabs */}
       <div
-        className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:thin]"
+        className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin"
         aria-label="Filter shop orders"
       >
         {statuses.map((value) => (

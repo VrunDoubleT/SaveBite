@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
@@ -9,8 +10,8 @@ namespace SaveBite.Backend.Helpers;
 // Centralize checkout eligibility, deposit, pickup and cancellation rules.
 public static class CheckoutRules
 {
-    public const int MinimumSoftDeadlineMinutes = 5;
-    public const int MinimumPickupBufferMinutes = 10;
+    public const int MinimumSoftDeadlineMinutes = TimingConfiguration.Orders.MinimumPickupEtaMinutes;
+    public const int MinimumPickupBufferMinutes = TimingConfiguration.Orders.MinimumPickupBufferMinutes;
     public const int MinimumPickupWindowMinutes = MinimumSoftDeadlineMinutes + MinimumPickupBufferMinutes;
     public const string CustomerCancellationPolicy = "Customer cancellations are non-refundable. Any online payment or deposit already paid will not be refunded.";
     // Explain why customer cancellation is unavailable for the current order and deadline.
@@ -36,7 +37,7 @@ public static class CheckoutRules
         if (location == null || !double.IsFinite(location.Latitude) || !double.IsFinite(location.Longitude)
             || location.Latitude is < -90 or > 90 || location.Longitude is < -180 or > 180
             || !double.IsFinite(location.AccuracyMeters) || location.AccuracyMeters is < 0 or > 1000
-            || location.CapturedAt < now.AddMinutes(-2) || location.CapturedAt > now.AddSeconds(30))
+            || location.CapturedAt < now.AddMinutes(-TimingConfiguration.Orders.LocationMaxAgeMinutes) || location.CapturedAt > now.AddSeconds(TimingConfiguration.Orders.LocationClockSkewSeconds))
             throw AppException.BadRequest("A fresh GPS location with accuracy within 1 km is required. Please enable location access and try again.");
     }
 
@@ -70,8 +71,8 @@ public static class CheckoutRules
         if (now >= endsAt || soft >= endsAt)
             throw AppException.OrderClosed("There is not enough time to reach this shop before the earliest deal ends.");
         if (endsAt < now.AddMinutes(MinimumPickupWindowMinutes))
-            throw AppException.OrderClosed("At least 15 minutes must remain before the deal ends to place an order.");
-        var buffer = Math.Max(MinimumPickupBufferMinutes, (int)Math.Ceiling(etaMinutes * 0.30m));
+            throw AppException.OrderClosed($"At least {MinimumPickupWindowMinutes} minutes must remain before the deal ends to place an order.");
+        var buffer = Math.Max(MinimumPickupBufferMinutes, (int)Math.Ceiling(etaMinutes * TimingConfiguration.Orders.PickupBufferRatio));
         var uncapped = soft.AddMinutes(buffer);
         var hard = uncapped > endsAt ? endsAt : uncapped;
         return new PickupEstimate

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Eye, ImageOff, Store, Tag } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
+import { RecordId } from "@/shared/components/RecordId";
 import type { ProductListManagement } from "../types/product.types";
 
 const formatPrice = (price: number | null | undefined) =>
@@ -123,6 +124,9 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-xs text-text-secondary">
             <tr>
+              <th scope="col" className="px-4 py-3.5 font-semibold">
+                ID
+              </th>
               <th scope="col" className="px-6 py-3.5 font-semibold">
                 Product
               </th>
@@ -147,6 +151,9 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
           <tbody className="divide-y divide-border-default text-text-primary">
             {items.map((product) => (
               <tr key={product.id} className="transition-colors hover:bg-neutral-50/70">
+                <td className="max-w-40 px-4 py-4">
+                  <RecordId id={product.id} />
+                </td>
                 <td className="max-w-sm px-6 py-4">
                   <div className="flex items-center gap-4">
                     <Thumbnail product={product} />
@@ -186,6 +193,10 @@ export function ProductManagementTable({ items }: { items: ProductListManagement
       <ul className="divide-y divide-border-default md:hidden">
         {items.map((product) => (
           <li key={product.id} className="space-y-4 p-4">
+            <div className="flex items-center gap-2 text-xs text-text-secondary">
+              <span>ID</span>
+              <RecordId id={product.id} />
+            </div>
             <div className="flex items-start gap-3">
               <Thumbnail product={product} />
               <ProductMeta product={product} />

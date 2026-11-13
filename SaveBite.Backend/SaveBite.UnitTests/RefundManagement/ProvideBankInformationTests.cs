@@ -35,6 +35,7 @@ public class ProvideBankInformationTests
     private readonly Mock<IConfiguration> _configMock = new();
     private readonly Mock<IRefundDeadlineScheduler> _deadlinesMock = new();
     private readonly Mock<ILogger<RefundService>> _loggerMock = new();
+    private readonly SaveBite.Backend.Data.AppDbContext _db = TestDbContextFactory.Create();
     private readonly RefundService _service;
 
     // Explicit GUIDs for test determinism and traceability
@@ -61,7 +62,7 @@ public class ProvideBankInformationTests
             _loggerMock.Object,
             new Mock<INotificationQueue>().Object,
             new Mock<ITrustNotificationService>().Object,
-            TestDbContextFactory.Create()
+            _db, TestDbContextFactory.CreateScopeFactory()
         );
         _shopRepoMock.Setup(s => s.OwnerShopAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(ValidShopId);
         _shopRepoMock.Setup(s => s.RequireAccessAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
@@ -129,7 +130,7 @@ public class ProvideBankInformationTests
         };
 
         order.Refunds.Add(refund);
-        return refund;
+        return TestDbContextFactory.SeedRefundOrder(_db, refund);
     }
 
     private RefundBankRequest CreateBankRequest(
@@ -192,7 +193,7 @@ public class ProvideBankInformationTests
             false,
             It.IsAny<CancellationToken>()), Times.Once);
 
-        _orderRepoMock.Verify(o => o.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _orderRepoMock.Verify(o => o.SaveAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
 
         _output.WriteLine($"[PASS] TCID01: Stored bank destination and issued 15-minute verification email (BR-178, BR-179, BR-180).");
     }

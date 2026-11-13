@@ -109,6 +109,13 @@ public class UpdateLevelRequirementsTests
             .ReturnsAsync(new List<TrustLevel> { level1, level2 });
 
         _repositoryMock
+            .Setup(r => r.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<bool>>>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task<bool>>, bool, CancellationToken>((action, _, ct) => action(ct));
+
+        _repositoryMock
             .Setup(r => r.GetUserCountsByLevelAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<Guid, int> { { _level2Id, 12 } });
 
@@ -162,6 +169,13 @@ public class UpdateLevelRequirementsTests
             .Setup(r => r.GetActiveLevelsForValidationAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TrustLevel> { level1, level2 });
 
+        _repositoryMock
+            .Setup(r => r.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<bool>>>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task<bool>>, bool, CancellationToken>((action, _, ct) => action(ct));
+
         // Act
         Func<Task> act = async () => await _service.UpdateLevelRequirementAsync(_adminId, _level1Id, request, CancellationToken.None);
 
@@ -199,6 +213,13 @@ public class UpdateLevelRequirementsTests
         _repositoryMock
             .Setup(r => r.GetActiveLevelsForValidationAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TrustLevel> { level1, level2 });
+
+        _repositoryMock
+            .Setup(r => r.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<bool>>>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task<bool>>, bool, CancellationToken>((action, _, ct) => action(ct));
 
         // Act
         Func<Task> act = async () => await _service.UpdateLevelRequirementAsync(_adminId, _level2Id, request, CancellationToken.None);
@@ -268,6 +289,13 @@ public class UpdateLevelRequirementsTests
         _repositoryMock
             .Setup(r => r.GetActiveLevelsForValidationAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TrustLevel> { level1, level2 });
+
+        _repositoryMock
+            .Setup(r => r.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<bool>>>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task<bool>>, bool, CancellationToken>((action, _, ct) => action(ct));
 
         _repositoryMock
             .Setup(r => r.GetUserCountsByLevelAsync(It.IsAny<CancellationToken>()))

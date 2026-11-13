@@ -19,7 +19,6 @@ import {
   canCancelUpload,
   cancelRunningUpload,
   listUploadDrafts,
-  markUploadDraftActive,
   removeUploadDraft,
   releaseActiveUploadDrafts,
   releaseUploadDraft,
@@ -97,13 +96,11 @@ export function UploadDraftResume() {
   if (activeUploads.length === 0 && resumableDrafts.length === 0 && !error) return null;
 
   async function resume(draft: UploadDraft) {
-    if (busyId) return;
-    markUploadDraftActive(draft.id);
+    if (busyId || isUploadDraftActive(draft.id)) return;
     setBusyId(draft.id);
     setError("");
     try {
-      await uploadPendingFiles(draft);
-      markUploadDraftActive(draft.id);
+      await uploadPendingFiles(draft, undefined, true);
       await submitUploadDraft(draft);
       await removeUploadDraft(draft.id);
       toast.success("Your saved task has been submitted successfully.");

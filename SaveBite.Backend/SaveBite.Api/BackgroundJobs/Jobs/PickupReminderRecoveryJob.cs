@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Helpers;
@@ -11,7 +12,7 @@ public sealed class PickupReminderRecoveryJob(AppDbContext db, PickupDeadlineRem
     {
         var now = clock.GetUtcNow().UtcDateTime;
         var candidates = await db.Orders.AsNoTracking().Where(o => o.PickupReminderEmailSentAt == null && o.PickupReminderEmailQueuedAt == null
-            && o.HardDeadlineAt > now && o.HardDeadlineAt <= now.AddMinutes(10)
+            && o.HardDeadlineAt > now && o.HardDeadlineAt <= now.AddMinutes(TimingConfiguration.Orders.PickupReminderLeadMinutes)
             && (o.Status == OrderStatus.Confirmed || o.Status == OrderStatus.Preparing || o.Status == OrderStatus.ReadyForPickup))
             .Select(o => new { o.Id, o.HardDeadlineAt, o.ConfirmedAt, o.CreatedAt }).ToListAsync(ct);
         foreach (var order in candidates)

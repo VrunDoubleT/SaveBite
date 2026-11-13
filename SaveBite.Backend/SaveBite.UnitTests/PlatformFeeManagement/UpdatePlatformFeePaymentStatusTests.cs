@@ -44,7 +44,11 @@ public class UpdatePlatformFeePaymentStatusTests
         _configurationMock.Setup(c => c["Checkout:PaymentProvider"]).Returns("Simulated");
 
         _repositoryMock.Setup(r => r.GetStatementDetailAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((Guid id, CancellationToken _) => { var s = CreateStatement(); s.Shop = CreateShop(); return s; });
-        _service = new PlatformFeeStatementService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _configurationMock.Object, _httpClientFactoryMock.Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), _auditMock.Object, new Mock<IPlatformPayOsConfigService>().Object, new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object);
+        var db = TestDbContextFactory.Create();
+        var notifications = new Mock<INotificationQueue>().Object;
+        var shopStatusEvents = new Mock<IShopStatusEventService>().Object;
+        var availability = new PlatformFeePaymentAvailability(db, _configurationMock.Object, notifications, TimeProvider.System, shopStatusEvents);
+        _service = new PlatformFeeStatementService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _configurationMock.Object, _httpClientFactoryMock.Object, notifications, db, _auditMock.Object, new Mock<IPlatformPayOsConfigService>().Object, new Mock<IShopSuspensionCleanupService>().Object, shopStatusEvents, availability, new Mock<IPayOsApiClient>().Object, new Mock<IPayOsCredentialProtector>().Object);
     }
 
     private Shop CreateShop(ShopStatus status = ShopStatus.Suspended) => new()
@@ -100,6 +104,7 @@ public class UpdatePlatformFeePaymentStatusTests
             "code": "{{code}}",
             "desc": "success",
             "data": {
+                "code": "{{code}}",
                 "orderCode": {{orderCode}},
                 "amount": {{amount}},
                 "description": "FEE1234567",
@@ -296,12 +301,19 @@ public class UpdatePlatformFeePaymentStatusTests
     {
         // Arrange
         var webhook = BuildWebhookPayload(OrderCode, 500000m, code: "01"); // Payment failed or cancelled
+        var shop = CreateShop(ShopStatus.Active);
+        var statement = CreateStatement(PlatformFeeStatementStatus.Issued);
+        var payment = CreatePayment(shop, statement, PaymentStatus.Pending, 500000m);
+
+        _repositoryMock
+            .Setup(r => r.GetPaymentByGatewayCodeAsync(OrderCode.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(payment);
 
         // Act
         await _service.ProcessFeeWebhookAsync(webhook);
 
         // Assert: should exit early without touching repository
-        _repositoryMock.Verify(r => r.GetPaymentByGatewayCodeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _repositoryMock.Verify(r => r.CancelPendingPaymentsForStatementAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
 
         _output.WriteLine("[TCID06 PASSED] 200 OK - Unsuccessful webhook code '01' skipped without changes.");

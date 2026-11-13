@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Eye, MapPin, User } from "lucide-react";
 import { APP_PATHS } from "@/app/router/paths";
+import { RecordId } from "@/shared/components/RecordId";
 import { ShopStatusBadge } from "./ShopProfileHeader";
 import type { ShopListManagement } from "../types/shopManagement.types";
 import { useState } from "react";
@@ -55,6 +56,9 @@ export function ShopManagementTable({ items }: { items: ShopListManagement[] }) 
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-xs text-text-secondary">
             <tr>
+              <th scope="col" className="px-4 py-3.5 font-semibold">
+                ID
+              </th>
               <th scope="col" className="px-6 py-3.5 font-semibold">
                 Shop
               </th>
@@ -76,6 +80,9 @@ export function ShopManagementTable({ items }: { items: ShopListManagement[] }) 
           <tbody className="divide-y divide-border-default text-text-primary">
             {items.map((shop) => (
               <tr key={shop.id} className="transition-colors hover:bg-neutral-50/70">
+                <td className="max-w-40 px-4 py-4">
+                  <RecordId id={shop.id} />
+                </td>
                 <td className="max-w-sm px-6 py-4">
                   <ShopMeta shop={shop} />
                 </td>
@@ -106,6 +113,10 @@ export function ShopManagementTable({ items }: { items: ShopListManagement[] }) 
       <ul className="divide-y divide-border-default md:hidden">
         {items.map((shop) => (
           <li key={shop.id} className="space-y-4 p-4">
+            <div className="flex items-center gap-2 text-xs text-text-secondary">
+              <span>ID</span>
+              <RecordId id={shop.id} />
+            </div>
             <ShopMeta shop={shop} />
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text-secondary">

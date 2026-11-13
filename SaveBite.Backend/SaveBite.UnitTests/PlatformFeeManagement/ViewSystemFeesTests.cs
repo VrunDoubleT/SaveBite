@@ -43,7 +43,11 @@ public class ViewSystemFeesTests
     public ViewSystemFeesTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new PlatformFeeStatementService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _configurationMock.Object, _httpClientFactoryMock.Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), _auditMock.Object, new Mock<IPlatformPayOsConfigService>().Object, new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object);
+        var db = TestDbContextFactory.Create();
+        var notifications = new Mock<INotificationQueue>().Object;
+        var shopStatusEvents = new Mock<IShopStatusEventService>().Object;
+        var availability = new PlatformFeePaymentAvailability(db, _configurationMock.Object, notifications, TimeProvider.System, shopStatusEvents);
+        _service = new PlatformFeeStatementService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _configurationMock.Object, _httpClientFactoryMock.Object, notifications, db, _auditMock.Object, new Mock<IPlatformPayOsConfigService>().Object, new Mock<IShopSuspensionCleanupService>().Object, shopStatusEvents, availability, new Mock<IPayOsApiClient>().Object, new Mock<IPayOsCredentialProtector>().Object);
     }
 
     private Shop CreateValidShop() => new()

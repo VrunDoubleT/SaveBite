@@ -14,6 +14,7 @@ import { useAuthStore } from "@/shared/stores/authStore";
 import {
   getUploadDraft,
   removeUploadDraft,
+  releaseUploadDraft,
   saveUploadDraft,
 } from "@/shared/uploads/uploadDraftStore";
 import { startOrResumeUploadDraft } from "@/shared/uploads/uploadDrafts";
@@ -322,12 +323,14 @@ function EditReviewContent({
       if (files.length) {
         if (!userId) throw new Error("Sign in before saving your review.");
         const draftId = activeDraftId ?? crypto.randomUUID();
+        submittedDraftId = draftId;
         setActiveDraftId(draftId);
         setIsUploading(true);
         const saved = await startOrResumeUploadDraft(
           {
             draftId,
             userId,
+            keepActiveUntilSubmitted: true,
             purpose: "feedback",
             targetId: feedbackId,
             title: `Edit review for ${feedback?.productName ?? "product"}`,
@@ -381,8 +384,10 @@ function EditReviewContent({
     } catch (error) {
       if (isUploadCancelled(error))
         toast.info("Upload stopped. Your draft is saved; edit it or submit again when ready.");
+      else if (modalClosed) toast.error(getApiErrorMessage(error) || "Failed to update review.");
       else setSaveError(getApiErrorMessage(error) || "Failed to update review.");
     } finally {
+      if (submittedDraftId) releaseUploadDraft(submittedDraftId);
       setIsUploading(false);
       setIsSaving(false);
     }

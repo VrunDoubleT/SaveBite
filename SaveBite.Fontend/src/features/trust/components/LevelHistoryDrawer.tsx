@@ -5,6 +5,7 @@ import { useApiResource } from "../hooks/useApiResource";
 import type { AdminTrustLevel, TrustLevelChangeType } from "../types/adminTrust.types";
 import { formatCurrency, formatDateTime } from "../utils/format";
 import { PanelEmpty, PanelError, PanelSkeleton } from "./PanelState";
+import { RecordId } from "@/shared/components/RecordId";
 
 interface LevelHistoryDrawerProps {
   level: AdminTrustLevel | null;
@@ -83,6 +84,7 @@ export function LevelHistoryDrawer({ level, onClose }: LevelHistoryDrawerProps) 
               <p className="text-xs text-text-secondary">
                 Version snapshots recorded for this Trust Level
               </p>
+              <RecordId id={level.id} variant="full" className="mt-2" />
             </div>
           </div>
           <button

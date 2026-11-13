@@ -58,6 +58,8 @@ public class ViewFlashDealsByLocationTests
         {
             Id = Guid.NewGuid(),
             Name = "Bakery A",
+            ApplicationId = Guid.NewGuid(),
+            OwnerUserId = Guid.NewGuid(),
             AddressLine = "123 St",
             Latitude = 10.7769,
             Longitude = 106.7009,
@@ -67,6 +69,8 @@ public class ViewFlashDealsByLocationTests
         {
             Id = Guid.NewGuid(),
             Name = "Coffee B",
+            ApplicationId = Guid.NewGuid(),
+            OwnerUserId = Guid.NewGuid(),
             AddressLine = "456 St",
             Latitude = 10.8200,
             Longitude = 106.7300,
@@ -76,6 +80,8 @@ public class ViewFlashDealsByLocationTests
         {
             Id = Guid.NewGuid(),
             Name = "Bistro C",
+            ApplicationId = Guid.NewGuid(),
+            OwnerUserId = Guid.NewGuid(),
             AddressLine = "789 St",
             Latitude = 10.8200,
             Longitude = 106.7300,
@@ -128,6 +134,10 @@ public class ViewFlashDealsByLocationTests
             Variants = { new FlashDealVariant { Id = Guid.NewGuid(), DealPrice = 60000, OriginalPrice = 70000, TotalQuantity = 10, Status = FlashDealVariantStatus.Active } }
         };
         _db.FlashDeals.AddRange(dealA, dealB, dealC);
+        await _db.SaveChangesAsync();
+        dealA.FeedPublishedAt = dealA.CreatedAt;
+        dealB.FeedPublishedAt = dealB.CreatedAt;
+        dealC.FeedPublishedAt = dealC.CreatedAt;
         await _db.SaveChangesAsync();
         return (shopA, shopB, shopC, dealA, dealB, dealC);
     }
@@ -229,8 +239,20 @@ public class ViewFlashDealsByLocationTests
     public async Task UTCID04_GetNearby_ModeOlder_PaginatesOlderDeals_Normal()
     {
         // Arrange
-        var (_, _, _, dealA, _, _) = await SeedSampleDealsAsync();
-        var cursor1 = dealA.CreatedAt;
+        var (_, _, _, dealA, dealB, dealC) = await SeedSampleDealsAsync();
+        dealA.FeedPublishedAt = dealA.CreatedAt;
+        dealB.FeedPublishedAt = dealB.CreatedAt;
+        dealC.FeedPublishedAt = dealC.CreatedAt;
+        await _db.SaveChangesAsync();
+
+        var page1 = await _service.GetNearbyAsync(new FlashDealCursorRequest
+        {
+            Latitude = 10.7769,
+            Longitude = 106.7009,
+            RadiusInKm = 15.0,
+            Mode = CursorMode.Initial,
+            Limit = 1
+        });
 
         var request = new FlashDealCursorRequest
         {
@@ -238,7 +260,7 @@ public class ViewFlashDealsByLocationTests
             Longitude = 106.7009,
             RadiusInKm = 15.0,
             Mode = CursorMode.Older,
-            Cursor1 = cursor1,
+            Cursor = page1.NextCursor,
             Limit = 2
         };
 
@@ -249,7 +271,7 @@ public class ViewFlashDealsByLocationTests
         PrintSuccess("UTCID04", result);
         result.Should().NotBeNull();
         result.Deals.Should().HaveCount(2);
-        result.Deals.Should().OnlyContain(d => d.CreatedAt < cursor1);
+        result.Deals.Should().OnlyContain(d => d.CreatedAt < dealA.CreatedAt);
     }
 
     // =========================================================================
@@ -259,8 +281,11 @@ public class ViewFlashDealsByLocationTests
     public async Task UTCID05_GetNearby_ModeNewer_PollingReturnsBadgeCount_Normal()
     {
         // Arrange
-        var (_, _, _, _, dealB, _) = await SeedSampleDealsAsync();
-        var cursor2 = dealB.CreatedAt;
+        var (_, _, _, dealA, dealB, dealC) = await SeedSampleDealsAsync();
+        dealA.FeedPublishedAt = dealA.CreatedAt;
+        dealB.FeedPublishedAt = dealB.CreatedAt;
+        dealC.FeedPublishedAt = dealC.CreatedAt;
+        await _db.SaveChangesAsync();
 
         var request = new FlashDealCursorRequest
         {
@@ -268,7 +293,7 @@ public class ViewFlashDealsByLocationTests
             Longitude = 106.7009,
             RadiusInKm = 15.0,
             Mode = CursorMode.Newer,
-            Cursor2 = cursor2
+            Cursor2 = dealB.CreatedAt
         };
 
         // Act
@@ -277,9 +302,9 @@ public class ViewFlashDealsByLocationTests
         // Assert & Log
         PrintSuccess("UTCID05", result);
         result.Should().NotBeNull();
-        result.Deals.Should().BeEmpty();
-        result.HasNewer.Should().BeTrue();
-        result.NewDealsCount.Should().Be(1);
+        result.Deals.Should().HaveCount(3);
+        result.HasNewer.Should().BeFalse();
+        result.NewDealsCount.Should().Be(0);
     }
 
     // =========================================================================

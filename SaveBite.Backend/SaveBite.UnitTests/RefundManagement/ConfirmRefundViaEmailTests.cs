@@ -36,6 +36,7 @@ public class ConfirmRefundViaEmailTests
     private readonly Mock<IConfiguration> _configMock = new();
     private readonly Mock<IRefundDeadlineScheduler> _deadlinesMock = new();
     private readonly Mock<ILogger<RefundService>> _loggerMock = new();
+    private readonly SaveBite.Backend.Data.AppDbContext _db = TestDbContextFactory.Create();
     private readonly RefundService _service;
 
     public const string SecretKey = "SaveBite_Super_Secret_Unit_Testing_Key_2026_Secure!";
@@ -64,7 +65,7 @@ public class ConfirmRefundViaEmailTests
             _loggerMock.Object,
             new Mock<INotificationQueue>().Object,
             new Mock<ITrustNotificationService>().Object,
-            TestDbContextFactory.Create()
+            _db, TestDbContextFactory.CreateScopeFactory()
         );
         _shopRepoMock.Setup(s => s.OwnerShopAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(ValidShopId);
         _shopRepoMock.Setup(s => s.RequireAccessAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
@@ -150,7 +151,7 @@ public class ConfirmRefundViaEmailTests
         };
 
         order.Refunds.Add(refund);
-        return refund;
+        return TestDbContextFactory.SeedRefundOrder(_db, refund);
     }
 
     /// <summary>
@@ -191,7 +192,7 @@ public class ConfirmRefundViaEmailTests
         refund.VerificationAttempts.Should().Be(1);
         refund.History.Should().ContainSingle(h => h.Decision == "DestinationConfirmed");
 
-        _orderRepoMock.Verify(o => o.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _orderRepoMock.Verify(o => o.SaveAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
         _output.WriteLine($"[TCID01] Success: Destination confirmed. New Status={result.Status}, DestinationConfirmedAt={refund.DestinationConfirmedAt}");
     }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
+import { RecordId } from "@/shared/components/RecordId";
 import type {
   CreatePenaltyRulePayload,
   PenaltyRule,
@@ -232,6 +233,7 @@ export function PenaltyRuleModal({
       maxWidthClass="max-w-lg"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {rule && <RecordId id={rule.id} variant="full" />}
         <p className="text-sm text-text-secondary">
           Configure the points deducted, recovery requirements, and effective period. Rules with the
           same no-show number cannot have overlapping <strong>From – Until</strong> periods.

@@ -14,6 +14,10 @@ public class FlashDeal
 
     public FlashDealStatus Status { get; set; } = FlashDealStatus.Pending;
 
+    public DateTime FeedPublishedAt { get; set; }
+    public long VisibilityVersion { get; set; } = 1;
+    public Guid PublicationId { get; set; } = Guid.NewGuid();
+
     public string? OpenJobId { get; set; }
     public string? EndJobId { get; set; }
     public DateTime? LifecycleSyncedAt { get; set; }

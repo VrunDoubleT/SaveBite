@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using System.Security.Cryptography;
@@ -36,6 +37,7 @@ public sealed class ShopOrderService : IShopOrderService
     private readonly IShopOrderEventService _orderEvents;
     private readonly IShopOrderNoShowScheduler _noShowScheduler;
     private readonly IOrderEventPublisher _eventPublisher;
+    private readonly INotificationQueue _notifications;
 
     public ShopOrderService(
         IShopOrderRepository shops,
@@ -50,10 +52,10 @@ public sealed class ShopOrderService : IShopOrderService
         IShopOrderEventService orderEvents,
         IShopOrderNoShowScheduler noShowScheduler,
         IOrderEventPublisher eventPublisher,
-        IRefundDeadlineScheduler refundDeadlines,
-        AppDbContext db,
-        OrderResaleService resale)
+        IRefundDeadlineScheduler refundDeadlines, AppDbContext db, OrderResaleService resale,
+        INotificationQueue notifications)
     {
+        _notifications = notifications;
         _resale = resale;
         _db = db;
         _refundDeadlines = refundDeadlines;
@@ -296,7 +298,7 @@ public sealed class ShopOrderService : IShopOrderService
     private static DateTime? ConfirmationDeadline(Order order)
     {
         var p = CheckoutOrderMapper.RequiredPayment(order);
-        return p?.Status == PaymentStatus.Succeeded ? (p.PaidAt ?? order.CreatedAt).AddMinutes(5) : null;
+        return p?.Status == PaymentStatus.Succeeded ? (p.PaidAt ?? order.CreatedAt).AddMinutes(TimingConfiguration.Orders.ShopConfirmationMinutes) : null;
     }
 
     private void AddActivity(Order order, ShopOrderActor actor, string note)
@@ -347,11 +349,11 @@ public sealed class ShopOrderService : IShopOrderService
         await CloseLinksAsync(order, ct);
         await _orders.ReleaseCancelledInventoryAsync(order, ct);
         order.RemainingAmount = 0;
-        EnsureRefund(order, actor, reason);
+        await EnsureRefundAsync(order, actor, reason, ct);
     }
 
     // Record an outstanding full-refund request for collected funds without executing a transfer.
-    private Refund? EnsureRefund(Order order, Guid actor, string reason)
+    private async Task<Refund?> EnsureRefundAsync(Order order, Guid actor, string reason, CancellationToken ct)
     {
         var amount = order.Payments.Sum(CheckoutOrderMapper.Collected);
         if (amount <= 0) return null;
@@ -364,7 +366,7 @@ public sealed class ShopOrderService : IShopOrderService
                 if (existing.Status == RefundStatus.Transferred)
                 {
                     existing.Status = RefundStatus.AwaitingTransfer;
-                    existing.ReviewDeadlineAt = Now.AddHours(24);
+                    existing.ReviewDeadlineAt = Now.AddHours(TimingConfiguration.Refund.ShopProcessingHours);
                     existing.DeadlineJobId = _refundDeadlines.Schedule(existing.Id, existing.ReviewDeadlineAt.Value);
                     var history = new RefundStatusHistory { Id = Guid.NewGuid(), RefundId = existing.Id,
                         FromStatus = RefundStatus.Transferred, ToStatus = existing.Status, ActorRole = "System", ActorName = "System",
@@ -378,7 +380,7 @@ public sealed class ShopOrderService : IShopOrderService
         var refund = new Refund { Id = Guid.NewGuid(), OrderId = order.Id, RefundType = RefundType.ShopCancellation,
             Status = RefundStatus.AwaitingCustomerDetails, RequestedAmount = amount, InitiatedBy = actor,
             Reason = reason, CreatedAt = Now, UpdatedAt = Now };
-        refund.CustomerDetailsDeadlineAt = refund.CreatedAt.AddHours(24);
+        refund.CustomerDetailsDeadlineAt = refund.CreatedAt.AddHours(TimingConfiguration.Refund.CustomerDetailsHours);
         refund.DeadlineJobId = _refundDeadlines.Schedule(refund.Id, refund.CustomerDetailsDeadlineAt.Value);
         refund.History.Add(new RefundStatusHistory { Id = Guid.NewGuid(), RefundId = refund.Id,
             ToStatus = refund.Status, ActorRole = "System", ActorName = "System", Decision = "SystemRefundRequired",
@@ -386,6 +388,8 @@ public sealed class ShopOrderService : IShopOrderService
         order.IsPlatformFeeExempt = true;
         order.Refunds.Add(refund);
         _shops.AddRefund(refund);
+        await _notifications.EnqueueAsync(NotificationTarget.User(order.CustomerId),
+            RefundNotificationCommands.DestinationRequired(refund.Id, order.OrderCode, refund.CustomerDetailsDeadlineAt.Value), ct);
         return refund;
     }
 
@@ -579,11 +583,11 @@ public sealed class ShopOrderService : IShopOrderService
         {
             var (order, refund) = await CustomerRefundOrderAsync(userId, orderId, ct);
             if (refund.Status is not (RefundStatus.AwaitingCustomerDetails or RefundStatus.PendingVerification)) throw AppException.Conflict("The refund destination can no longer be changed.");
-            if (refund.VerificationExpiresAt > Now.AddMinutes(14)) throw AppException.Conflict("Please wait one minute before requesting another confirmation code.");
+            if (refund.VerificationExpiresAt > Now.AddMinutes(TimingConfiguration.Refund.EmailCodeLifetimeMinutes - TimingConfiguration.Refund.EmailCodeResendMinutes)) throw AppException.Conflict("Please wait one minute before requesting another confirmation code.");
             var code = RandomNumberGenerator.GetInt32(0, 1000000).ToString("D6");
             refund.ReceiverMethod = RefundReceiverMethod.BankAccount;
             refund.ReceiverBankName = request.BankName.Trim(); refund.ReceiverAccountNumber = request.AccountNumber.Trim(); refund.ReceiverAccountHolder = request.AccountHolder.Trim();
-            refund.VerificationCodeHash = CodeHash(refund.Id, code); refund.VerificationExpiresAt = Now.AddMinutes(15);
+            refund.VerificationCodeHash = CodeHash(refund.Id, code); refund.VerificationExpiresAt = Now.AddMinutes(TimingConfiguration.Refund.EmailCodeLifetimeMinutes);
             refund.VerificationAttempts = 0; refund.DestinationConfirmedAt = null; refund.Status = RefundStatus.PendingVerification; refund.UpdatedAt = Now;
             await _email.SendAsync(order.Customer.Email, "Confirm your SaveBite refund destination",
                 $"Your refund confirmation code is {code}. It expires in 15 minutes. Bank: {refund.ReceiverBankName}. Account ending: {refund.ReceiverAccountNumber[^Math.Min(4, refund.ReceiverAccountNumber.Length)..]}", false, ct);

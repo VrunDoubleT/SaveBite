@@ -1,4 +1,5 @@
-import { EyeOff, Mail, Phone, Star, Store, Undo2 } from "lucide-react";
+import { Eye, Mail, Phone, Star, Store } from "lucide-react";
+import { RecordId } from "@/shared/components/RecordId";
 import type { Feedback, FeedbackStatus } from "../types/feedback.types";
 import { FeedbackCustomerAvatar } from "./FeedbackCustomerAvatar";
 
@@ -39,11 +40,11 @@ const focusRing =
 /* ---------- Columns ---------- */
 
 const COLUMNS = [
-  { label: "Customer", className: "w-[24%]" },
-  { label: "Feedback", className: "" },
-  { label: "Product", className: "w-[22%]" },
-  { label: "Status", className: "w-44" },
-  { label: "Action", className: "w-32 text-right" },
+  { label: "ID", className: "w-[17%]" },
+  { label: "Customer", className: "w-[27%]" },
+  { label: "Product", className: "w-[25%]" },
+  { label: "Status", className: "w-[16%]" },
+  { label: "", className: "w-[15%] text-right" },
 ];
 
 /* ---------- Pieces ---------- */
@@ -72,13 +73,13 @@ function Stars({ rating }: { rating: number }) {
 
 type FeedbackTableProps = {
   items: Feedback[];
-  onModerate: (item: Feedback) => void;
+  onViewDetails: (item: Feedback) => void;
 };
 
-export function FeedbackTable({ items, onModerate }: FeedbackTableProps) {
+export function FeedbackTable({ items, onViewDetails }: FeedbackTableProps) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[960px] table-fixed text-left text-sm">
+      <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
         <thead className="bg-neutral-50">
           <tr>
             {COLUMNS.map((column) => (
@@ -97,12 +98,13 @@ export function FeedbackTable({ items, onModerate }: FeedbackTableProps) {
           {items.map((item) => {
             const status = statusCode(item.status);
             const style = STATUS_STYLES[status] ?? UNKNOWN_STYLE;
-            const canHide = status === 1;
-            const canRestore = status === 3;
             const customer = item.customerName || "Unknown customer";
 
             return (
-              <tr key={item.id} className="align-top transition-colors hover:bg-neutral-50/70">
+              <tr key={item.id} className="align-middle transition-colors hover:bg-neutral-50/70">
+                <td className="max-w-40 px-5 py-4">
+                  <RecordId id={item.id} />
+                </td>
                 {/* Customer */}
                 <td className="px-5 py-4">
                   <div className="flex items-start gap-3">
@@ -126,23 +128,6 @@ export function FeedbackTable({ items, onModerate }: FeedbackTableProps) {
                   </div>
                 </td>
 
-                {/* Feedback: rating + comment */}
-                <td className="px-5 py-4">
-                  <div className="space-y-2">
-                    <Stars rating={item.rating} />
-                    {item.comment ? (
-                      <p
-                        className="line-clamp-3 whitespace-pre-wrap break-words leading-6 text-text-primary"
-                        title={item.comment}
-                      >
-                        {item.comment}
-                      </p>
-                    ) : (
-                      <p className="italic text-text-muted">(No comment)</p>
-                    )}
-                  </div>
-                </td>
-
                 {/* Product + shop */}
                 <td className="px-5 py-4">
                   <div className="space-y-2">
@@ -151,6 +136,7 @@ export function FeedbackTable({ items, onModerate }: FeedbackTableProps) {
                         {item.productName || "Unknown product"}
                       </span>
                     </p>
+                    <Stars rating={item.rating} />
                     <p className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-700">
                       <Store className="size-3 shrink-0" aria-hidden="true" />
                       <span className="truncate">{item.shopName || "Unknown shop"}</span>
@@ -170,28 +156,15 @@ export function FeedbackTable({ items, onModerate }: FeedbackTableProps) {
 
                 {/* Action */}
                 <td className="px-5 py-4 text-right">
-                  {canHide || canRestore ? (
-                    <button
-                      type="button"
-                      onClick={() => onModerate(item)}
-                      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${focusRing} ${
-                        canHide
-                          ? "border-red-200 bg-white text-red-700 hover:bg-red-50"
-                          : "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
-                      }`}
-                    >
-                      {canHide ? (
-                        <EyeOff className="size-4" aria-hidden="true" />
-                      ) : (
-                        <Undo2 className="size-4" aria-hidden="true" />
-                      )}
-                      {canHide ? "Hide" : "Restore"}
-                    </button>
-                  ) : (
-                    <span className="text-text-muted" aria-label="No action available">
-                      —
-                    </span>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => onViewDetails(item)}
+                    aria-label={`View feedback details from ${customer}`}
+                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 ${focusRing}`}
+                  >
+                    <Eye className="size-3.5" aria-hidden="true" />
+                    View details
+                  </button>
                 </td>
               </tr>
             );

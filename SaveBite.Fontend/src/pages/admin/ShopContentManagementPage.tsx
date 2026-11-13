@@ -160,11 +160,13 @@ export function ShopContentManagementPage() {
   const { shopId } = useParams();
 
   const [shop, setShop] = useState<ShopContentModel | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(shopId));
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [tab, setTab] = useState<Tab>("review");
+
+  const displayError = !shopId ? "Missing shop ID." : error;
 
   const drawerRef = useRef<HTMLDialogElement>(null);
 
@@ -177,6 +179,11 @@ export function ShopContentManagementPage() {
   };
 
   const retry = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setShop(null);
+    setNotice(null);
+    setTab("review");
     setReloadKey((current) => current + 1);
   }, []);
 
@@ -199,28 +206,16 @@ export function ShopContentManagementPage() {
   }, []);
 
   useEffect(() => {
+    if (!shopId) return;
+
     const controller = new AbortController();
 
-    setLoading(true);
-    setError(null);
-    setShop(null);
-    setNotice(null);
-    setTab("review");
-
-    if (!shopId) {
-      setError("Missing shop ID.");
-      setLoading(false);
-
-      return () => {
-        controller.abort();
-      };
-    }
-
-    void shopApi
+    shopApi
       .getShopContentForManagement(shopId, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) {
           setShop(data ?? null);
+          setError(null);
         }
       })
       .catch(() => {
@@ -272,12 +267,12 @@ export function ShopContentManagementPage() {
 
       {loading ? (
         <PageSkeleton />
-      ) : error ? (
+      ) : displayError ? (
         <StateMessage
           icon={AlertCircle}
           tone="error"
           role="alert"
-          title={error}
+          title={displayError}
           description="Check your connection, then try again."
           actions={
             <>
@@ -300,7 +295,7 @@ export function ShopContentManagementPage() {
               role="note"
             >
               <p className="font-semibold">This shop is {String(shop.status).toLowerCase()}</p>
-              <p className="mt-0.5 whitespace-pre-wrap break-words opacity-90">
+              <p className="mt-0.5 whitespace-pre-wrap wrap-break-word opacity-90">
                 {shop.currentStatusReason?.trim() || "The status reason is not available."}
               </p>
             </div>

@@ -5,14 +5,15 @@ using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Repositories.Interfaces;
+using SaveBite.Backend.Services.Implementations;
 
 namespace SaveBite.Backend.Repositories.Implementations;
 
 public sealed class UserAddressRepository : IUserAddressRepository
 {
     private readonly AppDbContext _dbContext;
-
     private readonly IAuditWriter _audit;
+
     public UserAddressRepository(AppDbContext dbContext, IAuditWriter audit)
     {
         _dbContext = dbContext;
@@ -56,11 +57,28 @@ public sealed class UserAddressRepository : IUserAddressRepository
         // The first address is always the default address.
         var shouldBeDefault = !hasExistingAddress || setAsDefault;
         if (shouldBeDefault)
-            await _dbContext.UserAddresses.Where(item => item.UserId == address.UserId && item.IsDefault).ExecuteUpdateAsync(setters => setters.SetProperty(item => item.IsDefault, false), cancellationToken);
+        {
+            await _dbContext.UserAddresses.Where(item => item.UserId == address.UserId && item.IsDefault)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.IsDefault, false), cancellationToken);
+        }
 
         address.IsDefault = shouldBeDefault;
+        address.AddressVersion = 1;
         _dbContext.UserAddresses.Add(address);
-        if (shouldBeDefault) RecordDefault(address.UserId, previousDefaults, [address.Id]);
+
+        if (shouldBeDefault)
+        {
+            RecordDefault(address.UserId, previousDefaults, [address.Id]);
+            UserDefaultAddressChangedOutbox.Stage(
+                _dbContext,
+                address.UserId,
+                address.Id,
+                address.Latitude,
+                address.Longitude,
+                address.AddressVersion,
+                true);
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -75,13 +93,29 @@ public sealed class UserAddressRepository : IUserAddressRepository
     public async Task SetDefaultAsync(Guid userId, Guid addressId, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        if (!await _dbContext.UserAddresses.AnyAsync(x => x.Id == addressId && x.UserId == userId, cancellationToken))
+        var target = await _dbContext.UserAddresses.SingleOrDefaultAsync(x => x.Id == addressId && x.UserId == userId, cancellationToken);
+        if (target is null)
             throw AppException.NotFound("Address not found.");
+
         var previousDefaults = await DefaultIdsAsync(userId, cancellationToken);
         if (previousDefaults.Length == 1 && previousDefaults[0] == addressId) return;
-        await _dbContext.UserAddresses.Where(address => address.UserId == userId && address.IsDefault).ExecuteUpdateAsync(setters => setters.SetProperty(address => address.IsDefault, false), cancellationToken);
-        await _dbContext.UserAddresses.Where(address => address.UserId == userId && address.Id == addressId)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(address => address.IsDefault, true).SetProperty(address => address.UpdatedAt, DateTime.UtcNow), cancellationToken);
+
+        await _dbContext.UserAddresses.Where(address => address.UserId == userId && address.IsDefault)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(address => address.IsDefault, false), cancellationToken);
+
+        target.IsDefault = true;
+        target.AddressVersion++;
+        target.UpdatedAt = DateTime.UtcNow;
+
+        UserDefaultAddressChangedOutbox.Stage(
+            _dbContext,
+            userId,
+            addressId,
+            target.Latitude,
+            target.Longitude,
+            target.AddressVersion,
+            true);
+
         RecordDefault(userId, previousDefaults, [addressId]);
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -98,10 +132,36 @@ public sealed class UserAddressRepository : IUserAddressRepository
                 .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.IsDefault, false), cancellationToken);
         }
 
+        var wasDefault = address.IsDefault;
         address.IsDefault = setAsDefault;
+        address.AddressVersion++;
         address.UpdatedAt = DateTime.UtcNow;
 
         _dbContext.UserAddresses.Update(address);
+
+        if (address.IsDefault)
+        {
+            UserDefaultAddressChangedOutbox.Stage(
+                _dbContext,
+                address.UserId,
+                address.Id,
+                address.Latitude,
+                address.Longitude,
+                address.AddressVersion,
+                true);
+        }
+        else if (wasDefault && !setAsDefault)
+        {
+            UserDefaultAddressChangedOutbox.Stage(
+                _dbContext,
+                address.UserId,
+                address.Id,
+                0,
+                0,
+                address.AddressVersion,
+                false,
+                isDeleted: true);
+        }
 
         RecordDefault(address.UserId, previousDefaults, setAsDefault ? [address.Id] : previousDefaults.Where(id => id != address.Id).ToArray());
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -111,7 +171,23 @@ public sealed class UserAddressRepository : IUserAddressRepository
     // Delete an address.
     public async Task DeleteAsync(UserAddress address, CancellationToken cancellationToken = default)
     {
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         _dbContext.UserAddresses.Remove(address);
+
+        if (address.IsDefault)
+        {
+            UserDefaultAddressChangedOutbox.Stage(
+                _dbContext,
+                address.UserId,
+                address.Id,
+                0,
+                0,
+                address.AddressVersion + 1,
+                false,
+                isDeleted: true);
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 }

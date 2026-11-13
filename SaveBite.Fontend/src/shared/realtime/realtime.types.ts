@@ -22,4 +22,5 @@ export const REALTIME_EVENTS = {
   NOTIFICATION_READ: "notification.read",
   NOTIFICATION_DELETED: "notification.deleted",
   FEEDBACK_CHANGED: "feedback.changed",
+  TRUST_LEVEL_CHANGED: "trust.level.changed",
 } as const;

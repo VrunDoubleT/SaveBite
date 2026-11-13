@@ -20,6 +20,7 @@ import { useAuthStore } from "@/shared/stores/authStore";
 import {
   getUploadDraft,
   removeUploadDraft,
+  releaseUploadDraft,
   saveUploadDraft,
 } from "@/shared/uploads/uploadDraftStore";
 import { startOrResumeUploadDraft } from "@/shared/uploads/uploadDrafts";
@@ -311,6 +312,7 @@ function RateOrderModalContent({
       return;
     }
 
+    const submittingDraftIds = new Set<string>();
     let modalClosed = false;
     const closeQueuedModal = () => {
       if (modalClosed) return;
@@ -341,6 +343,7 @@ function RateOrderModalContent({
         if (selectedFiles.length) {
           if (!userId) throw new Error("Sign in before submitting your review.");
           draftId ??= crypto.randomUUID();
+          submittingDraftIds.add(draftId);
           setDraftIds((prev) => ({ ...prev, [itemId]: draftId! }));
           setUploadingItemId(itemId);
           const saved = await startOrResumeUploadDraft(
@@ -348,6 +351,7 @@ function RateOrderModalContent({
               draftId,
               onQueued: closeQueuedModal,
               userId,
+              keepActiveUntilSubmitted: true,
               purpose: "feedback",
               targetId: itemId,
               title: `Review ${item.productName ?? "product"}`,
@@ -408,6 +412,7 @@ function RateOrderModalContent({
       // Refresh parent in case some items succeeded or 409 occurred
       onSubmitted?.();
     } finally {
+      submittingDraftIds.forEach(releaseUploadDraft);
       setUploadingItemId(null);
       setIsSubmitting(false);
     }

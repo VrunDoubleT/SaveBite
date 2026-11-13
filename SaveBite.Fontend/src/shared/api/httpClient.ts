@@ -19,14 +19,14 @@ const REFRESH_TOKEN_KEY = "savebite-refresh-token";
 
 export const httpClient = axios.create({
   baseURL: API_URL,
-  timeout: 15_000,
+  timeout: 95_000,
   withCredentials: true,
   headers: { "Content-Type": "application/json" },
 });
 
 const refreshClient = axios.create({
   baseURL: API_URL,
-  timeout: 15_000,
+  timeout: 95_000,
   withCredentials: true,
   headers: { "Content-Type": "application/json" },
 });

@@ -53,7 +53,13 @@ public sealed class RefundEventEffects(AppDbContext db, TimeProvider clock, ITru
                     fee.Statement.TotalFeeAmount = Math.Max(0, previous - credit);
                     fee.Statement.UpdatedAt = now;
                     if (fee.Statement.TotalFeeAmount == 0)
-                    { fee.Statement.Status = PlatformFeeStatementStatus.Paid; fee.Statement.PaidAt = now; fee.Statement.DueAt = null; }
+                    {
+                        fee.Statement.Status = PlatformFeeStatementStatus.Paid;
+                        fee.Statement.PaidAt = now;
+                        fee.Statement.DueAt = null;
+                        fee.Statement.PaymentPauseReason = null;
+                        fee.Statement.PaymentPausedAt = null;
+                    }
                     db.Add(new PlatformFeeStatementHistory { Id = Guid.NewGuid(), StatementId = fee.Statement.Id,
                         PreviousAmount = previous, ChangeAmount = fee.Statement.TotalFeeAmount - previous, NewAmount = fee.Statement.TotalFeeAmount,
                         ChangeType = refunded >= order.TotalAmount ? StatementChangeType.FullRefundDeduction : StatementChangeType.PartialRefundDeduction,

@@ -14,6 +14,7 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.HasIndex(x => x.OrderId).HasDatabaseName("IX_payments_order_id");
         builder.HasIndex(x => x.OrderId, "ux_payments_remaining_per_order").IsUnique().HasFilter("\"payment_type\" = 'Remaining' AND \"status\" = 'Pending'").HasDatabaseName("ux_payments_remaining_per_order");
         builder.Property(x => x.CollectedAmount).HasColumnName("collected_amount").HasPrecision(12, 2);
+        builder.Property(x => x.ProtectedPayOsCredentials).HasColumnName("protected_payos_credentials").HasColumnType("text");
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

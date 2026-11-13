@@ -12,6 +12,9 @@ public sealed class PlatformPayOsConfig
     public string ProtectedChecksumKey { get; set; } = string.Empty;
     public Guid UpdatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public long Revision { get; set; }
+    public DateTime? VerifiedAt { get; set; }
+    public bool IsInvalid { get; set; }
 
     public User UpdatedByUser { get; set; } = null!;
 }

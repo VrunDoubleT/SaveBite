@@ -45,6 +45,20 @@ public class FlashDealConfiguration : IEntityTypeConfiguration<FlashDeal>
             .HasMaxLength(30)
             .IsRequired();
 
+        builder.Property(x => x.FeedPublishedAt)
+            .HasColumnName("feed_published_at")
+            .HasColumnType("timestamp with time zone")
+            .IsRequired();
+
+        builder.Property(x => x.VisibilityVersion)
+            .HasColumnName("visibility_version")
+            .HasDefaultValue(1L)
+            .IsRequired();
+
+        builder.Property(x => x.PublicationId)
+            .HasColumnName("publication_id")
+            .IsRequired();
+
         builder.Property(x => x.OpenJobId).HasColumnName("open_job_id").HasMaxLength(100);
         builder.Property(x => x.EndJobId).HasColumnName("end_job_id").HasMaxLength(100);
         builder.Property(x => x.LifecycleSyncedAt).HasColumnName("lifecycle_synced_at");
@@ -74,6 +88,11 @@ public class FlashDealConfiguration : IEntityTypeConfiguration<FlashDeal>
 
         builder.HasIndex(x => new { x.Status, x.CreatedAt })
             .HasDatabaseName("ix_flash_deals_status_created_at");
-        
+
+        builder.HasIndex(x => new { x.Status, x.FeedPublishedAt, x.Id })
+            .HasDatabaseName("ix_flash_deals_status_feed_published_at_id");
+
+        builder.HasIndex(x => x.PublicationId)
+            .HasDatabaseName("ix_flash_deals_publication_id");
     }
 }

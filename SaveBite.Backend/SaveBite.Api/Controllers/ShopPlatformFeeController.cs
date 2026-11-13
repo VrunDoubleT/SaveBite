@@ -40,6 +40,34 @@ public sealed class ShopPlatformFeeController : ControllerBase
         return Ok(ApiResponse<PagedResult<PlatformFeeStatementSummaryResponse>>.Ok(result));
     }
 
+    [HttpGet("shops/{shopId:guid}/platform-fees/monthly-report")]
+    [StoreOwnerAnyStatusAccess]
+    public async Task<ActionResult<ApiResponse<ShopMonthlyPlatformFeeReportResponse>>> GetShopMonthlyPlatformFeeReport(
+        Guid shopId,
+        [FromQuery] GetShopMonthlyPlatformFeeReportRequest request,
+        CancellationToken ct)
+    {
+        var result = await _feeStatementService.GetShopMonthlyPlatformFeeReportAsync(
+            shopId,
+            GetAuthenticatedUserId(),
+            request,
+            ct);
+        return Ok(ApiResponse<ShopMonthlyPlatformFeeReportResponse>.Ok(result));
+    }
+
+    [HttpGet("shops/{shopId:guid}/platform-fees/current-rate")]
+    [StoreOwnerAnyStatusAccess]
+    public async Task<ActionResult<ApiResponse<ShopCurrentPlatformFeeRateResponse>>> GetShopCurrentPlatformFeeRate(
+        Guid shopId,
+        CancellationToken ct)
+    {
+        var result = await _feeStatementService.GetShopCurrentPlatformFeeRateAsync(
+            shopId,
+            GetAuthenticatedUserId(),
+            ct);
+        return Ok(ApiResponse<ShopCurrentPlatformFeeRateResponse>.Ok(result));
+    }
+
     /// <summary>
     /// UC-80: View fee statement details including orders, adjustments, and payments (BR-092, BR-205).
     /// </summary>

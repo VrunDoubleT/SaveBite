@@ -319,7 +319,8 @@ public class CloudinaryService : ICloudinaryService
             {
                 File = new FileDescription(Path.GetFileName(file.FileName), stream),
                 PublicId = publicId,
-                Overwrite = true,
+                // Retries must never replace content already published under this asset ID.
+                Overwrite = false,
                 Invalidate = true
             });
         }
@@ -329,7 +330,8 @@ public class CloudinaryService : ICloudinaryService
             {
                 File = new FileDescription(Path.GetFileName(file.FileName), stream),
                 PublicId = publicId,
-                Overwrite = true,
+                // Retries must never replace content already published under this asset ID.
+                Overwrite = false,
                 Invalidate = true
             }, cancellationToken);
         }

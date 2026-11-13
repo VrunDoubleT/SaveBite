@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using FluentValidation;
 using SaveBite.Backend.Constants;
 using SaveBite.Backend.Models.Requests;
@@ -13,23 +14,26 @@ public sealed class CreateFlashDealRequestValidator : AbstractValidator<CreateFl
         RuleFor(x => x.Variants).NotEmpty().WithMessage("At least one variant must be included.");
         
         // === 1. DIRECT SALE MODE ===
-        When(x => x.IsImmediate, () =>
+        RuleFor(x => x.DurationMinutes).InclusiveBetween(TimingConfiguration.FlashDeals.MinimumDurationMinutes, TimingConfiguration.FlashDeals.MaximumDurationMinutes)
+            .When(x => x.DurationMinutes.HasValue)
+            .WithMessage($"The duration of a flash deal must be between {TimingConfiguration.FlashDeals.MinimumDurationMinutes} and {TimingConfiguration.FlashDeals.MaximumDurationMinutes} minutes.");
+        When(x => x.IsImmediate && !x.DurationMinutes.HasValue, () =>
         {
             RuleFor(x => x.OrderEndTime)
-                .Must(orderEnd => orderEnd >= DateTime.UtcNow.AddMinutes(29)) // 1-minute buffer for request network latency
-                .WithMessage("Deal duration must be at least 30 minutes from current time.")
-                .Must(orderEnd => orderEnd <= DateTime.UtcNow.AddMinutes(121))
-                .WithMessage("Deal duration cannot exceed 120 minutes.");
+                .Must(orderEnd => orderEnd >= DateTime.UtcNow.AddMinutes(TimingConfiguration.FlashDeals.MinimumDurationMinutes - TimingConfiguration.FlashDeals.LegacyRequestToleranceMinutes)) // 1-minute buffer for request network latency
+                .WithMessage($"Deal duration must be at least {TimingConfiguration.FlashDeals.MinimumDurationMinutes} minutes from current time.")
+                .Must(orderEnd => orderEnd <= DateTime.UtcNow.AddMinutes(TimingConfiguration.FlashDeals.MaximumDurationMinutes + TimingConfiguration.FlashDeals.LegacyRequestToleranceMinutes))
+                .WithMessage($"Deal duration cannot exceed {TimingConfiguration.FlashDeals.MaximumDurationMinutes} minutes.");
         });
         // === 2. SCHEDULED SELLING MODE ===
         When(x => !x.IsImmediate, () =>
         {
             RuleFor(x => x.SaleStartTime)
                 .NotNull().WithMessage("Sale start time is required when scheduling.")
-                .Must(start => start >= DateTime.UtcNow.AddMinutes(14)) // At least 15 minutes in advance
-                .WithMessage("Scheduled start time must be at least 15 minutes from now.")
-                .Must(start => start <= DateTime.UtcNow.AddMinutes(91)) // Up to 90 minutes in advance
-                .WithMessage("Flash deal can only be scheduled to start up to 90 minutes in advance.");
+                .Must(start => start >= DateTime.UtcNow.AddMinutes(TimingConfiguration.FlashDeals.MinimumScheduleAheadMinutes - TimingConfiguration.FlashDeals.LegacyRequestToleranceMinutes)) // At least 15 minutes in advance
+                .WithMessage($"Scheduled start time must be at least {TimingConfiguration.FlashDeals.MinimumScheduleAheadMinutes} minutes from now.")
+                .Must(start => start <= DateTime.UtcNow.AddMinutes(TimingConfiguration.FlashDeals.MaximumScheduleAheadMinutes + TimingConfiguration.FlashDeals.LegacyRequestToleranceMinutes)) // Up to 90 minutes in advance
+                .WithMessage($"Flash deal can only be scheduled to start up to {TimingConfiguration.FlashDeals.MaximumScheduleAheadMinutes} minutes in advance.");
             RuleFor(x => x.OrderEndTime)
                 .GreaterThan(x => x.SaleStartTime!.Value)
                 .WithMessage("Order end time must be after sale start time.")
@@ -37,9 +41,9 @@ public sealed class CreateFlashDealRequestValidator : AbstractValidator<CreateFl
                 {
                     if (!req.SaleStartTime.HasValue) return false;
                     var duration = orderEnd - req.SaleStartTime.Value;
-                    return duration >= TimeSpan.FromMinutes(30) && duration <= TimeSpan.FromMinutes(120);
+                    return duration >= TimeSpan.FromMinutes(TimingConfiguration.FlashDeals.MinimumDurationMinutes) && duration <= TimeSpan.FromMinutes(TimingConfiguration.FlashDeals.MaximumDurationMinutes);
                 })
-                .WithMessage("The duration of a flash deal must be between 30 and 120 minutes.");
+                .WithMessage($"The duration of a flash deal must be between {TimingConfiguration.FlashDeals.MinimumDurationMinutes} and {TimingConfiguration.FlashDeals.MaximumDurationMinutes} minutes.");
         });
         RuleFor(x => x.ShopClosingTime)
             .GreaterThanOrEqualTo(x => x.OrderEndTime)
@@ -61,6 +65,9 @@ public sealed class UpdateFlashDealRequestValidator : AbstractValidator<UpdateFl
 {
     public UpdateFlashDealRequestValidator()
     {
+        RuleFor(x => x.DurationMinutes).InclusiveBetween(TimingConfiguration.FlashDeals.MinimumDurationMinutes, TimingConfiguration.FlashDeals.MaximumDurationMinutes)
+            .When(x => x.DurationMinutes.HasValue)
+            .WithMessage($"The duration of a flash deal must be between {TimingConfiguration.FlashDeals.MinimumDurationMinutes} and {TimingConfiguration.FlashDeals.MaximumDurationMinutes} minutes.");
         RuleFor(x => x.SaleStartTime)
             .NotEmpty().WithMessage("Sale start time is required.");
 

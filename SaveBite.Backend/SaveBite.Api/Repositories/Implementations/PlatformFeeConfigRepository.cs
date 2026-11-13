@@ -17,7 +17,7 @@ public sealed class PlatformFeeConfigRepository : IPlatformFeeConfigRepository
     public async Task<PlatformFeeConfig?> GetActiveConfigAsync(DateTime asOf, CancellationToken ct = default)
     {
         return await _context.PlatformFeeConfigs
-            .Where(c => c.EffectiveFrom <= asOf && (c.EffectiveTo == null || c.EffectiveTo > asOf))
+            .Where(c => c.LifecycleStatus == "Published" && c.EffectiveFrom <= asOf && (c.EffectiveTo == null || c.EffectiveTo > asOf))
             .OrderByDescending(c => c.EffectiveFrom)
             .ThenByDescending(c => c.CreatedAt)
             .FirstOrDefaultAsync(ct);
@@ -40,7 +40,7 @@ public sealed class PlatformFeeConfigRepository : IPlatformFeeConfigRepository
     public async Task<IReadOnlyList<PlatformFeeConfig>> GetPendingConfigsAsync(DateTime asOf, CancellationToken ct = default)
     {
         return await _context.PlatformFeeConfigs
-            .Where(c => c.EffectiveFrom > asOf)
+            .Where(c => c.LifecycleStatus == "Published" && c.EffectiveFrom > asOf)
             .OrderByDescending(c => c.EffectiveFrom)
             .ThenByDescending(c => c.CreatedAt)
             .ToListAsync(ct);
@@ -48,8 +48,8 @@ public sealed class PlatformFeeConfigRepository : IPlatformFeeConfigRepository
     public async Task<PlatformFeeConfig?> GetUpcomingConfigAsync(DateTime asOf, CancellationToken ct = default)
     {
         return await _context.PlatformFeeConfigs
-            .Where(c => c.EffectiveFrom > asOf)
-            .OrderByDescending(c => c.CreatedAt)
+            .Where(c => c.LifecycleStatus == "Published" && c.EffectiveFrom > asOf)
+            .OrderBy(c => c.EffectiveFrom)
             .FirstOrDefaultAsync(ct);
     }
     public async Task AddConfigAsync(PlatformFeeConfig config, CancellationToken ct = default)
@@ -59,7 +59,7 @@ public sealed class PlatformFeeConfigRepository : IPlatformFeeConfigRepository
 
     public void RemoveConfig(PlatformFeeConfig config)
     {
-        _context.PlatformFeeConfigs.Remove(config);
+        throw new InvalidOperationException("Fee versions must be cancelled through the fee configuration service, never deleted.");
     }
 
     public async Task SaveChangesAsync(CancellationToken ct = default)

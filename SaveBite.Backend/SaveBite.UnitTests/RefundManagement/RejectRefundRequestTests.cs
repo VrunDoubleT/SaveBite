@@ -34,6 +34,7 @@ public class RejectRefundRequestTests
     private readonly Mock<IConfiguration> _configMock = new();
     private readonly Mock<IRefundDeadlineScheduler> _deadlinesMock = new();
     private readonly Mock<ILogger<RefundService>> _loggerMock = new();
+    private readonly SaveBite.Backend.Data.AppDbContext _db = TestDbContextFactory.Create();
     private readonly RefundService _service;
 
     // Explicit GUIDs for test determinism and traceability
@@ -62,7 +63,7 @@ public class RejectRefundRequestTests
             _loggerMock.Object,
             new Mock<INotificationQueue>().Object,
             new Mock<ITrustNotificationService>().Object,
-            TestDbContextFactory.Create()
+            _db, TestDbContextFactory.CreateScopeFactory()
         );
         _shopRepoMock.Setup(s => s.OwnerShopAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(ValidShopId);
         _shopRepoMock.Setup(s => s.RequireAccessAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
@@ -135,7 +136,7 @@ public class RejectRefundRequestTests
         };
 
         order.Refunds.Add(refund);
-        return refund;
+        return TestDbContextFactory.SeedRefundOrder(_db, refund);
     }
 
     /// <summary>
@@ -169,7 +170,7 @@ public class RejectRefundRequestTests
         refund.ReviewedAt.Should().NotBeNull();
         refund.History.Should().ContainSingle(h => h.Decision == "Rejected" && h.ToStatus == RefundStatus.Rejected);
 
-        _orderRepoMock.Verify(o => o.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _orderRepoMock.Verify(o => o.SaveAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
         _output.WriteLine($"[TCID01] Success: Refund rejected. New Status: {result.Status}, Reason: {refund.RejectReason}");
     }
 
@@ -379,7 +380,7 @@ public class RejectRefundRequestTests
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
         ex.Which.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        ex.Which.Message.Should().Be("The 24-hour shop processing deadline has passed. This refund can no longer be processed.");
+        ex.Which.Message.Should().Be("The 72-hour shop processing deadline has passed. This refund can no longer be processed.");
 
         _output.WriteLine($"[TCID08] Passed: Expired deadline correctly threw 409 Conflict. Message: {ex.Which.Message}");
     }

@@ -25,7 +25,12 @@ import {
 } from "../utils/productForm";
 import { APP_PATHS } from "@/app/router/paths";
 import { useAuthStore } from "@/shared/stores/authStore";
-import { getUploadDraft, removeUploadDraft } from "@/shared/uploads/uploadDraftStore";
+import {
+  getUploadDraft,
+  isUploadDraftActive,
+  releaseUploadDraft,
+  removeUploadDraft,
+} from "@/shared/uploads/uploadDraftStore";
 import { startOrResumeUploadDraft, uploadReferences } from "@/shared/uploads/uploadDrafts";
 
 type CreateProductFormValues = ProductInfoValues & {
@@ -79,6 +84,11 @@ export function CreateProductPage() {
           setResumeFinishedId(draftId);
           return;
         }
+        if (isUploadDraftActive(draft.id)) {
+          setError("This product is still uploading. Follow its progress in the upload panel.");
+          setResumeFinishedId(draftId);
+          return;
+        }
         setActiveDraftId(draft.id);
         reset(draft.formData as CreateProductFormValues);
         setResumeFinishedId(draft.id);
@@ -105,6 +115,8 @@ export function CreateProductPage() {
       if (busy || shopSuspended) return;
       setBusy(true);
       setError("");
+      let queued = false;
+      let submittedDraftId: string | undefined;
       try {
         if (!userId) throw new Error("Sign in before uploading product images.");
         const uploadFiles = [
@@ -123,11 +135,30 @@ export function CreateProductPage() {
           ),
         ];
         const draftId = activeDraftId ?? crypto.randomUUID();
+        submittedDraftId = draftId;
         setActiveDraftId(draftId);
         const draft = await startOrResumeUploadDraft(
           {
             draftId,
             userId,
+            keepActiveUntilSubmitted: true,
+            onQueued: () => {
+              queued = true;
+              reset({
+                name: "",
+                description: "",
+                categoryId: "",
+                files: [],
+                attributes: [],
+                prices: {},
+              });
+              setActiveDraftId(undefined);
+              setBusy(false);
+              if (resumeDraftId) navigate(location.pathname, { replace: true, state: null });
+              toast.info(
+                "Product creation is running in the background. You can create another product.",
+              );
+            },
             purpose: "product",
             title: `Create product: ${name.trim()}`,
             path: APP_PATHS.STORE_OWNER_PRODUCT_CREATE,
@@ -136,7 +167,6 @@ export function CreateProductPage() {
           },
           draftId,
         );
-        setActiveDraftId(draft.id);
         const body = new FormData();
         body.append("Name", name.trim());
         body.append("Description", description.trim());
@@ -144,23 +174,20 @@ export function CreateProductPage() {
         appendAttributes(body, attributes, false, false);
         appendPrices(body, combinations(attributes).rows, prices);
         body.append("__uploadAssets", JSON.stringify(uploadReferences(draft.files)));
-        const product = await productApi.create(body);
+        await productApi.create(body);
         await removeUploadDraft(draft.id);
-        setActiveDraftId(undefined);
-        navigate(productPath(`/${product.id}`), {
-          replace: true,
-          state: { message: "Product created and ready for flash deals." },
-        });
+        toast.success(`Product "${name.trim()}" created successfully.`);
       } catch (err) {
         if (isUploadCancelled(err))
           toast.info("Upload stopped. Your draft is saved; edit it or submit again when ready.");
+        else if (queued) toast.error(describeError(err));
         else setError(describeError(err));
       } finally {
-        setBusy(false);
-        if (resumeDraftId && activeDraftId === resumeDraftId) setResumeFinishedId(resumeDraftId);
+        if (submittedDraftId) releaseUploadDraft(submittedDraftId);
+        if (!queued) setBusy(false);
       }
     },
-    [activeDraftId, busy, navigate, productPath, resumeDraftId, shopSuspended, userId],
+    [activeDraftId, busy, navigate, location.pathname, reset, resumeDraftId, shopSuspended, userId],
   );
   if (resumeDraftId && resumeFinishedId !== resumeDraftId) {
     return (

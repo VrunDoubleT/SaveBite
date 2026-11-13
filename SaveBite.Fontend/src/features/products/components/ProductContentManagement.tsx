@@ -12,6 +12,7 @@ import {
   Tag,
   type LucideIcon,
 } from "lucide-react";
+import { RecordId } from "@/shared/components/RecordId";
 import type { ProductContentManagement as ProductContentManagementType } from "../types/product.types";
 
 const formatPrice = (price: number | null | undefined) =>
@@ -271,6 +272,7 @@ export function ProductContentManagement({
                   <h2 className="text-balance text-2xl font-bold leading-tight tracking-tight text-text-primary">
                     {p.name}
                   </h2>
+                  <RecordId id={p.id} variant="full" />
 
                   <p className="text-2xl font-semibold tabular-nums tracking-tight text-primary-700">
                     {minPrice == null

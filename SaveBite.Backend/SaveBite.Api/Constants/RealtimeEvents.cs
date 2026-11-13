@@ -46,4 +46,7 @@ public static class RealtimeEvents
 
     // Moderation & store status
     public const string FeedbackChanged = "feedback.changed";
+
+    // Trust Score & Level Realtime
+    public const string TrustLevelChanged = "trust.level.changed";
 }

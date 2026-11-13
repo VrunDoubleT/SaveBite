@@ -14,6 +14,7 @@ import type { PlatformFeeStatementDetail } from "../types/platformFee.types";
 import { StatusBadge } from "./StatusBadge";
 import { toast } from "@/shared/stores/toastStore";
 import { getApiErrorMessage } from "@/shared/api/httpClient";
+import { RecordId } from "@/shared/components/RecordId";
 
 const formatVnd = (amount: number) => {
   return new Intl.NumberFormat("vi-VN", {
@@ -37,14 +38,12 @@ interface AdminStatementDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   statementId: string | null;
-  onOpenReconcile?: (statementId: string) => void;
 }
 
 export function AdminStatementDetailModal({
   isOpen,
   onClose,
   statementId,
-  onOpenReconcile,
 }: AdminStatementDetailModalProps) {
   const [statement, setStatement] = useState<PlatformFeeStatementDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -86,9 +85,6 @@ export function AdminStatementDetailModal({
 
   if (!isOpen) return null;
 
-  const canReconcile =
-    statement && (statement.status === "Issued" || statement.status === "Overdue");
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
       <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10">
@@ -115,7 +111,13 @@ export function AdminStatementDetailModal({
                 </h3>
                 {statement && <StatusBadge status={statement.status} size="sm" />}
               </div>
-              <p className="text-xs font-mono text-slate-400">ID: {statementId}</p>
+              {statementId && (
+                <RecordId
+                  id={statementId}
+                  variant="full"
+                  className="mt-1 [&_button]:border-slate-200 [&_button]:bg-white [&_button]:text-slate-600 [&_button:hover]:border-emerald-300 [&_button:hover]:bg-emerald-50 [&_button:hover]:text-emerald-800 [&_button:focus-visible]:outline-emerald-600"
+                />
+              )}
             </div>
           </div>
           <button
@@ -140,6 +142,11 @@ export function AdminStatementDetailModal({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {statement.paymentPauseReason && (
+              <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                Payment is paused due to platform PayOS configuration. Verify and save the payment credentials to restore a new 7-day deadline.
+              </div>
+            )}
             {/* Overview Metric Cards */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-3.5">
@@ -265,7 +272,8 @@ export function AdminStatementDetailModal({
                               {formatVnd(ord.grossAmount)}
                             </td>
                             <td className="px-4 py-3 font-medium text-slate-600">
-                              {(ord.feeRate * 100).toFixed(1)}%
+                              {Number((ord.feeRate * 100).toFixed(4))}%
+                              <span className="mt-1 block break-all font-mono text-xs text-slate-500">Version {ord.feeConfigId}</span>
                             </td>
                             <td className="px-4 py-3 font-black text-emerald-600">
                               {formatVnd(ord.feeAmount)}
@@ -419,7 +427,7 @@ export function AdminStatementDetailModal({
                             </td>
                             <td className="px-4 py-3">
                               <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                                {h.changeType}
+                                {h.changeType === "PaymentPaused" ? "Payment paused" : h.changeType === "PaymentResumed" ? "Payment restored" : h.changeType}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-slate-600">
@@ -453,22 +461,7 @@ export function AdminStatementDetailModal({
         )}
 
         {/* Footer */}
-        <div className="shrink-0 flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-6 py-3">
-          <div>
-            {canReconcile && onOpenReconcile && statement && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenReconcile(statement.id);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition"
-              >
-                <Receipt className="h-3.5 w-3.5" />
-                Reconcile Statement
-              </button>
-            )}
-          </div>
+        <div className="shrink-0 flex justify-end border-t border-slate-100 bg-slate-50/70 px-6 py-3">
           <button
             type="button"
             onClick={onClose}

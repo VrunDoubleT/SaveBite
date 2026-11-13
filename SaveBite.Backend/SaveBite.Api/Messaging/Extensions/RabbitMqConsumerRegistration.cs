@@ -23,6 +23,8 @@ public static class RabbitMqConsumerRegistration
         services.AddRabbitMqConsumer<InventoryChangedConsumer>();
         services.AddRabbitMqConsumer<OrderTrustConsumer>();
         services.AddRabbitMqConsumer<UserVerifiedConsumer>();
+        services.AddRabbitMqConsumer<SaveBite.Backend.Messaging.Consumer.Trust.TrustLevelReconcileConsumer>();
+        services.AddRabbitMqConsumer<SaveBite.Backend.Messaging.Consumer.PlatformPayOsVerifiedConsumer>();
         services.AddRabbitMqConsumer<FlashDealConsumer>();
         services.AddRabbitMqConsumer<OrderPlatformFeeConsumer>();
         services.AddRabbitMqConsumer<ModerationConsumer>();

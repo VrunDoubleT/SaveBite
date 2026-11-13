@@ -34,6 +34,34 @@ public class RabbitMqTopologyInitializer : IHostedService
             autoDelete: false,
             cancellationToken: cancellationToken);
 
+        await channel.QueueDeclareAsync(RabbitMqQueues.PlatformPayOsVerifiedDeadLetterQueueName,
+            durable: true, exclusive: false, autoDelete: false, cancellationToken: cancellationToken);
+        await channel.QueueDeclareAsync(RabbitMqQueues.PlatformPayOsVerifiedQueueName,
+            durable: true, exclusive: false, autoDelete: false,
+            arguments: new Dictionary<string, object?> { ["x-dead-letter-exchange"] = "",
+                ["x-dead-letter-routing-key"] = RabbitMqQueues.PlatformPayOsVerifiedDeadLetterQueueName },
+            cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(RabbitMqQueues.PlatformPayOsVerifiedQueueName, _options.ExchangeName,
+            RabbitMqRoutingKeys.PlatformPayOsVerified, cancellationToken: cancellationToken);
+
+        await channel.QueueDeclareAsync(
+            queue: RabbitMqQueues.TrustLevelReconcileQueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: new Dictionary<string, object?>
+            {
+                ["x-dead-letter-exchange"] = "",
+                ["x-dead-letter-routing-key"] = RabbitMqQueues.TrustLevelReconcileDeadLetterQueueName
+            },
+            cancellationToken: cancellationToken);
+
+        await channel.QueueBindAsync(
+            queue: RabbitMqQueues.TrustLevelReconcileQueueName,
+            exchange: _options.ExchangeName,
+            routingKey: RabbitMqRoutingKeys.TrustLevelReconcile,
+            cancellationToken: cancellationToken);
+
         // Keep legacy queue arguments unchanged. These three consumers park failures explicitly.
         foreach (var queue in new[] { RabbitMqQueues.EmailQueueName, RabbitMqQueues.FlashDealQueueName, RabbitMqQueues.CartFlashDealQueueName })
             await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false, cancellationToken: cancellationToken);
@@ -43,7 +71,7 @@ public class RabbitMqTopologyInitializer : IHostedService
             await channel.QueueBindAsync(RabbitMqQueues.CartFlashDealQueueName, _options.ExchangeName, key, cancellationToken: cancellationToken);
         foreach (var dlq in new[] { "email_dead_letter_queue", "flashdeal_dead_letter_queue", RabbitMqQueues.CartFlashDealDeadLetterQueueName,
             RabbitMqQueues.UserTrustDeadLetterQueueName, RabbitMqQueues.OrderTrustDeadLetterQueueName, RabbitMqQueues.OrderPlatformFeeDeadLetterQueueName,
-            RabbitMqQueues.NotificationDeadLetterQueueName })
+            RabbitMqQueues.NotificationDeadLetterQueueName, RabbitMqQueues.TrustLevelReconcileDeadLetterQueueName})
             await channel.QueueDeclareAsync(dlq, durable: true, exclusive: false, autoDelete: false, cancellationToken: cancellationToken);
         await channel.QueueDeclareAsync(RabbitMqQueues.NotificationQueueName, durable: true, exclusive: false, autoDelete: false,
             arguments: new Dictionary<string, object?> { ["x-dead-letter-exchange"] = "", ["x-dead-letter-routing-key"] = RabbitMqQueues.NotificationDeadLetterQueueName }, cancellationToken: cancellationToken);

@@ -22,13 +22,22 @@ export function subscribeNotificationEvents(client: ReturnType<typeof createReal
     ) {
       window.dispatchEvent(new CustomEvent("feedback:invalidated"));
     }
-    // Shop/account status changes may also affect /me. Role/membership changes have their own event.
+        // Shop/account status changes may also affect /me. Role/membership changes have their own event.
     if (
       [29, 30, "ShopStatusChanged", "AccountStatusChanged", "CustomerStatusChanged"].includes(
         notiType,
       )
     ) {
       window.dispatchEvent(new CustomEvent("account:refresh-requested"));
+    }
+
+    // Realtime invalidate trust score & levels
+    if (
+      [40, "40", "TrustLevelChanged", 18, "18", "TrustScoreChanged"].includes(
+        notiType as string | number,
+      )
+    ) {
+      window.dispatchEvent(new CustomEvent("trust:invalidated"));
     }
   });
 

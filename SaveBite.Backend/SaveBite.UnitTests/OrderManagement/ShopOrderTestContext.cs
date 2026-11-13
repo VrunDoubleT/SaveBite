@@ -76,7 +76,7 @@ internal sealed class ShopOrderTestContext
         var resale = new OrderResaleService(db, Orders.Object, Shops.Object, new Mock<Hangfire.IBackgroundJobClient>().Object, Clock, new Mock<ILogger<OrderResaleService>>().Object);
         Service = new ShopOrderService(Shops.Object, Orders.Object, Payments.Object, Gateway.Object, Stock.Object, Email.Object,
             Clock, new Mock<ILogger<ShopOrderService>>().Object, Confirmation.Object, Realtime.Object, NoShow.Object, Events.Object,
-            new Mock<IRefundDeadlineScheduler>().Object, db, resale);
+            new Mock<IRefundDeadlineScheduler>().Object, db, resale, new Mock<INotificationQueue>().Object);
     }
     public Payment Initial => Order.Payments.First(x => x.PaymentType != PaymentType.Remaining);
     public void AsStaff()

@@ -23,10 +23,15 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public Mock<ICloudinaryService> CloudinaryServiceMock { get; } = new();
     public Mock<IRabbitMqPublisher> RabbitMqPublisherMock { get; } = new();
     public Mock<ICheckoutPaymentGateway> CheckoutPaymentGatewayMock { get; } = new();
+    public Mock<IPayOsCredentialsValidator> PayOsCredentialsValidatorMock { get; } = new();
 
     public CustomWebApplicationFactory()
     {
         Environment.SetEnvironmentVariable("Checkout__PaymentProvider", "PayOS");
+
+        PayOsCredentialsValidatorMock
+            .Setup(x => x.ValidateAsync(It.IsAny<SaveBite.Backend.Models.Responses.PlatformPayOsCredentials>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         CloudinaryServiceMock
             .Setup(c => c.UploadImageAsync(It.IsAny<IFormFile>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CloudinaryUploadResult("https://res.cloudinary.com/demo/image/upload/sample.jpg", "sample_public_id"));
@@ -100,6 +105,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             services.RemoveAll(typeof(ICheckoutPaymentGateway));
             services.AddSingleton(CheckoutPaymentGatewayMock.Object);
+
+            services.RemoveAll(typeof(IPayOsCredentialsValidator));
+            services.AddSingleton(PayOsCredentialsValidatorMock.Object);
 
             // 3. Mock Redis so tests don't require a running Redis instance
             var redisMock = new Mock<IConnectionMultiplexer>();

@@ -1,12 +1,11 @@
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Services.Interfaces;
 using System.Net;
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
 using Moq;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
-using SaveBite.Backend.Models.Responses;
-using SaveBite.Backend.Repositories.Interfaces;
+using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Services.Implementations;
 using Xunit;
 using Xunit.Abstractions;
@@ -22,29 +21,58 @@ namespace SaveBite.Tests.PlatformFeeManagement;
 public class ViewFeeConfigurationTests
 {
     private readonly ITestOutputHelper _output;
-    private readonly Mock<IPlatformFeeConfigRepository> _repositoryMock = new();
-    private readonly Mock<ILogger<PlatformFeeConfigService>> _loggerMock = new();
+    private readonly AppDbContext _db;
     private readonly Mock<IAdminAuditWriter> _auditMock = new();
+    private readonly Mock<INotificationQueue> _notificationMock = new();
     private readonly PlatformFeeConfigService _service;
 
-    private readonly Guid _adminId = Guid.NewGuid();
-    private readonly Guid _configId = Guid.NewGuid();
+    private readonly Guid _adminId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private readonly Guid _configId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     public ViewFeeConfigurationTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new PlatformFeeConfigService(_repositoryMock.Object, TimeProvider.System, _loggerMock.Object, _auditMock.Object);
+        _db = TestDbContextFactory.Create();
+        _service = new PlatformFeeConfigService(_db, TimeProvider.System, _auditMock.Object, _notificationMock.Object);
     }
 
-    private PlatformFeeConfig CreateValidActiveConfig(decimal feeRate = 0.05m, DateTime? effectiveTo = null) => new()
+    private static DateTime UtcSecondsOffset(double days)
     {
-        Id = _configId,
-        FeeRate = feeRate,
-        EffectiveFrom = DateTime.UtcNow.AddDays(-10),
-        EffectiveTo = effectiveTo,
-        CreatedBy = _adminId,
-        CreatedAt = DateTime.UtcNow.AddDays(-10)
-    };
+        var dt = DateTime.UtcNow.AddDays(days);
+        return new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, DateTimeKind.Utc);
+    }
+
+    private async Task<PlatformFeeConfig> SeedConfigAsync(decimal feeRate = 0.05m, DateTime? effectiveTo = null)
+    {
+        if (!_db.Users.Any(u => u.Id == _adminId))
+        {
+            _db.Users.Add(new User
+            {
+                Id = _adminId,
+                Email = "admin@savebite.test",
+                PasswordHash = "hash",
+                FullName = "System Admin",
+                Role = UserRole.Admin,
+                Status = UserStatus.Active
+            });
+        }
+
+        var config = new PlatformFeeConfig
+        {
+            Id = _configId,
+            FeeRate = feeRate,
+            EffectiveFrom = UtcSecondsOffset(-10),
+            EffectiveTo = effectiveTo,
+            LifecycleStatus = "Published",
+            Reason = "Initial configuration",
+            CreatedBy = _adminId,
+            CreatedAt = UtcSecondsOffset(-10)
+        };
+
+        _db.PlatformFeeConfigs.Add(config);
+        await _db.SaveChangesAsync();
+        return config;
+    }
 
     // =========================================================================
     // TCID01: Active config exists -> Returns active config details (Normal - N)
@@ -53,11 +81,7 @@ public class ViewFeeConfigurationTests
     public async Task TCID01_GetActiveConfig_ActiveConfigExists_ReturnsActiveConfigDetails_Normal()
     {
         // Arrange
-        var existingConfig = CreateValidActiveConfig(feeRate: 0.05m);
-
-        _repositoryMock
-            .Setup(r => r.GetActiveConfigAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(existingConfig);
+        var existingConfig = await SeedConfigAsync(feeRate: 0.05m);
 
         // Act
         var result = await _service.GetActiveConfigAsync();
@@ -70,8 +94,8 @@ public class ViewFeeConfigurationTests
         result.EffectiveFrom.Should().Be(existingConfig.EffectiveFrom);
         result.EffectiveTo.Should().BeNull();
         result.CreatedBy.Should().Be(_adminId);
+        result.Status.Should().Be("Active");
 
-        _repositoryMock.Verify(r => r.GetActiveConfigAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
         _output.WriteLine("TCID01 PASSED: Active platform fee configuration retrieved successfully.");
     }
 
@@ -81,10 +105,7 @@ public class ViewFeeConfigurationTests
     [Fact]
     public async Task TCID02_GetActiveConfig_NoActiveConfig_ThrowsNotFound_Abnormal()
     {
-        // Arrange
-        _repositoryMock
-            .Setup(r => r.GetActiveConfigAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PlatformFeeConfig?)null);
+        // Arrange - empty database (no active config seeded)
 
         // Act
         Func<Task> act = async () => await _service.GetActiveConfigAsync();
@@ -94,7 +115,6 @@ public class ViewFeeConfigurationTests
         exception.Which.StatusCode.Should().Be(HttpStatusCode.NotFound);
         exception.Which.Message.Should().Be("Active platform fee configuration not found.");
 
-        _repositoryMock.Verify(r => r.GetActiveConfigAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
         _output.WriteLine("TCID02 PASSED: NotFound exception thrown as expected when active config is missing.");
     }
 
@@ -105,11 +125,7 @@ public class ViewFeeConfigurationTests
     public async Task TCID03_GetActiveConfig_ZeroFeeRate_ReturnsZeroPercentage_Boundary()
     {
         // Arrange
-        var zeroConfig = CreateValidActiveConfig(feeRate: 0.0m);
-
-        _repositoryMock
-            .Setup(r => r.GetActiveConfigAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(zeroConfig);
+        await SeedConfigAsync(feeRate: 0.0m);
 
         // Act
         var result = await _service.GetActiveConfigAsync();
@@ -129,11 +145,7 @@ public class ViewFeeConfigurationTests
     public async Task TCID04_GetActiveConfig_MaxFeeRate_ReturnsHundredPercentage_Boundary()
     {
         // Arrange
-        var maxConfig = CreateValidActiveConfig(feeRate: 1.0m);
-
-        _repositoryMock
-            .Setup(r => r.GetActiveConfigAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(maxConfig);
+        await SeedConfigAsync(feeRate: 1.0m);
 
         // Act
         var result = await _service.GetActiveConfigAsync();
@@ -153,12 +165,8 @@ public class ViewFeeConfigurationTests
     public async Task TCID05_GetActiveConfig_WithEffectiveToDate_ReturnsExpirationDate_Normal()
     {
         // Arrange
-        var futureExpiration = DateTime.UtcNow.AddDays(30);
-        var configWithEnd = CreateValidActiveConfig(feeRate: 0.08m, effectiveTo: futureExpiration);
-
-        _repositoryMock
-            .Setup(r => r.GetActiveConfigAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(configWithEnd);
+        var futureExpiration = UtcSecondsOffset(30);
+        await SeedConfigAsync(feeRate: 0.08m, effectiveTo: futureExpiration);
 
         // Act
         var result = await _service.GetActiveConfigAsync();
@@ -173,20 +181,13 @@ public class ViewFeeConfigurationTests
     }
 
     // =========================================================================
-    // TCID06: Cancellation token is propagated to repository (Normal - N)
-    // =========================================================================
-    // =========================================================================
     // TCID06: Active config with precision decimal fee rate -> Calculates accurate percentage (Normal - N)
     // =========================================================================
     [Fact]
     public async Task TCID06_GetActiveConfig_PrecisionFeeRate_CalculatesAccuratePercentage_Normal()
     {
         // Arrange
-        var precisionConfig = CreateValidActiveConfig(feeRate: 0.0275m);
-
-        _repositoryMock
-            .Setup(r => r.GetActiveConfigAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(precisionConfig);
+        await SeedConfigAsync(feeRate: 0.0275m);
 
         // Act
         var result = await _service.GetActiveConfigAsync();

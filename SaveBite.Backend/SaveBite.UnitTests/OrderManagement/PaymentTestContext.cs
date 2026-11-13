@@ -64,7 +64,7 @@ internal sealed class PaymentTestContext
         var confirmation = new OrderConfirmationScheduling(ConfirmationScheduler.Object);
         Service = new CheckoutPaymentService(Repo.Object, Gateway.Object, Stock.Object, Clock, Scheduler.Object,
             new Mock<ILogger<CheckoutPaymentService>>().Object, confirmation, Realtime.Object,
-            new Mock<INotificationQueue>().Object, resale, new Mock<IAuditWriter>().Object);
+            new Mock<INotificationQueue>().Object, resale, new Mock<IAuditWriter>().Object, new Mock<IPayOsCredentialProtector>().Object);
         OrderService = new OrderService(Repo.Object, Service, Clock);
     }
     public Payment Initial => Order.Payments.First(x => x.PaymentType != PaymentType.Remaining);

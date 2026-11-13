@@ -93,12 +93,11 @@ public sealed class UserService : IUserService
                 shop.Id,
                 shop.Status,
                 shop.SuspendedForPlatformFees,
-                SuspensionReason = shop.Status == ShopStatus.Suspended && !shop.SuspendedForPlatformFees
-                    ? _db.AuditLogs
-                        .Where(log =>
-                            log.TargetType == "Shop" &&
-                            log.TargetId == shop.Id &&
-                            log.Action == AuditActionTypes.ShopStatusUpdated)
+                shop.SuspendedByAdmin,
+                shop.SuspendedForOverdueRefunds,
+                SuspensionReason = shop.Status == ShopStatus.Suspended && shop.SuspendedByAdmin
+                    ? _db.ShopStatusHistories
+                        .Where(log => log.ShopId == shop.Id && log.SuspendedByAdmin && (log.ChangedByType == "Admin" || log.FromStatus == null))
                         .OrderByDescending(log => log.CreatedAt)
                         .ThenByDescending(log => log.Id)
                         .Select(log => log.Reason)
@@ -113,7 +112,13 @@ public sealed class UserService : IUserService
                 shop.Id,
                 shop.Status.ToString(),
                 shop.SuspendedForPlatformFees,
-                shop.SuspensionReason);
+                string.Join(" ", new[] {
+                    shop.SuspensionReason,
+                    shop.SuspendedForPlatformFees ? "Overdue platform fees remain unpaid." : null,
+                    shop.SuspendedForOverdueRefunds ? "Overdue mandatory refunds remain unpaid. Pay all overdue mandatory refunds to remove this restriction." : null
+                }.Where(value => !string.IsNullOrWhiteSpace(value))),
+                shop.SuspendedByAdmin,
+                shop.SuspendedForOverdueRefunds);
 
         return new CurrentUserResponse(
             user.Id,

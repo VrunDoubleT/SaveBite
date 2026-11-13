@@ -21,6 +21,10 @@ public class Payment
     public PaymentStatus Status { get; set; }
     public DateTime? PaidAt { get; set; }
 
+    [System.Text.Json.Serialization.JsonIgnore]
+    [SaveBite.Backend.Audit.AuditIgnore]
+    public string? ProtectedPayOsCredentials { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

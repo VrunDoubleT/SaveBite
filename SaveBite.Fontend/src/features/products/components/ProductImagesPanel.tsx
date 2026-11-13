@@ -20,7 +20,11 @@ import {
   secondaryButton,
 } from "./ProductUi";
 import { useAuthStore } from "@/shared/stores/authStore";
-import { getUploadDraft, removeUploadDraft } from "@/shared/uploads/uploadDraftStore";
+import {
+  getUploadDraft,
+  releaseUploadDraft,
+  removeUploadDraft,
+} from "@/shared/uploads/uploadDraftStore";
 import { startOrResumeUploadDraft, uploadReferences } from "@/shared/uploads/uploadDrafts";
 
 function ProductImagesPanelContent({
@@ -95,6 +99,7 @@ function ProductImagesPanelContent({
             setError("");
             const form = new FormData();
             let completedDraftId = activeDraftId;
+            let queued = false;
             existing.forEach((image, i) => form.append(`RetainedImageIds[${i}]`, image.id));
             try {
               if (files.length) {
@@ -105,6 +110,12 @@ function ProductImagesPanelContent({
                   {
                     draftId: completedDraftId,
                     userId,
+                    keepActiveUntilSubmitted: true,
+                    onQueued: () => {
+                      queued = true;
+                      reset({ gallery: { existing, files: [] } });
+                      setActiveDraftId(undefined);
+                    },
                     purpose: "product",
                     targetId: product.id,
                     title: `Update gallery: ${product.name}`,
@@ -119,7 +130,6 @@ function ProductImagesPanelContent({
                   completedDraftId,
                 );
                 completedDraftId = draft.id;
-                setActiveDraftId(draft.id);
                 form.append("__uploadAssets", JSON.stringify(uploadReferences(draft.files)));
               }
               const saved = await productApi.images(product.id, form);
@@ -137,8 +147,10 @@ function ProductImagesPanelContent({
                 toast.info(
                   "Upload stopped. Your draft is saved; edit it or submit again when ready.",
                 );
+              else if (queued) toast.error(describeError(err));
               else setError(describeError(err));
             } finally {
+              if (completedDraftId) releaseUploadDraft(completedDraftId);
               setBusy(false);
             }
           })}

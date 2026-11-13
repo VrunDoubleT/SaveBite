@@ -138,13 +138,6 @@ public class ViewFlashDealDetailsTests
         var deal = CreateDatabaseDeal(withDealVariants: true, withShop: true);
         _db.FlashDeals.Add(deal);
         await _db.SaveChangesAsync();
-        var now = DateTime.UtcNow;
-        var visibleDeals = await SaveBite.Backend.Services.Implementations.FlashDealReadQuery.Visible(_db, now).ToListAsync();
-        _output.WriteLine($"Visible deals count: {visibleDeals.Count}");
-        var withDetails = await SaveBite.Backend.Services.Implementations.FlashDealReadQuery.WithDetails(SaveBite.Backend.Services.Implementations.FlashDealReadQuery.Visible(_db, now)).ToListAsync();
-        _output.WriteLine($"WithDetails count: {withDetails.Count}");
-        var single = await SaveBite.Backend.Services.Implementations.FlashDealReadQuery.WithDetails(SaveBite.Backend.Services.Implementations.FlashDealReadQuery.Visible(_db, now)).SingleOrDefaultAsync(d => d.Id == _existingDealId);
-        _output.WriteLine($"Single is null: {single == null}");
 
         // Act
         var result = await _service.GetByIdAsync(_existingDealId);

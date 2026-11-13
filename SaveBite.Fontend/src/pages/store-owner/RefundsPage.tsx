@@ -1,7 +1,14 @@
 import { RefundCustomerInfo } from "@/features/refunds/components/RefundCustomerInfo";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { RotateCcw, CircleAlert, Clock3 } from "lucide-react";
+import {
+  RotateCcw,
+  CircleAlert,
+  Clock3,
+  ArrowRightLeft,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import { refundApi } from "@/features/refunds/api/refundApi";
 import type { RefundPage } from "@/features/refunds/types/refund.types";
 import { RefundStatusBadge } from "@/features/refunds/components/RefundStatusBadge";
@@ -11,9 +18,9 @@ import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
 import { Pagination } from "@/shared/components/pagination";
 import { getApiErrorMessage } from "@/shared/api";
+
 const statuses: Record<string, string> = {
   All: "All refunds",
-
   PendingVerification: "Needs review",
   AwaitingCustomerDetails: "Waiting for customer",
   AwaitingTransfer: "Ready to transfer",
@@ -21,6 +28,7 @@ const statuses: Record<string, string> = {
   Rejected: "Declined",
   Withdrawn: "Withdrawn",
 };
+
 export function ShopRefundsPage() {
   const [params, setParams] = useSearchParams();
   const [data, setData] = useState<RefundPage | null>(null);
@@ -32,6 +40,49 @@ export function ShopRefundsPage() {
   const status = Object.hasOwn(statuses, params.get("status") ?? "")
     ? params.get("status")!
     : "All";
+
+  // Summary counts state for Shop Refunds
+  const [stats, setStats] = useState({
+    total: 0,
+    needsReview: 0,
+    readyToTransfer: 0,
+    transferred: 0,
+    declined: 0,
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  // Fetch refund summary metrics
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.all([
+      refundApi.shopPage(1, "All"),
+      refundApi.shopPage(1, "PendingVerification"),
+      refundApi.shopPage(1, "AwaitingTransfer"),
+      refundApi.shopPage(1, "Transferred"),
+      refundApi.shopPage(1, "Rejected"),
+    ])
+      .then(([all, pending, transfer, done, rejected]) => {
+        if (!cancelled) {
+          setStats({
+            total: all.totalItems ?? 0,
+            needsReview: pending.totalItems ?? 0,
+            readyToTransfer: transfer.totalItems ?? 0,
+            transferred: done.totalItems ?? 0,
+            declined: rejected.totalItems ?? 0,
+          });
+          setLoadingStats(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadingStats(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [revision]);
+
   useEffect(() => {
     const abort = new AbortController();
     void refundApi
@@ -57,6 +108,7 @@ export function ShopRefundsPage() {
       });
     return () => abort.abort();
   }, [page, status, revision, setParams]);
+
   useEffect(() => {
     const off = realtime.on(REALTIME_EVENTS.SHOP_ORDERS_CHANGED, (event) => {
       const change = event.data as { shopId?: string; reason?: string } | null;
@@ -71,8 +123,9 @@ export function ShopRefundsPage() {
       connected();
     };
   }, [realtime]);
+
   return (
-    <div className="w-full min-w-0 space-y-4">
+    <div className="w-full min-w-0 space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-neutral-900">Refund payments</h1>
@@ -95,6 +148,85 @@ export function ShopRefundsPage() {
           </select>
         </label>
       </header>
+
+      {/* 5 Stats Cards with icons */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
+        {/* Total refunds */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+              <RotateCcw className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-neutral-500 truncate">Total refunds</p>
+              <p className="mt-0.5 text-xl font-bold text-neutral-900 tabular-nums">
+                {loadingStats ? "–" : stats.total}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Needs review */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <CircleAlert className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-neutral-500 truncate">Needs review</p>
+              <p className="mt-0.5 text-xl font-bold text-amber-600 tabular-nums">
+                {loadingStats ? "–" : stats.needsReview}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Ready to transfer */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <ArrowRightLeft className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-neutral-500 truncate">Ready to transfer</p>
+              <p className="mt-0.5 text-xl font-bold text-blue-600 tabular-nums">
+                {loadingStats ? "–" : stats.readyToTransfer}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Transferred */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-neutral-500 truncate">Transferred</p>
+              <p className="mt-0.5 text-xl font-bold text-emerald-600 tabular-nums">
+                {loadingStats ? "–" : stats.transferred}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Declined */}
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+              <XCircle className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-neutral-500 truncate">Declined</p>
+              <p className="mt-0.5 text-xl font-bold text-rose-600 tabular-nums">
+                {loadingStats ? "–" : stats.declined}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {error && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {error}
@@ -103,13 +235,16 @@ export function ShopRefundsPage() {
           </button>
         </p>
       )}
+
       {!data && !error && <p className="py-8 text-sm text-neutral-500">Loading refunds…</p>}
+
       {data?.items.length === 0 && (
         <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500">
           <RotateCcw className="mx-auto mb-3" size={28} />
           No refunds in this category.
         </div>
       )}
+
       <div className="space-y-3">
         {data?.items.map((refund) => (
           <article
@@ -186,6 +321,7 @@ export function ShopRefundsPage() {
           </article>
         ))}
       </div>
+
       {data && data.totalPages > 0 && (
         <Pagination
           currentPage={data.page}

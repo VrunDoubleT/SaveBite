@@ -9,6 +9,49 @@ public class AppDbContext : DbContext
 {
     private readonly SaveBite.Backend.Services.Implementations.NotificationOutboxDelivery? _notificationDelivery;
     private readonly IHttpContextAccessor? _httpContextAccessor;
+    private readonly ShopStatusHistoryTracker _shopHistory = new();
+
+    public void RecordAdminShopStatusChange(Guid shopId, Guid actorId, string? reason)
+        => _shopHistory.AdminChange(shopId, actorId, reason);
+
+    private Guid? HistoryActorId()
+    {
+        var value = _httpContextAccessor?.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? _httpContextAccessor?.HttpContext?.User.FindFirstValue("sub");
+        return Guid.TryParse(value, out var id) ? id : null;
+    }
+
+    private void StageFlashDealRealtimeChanges()
+    {
+        foreach (var entry in ChangeTracker.Entries<FlashDeal>().Where(e => e.State is EntityState.Added or EntityState.Modified).ToArray())
+        {
+            var action = entry.Entity.Status switch
+            {
+                SaveBite.Backend.Models.Enums.FlashDealStatus.Hidden => "hidden",
+                SaveBite.Backend.Models.Enums.FlashDealStatus.Closed => "closed",
+                SaveBite.Backend.Models.Enums.FlashDealStatus.Cancelled => "cancelled",
+                SaveBite.Backend.Models.Enums.FlashDealStatus.OnSale => "opened",
+                SaveBite.Backend.Models.Enums.FlashDealStatus.Pending => "opened",
+                _ => "updated"
+            };
+            SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(
+                this,
+                entry.Entity.Id,
+                entry.Entity.ShopId,
+                action,
+                entry.Entity.Status.ToString(),
+                entry.Entity.VisibilityVersion);
+        }
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        _shopHistory.Stage(this, HistoryActorId());
+        StageFlashDealRealtimeChanges();
+        var result = base.SaveChanges(acceptAllChangesOnSuccess);
+        _shopHistory.Saved();
+        return result;
+    }
 
     public AppDbContext(DbContextOptions<AppDbContext> options,
         SaveBite.Backend.Services.Implementations.NotificationOutboxDelivery? notificationDelivery = null,
@@ -31,16 +74,17 @@ public class AppDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        _shopHistory.Stage(this, HistoryActorId());
         var actorValue = _httpContextAccessor?.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? _httpContextAccessor?.HttpContext?.User.FindFirstValue("sub");
         if (Guid.TryParse(actorValue, out var actorId))
             await UploadAttachmentTracker.StageAsync(this, actorId, cancellationToken);
 
-        foreach (var entry in ChangeTracker.Entries<FlashDeal>().Where(e => e.State is EntityState.Added or EntityState.Modified).ToArray())
-            SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Stage(this, entry.Entity.Id, entry.Entity.ShopId);
+        StageFlashDealRealtimeChanges();
         foreach (var entry in ChangeTracker.Entries<OrderEventOutbox>().Where(e => e.State == EntityState.Added))
             TrackNotificationOutbox(entry.Entity.Id);
         var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        _shopHistory.Saved();
         // Single-command SaveChanges may not create an explicit/implicit transaction.
         if (Database.CurrentTransaction == null) await FlushNotificationOutboxAsync();
         return result;
@@ -48,6 +92,7 @@ public class AppDbContext : DbContext
 
     // Users.
     public DbSet<User> Users => Set<User>();
+    public DbSet<ShopStatusHistory> ShopStatusHistories => Set<ShopStatusHistory>();
     public DbSet<UserAddress> UserAddresses => Set<UserAddress>();
     public DbSet<AccountStatusLog> AccountStatusLogs => Set<AccountStatusLog>();
     public DbSet<UserRoleChangeLog> UserRoleChangeLogs => Set<UserRoleChangeLog>();
@@ -64,6 +109,7 @@ public class AppDbContext : DbContext
     public DbSet<FlashDeal> FlashDeals => Set<FlashDeal>();
     public DbSet<FlashDealVariant> FlashDealVariants => Set<FlashDealVariant>();
     public DbSet<FlashDealStatusHistory> FlashDealStatusHistories => Set<FlashDealStatusHistory>();
+    public DbSet<DealNotificationRecipient> DealNotificationRecipients => Set<DealNotificationRecipient>();
     // Cart & Orders.
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Payment> Payments => Set<Payment>();
@@ -84,6 +130,7 @@ public class AppDbContext : DbContext
     public DbSet<UserTrustLevelHistory> UserTrustLevelHistories => Set<UserTrustLevelHistory>();
     public DbSet<UserTrustScore> UserTrustScores => Set<UserTrustScore>();
     public DbSet<TrustLevelHistory> TrustLevelHistories => Set<TrustLevelHistory>();
+    public DbSet<TrustPolicyVersion> TrustPolicyVersions => Set<TrustPolicyVersion>();
     // Shops.
     public DbSet<Shop> Shops => Set<Shop>();
     public DbSet<ShopFollow> ShopFollows => Set<ShopFollow>();

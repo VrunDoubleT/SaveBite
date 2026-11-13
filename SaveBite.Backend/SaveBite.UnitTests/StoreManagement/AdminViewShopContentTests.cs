@@ -29,7 +29,7 @@ public class AdminViewShopContentTests
     public AdminViewShopContentTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryMock.Object, new Mock<IAdminAuditWriter>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object, new Mock<IRealtimePublisher>().Object);
+        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryMock.Object, new Mock<IAdminAuditWriter>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object, new Mock<IRealtimePublisher>().Object, new Mock<IPayOsCredentialsValidator>().Object, new Mock<IPayOsCredentialProtector>().Object);
     }
 
     [Fact]
@@ -58,14 +58,14 @@ public class AdminViewShopContentTests
             UpdatedAt = DateTime.UtcNow
         };
 
-        var auditLogs = new List<AuditLog>
+        var statusHistory = new List<ShopStatusHistory>
         {
             new()
             {
                 Id = Guid.NewGuid(),
-                Action = "SHOP_STATUS_UPDATED",
-                OldValuesJson = "{\"Status\":\"Paused\"}",
-                NewValuesJson = "{\"Status\":\"Active\"}",
+                ShopId = shopId,
+                FromStatus = ShopStatus.Paused,
+                ToStatus = ShopStatus.Active,
                 Reason = "Re-opened after inspection",
                 CreatedAt = DateTime.UtcNow.AddDays(-2)
             }
@@ -77,7 +77,7 @@ public class AdminViewShopContentTests
 
         _shopRepoMock
             .Setup(r => r.GetShopStatusHistoryAsync(shopId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(auditLogs);
+            .ReturnsAsync(statusHistory);
 
         // Act
         var result = await _service.GetShopContentAsync(shopId, CancellationToken.None);

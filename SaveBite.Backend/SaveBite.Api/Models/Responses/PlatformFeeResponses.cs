@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using SaveBite.Backend.Models.Common;
 using SaveBite.Backend.Models.Enums;
 
 namespace SaveBite.Backend.Models.Responses;
@@ -16,6 +17,8 @@ public sealed class PlatformFeeStatementSummaryResponse
     public decimal TotalFeeAmount { get; set; }
     public DateTime? IssuedAt { get; set; }
     public DateTime? DueAt { get; set; }
+    public string? PaymentPauseReason { get; set; }
+    public DateTime? PaymentPausedAt { get; set; }
     public DateTime? PaidAt { get; set; }
     public DateTime CreatedAt { get; set; }
 
@@ -33,12 +36,16 @@ public sealed class PlatformFeeStatementSummaryResponse
         DateTime? paidAt,
         DateTime createdAt,
         string? shopName = null,
-        string? shopLogoUrl = null)
+        string? shopLogoUrl = null,
+        string? paymentPauseReason = null,
+        DateTime? paymentPausedAt = null)
     {
         Id = id;
         ShopId = shopId;
         ShopName = shopName;
         ShopLogoUrl = shopLogoUrl;
+        PaymentPauseReason = paymentPauseReason;
+        PaymentPausedAt = paymentPausedAt;
         BillingYear = billingYear;
         BillingMonth = billingMonth;
         Status = status;
@@ -52,6 +59,7 @@ public sealed class PlatformFeeStatementSummaryResponse
 
 public sealed class OrderPlatformFeeItemResponse
 {
+    public Guid FeeConfigId { get; set; }
     public Guid Id { get; set; }
     public Guid OrderId { get; set; }
     public decimal GrossAmount { get; set; }
@@ -78,9 +86,40 @@ public sealed class OrderPlatformFeeItemResponse
     }
 }
 
-public sealed class PlatformFeeStatementHistoryItemResponse
+public sealed class ShopMonthlyPlatformFeeReportResponse
+{
+    public int BillingYear { get; set; }
+    public short BillingMonth { get; set; }
+    public int OrderCount { get; set; }
+    public decimal TotalGrossAmount { get; set; }
+    public decimal TotalFeeAmount { get; set; }
+    public decimal UnbilledFeeAmount { get; set; }
+    public PagedResult<ShopMonthlyPlatformFeeOrderResponse> Orders { get; set; } = new();
+}
+
+public sealed class ShopCurrentPlatformFeeRateResponse
+{
+    public decimal? FeePercentage { get; set; }
+    public DateTime? EffectiveFrom { get; set; }
+}
+
+public sealed class ShopMonthlyPlatformFeeOrderResponse
 {
     public Guid Id { get; set; }
+    public Guid OrderId { get; set; }
+    public string OrderCode { get; set; } = string.Empty;
+    public Guid FeeConfigId { get; set; }
+    public decimal GrossAmount { get; set; }
+    public decimal FeeRate { get; set; }
+    public decimal OriginalFeeAmount { get; set; }
+    public decimal RefundAdjustmentAmount { get; set; }
+    public decimal FeeAmount { get; set; }
+    public DateTime CalculatedAt { get; set; }
+    public Guid? StatementId { get; set; }
+}
+
+public sealed class PlatformFeeStatementHistoryItemResponse
+{  public Guid Id { get; set; }
     public Guid StatementId { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public StatementChangeType ChangeType { get; set; }
@@ -189,6 +228,8 @@ public sealed class PlatformFeeStatementDetailResponse
     public decimal TotalFeeAmount { get; set; }
     public DateTime? IssuedAt { get; set; }
     public DateTime? DueAt { get; set; }
+    public string? PaymentPauseReason { get; set; }
+    public DateTime? PaymentPausedAt { get; set; }
     public DateTime? PaidAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public IReadOnlyList<OrderPlatformFeeItemResponse> Orders { get; set; } = Array.Empty<OrderPlatformFeeItemResponse>();
@@ -214,12 +255,16 @@ public sealed class PlatformFeeStatementDetailResponse
         IReadOnlyList<PlatformFeeAdjustmentItemResponse> adjustments,
         IReadOnlyList<PlatformFeePaymentItemResponse> payments,
         IReadOnlyList<PlatformFeeStatementHistoryItemResponse>? histories = null,
-        string? shopLogoUrl = null)
+        string? shopLogoUrl = null,
+        string? paymentPauseReason = null,
+        DateTime? paymentPausedAt = null)
     {
         Id = id;
         ShopId = shopId;
         ShopName = shopName;
         ShopLogoUrl = shopLogoUrl;
+        PaymentPauseReason = paymentPauseReason;
+        PaymentPausedAt = paymentPausedAt;
         BillingYear = billingYear;
         BillingMonth = billingMonth;
         Status = status;

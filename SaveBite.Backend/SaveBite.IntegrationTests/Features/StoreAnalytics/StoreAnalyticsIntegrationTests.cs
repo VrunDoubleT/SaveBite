@@ -42,6 +42,13 @@ public class StoreAnalyticsIntegrationTests : BaseIntegrationTest
         // Re-authenticate as owner
         SetBearerToken(owner.Id, owner.Email, owner.Role);
 
+        var now = DateTime.UtcNow;
+        var todayStartUtc = SaveBite.Backend.Helpers.VietnamTime.StartOfDayUtc(
+            SaveBite.Backend.Helpers.VietnamTime.ToDate(now));
+        var createdAt = now.AddHours(-3) < todayStartUtc ? todayStartUtc : now.AddHours(-3);
+        var confirmedAt = now.AddHours(-2) < todayStartUtc ? todayStartUtc : now.AddHours(-2);
+        var readyAt = now.AddHours(-1) < todayStartUtc ? todayStartUtc : now.AddHours(-1);
+
         var order = new Order
         {
             Id = Guid.NewGuid(),
@@ -54,11 +61,11 @@ public class StoreAnalyticsIntegrationTests : BaseIntegrationTest
             DepositAmount = 200000m,
             RemainingAmount = 0m,
             RequiredOnlineAmount = 200000m,
-            ConfirmedAt = DateTime.UtcNow.AddHours(-2),
-            ReadyAt = DateTime.UtcNow.AddHours(-1),
-            CompletedAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow.AddHours(-3),
-            UpdatedAt = DateTime.UtcNow
+            ConfirmedAt = confirmedAt,
+            ReadyAt = readyAt,
+            CompletedAt = now,
+            CreatedAt = createdAt,
+            UpdatedAt = now
         };
         DbContext.Orders.Add(order);
 
@@ -70,9 +77,9 @@ public class StoreAnalyticsIntegrationTests : BaseIntegrationTest
             Method = PaymentMethod.OnlinePayment,
             Amount = 200000m,
             Status = PaymentStatus.Succeeded,
-            PaidAt = DateTime.UtcNow.AddHours(-2),
-            CreatedAt = DateTime.UtcNow.AddHours(-3),
-            UpdatedAt = DateTime.UtcNow.AddHours(-2)
+            PaidAt = confirmedAt,
+            CreatedAt = createdAt,
+            UpdatedAt = confirmedAt
         };
         DbContext.Payments.Add(payment);
 

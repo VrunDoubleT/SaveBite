@@ -3,7 +3,8 @@ import {
   CustomerActionButton,
 } from "@/shared/components/CustomerMutationControls";
 import { Input } from "@/shared/components/ui";
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
+import { getApiErrorMessage } from "@/shared/api";
 import { RefundBankSelect } from "./RefundBankSelect";
 import { refundBankName } from "../api/refundBanks";
 import { uploadRefundFiles } from "../api/uploadRefundFiles";
@@ -31,6 +32,8 @@ export function RefundDestinationForm({
   const [files, setFiles] = useState<File[]>([]);
   const [code, setCode] = useState("");
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const qrErrorId = useId();
+  const qrErrorRef = useRef<HTMLParagraphElement>(null);
   function clear(field: string) {
     setErrors((old) => ({ ...old, [field]: undefined }));
   }
@@ -89,7 +92,20 @@ export function RefundDestinationForm({
           void mutate(async () => {
             let destination = { ...bank, accountHolder: bank.accountHolder.trim() };
             if (qr && files.length) {
-              const [image] = await uploadRefundFiles(refund.orderId, files, "destination-qr");
+              let image;
+              try {
+                [image] = await uploadRefundFiles(refund.orderId, files, "destination-qr");
+              } catch (error) {
+                setErrors((old) => ({
+                  ...old,
+                  qr: getApiErrorMessage(error),
+                }));
+                requestAnimationFrame(() => {
+                  qrErrorRef.current?.focus({ preventScroll: true });
+                  qrErrorRef.current?.scrollIntoView({ block: "nearest" });
+                });
+                throw error;
+              }
               const name = await refundBankName(image.bankBin!).catch(() => "Bank account");
               destination = {
                 ...bank,
@@ -107,7 +123,12 @@ export function RefundDestinationForm({
         }}
       >
         {qr ? (
-          <div className="space-y-2 sm:col-span-2">
+          <fieldset
+            className="min-w-0 space-y-2 sm:col-span-2"
+            aria-label="Bank QR image"
+            aria-invalid={!!errors.qr}
+            aria-describedby={errors.qr ? qrErrorId : undefined}
+          >
             <RefundFileUpload
               purpose="destination-qr"
               max={1}
@@ -126,11 +147,17 @@ export function RefundDestinationForm({
               }}
             />
             {errors.qr && (
-              <p role="alert" className="text-caption text-danger-strong">
+              <p
+                id={qrErrorId}
+                ref={qrErrorRef}
+                tabIndex={-1}
+                role="alert"
+                className="rounded-lg border border-danger-soft bg-danger-soft p-3 text-caption text-danger-strong"
+              >
                 {errors.qr}
               </p>
             )}
-            {files.length > 0 && (
+            {files.length > 0 && !errors.qr && (
               <p className="text-caption text-text-secondary">
                 Bank details will be read from this QR when you submit.
               </p>
@@ -141,7 +168,7 @@ export function RefundDestinationForm({
                 below.
               </p>
             )}
-          </div>
+          </fieldset>
         ) : (
           <>
             <RefundBankSelect

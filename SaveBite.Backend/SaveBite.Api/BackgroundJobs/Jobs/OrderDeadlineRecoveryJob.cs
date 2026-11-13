@@ -1,3 +1,4 @@
+using SaveBite.Backend.Configurations;
 using Hangfire;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Services.Interfaces;
@@ -5,7 +6,7 @@ namespace SaveBite.Backend.BackgroundJobs.Jobs;
 
 public sealed class OrderDeadlineRecoveryJob(IServiceScopeFactory scopes, TimeProvider clock, ILogger<OrderDeadlineRecoveryJob> logger)
 {
-    [DisableConcurrentExecution(600)]
+    [DisableConcurrentExecution(TimingConfiguration.Jobs.ConcurrencyLockTimeoutSeconds)]
     public async Task ExecuteAsync(CancellationToken ct)
     {
         var now = clock.GetUtcNow().UtcDateTime;
@@ -18,7 +19,7 @@ public sealed class OrderDeadlineRecoveryJob(IServiceScopeFactory scopes, TimePr
             .Where(o => o.Status == OrderStatus.Pending && !o.PaymentReviewRequired
                 && o.Payments.Any(p => p.Status == PaymentStatus.Succeeded
                     && (p.PaymentType == PaymentType.Full || p.PaymentType == PaymentType.Deposit)
-                    && (p.PaidAt ?? o.CreatedAt) <= now.AddMinutes(-5)))
+                    && (p.PaidAt ?? o.CreatedAt) <= now.AddMinutes(-TimingConfiguration.Orders.ShopConfirmationMinutes)))
             .Select(o => o.Id), (sp, id) => sp.GetRequiredService<IShopOrderService>().ExpireConfirmationAsync(id, ct), ct), ct);
         await Group("no-show", () => RecoveryBatch.RunAsync(scopes, logger, "order-no-show", db => db.Orders
             .Where(o => o.HardDeadlineAt <= now && (o.Status == OrderStatus.Confirmed
@@ -28,7 +29,7 @@ public sealed class OrderDeadlineRecoveryJob(IServiceScopeFactory scopes, TimePr
             .Where(o => o.ResaleDecisionDeadlineAt <= now && o.Items.Any(i => i.ResaleDecisionStatus == ResaleDecisionStatus.Pending))
             .Select(o => o.Id), (sp, id) => sp.GetRequiredService<SaveBite.Backend.Services.Implementations.OrderResaleService>().ExpireAsync(id, ct), ct), ct);
         await Group("reminder", () => RecoveryBatch.RunAsync(scopes, logger, "order-reminder", db => db.Orders
-            .Where(o => o.PickupReminderEmailSentAt == null && o.PickupReminderEmailQueuedAt == null && o.HardDeadlineAt > now && o.HardDeadlineAt <= now.AddMinutes(10)
+            .Where(o => o.PickupReminderEmailSentAt == null && o.PickupReminderEmailQueuedAt == null && o.HardDeadlineAt > now && o.HardDeadlineAt <= now.AddMinutes(TimingConfiguration.Orders.PickupReminderLeadMinutes)
                 && (o.Status == OrderStatus.Confirmed || o.Status == OrderStatus.Preparing || o.Status == OrderStatus.ReadyForPickup))
             .Select(o => o.Id), async (sp, id) =>
             {

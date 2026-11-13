@@ -1,6 +1,15 @@
 export type PlatformFeeStatementStatus = "Draft" | "Issued" | "Paid" | "Overdue";
 
 export interface PlatformFeeConfigResponse {
+  status: "Scheduled" | "Active" | "Ended" | "Cancelled" | "Superseded";
+  reason: string | null;
+  replacesConfigId: string | null;
+  closedBy: string | null;
+  closedAt: string | null;
+  closureReason: string | null;
+  activationProcessedAt: string | null;
+  createdByName: string | null;
+  maxFutureSchedules: number;
   id: string;
   feeRate: number;
   feePercentage: number;
@@ -15,6 +24,8 @@ export interface PlatformPayOsConfigResponse {
   hasClientId: boolean;
   hasApiKey: boolean;
   hasChecksumKey: boolean;
+  isVerified: boolean;
+  paymentsAvailable: boolean;
   updatedAt: string | null;
   updatedByUserId: string | null;
   updatedByName: string | null;
@@ -46,6 +57,8 @@ export interface GetAdminPlatformFeesParams {
 }
 
 export interface UpdatePlatformFeeConfigRequest {
+  replacesConfigId?: string;
+  reason: string;
   feeRate: number;
   effectiveFrom?: string;
   cancelUpcomingScheduled?: boolean;
@@ -62,11 +75,14 @@ export interface PlatformFeeStatementSummary {
   totalFeeAmount: number;
   issuedAt: string | null;
   dueAt: string | null;
+  paymentPauseReason: string | null;
+  paymentPausedAt: string | null;
   paidAt: string | null;
   createdAt: string;
 }
 
 export interface OrderPlatformFeeItem {
+  feeConfigId: string;
   id: string;
   orderId: string;
   grossAmount: number;
@@ -116,7 +132,9 @@ export interface PlatformFeeStatementDetail {
   status: PlatformFeeStatementStatus;
   totalFeeAmount: number;
   issuedAt?: string;
-  dueAt?: string;
+  dueAt?: string | null;
+  paymentPauseReason: string | null;
+  paymentPausedAt: string | null;
   paidAt?: string;
   createdAt: string;
   orders: OrderPlatformFeeItem[];
@@ -144,9 +162,40 @@ export interface GetShopPlatformFeesParams {
   pageSize?: number;
 }
 
-export interface RecordExternalPaymentRequest {
-  amount: number;
-  referenceCode?: string;
+export interface GetShopMonthlyPlatformFeeReportParams {
+  year: number;
+  month: number;
+  pageNumber?: number;
+  pageSize?: number;
+}
+
+export interface ShopMonthlyPlatformFeeOrder {
+  id: string;
+  orderId: string;
+  orderCode: string;
+  feeConfigId: string;
+  grossAmount: number;
+  feeRate: number;
+  originalFeeAmount: number;
+  refundAdjustmentAmount: number;
+  feeAmount: number;
+  calculatedAt: string;
+  statementId: string | null;
+}
+
+export interface ShopMonthlyPlatformFeeReport {
+  billingYear: number;
+  billingMonth: number;
+  orderCount: number;
+  totalGrossAmount: number;
+  totalFeeAmount: number;
+  unbilledFeeAmount: number;
+  orders: PagedResult<ShopMonthlyPlatformFeeOrder>;
+}
+
+export interface ShopCurrentPlatformFeeRate {
+  feePercentage: number | null;
+  effectiveFrom: string | null;
 }
 
 export interface PagedResult<T> {

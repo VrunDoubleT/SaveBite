@@ -60,7 +60,7 @@ public class RequestRefundTests
             _loggerMock.Object,
             new Mock<INotificationQueue>().Object,
             new Mock<ITrustNotificationService>().Object,
-            TestDbContextFactory.Create()
+            TestDbContextFactory.Create(), TestDbContextFactory.CreateScopeFactory()
         );
         _shopRepoMock.Setup(s => s.OwnerShopAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(ValidShopId);
         _shopRepoMock.Setup(s => s.RequireAccessAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>(), It.IsAny<bool>())).ReturnsAsync(true);
@@ -264,7 +264,7 @@ public class RequestRefundTests
         // Assert
         var ex = await act.Should().ThrowAsync<AppException>();
         ex.Which.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        ex.Which.Message.Should().Be("Refund requests must be submitted within six hours of order completion.");
+        ex.Which.Message.Should().Be("Refund requests must be submitted within 6 hours of order completion.");
 
         _output.WriteLine("[PASS] TCID04: Correctly rejected expired refund window (> 6 hours) with 409 Conflict (BR-036).");
     }

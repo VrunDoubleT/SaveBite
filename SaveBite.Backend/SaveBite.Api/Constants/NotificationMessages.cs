@@ -35,6 +35,8 @@ public static class NotificationMessages
 
     public static class Payments
     {
+        public const string ShopPaymentConfigInvalidTitle = "Action required: check your payOS configuration";
+        public const string ShopPaymentConfigInvalidBody = "A customer payment link could not be verified because payOS authentication or signature validation failed. Please check your Client ID, API Key and Checksum Key in Payment Settings.";
         public const string PaymentSucceededTitle = "Payment Succeeded";
         public const string PaymentSucceededAwaitingConfirmationBody = "Your payment was successful and your order is awaiting store confirmation.";
         public const string RemainingPaymentVerifiedBody = "The remaining payment for your order has been verified.";
@@ -46,6 +48,12 @@ public static class NotificationMessages
 
     public static class Refunds
     {
+        public const string DestinationRequiredTitle = "Action required: provide your refund details";
+        public static string DestinationRequiredBody(string orderCode, DateTime deadlineUtc) =>
+            $"A refund is waiting for your receiving details for order {orderCode}. " +
+            $"Enter your bank account or upload a bank QR and confirm using the email code before {deadlineUtc.AddHours(7).ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)} (GMT+7). " +
+            "If you miss this deadline, you lose eligibility for this refund.";
+
         public const string NewRefundRequestTitle = "New refund request";
         public static string NewRefundRequestBody(string customerName, string orderCode) =>
             $"{customerName} requested a refund for order {orderCode}.";

@@ -34,7 +34,7 @@ public class AdminUpdateShopStatusTests
     public AdminUpdateShopStatusTests(ITestOutputHelper output)
     {
         _output = output;
-        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryMock.Object, new Mock<IAdminAuditWriter>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object, new Mock<IRealtimePublisher>().Object);
+        _service = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryMock.Object, new Mock<IAdminAuditWriter>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object, new Mock<IRealtimePublisher>().Object, new Mock<IPayOsCredentialsValidator>().Object, new Mock<IPayOsCredentialProtector>().Object);
     }
 
     [Fact]

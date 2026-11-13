@@ -23,6 +23,7 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 import { Pagination, usePagination } from "@/shared/components/pagination";
 import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 export function StaffManagementPage() {
   const shopSuspended = useShopSuspended();
@@ -32,6 +33,7 @@ export function StaffManagementPage() {
   const [loading, setLoading] = useState(false);
 
   const [keyword, setKeyword] = useState("");
+  const debouncedKeyword = useDebounce(keyword, 350);
 
   const navigate = useNavigate();
 
@@ -158,11 +160,11 @@ export function StaffManagementPage() {
   }
 
   // --------------------------------------------------
-  // Search
+  // Search with useDebounce
   // --------------------------------------------------
 
   const filteredStaffs = useMemo(() => {
-    const q = keyword.trim().toLowerCase();
+    const q = debouncedKeyword.trim().toLowerCase();
 
     if (!q) {
       return staffs;
@@ -174,7 +176,7 @@ export function StaffManagementPage() {
         Boolean(staff.staffNickname?.toLowerCase().includes(q)) ||
         staff.userEmail.toLowerCase().includes(q),
     );
-  }, [staffs, keyword]);
+  }, [staffs, debouncedKeyword]);
 
   // --------------------------------------------------
   // Pagination
@@ -262,7 +264,7 @@ export function StaffManagementPage() {
         />
       </div>
 
-      {/* Search */}
+      {/* Search Input */}
       <div className="relative max-w-sm">
         <Search
           size={16}
@@ -271,9 +273,12 @@ export function StaffManagementPage() {
 
         <input
           value={keyword}
-          onChange={(event) => setKeyword(event.target.value)}
+          onChange={(event) => {
+            setKeyword(event.target.value);
+            setCurrentPage(1);
+          }}
           placeholder="Search by name or email"
-          className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+          className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-4 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
         />
       </div>
 

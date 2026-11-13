@@ -45,7 +45,7 @@ public class StoreProfileOperatingTests
     public StoreProfileOperatingTests(ITestOutputHelper output)
     {
         _output = output;
-        _shopService = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryMock.Object, new Mock<IAdminAuditWriter>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object, new Mock<IRealtimePublisher>().Object);
+        _shopService = new ShopService(_shopRepoMock.Object, _userAddressRepoMock.Object, _cloudinaryMock.Object, new Mock<IAdminAuditWriter>().Object, new Mock<INotificationQueue>().Object, TestDbContextFactory.Create(), new Mock<IShopSuspensionCleanupService>().Object, new Mock<IShopStatusEventService>().Object, new Mock<IRealtimePublisher>().Object, new Mock<IPayOsCredentialsValidator>().Object, new Mock<IPayOsCredentialProtector>().Object);
 
         // Default review stats mock
         _shopRepoMock

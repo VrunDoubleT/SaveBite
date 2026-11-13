@@ -1,5 +1,6 @@
 import { Edit, Trash2, Power, Layers } from "lucide-react";
 import type { Category } from "@/features/categories/types/adminCategory.types";
+import { RecordId } from "@/shared/components/RecordId";
 import { CategoryStatusBadge } from "./CategoryStatusBadge";
 
 interface CategoryTableProps {
@@ -19,6 +20,7 @@ export function CategoryTable({
     <table className="min-w-full divide-y divide-border-default text-left text-sm">
       <thead className="bg-neutral-50 text-text-secondary">
         <tr>
+          <th className="px-6 py-4 font-semibold">ID</th>
           <th className="px-6 py-4 font-semibold">Name</th>
           <th className="px-6 py-4 font-semibold">Description</th>
           <th className="px-6 py-4 font-semibold">Status</th>
@@ -28,6 +30,9 @@ export function CategoryTable({
       <tbody className="divide-y divide-border-default text-text-primary">
         {categories.map((c) => (
           <tr key={c.id} className="hover:bg-neutral-50/50 transition-colors">
+            <td className="max-w-40 px-6 py-4">
+              <RecordId id={c.id} />
+            </td>
             <td className="px-6 py-4">
               <p className="font-semibold text-text-primary">{c.name}</p>
             </td>
@@ -72,7 +77,7 @@ export function CategoryTable({
         ))}
         {categories.length === 0 && (
           <tr>
-            <td colSpan={4} className="p-10 text-center">
+            <td colSpan={5} className="p-10 text-center">
               <Layers className="mx-auto size-8 text-neutral-300 mb-3" />
               <p className="text-sm text-text-muted font-medium">
                 No categories found matching your criteria.

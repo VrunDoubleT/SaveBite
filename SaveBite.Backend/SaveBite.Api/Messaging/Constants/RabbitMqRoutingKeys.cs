@@ -10,6 +10,8 @@ public static class RabbitMqRoutingKeys
     public const string OrderCompleted = "order.completed";
     public const string OrderPending = "order.pending";
     public const string OrderNoShow = "order.noshow";
+    public const string PlatformPayOsVerified = "platform.payos.verified";
+    public const string TrustLevelReconcile = "trust.level.reconcile";
 
     public const string EmailRoutingKey = "email";
 
@@ -20,4 +22,9 @@ public static class RabbitMqRoutingKeys
     public const string FlashDealExpired = "flashdeal.expired";
 
     public const string ModerationAudit = "moderation.audit";
+
+    // Deal Publication & Location Geo routing keys (Section 9)
+    public const string DealPublished = "deal.published";
+    public const string DealReopened = "deal.reopened";
+    public const string UserDefaultAddressChanged = "internal.user.default-address.changed";
 }

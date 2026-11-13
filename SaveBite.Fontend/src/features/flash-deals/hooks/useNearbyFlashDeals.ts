@@ -3,9 +3,8 @@ import { flashDealApi } from "@/features/flash-deals/api/flashDealApi";
 import { categoryApi } from "@/features/categories/api/categoryApi";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { useDebounce } from "@/shared/hooks/useDebounce";
-import { useFlashDealRealtime } from "./useFlashDealRealtime";
+import { useFlashDealRealtime, type FlashDealRealtimePayload } from "./useFlashDealRealtime";
 import type { DealFilterState, FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
-
 
 export type LocationMode = "gps" | "saved_address" | "default";
 
@@ -15,8 +14,7 @@ let cachedLocationMode: LocationMode | null = null;
 let cachedLocationLabel: string = "Location Not Set";
 let cachedLocationAddress: string | null = null;
 let cachedDeals: FlashDeal[] = [];
-let cachedCursor1: string | null = null;
-let cachedCursor2: string | null = null;
+let cachedNextCursor: string | null = null;
 let cachedHasOlder = false;
 let cachedServerMessage: string | null = null;
 let cachedCategories: string[] = [];
@@ -77,34 +75,28 @@ export function useNearbyFlashDeals() {
   const [serverMessage, setServerMessage] = useState<string | null>(() => cachedServerMessage);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
-  const [isCheckingNewer, setIsCheckingNewer] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Dual timestamp cursors (Cursor 1: oldest deal, Cursor 2: newest deal)
-  const [cursor1, setCursor1] = useState<string | null>(() => cachedCursor1);
-  const [cursor2, setCursor2] = useState<string | null>(() => cachedCursor2);
+  // Keyset Cursor state (Section 8.2 & 8.4)
+  const [nextCursor, setNextCursor] = useState<string | null>(() => cachedNextCursor);
   const [hasOlder, setHasOlder] = useState(() => cachedHasOlder);
   const [newDealsCount, setNewDealsCount] = useState(0);
-  const [pendingNewDeals, setPendingNewDeals] = useState<FlashDeal[]>([]);
 
   const [categories, setCategories] = useState<string[]>(() => cachedCategories);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
-  // Reference guards to avoid unstable callbacks and infinite render loops
+  // Reference guards
   const dealsRef = useRef(deals);
+  const newDealIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     dealsRef.current = deals;
   }, [deals]);
 
   const isLoadingOlderRef = useRef(false);
-  const cursor1Ref = useRef(cursor1);
-  const cursor2Ref = useRef(cursor2);
+  const nextCursorRef = useRef(nextCursor);
   useEffect(() => {
-    cursor1Ref.current = cursor1;
-  }, [cursor1]);
-  useEffect(() => {
-    cursor2Ref.current = cursor2;
-  }, [cursor2]);
+    nextCursorRef.current = nextCursor;
+  }, [nextCursor]);
 
   // Sync to module-level cache
   useEffect(() => {
@@ -113,12 +105,11 @@ export function useNearbyFlashDeals() {
     cachedLocationLabel = locationLabel;
     cachedLocationAddress = locationAddress;
     cachedDeals = deals;
-    cachedCursor1 = cursor1;
-    cachedCursor2 = cursor2;
+    cachedNextCursor = nextCursor;
     cachedHasOlder = hasOlder;
     cachedServerMessage = serverMessage;
     cachedCategories = categories;
-  }, [coords, locationMode, locationLabel, locationAddress, deals, cursor1, cursor2, hasOlder, serverMessage, categories]);
+  }, [coords, locationMode, locationLabel, locationAddress, deals, nextCursor, hasOlder, serverMessage, categories]);
 
   const [selectedShop, setSelectedShop] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState<string>("");
@@ -141,9 +132,7 @@ export function useNearbyFlashDeals() {
           setCategories(items.map((c) => c.name));
         }
       })
-      .catch(() => {
-        // Fallback gracefully if database is unreachable
-      })
+      .catch(() => {})
       .finally(() => {
         if (isMounted) {
           setIsLoadingCategories(false);
@@ -155,7 +144,16 @@ export function useNearbyFlashDeals() {
     };
   }, []);
 
-  // Request browser GPS on user action (or automatically when permission is already granted)
+  // Sync GPS to backend
+  const syncGpsToBackend = useCallback((lat: number, lon: number, accuracy?: number) => {
+    if (isAuthenticated) {
+      flashDealApi.updateGps({ latitude: lat, longitude: lon, accuracy }).catch(() => {
+        // Non-blocking sync error
+      });
+    }
+  }, [isAuthenticated]);
+
+  // Request browser GPS on user action or auto
   const requestGpsLocation = useCallback(() => {
     if (!("geolocation" in navigator)) {
       setGpsError("Geolocation is not supported by your browser.");
@@ -181,17 +179,22 @@ export function useNearbyFlashDeals() {
       setIsLocationReady(true);
       setGpsError(null);
       setLocationVersion((v) => v + 1);
+
+      syncGpsToBackend(newCoords.latitude, newCoords.longitude, position.coords.accuracy);
     };
 
     const onGeoError = (err: GeolocationPositionError) => {
-      // If high accuracy failed (e.g. timeout or position unavailable), retry once with network/standard accuracy
       if (err.code !== 1) {
         navigator.geolocation.getCurrentPosition(
           onGeoSuccess,
           () => {
             setIsGpsLoading(false);
-            setIsLocationReady(false);
-            setGpsError("Unable to retrieve GPS coordinates automatically. Please check your device location settings or use your saved address.");
+            if (user?.defaultAddress) {
+              selectSavedAddress();
+            } else {
+              setIsLocationReady(false);
+              setGpsError("Unable to retrieve GPS coordinates automatically.");
+            }
           },
           { timeout: 8000, enableHighAccuracy: false, maximumAge: 300000 },
         );
@@ -199,11 +202,12 @@ export function useNearbyFlashDeals() {
       }
 
       setIsGpsLoading(false);
-      setIsLocationReady(false);
-      if (err.code === 1) {
-        setGpsError("Location permission is blocked in your browser. Please allow location access in your address bar.");
+      // Fallback to saved address if GPS permission denied
+      if (user?.defaultAddress) {
+        selectSavedAddress();
       } else {
-        setGpsError("Unable to retrieve GPS coordinates automatically. Please check your device location settings or use your saved address.");
+        setIsLocationReady(false);
+        setGpsError("Location permission is blocked in your browser.");
       }
     };
 
@@ -212,46 +216,7 @@ export function useNearbyFlashDeals() {
       enableHighAccuracy: true,
       maximumAge: 60000,
     });
-  }, []);
-
-  // Initialization: check GPS permission automatically if previously granted, or use saved address if logged in
-  useEffect(() => {
-    // If user has a saved default address, prioritize it and do not call browser GPS API
-    if (user?.defaultAddress) {
-      const newCoords = {
-        latitude: user.defaultAddress.latitude,
-        longitude: user.defaultAddress.longitude,
-      };
-      cachedCoords = newCoords;
-      cachedLocationMode = "saved_address";
-      const label = user.defaultAddress.label
-        ? `${user.defaultAddress.label} - ${user.defaultAddress.addressLine}`
-        : user.defaultAddress.addressLine;
-      cachedLocationLabel = label;
-      const addrToDisplay =
-        cleanAddressParts([
-          user.defaultAddress.addressLine,
-          user.defaultAddress.ward,
-          user.defaultAddress.district,
-          user.defaultAddress.city,
-        ]) || user.defaultAddress.addressLine;
-      cachedLocationAddress = addrToDisplay;
-
-      setCoords(newCoords);
-      setLocationMode("saved_address");
-      setLocationLabel(label);
-      setLocationAddress(addrToDisplay);
-      setIsLocationReady(true);
-      setLocationVersion((v) => v + 1);
-      return;
-    }
-
-    // If coordinates exist from previous session in module cache, use immediately
-    if (cachedCoords) {
-      setIsLocationReady(true);
-      return;
-    }
-  }, [user?.defaultAddress]);
+  }, [user?.defaultAddress, syncGpsToBackend]);
 
   // Switch to saved default address
   const selectSavedAddress = useCallback(() => {
@@ -285,37 +250,36 @@ export function useNearbyFlashDeals() {
     }
   }, [user?.defaultAddress]);
 
-  // Switch to default location (uses saved address if available, or requests GPS)
-  const selectDefaultLocation = useCallback(() => {
-    if (user?.defaultAddress) {
-      selectSavedAddress();
-    } else {
-      requestGpsLocation();
-    }
-  }, [user?.defaultAddress, selectSavedAddress, requestGpsLocation]);
-
-  // Automatically reverse-geocode physical address from GPS coordinates for display (ONLY FOR GPS)
+  // Section 2: GPS is Priority #1! Only fallback to Default Address if GPS not available.
   useEffect(() => {
-    // If using saved default address, directly use the profile address and NEVER call any reverse geocoding API
-    if (locationMode === "saved_address" || user?.defaultAddress) {
-      if (user?.defaultAddress) {
-        const addrToDisplay =
-          cleanAddressParts([
-            user.defaultAddress.addressLine,
-            user.defaultAddress.ward,
-            user.defaultAddress.district,
-            user.defaultAddress.city,
-          ]) || user.defaultAddress.addressLine;
-        setLocationAddress(addrToDisplay);
-      }
+    if (cachedCoords) {
+      setIsLocationReady(true);
       return;
     }
 
-    // Only GPS mode requires calling the reverse-geocoding API to resolve coordinates to a text address
-    if (locationMode !== "gps" || !coords) {
-      return;
+    // Attempt GPS first
+    if ("geolocation" in navigator) {
+      navigator.permissions?.query({ name: "geolocation" as PermissionName }).then((perm) => {
+        if (perm.state === "granted" || perm.state === "prompt") {
+          requestGpsLocation();
+        } else if (user?.defaultAddress) {
+          selectSavedAddress();
+        }
+      }).catch(() => {
+        if (user?.defaultAddress) {
+          selectSavedAddress();
+        } else {
+          requestGpsLocation();
+        }
+      });
+    } else if (user?.defaultAddress) {
+      selectSavedAddress();
     }
+  }, [user?.defaultAddress, requestGpsLocation, selectSavedAddress]);
 
+  // Reverse geocoding for GPS display
+  useEffect(() => {
+    if (locationMode !== "gps" || !coords) return;
     let isMounted = true;
 
     async function resolveAddress() {
@@ -327,21 +291,6 @@ export function useNearbyFlashDeals() {
         );
         if (res.ok) {
           const data = await res.json();
-          const addr = data.address;
-          if (addr) {
-            const parts = [
-              data.name && data.name !== addr.road && !data.name.startsWith(addr.road || "") ? data.name : null,
-              addr.road,
-              addr.suburb || addr.quarter || addr.neighbourhood,
-              addr.city_district || addr.district || addr.city || addr.town,
-              addr.city && addr.city !== addr.city_district && addr.city !== addr.district ? addr.city : null,
-            ];
-            const cleaned = cleanAddressParts(parts);
-            if (cleaned && isMounted) {
-              setLocationAddress(cleaned);
-              return;
-            }
-          }
           if (data.display_name && isMounted) {
             const chunks = data.display_name.split(", ").slice(0, 4);
             const cleaned = cleanAddressParts(chunks);
@@ -351,26 +300,7 @@ export function useNearbyFlashDeals() {
             }
           }
         }
-      } catch {
-        // Fallback
-      }
-
-      try {
-        const res2 = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.latitude}&longitude=${coords.longitude}&localityLanguage=vi`
-        );
-        if (res2.ok) {
-          const data2 = await res2.json();
-          const parts2 = [data2.locality, data2.city, data2.countryName];
-          const cleaned2 = cleanAddressParts(parts2);
-          if (cleaned2 && isMounted) {
-            setLocationAddress(cleaned2);
-            return;
-          }
-        }
-      } catch {
-        // Fallback
-      }
+      } catch {}
 
       if (isMounted) {
         setLocationAddress(`${coords.latitude.toFixed(4)}°N, ${coords.longitude.toFixed(4)}°E`);
@@ -378,29 +308,25 @@ export function useNearbyFlashDeals() {
     }
 
     void resolveAddress();
-
     return () => {
       isMounted = false;
     };
-  }, [coords, locationMode, user?.defaultAddress]);
+  }, [coords, locationMode]);
 
-  // 2. Initial load - Query backend directly with Cursor Pagination and active filters
+  // 1. Initial Page Load - Keyset Cursor fresh session (Page 1)
   const fetchInitialDeals = useCallback(async () => {
     if (!coords) return;
-    // Only show Skeleton when there are no deals currently loaded
     if (dealsRef.current.length === 0) {
       setIsLoading(true);
     }
     setError(null);
     setNewDealsCount(0);
-    setPendingNewDeals([]);
     try {
-      const isSavedAddress = locationMode === "saved_address";
       const res = await flashDealApi.getNearbyDeals({
-        latitude: isSavedAddress ? undefined : coords.latitude,
-        longitude: isSavedAddress ? undefined : coords.longitude,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         radiusInKm,
-        mode: "Initial",
+        locationMode: locationMode ?? undefined,
         limit: 9,
         category: filters.category.length > 0 ? filters.category.join(",") : undefined,
         distance: filters.distance.length > 0 ? filters.distance.join(",") : undefined,
@@ -409,14 +335,17 @@ export function useNearbyFlashDeals() {
         keyword: debouncedKeyword ? debouncedKeyword : undefined,
       });
 
-      // Deduplicate deals by ID
       const uniqueDeals = Array.from(
-        new Map(res.deals.map((deal) => [deal.id, deal])).values(),
+        new Map(
+          res.deals.map((deal) => {
+            const isNewlyArrived = newDealIdsRef.current.has(deal.id.toLowerCase());
+            return [deal.id, { ...deal, isNew: isNewlyArrived || deal.isNew }];
+          }),
+        ).values(),
       );
       setDeals(uniqueDeals);
-      setCursor1(res.cursor1 ?? null);
-      setCursor2(res.cursor2 ?? null);
-      setHasOlder(res.hasOlder);
+      setNextCursor(res.nextCursor ?? null);
+      setHasOlder(res.hasMore ?? res.hasOlder);
       setServerMessage(res.message ?? null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load flash deals.";
@@ -426,36 +355,19 @@ export function useNearbyFlashDeals() {
     }
   }, [coords, radiusInKm, filters, selectedShop, debouncedKeyword, locationMode]);
 
-  // 3. DUAL-CURSOR: Pagination downward - combine both cursors in a single API call
-  //
-  // Workflow:
-  //   - Pass cursor1 (current oldest timestamp) to fetch older deals
-  //   - Pass cursor2 (current newest timestamp) to check if new deals have been published
-  //     since the last fetch
-  //
-  // Backend returns: [deals newer than cursor2] ++ [deals older than cursor1 (up to limit)]
-  //
-  // Frontend merges the result:
-  //   - New deals (first prependedCount items) -> prepend with "isNew: true" badge
-  //   - Older deals -> append to bottom of list
-  //   - Update cursor2 to latest timestamp received
-  //   - Reset new deals notification badge
+  // 2. Keyset Cursor: Load next page (Older items)
   const loadOlderDeals = useCallback(async () => {
-    const currentCursor1 = cursor1Ref.current;
-    if (!coords || !currentCursor1 || isLoadingOlderRef.current) return;
+    const currentCursor = nextCursorRef.current;
+    if (!coords || !currentCursor || isLoadingOlderRef.current) return;
     isLoadingOlderRef.current = true;
     setIsLoadingOlder(true);
     try {
-      const isSavedAddress = locationMode === "saved_address";
-      // Delay 1.5s to show skeleton loading UI smoothly (1s - 2s)
-      const delayPromise = new Promise((resolve) => setTimeout(resolve, 1500));
-      const apiPromise = flashDealApi.getNearbyDeals({
-        latitude: isSavedAddress ? undefined : coords.latitude,
-        longitude: isSavedAddress ? undefined : coords.longitude,
+      const res = await flashDealApi.getNearbyDeals({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         radiusInKm,
-        cursor1: currentCursor1,          // Cursor 1: oldest boundary -> fetch older deals
-        cursor2: cursor2Ref.current ?? undefined, // Cursor 2: newest boundary -> detect newer deals
-        mode: "Older",
+        cursor: currentCursor,
+        locationMode: locationMode ?? undefined,
         limit: 9,
         category: filters.category.length > 0 ? filters.category.join(",") : undefined,
         distance: filters.distance.length > 0 ? filters.distance.join(",") : undefined,
@@ -464,93 +376,100 @@ export function useNearbyFlashDeals() {
         keyword: debouncedKeyword ? debouncedKeyword : undefined,
       });
 
-      const [, res] = await Promise.all([delayPromise, apiPromise]);
-
       if (res.deals.length > 0) {
         setDeals((prev) => {
           const existingIds = new Set(prev.map((d) => d.id));
-
-          // Deals newer than cursor2 (first prependedCount items in res.deals)
-          // Deals older than cursor1 (remaining items)
-          const incomingNew = res.deals
-            .slice(0, res.prependedCount)
-            .filter((d) => !existingIds.has(d.id))
-            .map((d) => ({ ...d, isNew: true }));
-          const incomingOld = res.deals.slice(res.prependedCount).filter((d) => !existingIds.has(d.id));
-
-          // Result: [existing deals] ++ [newly created deals with NEW badge] ++ [older deals]
-          return [...prev, ...incomingNew, ...incomingOld];
+          const newUnique = res.deals.filter((d) => !existingIds.has(d.id));
+          return [...prev, ...newUnique];
         });
-
-        // Update cursor1 if older deals were returned
-        if (res.cursor1) {
-          setCursor1(res.cursor1);
-          cursor1Ref.current = res.cursor1;
-        }
-
-        // Update cursor2 if backend detected new deals and merged them in
-        if (res.prependedCount > 0 && res.cursor2) {
-          setCursor2(res.cursor2);
-          cursor2Ref.current = res.cursor2;
-          // Reset badge since new deals are now displayed in the list
-          setNewDealsCount(0);
-          setPendingNewDeals([]);
-        }
       }
 
-      setHasOlder(res.hasOlder);
+      setNextCursor(res.nextCursor ?? null);
+      setHasOlder(res.hasMore ?? res.hasOlder);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load older deals.";
-      setError(msg);
+      if (msg.includes("CURSOR_LOCATION_CHANGED")) {
+        // Location context changed beyond threshold: reset feed to Page 1
+        setError("Vị trí của bạn đã thay đổi. Đang làm mới danh sách...");
+        void fetchInitialDeals();
+      } else {
+        setError(msg);
+      }
     } finally {
       isLoadingOlderRef.current = false;
       setIsLoadingOlder(false);
     }
-  }, [coords, radiusInKm, filters, selectedShop, debouncedKeyword, locationMode]);
+  }, [coords, radiusInKm, filters, selectedShop, debouncedKeyword, locationMode, fetchInitialDeals]);
 
-  // 4. Cursor 2 - POLLING ONLY: Periodically check if new deals exist.
-  //
-  // Backend (mode=Newer) only returns newDealsCount, does not return deals, does not update cursor2.
-  // Purpose: show "X new deals!" badge -> user knows to load new deals.
-  // Cursor2 will only be updated when loadOlderDeals() is called.
-  const checkNewerDeals = useCallback(async () => {
-    if (!coords || !cursor2 || isCheckingNewer) return;
-    setIsCheckingNewer(true);
-    try {
-      const isSavedAddress = locationMode === "saved_address";
-      const res = await flashDealApi.getNearbyDeals({
-        latitude: isSavedAddress ? undefined : coords.latitude,
-        longitude: isSavedAddress ? undefined : coords.longitude,
-        radiusInKm,
-        cursor2,
-        mode: "Newer",
-      });
+  // Section 8.3 & Realtime handling:
+  // - Deal Hidden / Closed / Cancelled: Lập tức loại bỏ khỏi danh sách deal đang hiển thị
+  // - Deal Opened / Re-opened / Published: Tự động hiện ra ngay trên màn hình với chữ "NEW", không cần click nút
+  const handleRealtimeDealEvent = useCallback(
+    async (eventData?: FlashDealRealtimePayload) => {
+      if (!eventData) return;
 
-      if (res.hasNewer && res.newDealsCount > 0) {
-        // Only update badge count, do NOT merge into list here
-        setNewDealsCount(res.newDealsCount);
+      const action = eventData.action?.toLowerCase();
+      const status = eventData.status?.toLowerCase();
+      const dealId = eventData.dealId?.toLowerCase();
+
+      // 1. Hide / Close / Cancel: IMMEDIATELY remove from active feed!
+      if (
+        action === "hidden" ||
+        status === "hidden" ||
+        action === "closed" ||
+        status === "closed" ||
+        action === "cancelled" ||
+        status === "cancelled"
+      ) {
+        if (dealId) {
+          newDealIdsRef.current.delete(dealId);
+          setDeals((prev) => prev.filter((d) => d.id.toLowerCase() !== dealId));
+        }
+        return;
       }
-    } catch {
-      // Polling fails silently without interrupting UI
-    } finally {
-      setIsCheckingNewer(false);
-    }
-  }, [coords, radiusInKm, cursor2, isCheckingNewer, locationMode]);
 
-  // 5. When user clicks "Update now" on new deals notification badge:
-  //    Call loadOlderDeals() immediately -> backend prepends new deals.
-  //    If no pages loaded yet, refresh entire list.
+      // 2. Open / Published / Reopen: Tự động hiện ra ngay lập tức trên UI với nhãn NEW!
+      if (
+        action === "opened" ||
+        action === "published" ||
+        action === "reopened" ||
+        status === "onsale" ||
+        status === "open" ||
+        status === "pending"
+      ) {
+        if (dealId) {
+          newDealIdsRef.current.add(dealId);
+          try {
+            const freshDeal = await flashDealApi.getDealById(dealId);
+            if (freshDeal && freshDeal.status !== 2 && freshDeal.status !== 4 && freshDeal.status !== 5) {
+              const markedDeal: FlashDeal = {
+                ...freshDeal,
+                isNew: true,
+              };
+              setDeals((prev) => {
+                const rest = prev.filter((d) => d.id.toLowerCase() !== dealId);
+                return [markedDeal, ...rest];
+              });
+              return;
+            }
+          } catch {
+            // Fallback: nếu lấy chi tiết lỗi, tự động refresh Page 1
+          }
+        }
+        void fetchInitialDeals();
+      }
+    },
+    [fetchInitialDeals],
+  );
+
+  useFlashDealRealtime("all", undefined, handleRealtimeDealEvent);
+
+  // When user clicks "Show new deals" on banner: refresh from Page 1 with fresh SnapshotAt
   const applyNewDeals = useCallback(() => {
-    if (cursor1) {
-      // Page 1 exists -> load next page with new deals prepended
-      void loadOlderDeals();
-    } else {
-      // No pages yet -> refresh entire list
-      void fetchInitialDeals();
-    }
     setNewDealsCount(0);
-    setPendingNewDeals([]);
-  }, [cursor1, loadOlderDeals, fetchInitialDeals]);
+    setNextCursor(null);
+    void fetchInitialDeals();
+  }, [fetchInitialDeals]);
 
   // Trigger on init or location/radius change
   useEffect(() => {
@@ -558,80 +477,22 @@ export function useNearbyFlashDeals() {
     void fetchInitialDeals();
   }, [isLocationReady, fetchInitialDeals]);
 
-  // Real-time SignalR connection for public updates (deal changes, shop status changes)
-  useFlashDealRealtime("all", undefined, () => {
-    void checkNewerDeals();
-  });
-
-  // Real-time synchronization when admin blocks a store: immediately remove its loaded deals
-  useEffect(() => {
-    const handleShopStatus = (e: Event) => {
-      const detail = (e as CustomEvent<{ shopId?: string; status?: string; isBlocked?: boolean }>).detail;
-      const rawShopId = detail?.shopId || (detail as any)?.ShopId;
-      const rawStatus = detail?.status || (detail as any)?.Status;
-      const isBlocked = detail?.isBlocked || (detail as any)?.IsBlocked;
-      const blockedShopId = rawShopId?.toLowerCase();
-      if (!blockedShopId) return;
-
-      const isInactive = !rawStatus || rawStatus.toLowerCase() !== "active" || Boolean(isBlocked);
-      if (isInactive) {
-        setDeals((prev) => {
-          const hasBlocked = prev.some((d) => (d.shopId || (d as any).ShopId)?.toLowerCase() === blockedShopId);
-          if (!hasBlocked) return prev;
-          const next = prev.filter((d) => (d.shopId || (d as any).ShopId)?.toLowerCase() !== blockedShopId);
-          cachedDeals = next;
-          return next;
-        });
-
-        setSelectedShop((prev) => {
-          if (!prev) return null;
-          const wasBlocked = dealsRef.current.some(
-            (d) =>
-              (d.shopId || (d as any).ShopId)?.toLowerCase() === blockedShopId &&
-              d.shopName?.toLowerCase() === prev.toLowerCase(),
-          );
-          return wasBlocked ? null : prev;
-        });
-        setPendingNewDeals((prev) => prev.filter((d) => (d.shopId || (d as any).ShopId)?.toLowerCase() !== blockedShopId));
-      } else {
-        void checkNewerDeals();
-      }
-    };
-
-    window.addEventListener("shop:status-changed", handleShopStatus);
-    return () => window.removeEventListener("shop:status-changed", handleShopStatus);
-  }, [checkNewerDeals]);
-
-  // Periodically every 45s check for new deals using Cursor 2
-  useEffect(() => {
-    if (!cursor2) return;
-    const interval = setInterval(() => {
-      void checkNewerDeals();
-    }, 45000);
-    return () => clearInterval(interval);
-  }, [cursor2, checkNewerDeals]);
-
-  // Backend handles all filtering before cursor pagination, so deals is already filtered
-  const filteredDeals = deals;
-
-  const categoryCounts = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const d of deals) {
-      if (d.categoryName) {
-        map[d.categoryName] = (map[d.categoryName] || 0) + 1;
-      }
-    }
-    return map;
-  }, [deals]);
-
   return {
-    deals: filteredDeals,
+    deals,
     rawDeals: deals,
-    categoryCounts,
+    categoryCounts: useMemo(() => {
+      const map: Record<string, number> = {};
+      for (const d of deals) {
+        if (d.categoryName) {
+          map[d.categoryName] = (map[d.categoryName] || 0) + 1;
+        }
+      }
+      return map;
+    }, [deals]),
     serverMessage,
     isLoading,
     isLoadingOlder,
-    isCheckingNewer,
+    isCheckingNewer: false,
     error,
     coords,
     isLocationReady,
@@ -645,26 +506,25 @@ export function useNearbyFlashDeals() {
     filters,
     setFilters,
     refreshDeals: fetchInitialDeals,
-    cursor1,
-    cursor2,
+    cursor1: null,
+    cursor2: null,
     hasOlder,
     newDealsCount,
-    pendingNewDeals,
+    pendingNewDeals: [],
     loadOlderDeals,
-    checkNewerDeals,
+    checkNewerDeals: () => {},
     applyNewDeals,
     categories,
     isLoadingCategories,
     locationMode,
     locationLabel,
     locationAddress,
-    locationVersion,
     gpsError,
     isGpsLoading,
     requestGpsLocation,
     selectSavedAddress,
-    selectDefaultLocation,
+    selectDefaultLocation: selectSavedAddress,
+    locationVersion,
     userDefaultAddress: user?.defaultAddress,
-    isAuthenticated,
   };
 }

@@ -46,7 +46,7 @@ public class RegisterShopTests
             new ShopApplicationLogoValidator(),
             new Mock<INotificationQueue>().Object,
             TestDbContextFactory.Create(),
-            new Mock<IAdminAuditWriter>().Object
+            new Mock<IAdminAuditWriter>().Object, new Mock<IPayOsCredentialsValidator>().Object
         );
     }
 

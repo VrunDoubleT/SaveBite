@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AlertCircle, PackageSearch, RotateCw, SearchX } from "lucide-react";
 import { productApi } from "@/features/products/api/productApi";
 import { ProductManagementTable } from "@/features/products/components/ProductManagementTable";
@@ -81,9 +82,11 @@ function StateMessage({
 }
 
 export function ProductManagementPage() {
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedPage = Number(searchParams.get("page") ?? 1);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const search = searchParams.get("search") ?? "";
+  const [searchInput, setSearchInput] = useState(search);
 
   const [items, setItems] = useState<ProductListManagement[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -95,13 +98,53 @@ export function ProductManagementPage() {
   const retry = useCallback(() => setReloadKey((key) => key + 1), []);
 
   useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
+
+  useEffect(() => {
+    if (searchInput.trim() === search) return;
+
     const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          const value = searchInput.trim();
+          if (value) next.set("search", value);
+          else next.delete("search");
+          next.delete("page");
+          return next;
+        },
+        { preventScrollReset: true },
+      );
     }, SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, search, setSearchParams]);
+
+  useEffect(() => {
+    if (!loading && page > totalPages) {
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          if (totalPages <= 1) next.delete("page");
+          else next.set("page", String(totalPages));
+          return next;
+        },
+        { replace: true, preventScrollReset: true },
+      );
+    }
+  }, [loading, page, totalPages, setSearchParams]);
+
+  const handlePageChange = (nextPage: number) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("page", String(nextPage));
+        return next;
+      },
+      { preventScrollReset: true },
+    );
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -211,7 +254,7 @@ export function ProductManagementPage() {
               <Pagination
                 currentPage={page}
                 totalPages={totalPages}
-                onPageChange={setPage}
+                onPageChange={handlePageChange}
                 totalItems={totalItems}
                 pageSize={PAGE_SIZE}
                 itemLabel="products"

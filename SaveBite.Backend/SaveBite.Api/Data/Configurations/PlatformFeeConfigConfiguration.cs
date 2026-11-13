@@ -11,6 +11,7 @@ public class PlatformFeeConfigConfiguration
     {
         builder.ToTable("platform_fee_configs", table =>
         {
+            table.HasCheckConstraint("ck_platform_fee_lifecycle", "lifecycle_status IN ('Published', 'Cancelled', 'Superseded')");
             table.HasCheckConstraint(
                 "ck_platform_fee_rate",
                 "\"fee_rate\" BETWEEN 0 AND 1");
@@ -21,6 +22,17 @@ public class PlatformFeeConfigConfiguration
                 "\"effective_to\" > \"effective_from\"");
         });
 
+        builder.Property(x => x.LifecycleStatus).HasColumnName("lifecycle_status").HasMaxLength(20).HasDefaultValue("Published");
+        builder.Property(x => x.Reason).HasColumnName("reason").HasMaxLength(500);
+        builder.Property(x => x.ReplacesConfigId).HasColumnName("replaces_config_id");
+        builder.Property(x => x.ClosedAt).HasColumnName("closed_at");
+        builder.Property(x => x.ClosedBy).HasColumnName("closed_by");
+        builder.Property(x => x.ClosureReason).HasColumnName("closure_reason").HasMaxLength(500);
+        builder.Property(x => x.ActivationProcessedAt).HasColumnName("activation_processed_at");
+        builder.HasOne<PlatformFeeConfig>().WithMany().HasForeignKey(x => x.ReplacesConfigId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<User>().WithMany().HasForeignKey(x => x.ClosedBy).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => x.EffectiveFrom).IsUnique().HasFilter("lifecycle_status = 'Published'")
+            .HasDatabaseName("ux_platform_fee_published_start");
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)

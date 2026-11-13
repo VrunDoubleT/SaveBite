@@ -6,11 +6,16 @@ interface SharedModalProps {
   onClose: () => void;
   closeOnClickOutside?: boolean;
   title?: string;
+  headerContent?: ReactNode;
   children: ReactNode;
   maxWidthClass?: string;
 }
 // Retain the existing API; the shared primitive supplies dialog focus and Escape handling.
-export function SharedModal({ title, maxWidthClass = "max-w-md", ...props }: SharedModalProps) {
+export function SharedModal({
+  title,
+  maxWidthClass = "max-w-md",
+  ...props
+}: SharedModalProps) {
   return (
     <Modal {...props} title={title ?? "Dialog"} hideHeader={!title} maxWidthClass={maxWidthClass} />
   );

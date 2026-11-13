@@ -3,6 +3,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
+import { RecordId } from "@/shared/components/RecordId";
 import type {
   AdminTrustLevel,
   TrustLevelDepositRangeInput,
@@ -231,6 +232,7 @@ export function LevelBenefitsModal({ level, onClose, onSave }: LevelBenefitsModa
       maxWidthClass="max-w-2xl"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {level && <RecordId id={level.id} variant="full" />}
         <FormField
           label="Benefits description"
           htmlFor="level-benefits"

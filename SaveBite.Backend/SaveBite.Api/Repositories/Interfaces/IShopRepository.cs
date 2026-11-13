@@ -36,6 +36,6 @@ public interface IShopRepository
     // Manage Shops.
     Task<(IReadOnlyList<Shop> Items, int Total)> GetShopListAsync(string? keyword, int page, int pageSize, CancellationToken ct);
     Task<Shop?> GetShopContentAsync(Guid shopId, CancellationToken ct);
-    Task<IReadOnlyList<AuditLog>> GetShopStatusHistoryAsync(Guid shopId, CancellationToken ct);
+    Task<IReadOnlyList<ShopStatusHistory>> GetShopStatusHistoryAsync(Guid shopId, CancellationToken ct);
     Task<Shop?> GetShopForStatusUpdateAsync(Guid shopId, CancellationToken ct);
 }

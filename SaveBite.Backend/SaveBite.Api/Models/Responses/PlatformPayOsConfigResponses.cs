@@ -7,7 +7,11 @@ public sealed record PlatformPayOsConfigResponse(
     bool HasChecksumKey,
     DateTime? UpdatedAt,
     Guid? UpdatedByUserId,
-    string? UpdatedByName);
+    string? UpdatedByName)
+{
+    public bool IsVerified { get; init; }
+    public bool PaymentsAvailable { get; init; }
+}
 
 public sealed record PlatformPayOsConfigHistoryResponse(
     Guid Id,

@@ -1,3 +1,4 @@
+import { toast } from "@/shared/stores/toastStore";
 import { UploadDraftChoice } from "@/shared/uploads/UploadDraftChoice";
 
 import { UploadTaskGuard } from "@/shared/uploads/UploadTaskGuard";
@@ -127,6 +128,12 @@ function ShopApplicationFormContent({ applicationId }: { applicationId?: string 
   const form = (
     <ShopApplicationForm
       application={applicationId ? application : null}
+      onQueued={() => {
+        toast.info(
+          "Your application is uploading in the background. Follow its progress in the upload panel.",
+        );
+        goToApplication();
+      }}
       onSaved={goToApplication}
       onCancel={goToApplication}
     />

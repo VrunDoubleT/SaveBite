@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Clock3, ImageOff, MapPin, Package, ShoppingBag } from "lucide-react";
+import { Clock3, ImageOff, MapPin, Package, ShoppingBag, Sparkles } from "lucide-react";
 import { Badge, ButtonLink, Card } from "@/shared/components/ui";
 import type { FlashDeal } from "@/features/flash-deals/types/flashDeal.types";
 
@@ -22,6 +22,14 @@ function countdown(deal: FlashDeal, soldOut: boolean) {
   return hours > 0 ? `Ends in ${hours}h ${minutes % 60}m` : `Ends in ${minutes}m`;
 }
 
+function isDealRecentlyCreated(deal: FlashDeal) {
+  if (deal.isNew) return true;
+  if (!deal.createdAt) return false;
+  const createdMs = new Date(deal.createdAt).getTime();
+  if (Number.isNaN(createdMs)) return false;
+  return Date.now() - createdMs < 30 * 60 * 1000;
+}
+
 export function DealCard({ deal, isSameShop = false }: DealCardProps) {
   const totalQty = deal.variants.reduce((sum, v) => sum + (v.totalQuantity || 0), 0) || 1;
   const soldQty = deal.variants.reduce((sum, v) => sum + (v.soldQuantity || 0), 0);
@@ -30,6 +38,8 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
   const isDealSoldOut = deal.status === 3 || remainingQty <= 0;
   const [timeLeft, setTimeLeft] = useState(() => countdown(deal, isDealSoldOut));
   const [failedImage, setFailedImage] = useState<string | null>(null);
+  const isNew = isDealRecentlyCreated(deal);
+
   useEffect(() => {
     const timer = setInterval(() => setTimeLeft(countdown(deal, isDealSoldOut)), 30000);
     return () => clearInterval(timer);
@@ -59,16 +69,19 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
           )}
         </Link>
         <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
-          {deal.maxDiscountPercent > 0 && (
-            <Badge tone="warning" className="bg-accent-100 font-semibold">
-              Save {Math.round(deal.maxDiscountPercent)}%
-            </Badge>
-          )}
-          {deal.isNew && (
-            <Badge tone="primary" className="bg-bg-surface font-semibold">
-              New deal
-            </Badge>
-          )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {deal.maxDiscountPercent > 0 && (
+              <Badge tone="warning" className="bg-accent-100 font-semibold shadow-xs">
+                Save {Math.round(deal.maxDiscountPercent)}%
+              </Badge>
+            )}
+            {isNew && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-md ring-1 ring-white/90 animate-pulse">
+                <Sparkles className="size-3 shrink-0" aria-hidden="true" />
+                NEW
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">

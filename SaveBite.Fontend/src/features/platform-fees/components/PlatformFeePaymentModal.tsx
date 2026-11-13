@@ -164,6 +164,12 @@ export function PlatformFeePaymentModal({
               )}
             </div>
 
+            {!paymentData.isSimulated && paymentData.checkoutUrl && (
+              <a href={paymentData.checkoutUrl} target="_blank" rel="noopener noreferrer"
+                className="mt-3 inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold text-emerald-700 underline">
+                Open PayOS checkout
+              </a>
+            )}
             <p className="mt-2 text-center text-[11px] text-slate-500 max-w-xs leading-relaxed">
               {paymentData.isSimulated
                 ? "This is a test payment. No real money is transferred."

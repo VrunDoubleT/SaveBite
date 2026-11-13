@@ -36,6 +36,8 @@ public static class ServiceExtensions
         services.AddScoped<IStaffInvitationService, StaffInvitationService>();
         services.AddScoped<StaffInvitationNotificationService>();
         services.AddScoped<IUserAddressService, UserAddressService>();
+        services.AddScoped<ILocationService, LocationService>();
+        services.AddScoped<IDealRecipientResolver, DealRecipientResolver>();
 
         services.AddScoped<IShopService, ShopService>();
         services.AddScoped<IShopSuspensionCleanupService, ShopSuspensionCleanupService>();
@@ -45,6 +47,11 @@ public static class ServiceExtensions
         services.AddScoped<ITrustOrderService, TrustOrderService>();
         services.AddScoped<ITrustNotificationService, TrustNotificationService>();
         services.AddScoped<ITrustConfigService, TrustConfigService>();
+        services.AddScoped<ITrustReconciliationService, TrustReconciliationService>();
+        services.AddScoped<IPayOsApiClient, PayOsApiClient>();
+        services.AddScoped<IPayOsCredentialsValidator, PayOsCredentialsValidator>();
+        services.AddScoped<IPayOsCredentialProtector, PayOsCredentialProtector>();
+        services.AddScoped<PlatformFeePaymentAvailability>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddPasswordHasher();
         services.AddSingleton<ICloudinaryService, CloudinaryService>();

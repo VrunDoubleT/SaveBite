@@ -12,6 +12,8 @@ public static class NotificationTypes
     public const string PAYMENT_FAILED = "PAYMENT_FAILED";
 
     public const string REFUND_REQUEST_CREATED = "REFUND_REQUEST_CREATED";
+    public const string REFUND_DESTINATION_REQUIRED = "REFUND_DESTINATION_REQUIRED";
+    public const string REFUND_OVERDUE = "REFUND_OVERDUE";
     public const string REFUND_APPROVED = "REFUND_APPROVED";
     public const string REFUND_REJECTED = "REFUND_REJECTED";
     public const string REFUND_TRANSFERRED = "REFUND_TRANSFERRED";

@@ -12,11 +12,13 @@ public class FlashDealCursorRequest
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public double RadiusInKm { get; set; } = 15.0;
-    
+
+    // Keyset Cursor Token (Section 8.2)
+    public string? Cursor { get; set; }
+
+    // Legacy fields for backward compatibility
     public DateTime? Cursor1 { get; set; }
-
     public DateTime? Cursor2 { get; set; }
-
     public CursorMode Mode { get; set; } = CursorMode.Initial;
 
     public int Limit { get; set; } = 9;
@@ -26,4 +28,5 @@ public class FlashDealCursorRequest
     public string? Price { get; set; }
     public string? ShopName { get; set; }
     public string? Keyword { get; set; }
+    public string? LocationMode { get; set; } // "gps", "saved_address", "default"
 }

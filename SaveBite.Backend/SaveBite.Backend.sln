@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # 
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaveBite.Api", "SaveBite.Api\SaveBite.Api.csproj", "{CF873DA2-375A-4FDD-BE30-E5B9EA59DF59}"
 EndProject

@@ -23,6 +23,7 @@ public sealed class ShopApplicationService : IShopApplicationService
     private readonly INotificationQueue _notifications;
     private readonly IAdminAuditWriter _audit;
     private readonly ICloudinaryService _cloudinary;
+    private readonly IPayOsCredentialsValidator _payOsValidator;
     private readonly IValidator<CreateShopApplicationRequest> _createValidator;
     private readonly IValidator<ResubmitShopApplicationRequest> _resubmitValidator;
     private readonly IValidator<ShopApplicationDocumentsValidationRequest> _documentsValidator;
@@ -38,7 +39,7 @@ public sealed class ShopApplicationService : IShopApplicationService
         IValidator<ShopApplicationDocumentsValidationRequest> documentsValidator,
         IValidator<ShopApplicationLogoValidationRequest> logoValidator,
         INotificationQueue notifications, SaveBite.Backend.Data.AppDbContext db,
-        IAdminAuditWriter audit,
+        IAdminAuditWriter audit, IPayOsCredentialsValidator payOsValidator,
         IRealtimePublisher? realtime = null,
         IHubContext<FlashDealsHub, IApplicationClient>? dealHub = null)
     {
@@ -46,6 +47,7 @@ public sealed class ShopApplicationService : IShopApplicationService
         _notifications = notifications;
         _db = db;
         _audit = audit;
+        _payOsValidator = payOsValidator;
         _cloudinary = cloudinary;
         _createValidator = createValidator;
         _resubmitValidator = resubmitValidator;
@@ -53,6 +55,19 @@ public sealed class ShopApplicationService : IShopApplicationService
         _logoValidator = logoValidator;
         _realtime = realtime;
         _dealHub = dealHub;
+    }
+
+    // Preflight only: no application, uploads or credential configuration are persisted.
+    public async Task VerifyPayOsAsync(Guid userId, VerifyShopApplicationPayOsRequest request, CancellationToken cancellationToken = default)
+    {
+        ShopApplication? existing = null;
+        if (request.ApplicationId.HasValue)
+            existing = await _repository.GetByIdForApplicantAsync(request.ApplicationId.Value, userId, cancellationToken)
+                ?? throw AppException.NotFound("Shop application was not found.");
+        await _payOsValidator.ValidateAsync(new(
+            string.IsNullOrWhiteSpace(request.ClientId) ? existing?.PayosClientId ?? "" : request.ClientId.Trim(),
+            string.IsNullOrWhiteSpace(request.ApiKey) ? existing?.PayosApiKey ?? "" : request.ApiKey.Trim(),
+            string.IsNullOrWhiteSpace(request.ChecksumKey) ? existing?.PayosChecksumKey ?? "" : request.ChecksumKey.Trim()), cancellationToken);
     }
 
     public async Task<ShopApplicationResponse?> GetMyApplicationAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -83,6 +98,8 @@ public sealed class ShopApplicationService : IShopApplicationService
 
         if (await _repository.HasActiveApplicationAsync(userId, cancellationToken))
             throw AppException.Conflict("You already have an active shop application.");
+        await _payOsValidator.ValidateAsync(new(request.PayosClientId.Trim(), request.PayosApiKey.Trim(),
+            request.PayosChecksumKey.Trim()), cancellationToken);
 
         var now = DateTime.UtcNow;
 
@@ -165,6 +182,11 @@ public sealed class ShopApplicationService : IShopApplicationService
             new ShopApplicationLogoValidationRequest(logo, IsRequired: string.IsNullOrWhiteSpace(application.LogoUrl)), cancellationToken);
 
         var now = DateTime.UtcNow;
+
+        await _payOsValidator.ValidateAsync(new(
+            string.IsNullOrWhiteSpace(request.PayosClientId) ? application.PayosClientId : request.PayosClientId.Trim(),
+            string.IsNullOrWhiteSpace(request.PayosApiKey) ? application.PayosApiKey : request.PayosApiKey.Trim(),
+            string.IsNullOrWhiteSpace(request.PayosChecksumKey) ? application.PayosChecksumKey : request.PayosChecksumKey.Trim()), cancellationToken);
 
         application.Name = request.Name.Trim();
         application.Description = Clean(request.Description);
