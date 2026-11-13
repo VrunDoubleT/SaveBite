@@ -487,8 +487,10 @@ export function AdminLevelsPanel() {
                         type="button"
                         className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
                         onClick={() => setRequirementLevel(level)}
-                        title="Edit requirements"
-                        aria-label="Edit requirements"
+                        disabled={level.rank === 1}
+                        style={level.rank === 1 ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                        title={level.rank === 1 ? "Starting level requirements cannot be edited." : "Edit requirements"}
+                        aria-label={level.rank === 1 ? "Starting level requirements cannot be edited." : "Edit requirements"}
                       >
                         <Pencil className="size-4" aria-hidden="true" />
                         <span>Edit</span>

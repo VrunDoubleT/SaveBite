@@ -116,6 +116,7 @@ public class AppDbContext : DbContext
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
+    public DbSet<OrderEventOutbox> OrderEventOutboxes => Set<OrderEventOutbox>();
     // Trust score & levels.
     public DbSet<NoShowPenalty> NoShowPenalties => Set<NoShowPenalty>();
     public DbSet<NoShowPenaltyOrderHistory> NoShowPenaltyOrderHistories => Set<NoShowPenaltyOrderHistory>();
@@ -131,8 +132,10 @@ public class AppDbContext : DbContext
     public DbSet<UserTrustScore> UserTrustScores => Set<UserTrustScore>();
     public DbSet<TrustLevelHistory> TrustLevelHistories => Set<TrustLevelHistory>();
     public DbSet<TrustPolicyVersion> TrustPolicyVersions => Set<TrustPolicyVersion>();
+    public DbSet<TrustOrderProcessing> TrustOrderProcessings => Set<TrustOrderProcessing>();
     // Shops.
     public DbSet<Shop> Shops => Set<Shop>();
+    public DbSet<ShopPaymentConfig> ShopPaymentConfigs => Set<ShopPaymentConfig>();
     public DbSet<ShopFollow> ShopFollows => Set<ShopFollow>();
     public DbSet<ShopApplication> ShopApplications => Set<ShopApplication>();
     public DbSet<ShopApplicationDocument> ShopApplicationDocuments => Set<ShopApplicationDocument>();
@@ -143,6 +146,9 @@ public class AppDbContext : DbContext
     public DbSet<StaffActivityLog> StaffActivityLogs => Set<StaffActivityLog>();
     // Refunds.
     public DbSet<Refund> Refunds => Set<Refund>();
+    public DbSet<RefundItem> RefundItems => Set<RefundItem>();
+    public DbSet<OrderRefundRequest> OrderRefundRequests => Set<OrderRefundRequest>();
+    public DbSet<RefundStatusHistory> RefundStatusHistories => Set<RefundStatusHistory>();
     public DbSet<RefundEvidenceImage> RefundEvidenceImages => Set<RefundEvidenceImage>();
     // Platform Fee.
     public DbSet<PlatformFeeConfig> PlatformFeeConfigs => Set<PlatformFeeConfig>();
@@ -155,6 +161,7 @@ public class AppDbContext : DbContext
     public DbSet<PlatformPayOsConfigHistory> PlatformPayOsConfigHistories => Set<PlatformPayOsConfigHistory>();
     // Notifications.
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<EmailDelivery> EmailDeliveries => Set<EmailDelivery>();
     // Feedbacks.
     public DbSet<ProductFeedback> ProductFeedbacks => Set<ProductFeedback>();
     public DbSet<ProductFeedbackImage> ProductFeedbackImages => Set<ProductFeedbackImage>();

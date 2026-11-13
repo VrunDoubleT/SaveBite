@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertCircle, PackageSearch, RotateCw, SearchX, Package, CheckCircle2, EyeOff, Zap, ShieldAlert } from "lucide-react";
+import { AlertCircle, RotateCw, Package, CheckCircle2, EyeOff, Zap, ShieldAlert } from "lucide-react";
 import { productApi } from "@/features/products/api/productApi";
 import { ProductManagementTable } from "@/features/products/components/ProductManagementTable";
 import type { ProductListManagement, AdminProductSummary } from "@/features/products/types/product.types";
@@ -262,19 +262,11 @@ export function ProductManagementPage() {
           }
         />
       ) : items.length === 0 ? (
-        search ? (
-          <StateMessage
-            icon={SearchX}
-            title="No matching products"
-            description={`Nothing matches “${search}”. Try a different product or shop name.`}
-          />
-        ) : (
-          <StateMessage
-            icon={PackageSearch}
-            title="No products yet"
-            description="Products registered by sellers will appear here for review."
-          />
-        )
+        <div className="overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-sm">
+          <div className="p-10 text-center text-sm text-text-muted">
+            {search ? "No products found matching your criteria." : "No products yet."}
+          </div>
+        </div>
       ) : (
         <div
           className="overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-sm"

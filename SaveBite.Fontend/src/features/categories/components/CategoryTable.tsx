@@ -1,4 +1,4 @@
-import { Edit, Trash2, Power, Layers } from "lucide-react";
+import { Edit, Trash2, Power } from "lucide-react";
 import type { Category } from "@/features/categories/types/adminCategory.types";
 import { RecordId } from "@/shared/components/RecordId";
 import { CategoryStatusBadge } from "./CategoryStatusBadge";
@@ -16,6 +16,14 @@ export function CategoryTable({
   onEdit,
   onDelete,
 }: CategoryTableProps) {
+  if (categories.length === 0) {
+    return (
+      <div className="p-10 text-center text-sm text-text-muted">
+        No categories found matching your criteria.
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[960px] table-fixed divide-y divide-border-default text-left text-sm">
@@ -86,16 +94,6 @@ export function CategoryTable({
               </td>
             </tr>
           ))}
-          {categories.length === 0 && (
-            <tr>
-              <td colSpan={5} className="p-10 text-center">
-                <Layers className="mx-auto mb-3 size-8 text-neutral-300" />
-                <p className="text-sm font-medium text-text-muted">
-                  No categories found matching your criteria.
-                </p>
-              </td>
-            </tr>
-          )}
         </tbody>
       </table>
     </div>

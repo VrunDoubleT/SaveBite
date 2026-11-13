@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Audit;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Data.Seed;
+using SaveBite.Backend.Services.Interfaces;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -45,7 +46,12 @@ public static class DatabaseExtensions
         }
 
         await context.Database.MigrateAsync(ct);
-        await DbSeeder.SeedAsync(context);
+        // await DbSeeder.SeedAsync(context);
+        await AdminDefaults.EnsureAsync(
+            context,
+            scope.ServiceProvider.GetRequiredService<TimeProvider>(),
+            scope.ServiceProvider.GetRequiredService<IPasswordHasherService>(),
+            ct);
         await TrustEarningDefaults.EnsureAsync(context, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);
         await TrustLevelDefaults.EnsureAsync(context, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);
         await PlatformFeeDefaults.EnsureAsync(context, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);

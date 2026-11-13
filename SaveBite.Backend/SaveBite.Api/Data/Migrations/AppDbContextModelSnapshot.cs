@@ -1905,7 +1905,7 @@ namespace SaveBite.Backend.Data.Migrations
 
                     b.HasIndex("ShopId", "DeletedAt", "CreatedAt");
 
-                    b.ToTable("Products");
+                    b.ToTable("products");
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.ProductAttribute", b =>
