@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
 import type {
@@ -8,7 +7,7 @@ import type {
   CreateTrustLevelPayload,
   TrustLevelDepositRangeInput,
 } from "../types/adminTrust.types";
-import { createLevelSchema, type CreateLevelFormData } from "../schemas/trust.schema";
+import { buildCreateLevelResolver, type CreateLevelFormData } from "../schemas/trust.schema";
 import { formatCurrency } from "../utils/format";
 import { inputClass } from "../utils/formStyles";
 import { FormField, ModalActions } from "./FormField";
@@ -21,30 +20,31 @@ interface CreateLevelModalProps {
   onCreate: (payload: CreateTrustLevelPayload) => Promise<string | null>;
 }
 
-function buildDefaultRanges(
-  freeAmount: number,
-  maxAmount: number,
+function buildInitialRanges(
+  freeAmount?: number | null,
+  maxAmount?: number | null,
 ): TrustLevelDepositRangeInput[] {
-  const safeFree = freeAmount > 0 ? freeAmount : 50000;
-  const safeMax = maxAmount > safeFree ? maxAmount : safeFree * 10;
-  const mid1 = Math.max(safeFree + 1000, Math.round((safeMax * 0.4) / 1000) * 1000);
-  const mid2 = Math.max(mid1 + 1000, Math.round((safeMax * 0.8) / 1000) * 1000);
-
   return [
     {
-      fromOrderAmount: safeFree,
-      toOrderAmount: mid1,
-      depositAmount: Math.max(1000, Math.min(safeFree, Math.round((safeMax * 0.05) / 1000) * 1000)),
+      fromOrderAmount:
+        typeof freeAmount === "number" && !Number.isNaN(freeAmount) && freeAmount > 0
+          ? freeAmount
+          : (undefined as unknown as number),
+      toOrderAmount: undefined as unknown as number,
+      depositAmount: undefined as unknown as number,
     },
     {
-      fromOrderAmount: mid1,
-      toOrderAmount: mid2,
-      depositAmount: Math.max(1000, Math.min(mid1, Math.round((safeMax * 0.2) / 1000) * 1000)),
+      fromOrderAmount: undefined as unknown as number,
+      toOrderAmount: undefined as unknown as number,
+      depositAmount: undefined as unknown as number,
     },
     {
-      fromOrderAmount: mid2,
-      toOrderAmount: safeMax,
-      depositAmount: Math.max(1000, Math.min(mid2, Math.round((safeMax * 0.3) / 1000) * 1000)),
+      fromOrderAmount: undefined as unknown as number,
+      toOrderAmount:
+        typeof maxAmount === "number" && !Number.isNaN(maxAmount) && maxAmount > 0
+          ? maxAmount
+          : (undefined as unknown as number),
+      depositAmount: undefined as unknown as number,
     },
   ];
 }
@@ -64,16 +64,26 @@ export function CreateLevelModal({
       : null;
   const nextRank = (highestLevel?.rank ?? 0) + 1;
 
+  const resolver = useMemo(
+    () => buildCreateLevelResolver(highestLevel, existingLevels.map((l) => l.name)),
+    [highestLevel, existingLevels],
+  );
+
   const {
     register,
     control,
     handleSubmit,
     reset,
     watch,
+    getValues,
     setValue,
+    clearErrors,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<CreateLevelFormData>({
-    resolver: zodResolver(createLevelSchema),
+    resolver,
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       name: "",
       minScore: 0,
@@ -81,9 +91,9 @@ export function CreateLevelModal({
       minTotalOrderValue: 0,
       description: "",
       requireFullOnlinePayment: false,
-      depositFreeOrderAmount: 100000,
-      maxDepositOrderAmount: 1000000,
-      ranges: buildDefaultRanges(100000, 1000000),
+      depositFreeOrderAmount: undefined as unknown as number,
+      maxDepositOrderAmount: undefined as unknown as number,
+      ranges: buildInitialRanges(),
     },
   });
 
@@ -106,9 +116,6 @@ export function CreateLevelModal({
     const suggestedOrders = highestLevel ? prevOrders + 10 : 0;
     const suggestedValue = highestLevel ? prevValue + 500000 : 0;
 
-    const freeAmount = 100000;
-    const maxAmount = 1000000;
-
     reset({
       name: "",
       minScore: suggestedScore,
@@ -116,68 +123,93 @@ export function CreateLevelModal({
       minTotalOrderValue: suggestedValue,
       description: "",
       requireFullOnlinePayment: false,
-      depositFreeOrderAmount: freeAmount,
-      maxDepositOrderAmount: maxAmount,
-      ranges: buildDefaultRanges(freeAmount, maxAmount),
+      depositFreeOrderAmount: undefined as unknown as number,
+      maxDepositOrderAmount: undefined as unknown as number,
+      ranges: buildInitialRanges(),
     });
-  }, [isOpen, highestLevel, reset]);
+    replace(buildInitialRanges());
+  }, [isOpen, highestLevel, reset, replace]);
 
   const handleClose = () => {
     setServerError(null);
+    const prevScore = highestLevel?.requirement?.minScore ?? 0;
+    const prevOrders = highestLevel?.requirement?.minCompletedOrders ?? 0;
+    const prevValue = highestLevel?.requirement?.minTotalOrderValue ?? 0;
+
+    reset({
+      name: "",
+      minScore: highestLevel ? prevScore + 5 : 0,
+      minCompletedOrders: highestLevel ? prevOrders + 10 : 0,
+      minTotalOrderValue: highestLevel ? prevValue + 500000 : 0,
+      description: "",
+      requireFullOnlinePayment: false,
+      depositFreeOrderAmount: undefined as unknown as number,
+      maxDepositOrderAmount: undefined as unknown as number,
+      ranges: buildInitialRanges(),
+    });
+    replace(buildInitialRanges());
     onClose();
   };
 
   const handleToggleFullOnline = (checked: boolean) => {
     setValue("requireFullOnlinePayment", checked, { shouldValidate: true });
-    if (!checked && fields.length === 0) {
-      const defaultFree = 100000;
-      const defaultMax = 1000000;
-      setValue("depositFreeOrderAmount", defaultFree, { shouldValidate: true });
-      setValue("maxDepositOrderAmount", defaultMax, { shouldValidate: true });
-      replace(buildDefaultRanges(defaultFree, defaultMax));
+    if (checked) {
+      clearErrors(["depositFreeOrderAmount", "maxDepositOrderAmount", "ranges"]);
+    } else if (fields.length === 0) {
+      setValue("depositFreeOrderAmount", undefined as unknown as number);
+      setValue("maxDepositOrderAmount", undefined as unknown as number);
+      replace(buildInitialRanges());
     }
+    trigger([
+      "requireFullOnlinePayment",
+      "depositFreeOrderAmount",
+      "maxDepositOrderAmount",
+      "ranges",
+    ]);
   };
 
-  const handleFreeAmountChange = (value: number) => {
-    setValue("depositFreeOrderAmount", value);
-    if (fields.length > 0 && Number.isFinite(value) && value > 0) {
-      setValue("ranges.0.fromOrderAmount", value, { shouldValidate: true });
+  const handleFreeAmountChange = (value: number | undefined) => {
+    setValue("depositFreeOrderAmount", value as number, { shouldValidate: true });
+    if (fields.length > 0) {
+      setValue("ranges.0.fromOrderAmount", value as number, { shouldValidate: true });
     }
+    trigger(["depositFreeOrderAmount", "maxDepositOrderAmount", "ranges"]);
   };
 
-  const handleRangeToChange = (index: number, value: number) => {
-    setValue(`ranges.${index}.toOrderAmount`, value);
-    if (!Number.isFinite(value) || value <= 0) return;
-
+  const handleRangeToChange = (index: number, value: number | undefined) => {
+    setValue(`ranges.${index}.toOrderAmount`, value as number, { shouldValidate: true });
     if (index + 1 < fields.length) {
-      setValue(`ranges.${index + 1}.fromOrderAmount`, value, { shouldValidate: true });
-    } else {
-      setValue("maxDepositOrderAmount", value, { shouldValidate: true });
+      setValue(`ranges.${index + 1}.fromOrderAmount`, value as number, { shouldValidate: true });
     }
+    trigger(["depositFreeOrderAmount", "maxDepositOrderAmount", "ranges"]);
   };
 
-  const handleMaxAmountChange = (value: number) => {
-    setValue("maxDepositOrderAmount", value);
-    if (fields.length > 0 && Number.isFinite(value) && value > 0) {
-      setValue(`ranges.${fields.length - 1}.toOrderAmount`, value, { shouldValidate: true });
+  const handleMaxAmountChange = (value: number | undefined) => {
+    setValue("maxDepositOrderAmount", value as number, { shouldValidate: true });
+    if (fields.length > 0) {
+      const lastIndex = fields.length - 1;
+      setValue(`ranges.${lastIndex}.toOrderAmount`, value as number, { shouldValidate: true });
     }
+    trigger(["depositFreeOrderAmount", "maxDepositOrderAmount", "ranges"]);
   };
 
   const handleAddRange = () => {
-    const lastRange = watchedRanges[watchedRanges.length - 1];
-    const nextFrom = lastRange?.toOrderAmount ?? (watch("depositFreeOrderAmount") || 100000);
-    const nextTo = nextFrom + 100000;
-    const suggestedDeposit = Math.max(
-      1000,
-      Math.min(nextFrom, Math.round((nextFrom * 0.3) / 1000) * 1000),
-    );
+    const maxVal = getValues("maxDepositOrderAmount");
+    const currentLen = watchedRanges.length;
+
+    // The previous last tier was locked to maxDepositOrderAmount.
+    // Since it is now an intermediate tier, clear its toOrderAmount so the user can define this boundary.
+    if (currentLen > 0) {
+      setValue(`ranges.${currentLen - 1}.toOrderAmount`, undefined as unknown as number, {
+        shouldValidate: false,
+      });
+    }
 
     append({
-      fromOrderAmount: nextFrom,
-      toOrderAmount: nextTo,
-      depositAmount: suggestedDeposit,
+      fromOrderAmount: undefined as unknown as number,
+      toOrderAmount: maxVal ?? (undefined as unknown as number),
+      depositAmount: undefined as unknown as number,
     });
-    setValue("maxDepositOrderAmount", nextTo, { shouldValidate: true });
   };
 
   const handleRemoveRange = (index: number) => {
@@ -185,26 +217,49 @@ export function CreateLevelModal({
     const currentRanges = [...watchedRanges];
     currentRanges.splice(index, 1);
 
-    const freeAmount = watch("depositFreeOrderAmount") || 100000;
+    const freeAmount = getValues("depositFreeOrderAmount");
+    const maxAmount = getValues("maxDepositOrderAmount");
+
+    const validFree =
+      typeof freeAmount === "number" && !Number.isNaN(freeAmount) && freeAmount > 0
+        ? freeAmount
+        : (undefined as unknown as number);
+    const validMax =
+      typeof maxAmount === "number" && !Number.isNaN(maxAmount) && maxAmount > 0
+        ? maxAmount
+        : (undefined as unknown as number);
+
+    // Re-chain bounds cleanly without arbitrary auto-increments
     for (let i = 0; i < currentRanges.length; i++) {
-      currentRanges[i].fromOrderAmount = i === 0 ? freeAmount : currentRanges[i - 1].toOrderAmount;
-      if (currentRanges[i].toOrderAmount <= currentRanges[i].fromOrderAmount) {
-        currentRanges[i].toOrderAmount = currentRanges[i].fromOrderAmount + 50000;
-      }
-      if (currentRanges[i].depositAmount > currentRanges[i].fromOrderAmount) {
-        currentRanges[i].depositAmount = currentRanges[i].fromOrderAmount;
-      }
+      currentRanges[i].fromOrderAmount =
+        i === 0 ? validFree : currentRanges[i - 1].toOrderAmount;
+    }
+
+    // Ensure the new last tier has its toOrderAmount locked to maxAmount
+    if (currentRanges.length > 0) {
+      currentRanges[currentRanges.length - 1].toOrderAmount = validMax;
     }
 
     replace(currentRanges);
-    setValue("maxDepositOrderAmount", currentRanges[currentRanges.length - 1].toOrderAmount, {
-      shouldValidate: true,
-    });
+    trigger(["depositFreeOrderAmount", "maxDepositOrderAmount", "ranges"]);
   };
 
   const onSubmit = async (data: CreateLevelFormData) => {
     setServerError(null);
     const trimmedDesc = data.description.trim();
+
+    // Ensure strict boundary alignment before sending
+    const freeAmount = data.depositFreeOrderAmount;
+    const maxAmount = data.maxDepositOrderAmount;
+    const processedRanges: TrustLevelDepositRangeInput[] = data.ranges.map((r, i, arr) => {
+      const from = i === 0 ? (freeAmount ?? Number(r.fromOrderAmount)) : Number(arr[i - 1].toOrderAmount);
+      const to = i === arr.length - 1 ? (maxAmount ?? Number(r.toOrderAmount)) : Number(r.toOrderAmount);
+      return {
+        fromOrderAmount: Number(from) || 0,
+        toOrderAmount: Number(to) || 0,
+        depositAmount: Number(r.depositAmount) || 0,
+      };
+    });
 
     const payload: CreateTrustLevelPayload = {
       name: data.name.trim(),
@@ -226,11 +281,7 @@ export function CreateLevelModal({
             requireFullOnlinePayment: false,
             depositFreeOrderAmount: data.depositFreeOrderAmount ?? null,
             maxDepositOrderAmount: data.maxDepositOrderAmount ?? null,
-            ranges: data.ranges.map((r) => ({
-              fromOrderAmount: r.fromOrderAmount,
-              toOrderAmount: r.toOrderAmount,
-              depositAmount: r.depositAmount,
-            })),
+            ranges: processedRanges,
           },
     };
 
@@ -246,7 +297,7 @@ export function CreateLevelModal({
       title={`Add new Trust Level (Rank ${nextRank})`}
       maxWidthClass="max-w-2xl"
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
         <div className="rounded-lg border border-primary-100 bg-primary-50/50 p-3 text-xs text-text-secondary">
           This level will be created as <strong>Rank {nextRank}</strong> (Active).
           {highestLevel && (
@@ -270,7 +321,12 @@ export function CreateLevelModal({
             id="new-level-name"
             type="text"
             maxLength={100}
-            {...register("name")}
+            {...register("name", {
+              onChange: (e) => {
+                setValue("name", e.target.value, { shouldValidate: true });
+                trigger("name");
+              },
+            })}
             className={inputClass(!!errors.name)}
             placeholder="e.g. Master / Legend"
           />
@@ -287,8 +343,17 @@ export function CreateLevelModal({
               <input
                 id="new-req-score"
                 type="number"
+                step="1"
                 inputMode="numeric"
-                {...register("minScore", { valueAsNumber: true })}
+                {...register("minScore", {
+                  setValueAs: (v) =>
+                    v === "" || v === null || v === undefined ? undefined : Number(v),
+                  onChange: (e) => {
+                    const val = e.target.value === "" ? undefined : Number(e.target.value);
+                    setValue("minScore", val as number, { shouldValidate: true });
+                    trigger(["minScore", "minCompletedOrders", "minTotalOrderValue"]);
+                  },
+                })}
                 className={inputClass(!!errors.minScore)}
               />
             </FormField>
@@ -301,8 +366,16 @@ export function CreateLevelModal({
               <input
                 id="new-req-orders"
                 type="number"
-                inputMode="numeric"
-                {...register("minCompletedOrders", { valueAsNumber: true })}
+                step="1"
+                {...register("minCompletedOrders", {
+                  setValueAs: (v) =>
+                    v === "" || v === null || v === undefined ? undefined : Number(v),
+                  onChange: (e) => {
+                    const val = e.target.value === "" ? undefined : Number(e.target.value);
+                    setValue("minCompletedOrders", val as number, { shouldValidate: true });
+                    trigger(["minScore", "minCompletedOrders", "minTotalOrderValue"]);
+                  },
+                })}
                 className={inputClass(!!errors.minCompletedOrders)}
               />
             </FormField>
@@ -317,7 +390,15 @@ export function CreateLevelModal({
                 type="number"
                 step="1000"
                 inputMode="numeric"
-                {...register("minTotalOrderValue", { valueAsNumber: true })}
+                {...register("minTotalOrderValue", {
+                  setValueAs: (v) =>
+                    v === "" || v === null || v === undefined ? undefined : Number(v),
+                  onChange: (e) => {
+                    const val = e.target.value === "" ? undefined : Number(e.target.value);
+                    setValue("minTotalOrderValue", val as number, { shouldValidate: true });
+                    trigger(["minScore", "minCompletedOrders", "minTotalOrderValue"]);
+                  },
+                })}
                 className={inputClass(!!errors.minTotalOrderValue)}
               />
             </FormField>
@@ -333,7 +414,11 @@ export function CreateLevelModal({
           <textarea
             id="new-level-benefits"
             rows={3}
-            {...register("description")}
+            {...register("description", {
+              onChange: () => {
+                trigger("description");
+              },
+            })}
             className={`${inputClass(!!errors.description)} resize-none`}
             placeholder="Describe what customers on this level get"
           />
@@ -345,17 +430,48 @@ export function CreateLevelModal({
             <p className="mt-0.5 text-xs text-text-secondary">
               Configure Pay at shop eligibility and fixed deposit tiers for this level.
             </p>
+            {highestLevel && (
+              <div className="mt-2 rounded-lg border border-neutral-200 bg-white p-2.5 text-xs text-text-secondary">
+                <span className="font-semibold text-text-primary">
+                  Previous level baseline ({highestLevel.name} - Rank {highestLevel.rank}):
+                </span>{" "}
+                {highestLevel.depositPolicy?.requireFullOnlinePayment ? (
+                  <span>100% online payment required (Pay at shop disabled).</span>
+                ) : (
+                  <span>
+                    Free deposit &le;{" "}
+                    <strong>
+                      {formatCurrency(highestLevel.depositPolicy?.depositFreeOrderAmount ?? 0)}
+                    </strong>
+                    {" • "}
+                    Max Pay at shop:{" "}
+                    <strong>
+                      {formatCurrency(highestLevel.depositPolicy?.maxDepositOrderAmount ?? 0)}
+                    </strong>
+                    {" • "}
+                    New level must offer equal or better benefits.
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border-default bg-white p-3 text-sm font-semibold text-text-primary">
-            <input
-              type="checkbox"
-              checked={requireFullOnline}
-              onChange={(e) => handleToggleFullOnline(e.target.checked)}
-              className="size-4 rounded border-border-default text-primary-600 focus:ring-primary-500"
-            />
-            <span>Require 100% online payment for all orders (Disable Pay at shop)</span>
-          </label>
+          <div>
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border-default bg-white p-3 text-sm font-semibold text-text-primary">
+              <input
+                type="checkbox"
+                checked={requireFullOnline}
+                onChange={(e) => handleToggleFullOnline(e.target.checked)}
+                className="size-4 rounded border-border-default text-primary-600 focus:ring-primary-500"
+              />
+              <span>Require 100% online payment for all orders (Disable Pay at shop)</span>
+            </label>
+            {errors.requireFullOnlinePayment && (
+              <p className="mt-1 text-xs font-medium text-danger">
+                {errors.requireFullOnlinePayment.message}
+              </p>
+            )}
+          </div>
 
           {!requireFullOnline && (
             <div className="space-y-4 pt-1">
@@ -371,9 +487,13 @@ export function CreateLevelModal({
                     type="number"
                     step="1000"
                     inputMode="numeric"
+                    placeholder="e.g. 100000"
                     {...register("depositFreeOrderAmount", {
-                      valueAsNumber: true,
-                      onChange: (e) => handleFreeAmountChange(Number(e.target.value)),
+                      setValueAs: (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+                      onChange: (e) => {
+                        const val = e.target.value === "" ? undefined : Number(e.target.value);
+                        handleFreeAmountChange(val);
+                      },
                     })}
                     className={inputClass(!!errors.depositFreeOrderAmount)}
                   />
@@ -390,9 +510,13 @@ export function CreateLevelModal({
                     type="number"
                     step="1000"
                     inputMode="numeric"
+                    placeholder="e.g. 1000000"
                     {...register("maxDepositOrderAmount", {
-                      valueAsNumber: true,
-                      onChange: (e) => handleMaxAmountChange(Number(e.target.value)),
+                      setValueAs: (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+                      onChange: (e) => {
+                        const val = e.target.value === "" ? undefined : Number(e.target.value);
+                        handleMaxAmountChange(val);
+                      },
                     })}
                     className={inputClass(!!errors.maxDepositOrderAmount)}
                   />
@@ -426,7 +550,9 @@ export function CreateLevelModal({
                 <div className="space-y-2.5">
                   {fields.map((field, index) => {
                     const rangeErr = errors.ranges?.[index];
-                    const currentRange = watchedRanges[index];
+                    const currentRange = watchedRanges?.[index];
+                    const isLastTier = index === fields.length - 1;
+
                     return (
                       <div
                         key={field.id}
@@ -439,8 +565,8 @@ export function CreateLevelModal({
                               Number.isFinite(currentRange.fromOrderAmount) &&
                               Number.isFinite(currentRange.toOrderAmount) && (
                                 <span className="ml-2 font-normal text-text-muted">
-                                  ({formatCurrency(currentRange.fromOrderAmount)} &lt; Order &le;{" "}
-                                  {formatCurrency(currentRange.toOrderAmount)})
+                                  ({formatCurrency(Number(currentRange.fromOrderAmount))} &lt; Order &le;{" "}
+                                  {formatCurrency(Number(currentRange.toOrderAmount))})
                                 </span>
                               )}
                           </span>
@@ -458,27 +584,29 @@ export function CreateLevelModal({
                         </div>
 
                         <div className="grid gap-3 sm:grid-cols-3">
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-text-secondary">
-                              From (&gt; VND)
-                            </label>
+                          {/* From: locked for all tiers */}
+                          <div className="cursor-not-allowed">
+                            <div className="mb-1 flex items-center justify-between">
+                              <label className="block text-xs font-medium text-text-secondary cursor-not-allowed">
+                                From (&gt; VND)
+                              </label>
+                              <span className="text-[10px] text-text-muted font-normal">(Locked)</span>
+                            </div>
                             <input
                               type="number"
                               step="1000"
-                              readOnly={index > 0}
+                              readOnly
+                              tabIndex={-1}
                               {...register(`ranges.${index}.fromOrderAmount`, {
-                                valueAsNumber: true,
-                                onChange: (e) => {
-                                  if (index === 0) {
-                                    setValue("depositFreeOrderAmount", Number(e.target.value), {
-                                      shouldValidate: true,
-                                    });
-                                  }
-                                },
+                                setValueAs: (v) =>
+                                  v === "" || v === null || v === undefined ? undefined : Number(v),
                               })}
-                              className={`${inputClass(!!rangeErr?.fromOrderAmount)} ${
-                                index > 0 ? "bg-neutral-100 text-text-secondary" : ""
-                              }`}
+                              className={`${inputClass(!!rangeErr?.fromOrderAmount)} bg-neutral-100 text-text-secondary cursor-not-allowed pointer-events-none select-none`}
+                              placeholder={
+                                index === 0
+                                  ? "Synced from Free threshold"
+                                  : `Synced from Tier #${index} Up to`
+                              }
                             />
                             {rangeErr?.fromOrderAmount && (
                               <p className="mt-1 text-xs text-danger">
@@ -487,18 +615,41 @@ export function CreateLevelModal({
                             )}
                           </div>
 
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-text-secondary">
-                              Up to (&le; VND)
-                            </label>
+                          {/* Up to: locked for the last tier, editable otherwise */}
+                          <div className={isLastTier ? "cursor-not-allowed" : ""}>
+                            <div className="mb-1 flex items-center justify-between">
+                              <label
+                                className={`block text-xs font-medium text-text-secondary ${
+                                  isLastTier ? "cursor-not-allowed" : ""
+                                }`}
+                              >
+                                Up to (&le; VND)
+                              </label>
+                              {isLastTier && (
+                                <span className="text-[10px] text-text-muted font-normal">(Locked)</span>
+                              )}
+                            </div>
                             <input
                               type="number"
                               step="1000"
+                              readOnly={isLastTier}
+                              tabIndex={isLastTier ? -1 : 0}
                               {...register(`ranges.${index}.toOrderAmount`, {
-                                valueAsNumber: true,
-                                onChange: (e) => handleRangeToChange(index, Number(e.target.value)),
+                                setValueAs: (v) =>
+                                  v === "" || v === null || v === undefined ? undefined : Number(v),
+                                onChange: (e) => {
+                                  if (!isLastTier) {
+                                    const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                    handleRangeToChange(index, val);
+                                  }
+                                },
                               })}
-                              className={inputClass(!!rangeErr?.toOrderAmount)}
+                              className={`${inputClass(!!rangeErr?.toOrderAmount)} ${
+                                isLastTier
+                                  ? "bg-neutral-100 text-text-secondary cursor-not-allowed pointer-events-none select-none"
+                                  : ""
+                              }`}
+                              placeholder={isLastTier ? "Synced from Max Pay at shop" : "e.g. 300000"}
                             />
                             {rangeErr?.toOrderAmount && (
                               <p className="mt-1 text-xs text-danger">
@@ -507,6 +658,7 @@ export function CreateLevelModal({
                             )}
                           </div>
 
+                          {/* Fixed deposit: always editable */}
                           <div>
                             <label className="mb-1 block text-xs font-medium text-text-secondary">
                               Fixed deposit (VND)
@@ -515,9 +667,16 @@ export function CreateLevelModal({
                               type="number"
                               step="1000"
                               {...register(`ranges.${index}.depositAmount`, {
-                                valueAsNumber: true,
+                                setValueAs: (v) =>
+                                  v === "" || v === null || v === undefined ? undefined : Number(v),
+                                onChange: (e) => {
+                                  const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                  setValue(`ranges.${index}.depositAmount`, val as number, { shouldValidate: true });
+                                  trigger(["depositFreeOrderAmount", "maxDepositOrderAmount", "ranges"]);
+                                },
                               })}
                               className={inputClass(!!rangeErr?.depositAmount)}
+                              placeholder="e.g. 50000"
                             />
                             {rangeErr?.depositAmount && (
                               <p className="mt-1 text-xs text-danger">

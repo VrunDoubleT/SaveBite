@@ -22,9 +22,12 @@ export function LevelRequirementModal({ level, onClose, onSave }: LevelRequireme
     register,
     handleSubmit,
     reset,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<LevelRequirementFormData>({
     resolver: zodResolver(levelRequirementSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: { minScore: 0, minCompletedOrders: 0, minTotalOrderValue: 0 },
   });
 
@@ -55,7 +58,7 @@ export function LevelRequirementModal({ level, onClose, onSave }: LevelRequireme
       onClose={handleClose}
       title={level ? `${level.name} requirements` : undefined}
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         {level && <RecordId id={level.id} variant="full" />}
         <p className="text-sm text-text-secondary">
           Customers reach this level when they meet all three requirements. Requirements must grow
@@ -65,8 +68,12 @@ export function LevelRequirementModal({ level, onClose, onSave }: LevelRequireme
           <input
             id="req-score"
             type="number"
+            step="1"
             inputMode="numeric"
-            {...register("minScore", { valueAsNumber: true })}
+            {...register("minScore", {
+              setValueAs: (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
+              onChange: () => trigger("minScore"),
+            })}
             className={inputClass(!!errors.minScore)}
           />
         </FormField>
@@ -78,8 +85,12 @@ export function LevelRequirementModal({ level, onClose, onSave }: LevelRequireme
           <input
             id="req-orders"
             type="number"
+            step="1"
             inputMode="numeric"
-            {...register("minCompletedOrders", { valueAsNumber: true })}
+            {...register("minCompletedOrders", {
+              setValueAs: (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
+              onChange: () => trigger("minCompletedOrders"),
+            })}
             className={inputClass(!!errors.minCompletedOrders)}
           />
         </FormField>
@@ -91,8 +102,12 @@ export function LevelRequirementModal({ level, onClose, onSave }: LevelRequireme
           <input
             id="req-value"
             type="number"
+            step="1000"
             inputMode="numeric"
-            {...register("minTotalOrderValue", { valueAsNumber: true })}
+            {...register("minTotalOrderValue", {
+              setValueAs: (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
+              onChange: () => trigger("minTotalOrderValue"),
+            })}
             className={inputClass(!!errors.minTotalOrderValue)}
           />
         </FormField>

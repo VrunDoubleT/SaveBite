@@ -57,7 +57,7 @@ export function ScoreRuleModal({ rule, onClose, onSave }: ScoreRuleModalProps) {
       onClose={handleClose}
       title={kind === "Earning" ? "Update earning rule" : "Update penalty score rule"}
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <p className="text-sm text-text-secondary">
           Changes apply immediately to subsequent order completions. Previously awarded points stay
           unchanged.
