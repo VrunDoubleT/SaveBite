@@ -6,15 +6,10 @@ import { staffApi } from "@/features/staff-shops/api/staffApi";
 import type { StaffShopDetail } from "@/features/staff-shops/types/staff.types";
 import { APP_PATHS } from "@/app/router/paths";
 import { formatStaffName } from "@/features/shop-staffs/utils/formatStaffName";
+import { formatShopOperatingHours } from "@/features/shops/utils/shopOperatingHours";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-}
-
-function formatTime(time: string | null) {
-  if (!time) return "Not set";
-
-  return time.slice(0, 5);
 }
 
 function getStatusStyle(status: string) {
@@ -131,6 +126,8 @@ export function StaffShopDetailPage() {
   const fullAddress = [shop.addressLine, shop.ward, shop.district, shop.city]
     .filter(Boolean)
     .join(", ");
+  const operatingHours =
+    formatShopOperatingHours(shop.openingTime, shop.closingTime) ?? "Not set";
 
   const staffInitial =
     (staff.displayName || "Staff").split(" ").filter(Boolean).slice(-1)[0]?.[0]?.toUpperCase() ||
@@ -191,9 +188,7 @@ export function StaffShopDetailPage() {
             </span>
             <div>
               <p className="text-xs font-medium text-neutral-500">Operating Hours</p>
-              <p className="text-sm font-bold text-neutral-900 sm:text-base">
-                {formatTime(shop.openingTime)} - {formatTime(shop.closingTime)}
-              </p>
+              <p className="text-xl font-bold text-neutral-900">{operatingHours}</p>
             </div>
           </div>
         </div>
@@ -240,46 +235,68 @@ export function StaffShopDetailPage() {
       {/* Shop */}
       <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
         {/* Cover */}
-        <div className="relative h-52 overflow-hidden bg-neutral-100">
+        <div className="relative h-48 overflow-hidden bg-gradient-to-br from-emerald-100 via-teal-50 to-neutral-100 sm:h-64">
           {shop.coverImageUrl ? (
-            <img src={shop.coverImageUrl} alt={shop.name} className="h-full w-full object-cover" />
+            <>
+              <img
+                src={shop.coverImageUrl}
+                alt={`${shop.name} cover`}
+                className="h-full w-full object-cover"
+              />
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent"
+              />
+            </>
           ) : (
-            <div className="flex h-full items-center justify-center text-neutral-400">
-              <Store size={48} />
+            <div className="relative flex h-full items-center justify-center overflow-hidden text-emerald-700/60">
+              <span
+                aria-hidden="true"
+                className="absolute -right-10 -top-16 size-64 rounded-full bg-white/50 blur-2xl"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute -bottom-24 left-8 size-72 rounded-full bg-emerald-300/30 blur-2xl"
+              />
+              <Store className="relative" size={48} />
             </div>
           )}
         </div>
 
         {/* Shop content */}
-        <div className="p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              {/* Logo */}
-              <div className="-mt-16 flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-neutral-100 shadow-sm">
-                {shop.logoUrl ? (
-                  <img src={shop.logoUrl} alt={shop.name} className="h-full w-full object-cover" />
-                ) : (
-                  <Store className="text-neutral-400" size={32} />
-                )}
+        <div className="px-6 pb-6 sm:px-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="relative z-10 -mt-14 flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-[1.75rem] bg-neutral-100 shadow-lg ring-4 ring-white sm:size-28">
+              {shop.logoUrl ? (
+                <img
+                  src={shop.logoUrl}
+                  alt={`${shop.name} logo`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Store className="text-neutral-400" size={32} />
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1 sm:translate-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-2xl font-bold tracking-tight text-neutral-900">
+                  {shop.name}
+                </h2>
+
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyle(shop.status)}`}
+                >
+                  {shop.status === "Active" && (
+                    <span aria-hidden="true" className="size-1.5 rounded-full bg-emerald-500" />
+                  )}
+                  {getStatusLabel(shop.status)}
+                </span>
               </div>
 
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-2xl font-bold text-neutral-900">{shop.name}</h2>
-
-                  <span
-                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyle(
-                      shop.status,
-                    )}`}
-                  >
-                    {getStatusLabel(shop.status)}
-                  </span>
-                </div>
-
-                {shop.description && (
-                  <p className="mt-1 text-sm text-neutral-500">{shop.description}</p>
-                )}
-              </div>
+              {shop.description && (
+                <p className="mt-1 text-sm text-neutral-500">{shop.description}</p>
+              )}
             </div>
           </div>
 
@@ -306,9 +323,7 @@ export function StaffShopDetailPage() {
                 <div>
                   <p className="text-xs font-medium text-neutral-400">Opening hours</p>
 
-                  <p className="mt-1 text-sm font-medium text-neutral-900">
-                    {formatTime(shop.openingTime)} - {formatTime(shop.closingTime)}
-                  </p>
+                  <p className="mt-1 text-sm font-medium text-neutral-900">{operatingHours}</p>
                 </div>
               </div>
             </div>

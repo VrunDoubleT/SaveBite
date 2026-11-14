@@ -9,6 +9,7 @@ import {
 } from "../schemas/adminShopApplication.schema";
 import { Notice, Panel, InfoRow, StatusBadge } from "./AdminShopApplicationShared";
 import { RecordId } from "@/shared/components/RecordId";
+import { formatShopOperatingHours } from "@/features/shops/utils/shopOperatingHours";
 
 type Props = {
   app: ShopApplication;
@@ -122,7 +123,7 @@ export function AdminShopApplicationDetail({
               </InfoRow>
 
               <InfoRow label="Opening hours">
-                {app.openingTime?.slice(0, 5) ?? "—"} – {app.closingTime?.slice(0, 5) ?? "—"}
+                {formatShopOperatingHours(app.openingTime, app.closingTime) ?? "—"}
               </InfoRow>
             </dl>
           </Panel>

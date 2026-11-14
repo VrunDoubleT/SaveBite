@@ -165,19 +165,6 @@ export function ShopContentManagement({ shop: s }: { shop: ShopContentManagement
           <Section
             icon={MapPin}
             title="Location"
-            aside={
-              hasCoordinates && (
-                <a
-                  className={ACTION_BUTTON}
-                  href={`https://www.google.com/maps?q=${s.latitude},${s.longitude}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Navigation className="size-3.5" />
-                  View on map
-                </a>
-              )
-            }
           >
             <InfoTile icon={MapPin} label="Address" value={address || "—"} />
             <div className="grid gap-3 sm:grid-cols-2">

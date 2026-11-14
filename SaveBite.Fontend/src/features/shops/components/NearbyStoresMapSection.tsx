@@ -648,7 +648,6 @@ export function NearbyStoresMapSection({
         const hasDeals = dealCount > 0;
 
         const imageUrl =
-          shop.coverImageUrl ||
           shop.logoUrl ||
           "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=200&auto=format&fit=crop&q=80";
 

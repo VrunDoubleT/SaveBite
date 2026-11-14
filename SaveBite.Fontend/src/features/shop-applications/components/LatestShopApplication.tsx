@@ -29,6 +29,7 @@ import type {
   ShopApplication,
   ShopApplicationStatus,
 } from "@/features/shop-applications/types/shopApplication.types";
+import { formatShopOperatingHours } from "@/features/shops/utils/shopOperatingHours";
 
 /* Status config */
 type StatusTone = "amber" | "green" | "red" | "gray";
@@ -102,12 +103,6 @@ function formatAddress(application: ShopApplication) {
   return [application.addressLine, application.ward, application.district, application.city]
     .filter(Boolean)
     .join(", ");
-}
-
-function formatTime(value?: string | null) {
-  if (!value) return "—";
-
-  return value.length >= 5 ? value.slice(0, 5) : value;
 }
 
 function formatDate(value?: string | null) {
@@ -423,7 +418,8 @@ export default function LatestShopApplication({
               </InfoRow>
               <div className="grid gap-x-6 sm:grid-cols-2">
                 <InfoRow icon={<Clock3 size={16} />} label="Opening hours">
-                  {formatTime(application.openingTime)} – {formatTime(application.closingTime)}
+                  {formatShopOperatingHours(application.openingTime, application.closingTime) ??
+                    "—"}
                 </InfoRow>
                 <InfoRow icon={<FileText size={16} />} label="Business license">
                   {application.businessLicenseNo || "—"}

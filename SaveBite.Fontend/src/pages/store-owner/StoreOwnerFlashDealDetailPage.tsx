@@ -182,6 +182,7 @@ export function StoreOwnerFlashDealDetailPage() {
   const isHidden = deal.status === FlashDealStatusEnum.Hidden;
   const isCancelled =
     deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed;
+  const isEnded = isCancelled || new Date(deal.orderEndTime).getTime() <= Date.now();
 
   return (
     <div className="space-y-6">
@@ -275,16 +276,17 @@ export function StoreOwnerFlashDealDetailPage() {
             </>
           )}
 
-          {/* Edit button - always available even when deal has ended so store owner can edit sale time to reopen */}
-          <button
-            type="button"
-            disabled={shopSuspended}
-            onClick={() => navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id))}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Edit2 className="size-3.5" />
-            <span>{isCancelled ? "Edit / Reopen" : "Edit"}</span>
-          </button>
+          {!isEnded && (
+            <button
+              type="button"
+              disabled={shopSuspended}
+              onClick={() => navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id))}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Edit2 className="size-3.5" />
+              <span>Edit</span>
+            </button>
+          )}
 
           {!isCancelled && (
             <button
