@@ -38,6 +38,7 @@ public sealed record PickupEstimate
     public DateTime SoftDeadlineAt { get; init; }
     public DateTime HardDeadlineAt { get; init; }
     public DateTime DealEndsAt { get; init; }
+    public DateTime PickupCutoffAt { get; init; }
     public bool BufferWasCapped { get; init; }
 
 }

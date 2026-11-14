@@ -1,3 +1,4 @@
+import { PickupDeadlineNotice } from "./PickupDeadlineNotice";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -71,8 +72,10 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
               -{deal.maxDiscountPercent}%
             </span>
           )}
-          {(deal.isNew || (deal.createdAt && Date.now() - new Date(deal.createdAt).getTime() < 30 * 60 * 1000)) && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-md ring-1 ring-white/90 animate-pulse">
+          {(deal.isNew ||
+            (deal.createdAt &&
+              Date.now() - new Date(deal.createdAt).getTime() < 30 * 60 * 1000)) && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-md ring-1 ring-white/90 animate-pulse motion-reduce:animate-none">
               <Sparkles className="size-3 shrink-0" aria-hidden="true" />
               NEW
             </span>
@@ -122,6 +125,7 @@ export function ShopDealCard({ deal, onAddToCart }: ShopDealCardProps) {
             </span>
           </div>
 
+          <PickupDeadlineNotice deadline={deal.shopClosingTime} />
           {/* Price Line */}
           <div className="mt-2.5 flex items-baseline gap-2">
             <span className="text-lg font-bold text-emerald-700">

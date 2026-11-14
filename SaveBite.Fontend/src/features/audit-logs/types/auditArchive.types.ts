@@ -28,4 +28,4 @@ export type AuditArchiveRow = {
   reason?: string;
 };
 
-export const ARCHIVE_PAGE_SIZE = 25;
+export const ARCHIVE_PAGE_SIZE = 10;

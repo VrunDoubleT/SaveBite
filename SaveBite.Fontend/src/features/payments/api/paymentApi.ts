@@ -5,10 +5,20 @@ import type { CheckoutOrder } from "@/features/checkout/types/checkout.types";
 
 export const paymentApi = {
   async page(page: number, status: string, signal?: AbortSignal): Promise<CustomerPaymentPage> {
-    return (await httpClient.get<ApiResponse<CustomerPaymentPage>>("/payments", { params: { page, pageSize: 10, status }, signal })).data.data;
+    return (
+      await httpClient.get<ApiResponse<CustomerPaymentPage>>("/payments", {
+        params: { page, pageSize: 10, status },
+        signal,
+      })
+    ).data.data;
   },
   async detail(paymentId: string, signal?: AbortSignal): Promise<CustomerPaymentDetail> {
-    return (await httpClient.get<ApiResponse<CustomerPaymentDetail>>(`/payments/${encodeURIComponent(paymentId)}`, { signal })).data.data;
+    return (
+      await httpClient.get<ApiResponse<CustomerPaymentDetail>>(
+        `/payments/${encodeURIComponent(paymentId)}`,
+        { signal },
+      )
+    ).data.data;
   },
   async simulation(
     orderId: string,
@@ -33,10 +43,5 @@ export const paymentApi = {
         { outcome, paymentId },
       )
     ).data.data;
-  },
-  async reconcile(orderId: string, signal?: AbortSignal): Promise<CheckoutOrder> {
-    return (await httpClient.post<ApiResponse<CheckoutOrder>>(
-      `/payments/orders/${encodeURIComponent(orderId)}/reconcile`, undefined, { signal },
-    )).data.data;
   },
 };

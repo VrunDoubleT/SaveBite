@@ -15,15 +15,12 @@ interface FilterSidebarProps {
   categoryCounts?: Record<string, number>;
   categories?: string[];
   isLoadingCategories?: boolean;
+  showSkeleton?: boolean;
   isSearching?: boolean;
   isCategoryMismatch?: boolean;
 }
 
-const DISTANCE_OPTIONS = [
-  "Under 10km",
-  "Under 15km",
-  "Under 20km",
-];
+const DISTANCE_OPTIONS = ["Under 10km", "Under 15km", "Under 20km"];
 const PRICE_OPTIONS = ["Under 30k", "30k - 50k", "Over 50k"];
 
 export function FilterSidebar({
@@ -36,6 +33,7 @@ export function FilterSidebar({
   categoryCounts = {},
   categories: propCategories,
   isLoadingCategories: propIsLoadingCategories,
+  showSkeleton = true,
   isSearching = false,
   isCategoryMismatch = false,
 }: FilterSidebarProps) {
@@ -178,9 +176,7 @@ export function FilterSidebar({
       {/* Categories */}
       <fieldset className="border-b border-border-default py-3">
         <div className="float-left mb-2 flex w-full items-center justify-between">
-          <legend className="text-caption font-semibold text-text-primary">
-            Categories
-          </legend>
+          <legend className="text-caption font-semibold text-text-primary">Categories</legend>
           {filters.category.length > 0 && (
             <button
               type="button"
@@ -203,9 +199,11 @@ export function FilterSidebar({
         <div className="clear-both space-y-0.5">
           {isCategoriesLoading && !categoryList.length ? (
             <div role="status" aria-label="Loading categories" className="space-y-3">
-              {[0, 1, 2].map((i) => (
-                <Skeleton key={i} className="h-8" />
-              ))}
+              {showSkeleton ? (
+                [0, 1, 2].map((i) => <Skeleton key={i} className="h-8" />)
+              ) : (
+                <span className="text-xs text-text-secondary">Loading categories…</span>
+              )}
             </div>
           ) : !categoryList.length ? (
             <p className="text-body text-text-secondary">No categories available.</p>
@@ -222,18 +220,13 @@ export function FilterSidebar({
                   }`}
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    <Checkbox
-                      checked={isSelected}
-                      onChange={() => toggle("category", cat)}
-                    />
+                    <Checkbox checked={isSelected} onChange={() => toggle("category", cat)} />
                     <span className="truncate" title={cat}>
                       {cat}
                     </span>
                   </span>
                   {isSelected && isCategoryMismatch && (
-                    <span className="shrink-0 text-[11px] font-semibold text-amber-700">
-                      (0)
-                    </span>
+                    <span className="shrink-0 text-[11px] font-semibold text-amber-700">(0)</span>
                   )}
                 </label>
               );

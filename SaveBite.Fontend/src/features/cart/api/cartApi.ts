@@ -6,7 +6,7 @@ export const cartApi = {
   async getPage(cursor?: string | null, signal?: AbortSignal): Promise<CartPage> {
     return (
       await httpClient.get<ApiResponse<CartPage>>(API_ENDPOINTS.CART.PAGE, {
-        params: { cursor: cursor ?? undefined, pageSize: 5 },
+        params: { cursor: cursor ?? undefined, pageSize: 10 },
         signal,
       })
     ).data.data;

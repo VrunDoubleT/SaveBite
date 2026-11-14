@@ -25,7 +25,7 @@ public static class TimingConfiguration
         public const string PlatformFeeRecoveryCron = "0 * * * *";
         public const string PlatformFeePaymentReconciliationCron = "* * * * *";
         public const string PlatformFeeOverdueCron = "* * * * *";
-        public const string MonthlyBillingCron = "0 0 1 * *"; // Day 1, 00:00 UTC / 07:00 GMT+7.
+        public const string MonthlyBillingCron = "0 0 1 * *"; // Day 1, 00:00 UTC / 07:00 Vietnam time.
         public const string AuditArchiveCron = MonthlyBillingCron;
         public const int RabbitRetryBaseMinutes = 5;
         public const int RabbitRetryMaxMinutes = 60;

@@ -1,5 +1,7 @@
-import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
-import { useEffect, useState } from "react";
+import { usePaymentUpdates } from "@/features/payments/hooks/usePaymentUpdates";
+import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
+import { StatementDetailSkeleton } from "@/shared/components/ui/PageLoadingSkeleton";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { APP_PATHS } from "@/app/router/paths";
 import {
@@ -51,31 +53,24 @@ function StatementDetail({ statementId }: { statementId: string }) {
     "orders",
   );
 
-  useEffect(() => {
-    let isMounted = true;
-
-    platformFeeApi
-      .getAdminStatementDetail(statementId)
-      .then((data) => {
-        if (isMounted) {
+  usePaymentUpdates(
+    REALTIME_EVENTS.PLATFORM_FEE_CHANGED,
+    async (signal) => {
+      try {
+        const data = await platformFeeApi.getAdminStatementDetail(statementId);
+        if (!signal.aborted) {
           setStatement(data);
+          setError(null);
         }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(getApiErrorMessage(err) || "Failed to load statement details.");
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [statementId]);
+      } catch (error) {
+        if (!signal.aborted)
+          setError(getApiErrorMessage(error) || "Failed to load statement details.");
+      } finally {
+        if (!signal.aborted) setLoading(false);
+      }
+    },
+    (event) => event.statementId === statementId,
+  );
 
   return (
     <div className="space-y-6">
@@ -126,7 +121,7 @@ function StatementDetail({ statementId }: { statementId: string }) {
 
       {/* Statement content */}
       {loading ? (
-        <LoadingSkeleton variant="detail" label="Loading statement details" />
+        <StatementDetailSkeleton admin />
       ) : !statement ? (
         <div
           role="alert"

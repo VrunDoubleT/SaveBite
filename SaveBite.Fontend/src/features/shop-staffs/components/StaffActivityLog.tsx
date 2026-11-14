@@ -3,7 +3,7 @@ import { Clock, MessageSquare, Package, X } from "lucide-react";
 import type { StaffActivityLog as StaffActivityLogType } from "@/features/shop-staffs/types/shopStaff.types";
 import { Pagination } from "@/shared/components/pagination";
 
-export const ACTIVITY_PAGE_SIZE = 8;
+export const ACTIVITY_PAGE_SIZE = 10;
 
 interface StaffActivityLogProps {
   logs: StaffActivityLogType[];
@@ -140,11 +140,11 @@ export function StaffActivityLog({
         <div className="space-y-5 px-6 py-5" aria-busy="true">
           {[1, 2, 3].map((item) => (
             <div key={item} className="flex gap-4">
-              <div className="h-9 w-9 animate-pulse rounded-full bg-gray-100" />
+              <div className="h-9 w-9 animate-pulse rounded-full bg-gray-100 motion-reduce:animate-none" />
 
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-48 animate-pulse rounded bg-gray-100" />
-                <div className="h-3 w-32 animate-pulse rounded bg-gray-100" />
+                <div className="h-4 w-48 animate-pulse rounded bg-gray-100 motion-reduce:animate-none" />
+                <div className="h-3 w-32 animate-pulse rounded bg-gray-100 motion-reduce:animate-none" />
               </div>
             </div>
           ))}

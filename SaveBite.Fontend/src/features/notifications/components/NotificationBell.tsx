@@ -1,3 +1,4 @@
+import { ExpandableNotificationContent } from "./ExpandableNotificationContent";
 import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   ChevronUp,
   Inbox,
   Layers,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -190,24 +190,14 @@ export function NotificationBell() {
                         <visual.Icon className="size-4" aria-hidden="true" />
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => void handleSelectNotification(preview)}
-                        className="min-w-0 flex-1 text-left focus:outline-none"
+                      <ExpandableNotificationContent
+                        title={preview.title}
+                        body={preview.body}
+                        onSelect={() => void handleSelectNotification(preview)}
+                        unread={true}
                       >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
-                            <Sparkles className="size-2.5" /> New
-                          </span>
-                          <span className="text-[11px] text-neutral-400">Just now</span>
-                        </div>
-                        <p className="mt-1 truncate text-xs font-semibold text-neutral-900">
-                          {preview.title}
-                        </p>
-                        <p className="mt-0.5 line-clamp-2 text-xs text-neutral-600">
-                          {preview.body}
-                        </p>
-                      </button>
+                        <p className="mt-1 text-[11px] text-neutral-400">Just now</p>
+                      </ExpandableNotificationContent>
 
                       <button
                         type="button"
@@ -251,24 +241,14 @@ export function NotificationBell() {
                         <visual.Icon className="size-4" aria-hidden="true" />
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => void handleSelectNotification(preview)}
-                        className="min-w-0 flex-1 text-left focus:outline-none"
+                      <ExpandableNotificationContent
+                        title={preview.title}
+                        body={preview.body}
+                        onSelect={() => void handleSelectNotification(preview)}
+                        unread={true}
                       >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
-                            <Sparkles className="size-2.5" /> New
-                          </span>
-                          <span className="text-[11px] text-neutral-400">Just now</span>
-                        </div>
-                        <p className="mt-1 truncate text-xs font-semibold text-neutral-900">
-                          {preview.title}
-                        </p>
-                        <p className="mt-0.5 line-clamp-2 text-xs text-neutral-600">
-                          {preview.body}
-                        </p>
-                      </button>
+                        <p className="mt-1 text-[11px] text-neutral-400">Just now</p>
+                      </ExpandableNotificationContent>
 
                       {isTop && (
                         <button
@@ -404,40 +384,16 @@ export function NotificationBell() {
                     </div>
 
                     {/* Content Box (Fixed line heights, preventing jumping/uneven cards) */}
-                    <button
-                      type="button"
-                      onClick={() => void handleSelectNotification(item)}
-                      className="min-w-0 flex-1 text-left focus:outline-none"
+                    <ExpandableNotificationContent
+                      title={item.title}
+                      body={item.body}
+                      onSelect={() => void handleSelectNotification(item)}
+                      unread={!item.isRead}
                     >
-                      {/* Fixed 1-line title */}
-                      <div className="flex items-center gap-1.5">
-                        <p
-                          className={`truncate text-xs leading-4 ${
-                            !item.isRead
-                              ? "font-bold text-neutral-900"
-                              : "font-semibold text-neutral-700"
-                          }`}
-                        >
-                          {item.title}
-                        </p>
-                        {!item.isRead && (
-                          <span
-                            className="size-1.5 shrink-0 rounded-full bg-emerald-600"
-                            title="Unread"
-                          />
-                        )}
-                      </div>
-
-                      {/* Fixed 2-line body */}
-                      <p className="mt-1 line-clamp-2 min-h-[2.25rem] text-xs leading-4.5 text-neutral-600">
-                        {item.body || "—"}
-                      </p>
-
-                      {/* Footer relative time */}
                       <p className="mt-1 text-[11px] font-medium text-neutral-400">
                         {formatRelativeTime(item.createdAt)}
                       </p>
-                    </button>
+                    </ExpandableNotificationContent>
 
                     {/* Action buttons (Fixed width column to prevent layout shifting) */}
                     <div className="flex w-7 shrink-0 flex-col items-center justify-start gap-1 pt-0.5">

@@ -94,7 +94,7 @@ function Simulation({ orderId, paymentId }: { orderId: string; paymentId?: strin
           <p className="text-3xl font-bold">{money(order.requiredOnlineAmount)}</p>
           <p className="mt-2 text-sm">Remaining at shop: {money(order.remainingAtShop)}</p>
           <p className="mt-2 text-sm">
-            Payment deadline: {checkoutTime(order.paymentExpiresAt)} (GMT+7)
+            Payment deadline: {checkoutTime(order.paymentExpiresAt)}
           </p>
           {expired || resolved ? (
             <p className="mt-4 text-amber-800">

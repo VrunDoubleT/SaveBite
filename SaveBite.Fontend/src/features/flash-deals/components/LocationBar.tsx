@@ -72,7 +72,7 @@ export function LocationBar({
               >
                 {locationMode === "gps" && (
                   <>
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse motion-reduce:animate-none" />
                     GPS Active
                   </>
                 )}

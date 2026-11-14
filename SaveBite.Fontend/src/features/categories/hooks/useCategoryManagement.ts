@@ -6,7 +6,7 @@ import type { CategoryFormData } from "@/features/categories/schemas/category.sc
 import { getApiErrorMessage } from "@/shared/api";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 
-export const CATEGORY_PAGE_SIZE = 5;
+export const CATEGORY_PAGE_SIZE = 10;
 
 export type SaveCategoryResult = "success" | "duplicate" | "error";
 

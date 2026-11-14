@@ -9,6 +9,7 @@ interface DealGridProps {
   desktopColumns?: 3 | 4;
   isSameShop?: boolean;
   isLoading?: boolean;
+  showSkeleton?: boolean;
   emptyMessage?: string;
   isCategoryMismatch?: boolean;
   onRefresh?: () => void;
@@ -21,6 +22,7 @@ export function DealGrid({
   desktopColumns = 3,
   isSameShop = false,
   isLoading = false,
+  showSkeleton = true,
   emptyMessage = "No flash deals found within this radius.",
   isCategoryMismatch = false,
   onRefresh,
@@ -28,6 +30,13 @@ export function DealGrid({
   onClearCategory,
 }: DealGridProps) {
   const gridClassName = `grid grid-cols-1 gap-4 sm:grid-cols-2 ${desktopColumns === 4 ? "lg:grid-cols-3 xl:grid-cols-4" : "xl:grid-cols-3"}`;
+  if (isLoading && !showSkeleton) {
+    return (
+      <div role="status" aria-label="Loading flash deals" className="min-h-12">
+        <span className="sr-only">Loading flash deals</span>
+      </div>
+    );
+  }
   if (isLoading) {
     return (
       <div role="status" aria-label="Loading flash deals" className={gridClassName}>
@@ -69,10 +78,7 @@ export function DealGrid({
               </Button>
             )}
             {onClearSearch && (
-              <Button
-                variant={onClearCategory ? "secondary" : "primary"}
-                onClick={onClearSearch}
-              >
+              <Button variant={onClearCategory ? "secondary" : "primary"} onClick={onClearSearch}>
                 Clear search
               </Button>
             )}

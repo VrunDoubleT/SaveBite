@@ -30,7 +30,11 @@ export function LoadingSkeleton({
           </div>
         )}
         {variant === "stats" ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div
+            className={
+              rows <= 2 ? "grid gap-4 sm:grid-cols-2" : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            }
+          >
             {items.map((index) => (
               <div
                 key={index}
@@ -102,17 +106,19 @@ export function TableSkeletonRows({
   columns,
   rows = 4,
   label = "Loading records",
+  cellClassName = "px-4 py-4",
 }: {
   columns: number;
   rows?: number;
   label?: string;
+  cellClassName?: string;
 }) {
   return (
     <>
       {Array.from({ length: rows }, (_, row) => (
         <tr key={row} aria-hidden={row > 0 ? true : undefined}>
           {Array.from({ length: columns }, (_, column) => (
-            <td key={column} className="px-4 py-4">
+            <td key={column} className={cellClassName}>
               {row === 0 && column === 0 && (
                 <span role="status" className="sr-only">
                   {label}
@@ -151,19 +157,23 @@ export function InlineSkeleton({
 export function TableLoadingSkeleton({
   headers,
   label = "Loading records",
+  tableClassName = "",
+  cellClassName = "px-4 py-4",
 }: {
   headers: string[];
   label?: string;
+  tableClassName?: string;
+  cellClassName?: string;
 }) {
   return (
     <div className="min-w-0 overflow-x-auto rounded-lg border border-border-default bg-bg-surface">
-      <table className="w-full text-left text-sm">
+      <table className={`w-full text-left text-sm ${tableClassName}`}>
         <thead className="bg-neutral-50">
           <tr>
             {headers.map((header) => (
               <th
                 key={header}
-                className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-text-secondary"
+                className={`whitespace-nowrap text-xs font-semibold text-text-secondary ${cellClassName}`}
               >
                 {header}
               </th>
@@ -171,7 +181,7 @@ export function TableLoadingSkeleton({
           </tr>
         </thead>
         <tbody className="divide-y divide-border-default">
-          <TableSkeletonRows columns={headers.length} label={label} />
+          <TableSkeletonRows columns={headers.length} label={label} cellClassName={cellClassName} />
         </tbody>
       </table>
     </div>

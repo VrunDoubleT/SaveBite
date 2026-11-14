@@ -99,7 +99,7 @@ export function CustomerOrderRefunds({ order }: { order: CheckoutOrder }) {
           )}
           {eligible && deadline !== null && (
             <p className="mt-2 text-caption text-text-secondary">
-              Request deadline: {checkoutTime(new Date(deadline).toISOString())} · GMT+7
+              Request deadline: {checkoutTime(new Date(deadline).toISOString())}
             </p>
           )}
           {loaded && !error && completed && refunds.length === 0 && !eligible && (

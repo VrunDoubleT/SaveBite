@@ -264,7 +264,7 @@ export function ShopRefundsPage() {
                   </span>
                 </div>
                 <p className="mt-1.5 text-xs text-neutral-500">
-                  Created {checkoutTime(refund.createdAt)} · GMT+7
+                  Created {checkoutTime(refund.createdAt)}
                 </p>
               </div>
               <RefundStatusBadge status={refund.status} overdue={refund.isOverdue} />
@@ -289,7 +289,7 @@ export function ShopRefundsPage() {
                   {refund.reviewDeadlineAt && (
                     <p className="mt-2 flex items-center gap-1 text-xs font-semibold">
                       <Clock3 size={13} />
-                      Due {checkoutTime(refund.reviewDeadlineAt)} · GMT+7
+                      Due {checkoutTime(refund.reviewDeadlineAt)}
                     </p>
                   )}
                 </div>

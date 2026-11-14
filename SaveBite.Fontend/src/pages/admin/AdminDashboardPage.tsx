@@ -1,3 +1,4 @@
+import { PlatformOverviewSkeleton } from "@/features/admin-analytics/components/PlatformOverviewSkeleton";
 import {
   Banknote,
   CalendarDays,
@@ -77,7 +78,11 @@ function PlatformDashboard({ activeTab }: { activeTab: PlatformAnalyticsTab }) {
   const { data, loading, errorMessage, clearError, view, setView } = analytics;
 
   if (loading && !data) {
-    return <DashboardSkeleton label="Loading platform analytics..." />;
+    return activeTab === "overview" ? (
+      <PlatformOverviewSkeleton />
+    ) : (
+      <DashboardSkeleton label="Loading platform analytics..." />
+    );
   }
 
   const selectedName = data ? describePeriod(data.period) : "Selected period";

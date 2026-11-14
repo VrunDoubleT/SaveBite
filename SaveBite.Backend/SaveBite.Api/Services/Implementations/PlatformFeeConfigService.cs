@@ -152,7 +152,7 @@ public sealed class PlatformFeeConfigService(AppDbContext db, TimeProvider clock
             var changed = previous == null || previous.FeeRate != current.FeeRate;
             var from = previous == null ? "not configured" : Percent(previous.FeeRate);
             var to = Percent(current.FeeRate);
-            var when = current.EffectiveFrom.AddHours(7).ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) + " (UTC+7)";
+            var when = current.EffectiveFrom.AddHours(7).ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
             await notifications.EnqueueAsync(NotificationTarget.Admins(), new(
                 NotificationType.PlatformFeeScheduleActivated, "Platform fee schedule is effective",
                 $"Schedule {current.Id} became effective at {when}. Fee: {from} → {to}. "

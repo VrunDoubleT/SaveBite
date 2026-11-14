@@ -15,6 +15,7 @@ export interface FlashDealVariant {
   discountPercent: number;
   totalQuantity: number;
   soldQuantity: number;
+  pendingRestockQuantity?: number;
   unsellableQuantity: number;
   availableQuantity: number;
   status: number;
@@ -126,6 +127,7 @@ export interface ShopFlashDealListItem {
   totalQuantity: number;
   reservedQuantity: number;
   soldQuantity: number;
+  pendingRestockQuantity?: number;
   unsellableQuantity: number;
   availableQuantity: number;
   createdAt: string;
@@ -144,6 +146,7 @@ export interface ShopFlashDealVariantDetail {
   totalQuantity: number;
   reservedQuantity: number;
   soldQuantity: number;
+  pendingRestockQuantity?: number;
   unsellableQuantity: number;
   availableQuantity: number;
   status: number;
@@ -161,6 +164,7 @@ export interface ShopFlashDealDetail {
   saleStartTime: string;
   orderEndTime: string;
   shopClosingTime: string;
+  minimumPickupDeadlineAt?: string | null;
   status: FlashDealStatusEnum | number;
   createdAt: string;
   updatedAt: string;

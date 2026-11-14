@@ -7,32 +7,14 @@ import type { ProductListManagement, AdminProductSummary } from "@/features/prod
 import { Pagination } from "@/shared/components/pagination";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
 
 function ListSkeleton() {
   return (
-    <div
-      role="status"
-      aria-busy="true"
-      aria-label="Loading products"
-      className="overflow-hidden rounded-3xl border border-border-default bg-white motion-safe:animate-pulse"
-    >
+    <div role="status" aria-busy="true" aria-label="Loading products" className="overflow-hidden rounded-lg border border-border-default bg-bg-surface shadow-sm">
       <span className="sr-only">Loading products…</span>
-      <div className="h-11 bg-neutral-50" />
-      <div className="divide-y divide-border-default">
-        {Array.from({ length: PAGE_SIZE }, (_, i) => (
-          <div key={i} className="flex items-center gap-4 px-6 py-4">
-            <div className="size-14 shrink-0 rounded-2xl bg-neutral-100" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="h-4 w-2/5 rounded bg-neutral-100" />
-              <div className="h-3 w-1/4 rounded bg-neutral-100" />
-            </div>
-            <div className="hidden h-6 w-20 rounded-full bg-neutral-100 sm:block" />
-            <div className="hidden h-6 w-24 rounded-full bg-neutral-100 sm:block" />
-          </div>
-        ))}
-      </div>
+      <ProductManagementTable items={[]} loading />
     </div>
   );
 }

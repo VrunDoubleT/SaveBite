@@ -270,6 +270,7 @@ public sealed class FlashDealService : IFlashDealService
             return response;
         }).ToList();
 
+        await ApplyCustomerStockAsync(resultDeals, cancellationToken);
         string? nextCursor = null;
         if (hasMore && pagedEntities.Count > 0)
         {
@@ -310,7 +311,9 @@ public sealed class FlashDealService : IFlashDealService
         var deals = await FlashDealReadQuery.WithDetails(FlashDealReadQuery.Visible(_db, DateTime.UtcNow)
             .Where(d => d.ShopId == shopId).OrderByDescending(d => d.CreatedAt).ThenBy(d => d.Id))
             .ToListAsync(cancellationToken);
-        return deals.Select(MapToResponse).ToList();
+        var responses = deals.Select(MapToResponse).ToList();
+        await ApplyCustomerStockAsync(responses, cancellationToken);
+        return responses;
     }
 
     public async Task<FlashDealResponse> GetByIdAsync(Guid dealId, CancellationToken cancellationToken = default)
@@ -318,7 +321,9 @@ public sealed class FlashDealService : IFlashDealService
         var deal = await FlashDealReadQuery.WithDetails(FlashDealReadQuery.Visible(_db, DateTime.UtcNow))
             .SingleOrDefaultAsync(d => d.Id == dealId, cancellationToken);
         if (deal == null) throw AppException.NotFound($"Flash deal with ID '{dealId}' is unavailable.");
-        return MapToResponse(deal);
+        var response = MapToResponse(deal);
+        await ApplyCustomerStockAsync(new[] { response }, cancellationToken);
+        return response;
     }
 
     public static FlashDealResponse MapToResponse(FlashDeal deal)
@@ -438,9 +443,20 @@ public sealed class FlashDealService : IFlashDealService
         var shop = await GetShopForViewOrThrowAsync(userId, request.ShopId, cancellationToken);
         var pagedDeals = await _dealRepository.GetShopDealsAsync(shop.Id, request, cancellationToken);
 
+        var decisions = await StockDecisionsAsync(pagedDeals.Items.SelectMany(d => d.Variants).Select(v => v.Id), cancellationToken);
+        var items = pagedDeals.Items.Select(deal =>
+        {
+            var response = MapToShopListItemResponse(deal);
+            var stock = deal.Variants.Select(v => FlashDealStockBreakdown.From(v, decisions.GetValueOrDefault(v.Id))).ToList();
+            response.SoldQuantity = stock.Sum(v => v.Sold);
+            response.ReservedQuantity = stock.Sum(v => v.Reserved);
+            response.UnsellableQuantity = stock.Sum(v => v.Stopped);
+            response.PendingRestockQuantity = stock.Sum(v => v.PendingRestock);
+            return response;
+        }).ToList();
         return new PagedResult<ShopFlashDealListItemResponse>
         {
-            Items = pagedDeals.Items.Select(MapToShopListItemResponse).ToList(),
+            Items = items,
             TotalItems = pagedDeals.TotalItems,
             Page = pagedDeals.Page,
             PageSize = pagedDeals.PageSize
@@ -458,7 +474,7 @@ public sealed class FlashDealService : IFlashDealService
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
                    ?? throw AppException.NotFound("Flash deal not found.");
 
-        return MapToShopDetailResponse(deal);
+        return await BuildShopDetailAsync(deal, cancellationToken);
     }
 
     // 3. Create Flash Deal
@@ -474,8 +490,11 @@ public sealed class FlashDealService : IFlashDealService
         {
             var window = FlashDealTiming.ImmediateWindow(now, request.DurationMinutes.Value,
                 request.ShopClosingTime - request.OrderEndTime);
+            var hasCustomPickup = request.ShopClosingTime > request.OrderEndTime;
             request.OrderEndTime = window.End;
-            request.ShopClosingTime = window.Closing;
+            // An explicit pickup time is absolute; only "same as deal end" follows the server timestamp.
+            request.ShopClosingTime = hasCustomPickup
+                ? request.ShopClosingTime : window.End;
         }
 
         // Validate time intervals.
@@ -483,20 +502,8 @@ public sealed class FlashDealService : IFlashDealService
         {
             throw AppException.BadRequest("Sale start time must be before order end time.");
         }
-        if (shop.OpeningTime.HasValue && shop.ClosingTime.HasValue)
-        {
-            var startLocalTime = TimeOnly.FromDateTime(effectiveStartTime.AddHours(7));
-            var endLocalTime = TimeOnly.FromDateTime(request.OrderEndTime.AddHours(7));
-            if (!IsWithinOperatingHours(shop.OpeningTime.Value, shop.ClosingTime.Value, startLocalTime) ||
-                !IsWithinOperatingHours(shop.OpeningTime.Value, shop.ClosingTime.Value, endLocalTime))
-            {
-                throw AppException.BadRequest($"Flash deal timing must fall within shop operating hours ({shop.OpeningTime.Value:HH\\:mm} - {shop.ClosingTime.Value:HH\\:mm}).");
-            }
-        }
-        if (request.OrderEndTime > request.ShopClosingTime)
-        {
-            throw AppException.BadRequest("Order end time cannot exceed shop closing time.");
-        }
+        FlashDealPickupWindow.Validate(effectiveStartTime, request.OrderEndTime, request.ShopClosingTime,
+            shop.OpeningTime, shop.ClosingTime);
 
         var hasOverlap = await _dealRepository.HasOverlappingDealAsync(
             shop.Id,
@@ -611,7 +618,7 @@ public sealed class FlashDealService : IFlashDealService
 
         await RefreshScheduleAsync(deal, cancellationToken);
         var createdDeal = await _dealRepository.GetShopDealByIdAsync(shop.Id, deal.Id, cancellationToken);
-        return MapToShopDetailResponse(createdDeal!);
+        return await BuildShopDetailAsync(createdDeal!, cancellationToken);
     }
 
     // 4. Update Flash Deal
@@ -640,8 +647,11 @@ public sealed class FlashDealService : IFlashDealService
             var window = FlashDealTiming.ImmediateWindow(now, request.DurationMinutes.Value,
                 request.ShopClosingTime - request.OrderEndTime);
             request.SaleStartTime = now;
+            var hasCustomPickup = request.ShopClosingTime > request.OrderEndTime;
             request.OrderEndTime = window.End;
-            request.ShopClosingTime = window.Closing;
+            // An explicit pickup time is absolute; only "same as deal end" follows the server timestamp.
+            request.ShopClosingTime = hasCustomPickup
+                ? request.ShopClosingTime : window.End;
         }
 
         // Check overlapping deals.
@@ -656,17 +666,9 @@ public sealed class FlashDealService : IFlashDealService
         {
             throw AppException.BadRequest("Another flash deal already overlaps with the updated schedule.");
         }
-        if (shop.OpeningTime.HasValue && shop.ClosingTime.HasValue)
-        {
-            var startLocalTime = TimeOnly.FromDateTime(request.SaleStartTime.AddHours(7));
-            var endLocalTime = TimeOnly.FromDateTime(request.OrderEndTime.AddHours(7));
-            if (!IsWithinOperatingHours(shop.OpeningTime.Value, shop.ClosingTime.Value, startLocalTime) ||
-                !IsWithinOperatingHours(shop.OpeningTime.Value, shop.ClosingTime.Value, endLocalTime))
-            {
-                throw AppException.BadRequest($"Flash deal timing must fall within shop operating hours ({shop.OpeningTime.Value:HH\\:mm} - {shop.ClosingTime.Value:HH\\:mm}).");
-            }
-        }
-
+        var committedDeadline = await LatestOrderPickupDeadlineAsync(deal.Id, cancellationToken);
+        FlashDealPickupWindow.Validate(deal.Status == FlashDealStatus.Pending ? request.SaleStartTime : deal.SaleStartTime,
+            request.OrderEndTime, request.ShopClosingTime, shop.OpeningTime, shop.ClosingTime, committedDeadline);
 
         if (deal.Status == FlashDealStatus.Pending)
         {
@@ -771,7 +773,7 @@ public sealed class FlashDealService : IFlashDealService
         LifecycleOutbox.InventoryDeals(_db, new[] { deal.Id }, null, DateTime.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return MapToShopDetailResponse(deal);
+        return await BuildShopDetailAsync(deal, cancellationToken);
     }
     // 5. Cancel Flash Deal
     public async Task CancelDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
@@ -973,7 +975,7 @@ public sealed class FlashDealService : IFlashDealService
         // 2. Resume timing: start NOW, end at NOW + remainingDuration (Preserve remaining duration)
         var pickupBuffer = deal.ShopClosingTime > deal.OrderEndTime
             ? deal.ShopClosingTime - deal.OrderEndTime
-            : TimeSpan.FromMinutes(30);
+            : TimeSpan.Zero;
 
         deal.SaleStartTime = now;
         deal.OrderEndTime = now.Add(remainingDuration);
@@ -988,6 +990,10 @@ public sealed class FlashDealService : IFlashDealService
                 throw AppException.BadRequest($"Cannot unhide deal outside shop operating hours ({shop.OpeningTime.Value:HH:mm} - {shop.ClosingTime.Value:HH:mm}).");
             }
         }
+
+        var committedDeadline = await LatestOrderPickupDeadlineAsync(deal.Id, cancellationToken);
+        FlashDealPickupWindow.Validate(deal.SaleStartTime, deal.OrderEndTime, deal.ShopClosingTime,
+            shop.OpeningTime, shop.ClosingTime, committedDeadline);
 
         var previousStatus = deal.Status;
         deal.Status = FlashDealStatus.OnSale;
@@ -1018,6 +1024,50 @@ public sealed class FlashDealService : IFlashDealService
         }
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    private async Task ApplyCustomerStockAsync(IEnumerable<FlashDealResponse> responses, CancellationToken ct)
+    {
+        var variants = responses.SelectMany(d => d.Variants).ToArray();
+        var decisions = await StockDecisionsAsync(variants.Select(v => v.Id), ct);
+        foreach (var variant in variants)
+        {
+            var decision = decisions.GetValueOrDefault(variant.Id);
+            variant.UnsellableQuantity = decision?.StoppedQuantity ?? 0;
+            variant.PendingRestockQuantity = decision?.PendingQuantity ?? 0;
+            variant.SoldQuantity = Math.Max(0, variant.SoldQuantity - variant.UnsellableQuantity - variant.PendingRestockQuantity);
+        }
+    }
+
+    private Task<DateTime?> LatestOrderPickupDeadlineAsync(Guid dealId, CancellationToken ct)
+        => _db.OrderItems.AsNoTracking()
+            .Where(item => item.FlashDealVariant.FlashDealId == dealId)
+            .MaxAsync(item => item.Order.HardDeadlineAt, ct);
+
+    private async Task<Dictionary<Guid, FlashDealStockDecisions>> StockDecisionsAsync(IEnumerable<Guid> variantIds, CancellationToken ct)
+    {
+        var ids = variantIds.Distinct().ToArray();
+        if (ids.Length == 0) return new();
+        var rows = await FlashDealStockBreakdown.Summarize(_db.OrderItems.AsNoTracking()
+            .Where(i => ids.Contains(i.FlashDealVariantId)), DateTime.UtcNow).ToListAsync(ct);
+        return rows.ToDictionary(x => x.Id, x => new FlashDealStockDecisions(x.Stopped, x.Pending));
+    }
+
+    private async Task<ShopFlashDealDetailResponse> BuildShopDetailAsync(FlashDeal deal, CancellationToken ct)
+    {
+        var response = MapToShopDetailResponse(deal);
+        response.MinimumPickupDeadlineAt = await LatestOrderPickupDeadlineAsync(deal.Id, ct);
+        var decisions = await StockDecisionsAsync(deal.Variants.Select(v => v.Id), ct);
+        var variants = deal.Variants.ToDictionary(v => v.Id);
+        foreach (var variant in response.Variants)
+        {
+            var stock = FlashDealStockBreakdown.From(variants[variant.Id], decisions.GetValueOrDefault(variant.Id));
+            variant.SoldQuantity = stock.Sold;
+            variant.ReservedQuantity = stock.Reserved;
+            variant.UnsellableQuantity = stock.Stopped;
+            variant.PendingRestockQuantity = stock.PendingRestock;
+        }
+        return response;
     }
 
     private static ShopFlashDealListItemResponse MapToShopListItemResponse(FlashDeal deal)

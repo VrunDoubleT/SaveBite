@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Implementations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Json;
@@ -20,10 +21,12 @@ namespace SaveBite.Backend.Controllers;
 public sealed class ShopPlatformFeeController : ControllerBase
 {
     private readonly IPlatformFeeStatementService _feeStatementService;
+    private readonly PayOsWebhookDispatcher _webhooks;
 
-    public ShopPlatformFeeController(IPlatformFeeStatementService feeStatementService)
+    public ShopPlatformFeeController(IPlatformFeeStatementService feeStatementService, PayOsWebhookDispatcher webhooks)
     {
         _feeStatementService = feeStatementService;
+        _webhooks = webhooks;
     }
 
     /// <summary>
@@ -104,7 +107,7 @@ public sealed class ShopPlatformFeeController : ControllerBase
     [RequestSizeLimit(65536)]
     public async Task<ActionResult> FeeWebhook([FromBody] JsonElement body, CancellationToken ct)
     {
-        await _feeStatementService.ProcessFeeWebhookAsync(body, ct);
+        await _webhooks.DispatchAsync(body, ct);
         return Ok(new { code = "00", desc = "success" });
     }
 

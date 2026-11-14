@@ -1,3 +1,4 @@
+import { StoreOverviewSkeleton } from "@/features/store-analytics/components/StoreOverviewSkeleton";
 import { CalendarDays, History } from "lucide-react";
 import {
   AnalyticsPeriodFilter,
@@ -12,7 +13,6 @@ import { useStoreAnalytics } from "@/features/store-analytics/hooks/useStoreAnal
 import { describePeriod, formatPeriodRange } from "@/features/store-analytics/utils/formatAnalytics";
 import {
   DashboardHeader,
-  DashboardSkeleton,
   SegmentedTabs,
   type TabItem,
 } from "@/shared/components/analytics";
@@ -24,7 +24,7 @@ export function StoreOwnerDashboardPage() {
   const { data, loading, errorMessage, clearError, view, setView } = analytics;
 
   if (loading && !data) {
-    return <DashboardSkeleton label="Loading store analytics..." />;
+    return <StoreOverviewSkeleton />;
   }
 
   const selectedName = data ? describePeriod(data.period) : "Selected period";

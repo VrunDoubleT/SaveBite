@@ -30,17 +30,16 @@ export const shopStaffApi = {
     }
 
     const request = (async () => {
-      const response = await httpClient.get<ApiResponse<PaginatedResponse<ShopStaff>>>(
-        API_ENDPOINTS.SHOP_STAFFS.LIST,
-        {
-          params: {
-            page: 1,
-            pageSize: 50,
-          },
-        },
-      );
-
-      return response.data.data.items;
+      const items: ShopStaff[] = [];
+      for (let page = 1; ; page++) {
+        const response = await httpClient.get<ApiResponse<PaginatedResponse<ShopStaff>>>(
+          API_ENDPOINTS.SHOP_STAFFS.LIST,
+          { params: { page, pageSize: 10 } },
+        );
+        const batch = response.data.data.items;
+        items.push(...batch);
+        if (batch.length < 10) return items;
+      }
     })();
 
     staffListRequest = request;
@@ -112,7 +111,7 @@ export const shopStaffApi = {
         params: {
           keyword,
           page: 1,
-          pageSize: 20,
+          pageSize: 10,
         },
       },
     );
@@ -126,17 +125,16 @@ export const shopStaffApi = {
     }
 
     const request = (async () => {
-      const response = await httpClient.get<ApiResponse<PaginatedResponse<StaffInvitation>>>(
-        API_ENDPOINTS.STAFF_INVITATIONS.BY_SHOP,
-        {
-          params: {
-            page: 1,
-            pageSize: 50,
-          },
-        },
-      );
-
-      return response.data.data.items;
+      const items: StaffInvitation[] = [];
+      for (let page = 1; ; page++) {
+        const response = await httpClient.get<ApiResponse<PaginatedResponse<StaffInvitation>>>(
+          API_ENDPOINTS.STAFF_INVITATIONS.BY_SHOP,
+          { params: { page, pageSize: 10 } },
+        );
+        const batch = response.data.data.items;
+        items.push(...batch);
+        if (batch.length < 10) return items;
+      }
     })();
 
     invitationListRequest = request;

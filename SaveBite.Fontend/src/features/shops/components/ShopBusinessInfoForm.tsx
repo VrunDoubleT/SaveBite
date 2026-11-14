@@ -1,5 +1,5 @@
 import { OpeningHoursPicker } from "@/shared/components/ui/OpeningHoursPicker";
-import { useCallback, useEffect, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ImagePlus, LoaderCircle, MapPin, Save, UploadCloud, Undo2 } from "lucide-react";
@@ -12,9 +12,10 @@ import {
 import { getApiErrorMessage, getApiValidationErrors } from "@/shared/api";
 import { useAddressLocation } from "@/features/addresses/hooks/useAddressLocation";
 import { AddressLocationMap } from "@/features/addresses/components/AddressLocationMap";
-import type {
-  AddressCoordinates,
-  ResolvedAddress,
+import {
+  parseCoordinates,
+  type AddressCoordinates,
+  type ResolvedAddress,
 } from "@/features/addresses/utils/addressLocation";
 
 const inputClass =
@@ -271,6 +272,13 @@ export function ShopBusinessInfoForm({
     mode: "onTouched",
     defaultValues: toFormValues(shop),
   });
+
+  const latitude = useWatch({ control, name: "latitude" });
+  const longitude = useWatch({ control, name: "longitude" });
+  const mapPoint = useMemo(
+    () => parseCoordinates(String(latitude ?? ""), String(longitude ?? "")),
+    [latitude, longitude],
+  );
 
   const openingTime = useWatch({ control, name: "openingTime" });
   const closingTime = useWatch({ control, name: "closingTime" });
@@ -541,11 +549,7 @@ export function ShopBusinessInfoForm({
             </div>
             <div className="mt-4">
               <AddressLocationMap
-                point={
-                  shop.latitude != null && shop.longitude != null
-                    ? { latitude: Number(shop.latitude), longitude: Number(shop.longitude) }
-                    : null
-                }
+                point={mapPoint}
                 disabled={isSaving}
                 onSelect={location.selectPoint}
               />

@@ -1,4 +1,4 @@
-import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { FormPageSkeleton } from "@/shared/components/ui/PageLoadingSkeleton";
 import { toast } from "@/shared/stores/toastStore";
 import { UploadDraftChoice } from "@/shared/uploads/UploadDraftChoice";
 
@@ -70,7 +70,7 @@ function ShopApplicationFormContent({ applicationId }: { applicationId?: string 
   }
 
   if (loading) {
-    return <LoadingSkeleton variant="form" label="Loading shop application" />;
+    return <FormPageSkeleton label="Loading shop application" />;
   }
 
   if (error) {

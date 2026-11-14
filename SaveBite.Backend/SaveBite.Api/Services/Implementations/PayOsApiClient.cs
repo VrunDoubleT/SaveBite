@@ -30,6 +30,14 @@ public sealed class PayOsApiClient(IHttpClientFactory clients, ILogger<PayOsApiC
                 return JsonSerializer.SerializeToElement(new { status = "NOT_FOUND" });
             using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
             var root = json.RootElement;
+            // PayOS also reports a missing payment with HTTP 200 / code 101.
+            // Only normalize a payment lookup: never turn authentication, create or cancel errors into absence.
+            if (response.IsSuccessStatusCode && method == HttpMethod.Get
+                && path.StartsWith("v2/payment-requests/", StringComparison.Ordinal)
+                && long.TryParse(path["v2/payment-requests/".Length..], out var requestedCode) && requestedCode > 0
+                && root.TryGetProperty("code", out var missingCode) && missingCode.ValueKind == JsonValueKind.String
+                && missingCode.GetString() == "101")
+                return JsonSerializer.SerializeToElement(new { status = "NOT_FOUND" });
             if (!response.IsSuccessStatusCode || !root.TryGetProperty("code", out var code) || code.GetString() != "00")
             {
                 if ((int)response.StatusCode < 500 && response.StatusCode != System.Net.HttpStatusCode.TooManyRequests

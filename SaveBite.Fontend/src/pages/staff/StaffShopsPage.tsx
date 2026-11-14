@@ -83,7 +83,7 @@ export function StaffShopsPage() {
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="h-24 animate-pulse rounded-xl bg-gray-100" />
+          <div className="h-24 animate-pulse rounded-xl bg-gray-100 motion-reduce:animate-none" />
         </div>
       </div>
     );

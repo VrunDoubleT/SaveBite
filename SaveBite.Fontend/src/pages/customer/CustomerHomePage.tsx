@@ -1,4 +1,3 @@
-import { InlineSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { useAuthStore } from "@/shared/stores/authStore";
 import { CustomerSuspensionBanner } from "@/shared/components/CustomerSuspensionBanner";
 import { useEffect, useRef, useState } from "react";
@@ -234,9 +233,6 @@ export function CustomerHomePage() {
               <h2 className="text-xs font-bold tracking-wide drop-shadow sm:text-sm">
                 Explore categories
               </h2>
-              {isLoadingCategories && (
-                <InlineSkeleton label="Loading categories" className="w-16" />
-              )}
               {categories.length > 0 && shouldAnimateCategories && (
                 <button
                   type="button"
@@ -386,6 +382,7 @@ export function CustomerHomePage() {
             {isMapOpen && (
               <div className="border-t border-border-default p-4">
                 <NearbyStoresBrowser
+                  showSkeleton={false}
                   latitude={coords?.latitude}
                   longitude={coords?.longitude}
                   radiusInKm={radiusInKm}
@@ -434,6 +431,7 @@ export function CustomerHomePage() {
             className={isMobileFilterOpen ? "min-w-0" : "hidden min-w-0 lg:block"}
           >
             <FilterSidebar
+              showSkeleton={false}
               filters={filters}
               setFilters={setFilters}
               radiusInKm={radiusInKm}
@@ -459,6 +457,7 @@ export function CustomerHomePage() {
             )}
             {(!error || deals.length > 0) && (
               <DealSection
+                showSkeleton={false}
                 deals={deals}
                 isLoading={isLoading}
                 emptyMessage={serverMessage ?? undefined}

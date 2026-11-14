@@ -1,3 +1,4 @@
+using System.Globalization;
 using SaveBite.Backend.Configurations;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
@@ -63,15 +64,20 @@ public static class CheckoutRules
         }
     }
 
-    // Calculate minimum soft and buffered hard deadlines without exceeding the deal cutoff.
+    // Calculate minimum soft and buffered hard deadlines without exceeding the owner-configured pickup cutoff.
     public static PickupEstimate Pickup(DateTime now, decimal distanceKm, int etaMinutes, DateTime endsAt)
     {
         if (etaMinutes < 1 || distanceKm < 0) throw AppException.ServiceUnavailable("No valid travel estimate is available.");
         var soft = now.AddMinutes(Math.Max(MinimumSoftDeadlineMinutes, etaMinutes));
+        var tripDetails = $"Final pickup deadline: {endsAt.AddHours(7):dd/MM/yyyy HH:mm}.\n"
+            + $"Distance: {distanceKm.ToString("0.##", CultureInfo.InvariantCulture)} km; estimated motorcycle travel time: {etaMinutes} minutes.\n"
+            + $"Estimated arrival: {soft.AddHours(7):dd/MM/yyyy HH:mm}.\n"
+            + $"Time remaining for pickup: {Math.Max(0, (int)Math.Floor((endsAt - now).TotalMinutes))} minutes.";
         if (now >= endsAt || soft >= endsAt)
-            throw AppException.OrderClosed("There is not enough time to reach this shop before the earliest deal ends.");
+            throw AppException.OrderClosed("You cannot reach this shop before the final pickup deadline.\n" + tripDetails
+                + "\nPlease choose a closer shop or a deal with a later pickup deadline.");
         if (endsAt < now.AddMinutes(MinimumPickupWindowMinutes))
-            throw AppException.OrderClosed($"At least {MinimumPickupWindowMinutes} minutes must remain before the deal ends to place an order.");
+            throw AppException.OrderClosed($"At least {MinimumPickupWindowMinutes} minutes must remain before the pickup cutoff to place an order.\n" + tripDetails);
         var buffer = Math.Max(MinimumPickupBufferMinutes, (int)Math.Ceiling(etaMinutes * TimingConfiguration.Orders.PickupBufferRatio));
         var uncapped = soft.AddMinutes(buffer);
         var hard = uncapped > endsAt ? endsAt : uncapped;
@@ -83,6 +89,7 @@ public static class CheckoutRules
             SoftDeadlineAt = soft,
             HardDeadlineAt = hard,
             DealEndsAt = endsAt,
+            PickupCutoffAt = endsAt,
             BufferWasCapped = hard < uncapped
         };
     }

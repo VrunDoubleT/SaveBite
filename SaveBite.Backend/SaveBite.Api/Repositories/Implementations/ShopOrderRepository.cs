@@ -102,6 +102,11 @@ public sealed class ShopOrderRepository : IShopOrderRepository
                     query = query.Where(x => x.OrderDate == orderDate.Value);
             }
         }
+        if (search != null)
+        {
+            var match = await query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).Take(1).ToListAsync(ct);
+            return (match, match.Count, counts);
+        }
         var totalItems = await query.CountAsync(ct);
         // UUID is only a deterministic tie-breaker for orders created at the same time.
         var rows = await query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)

@@ -51,8 +51,9 @@ public class FlashDealVariantResponse
     public int TotalQuantity { get; set; }
     public int SoldQuantity { get; set; }
     public int UnsellableQuantity { get; set; }
+    public int PendingRestockQuantity { get; set; }
     public int ReservedQuantity { get; set; }
-    public int AvailableQuantity => (int)Math.Clamp((long)TotalQuantity - ReservedQuantity - SoldQuantity - UnsellableQuantity, 0, int.MaxValue);
+    public int AvailableQuantity => (int)Math.Clamp((long)TotalQuantity - ReservedQuantity - SoldQuantity - UnsellableQuantity - PendingRestockQuantity, 0, int.MaxValue);
     public FlashDealVariantStatus Status { get; set; }
     public bool IsPurchasable { get; set; }
 }

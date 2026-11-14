@@ -120,7 +120,7 @@ export function RefundsPage() {
       />
       <div className="flex flex-wrap items-center justify-between gap-2 text-caption text-text-secondary">
         <p role="status">
-          {current?.data ? `${current.data.totalItems} refunds · GMT+7` : "Refund history · GMT+7"}
+          {current?.data ? `${current.data.totalItems} refunds` : "Refund history"}
         </p>
         <Link
           to={APP_PATHS.ACCOUNT_ORDERS}
@@ -216,7 +216,7 @@ export function RefundsPage() {
               <p className="rounded-md bg-accent-50 p-3 text-caption text-accent-700">
                 Confirm your refund destination
                 {refund.customerDetailsDeadlineAt
-                  ? ` by ${checkoutTime(refund.customerDetailsDeadlineAt)} · GMT+7`
+                  ? ` by ${checkoutTime(refund.customerDetailsDeadlineAt)}`
                   : " to continue"}
                 .
               </p>

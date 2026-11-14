@@ -22,7 +22,7 @@ import type {
   ShopApplicationStatus,
 } from "../types/shopApplication.types";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 type ApplicationDocument = ShopApplication["documents"][number];
 
@@ -317,11 +317,11 @@ function HistorySkeleton() {
     <div className="space-y-4" role="status" aria-label="Loading status history">
       {[0, 1, 2].map((item) => (
         <div key={item} className="flex gap-4">
-          <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-neutral-100" />
+          <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-neutral-100 motion-reduce:animate-none" />
           <div className="flex-1 space-y-2.5 rounded-md border border-border-default p-4">
-            <div className="h-4 w-1/3 animate-pulse rounded bg-neutral-100" />
-            <div className="h-3 w-1/2 animate-pulse rounded bg-neutral-100" />
-            <div className="h-3 w-1/4 animate-pulse rounded bg-neutral-100" />
+            <div className="h-4 w-1/3 animate-pulse rounded bg-neutral-100 motion-reduce:animate-none" />
+            <div className="h-3 w-1/2 animate-pulse rounded bg-neutral-100 motion-reduce:animate-none" />
+            <div className="h-3 w-1/4 animate-pulse rounded bg-neutral-100 motion-reduce:animate-none" />
           </div>
         </div>
       ))}

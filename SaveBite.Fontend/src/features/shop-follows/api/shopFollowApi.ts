@@ -20,7 +20,7 @@ export interface FollowedShopsPage {
 }
 const followPath = (id: string) => `/shops/${encodeURIComponent(id)}/follow`;
 export const shopFollowApi = {
-  async list(page = 1, pageSize = 12, signal?: AbortSignal) {
+  async list(page = 1, pageSize = 10, signal?: AbortSignal) {
     return (
       await httpClient.get<ApiResponse<FollowedShopsPage>>("/me/followed-shops", {
         params: { page, pageSize },

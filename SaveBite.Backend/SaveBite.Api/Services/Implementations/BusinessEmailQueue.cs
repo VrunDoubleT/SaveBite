@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SaveBite.Backend.Constants;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Helpers;
 using SaveBite.Backend.Messaging.Constants;
@@ -10,10 +9,9 @@ using SaveBite.Backend.Models.Enums;
 namespace SaveBite.Backend.Services.Implementations;
 
 // Staged in the business transaction; delivery uses the existing outbox, RabbitMQ and SMTP deduplication.
-public sealed class BusinessEmailQueue(AppDbContext db, TimeProvider clock, IConfiguration configuration)
+public sealed class BusinessEmailQueue(AppDbContext db, TimeProvider clock)
 {
-    public string Link(string path) => (configuration["Checkout:FrontendBaseUrl"] ?? "http://localhost:5173").TrimEnd('/') + path;
-    public static string DeadlineText(DateTime at) => at.AddHours(7).ToString("dd/MM/yyyy HH:mm") + " (GMT+7)";
+    public static string DeadlineText(DateTime at) => at.AddHours(7).ToString("dd/MM/yyyy HH:mm");
 
     public async Task StageAsync(string key, string to, string subject, string body, string kind, Guid subjectId,
         DateTime? deadline, DateTime? expires, CancellationToken ct, decimal? expectedOutstandingAmount = null)
@@ -41,13 +39,20 @@ public sealed class BusinessEmailQueue(AppDbContext db, TimeProvider clock, ICon
     {
         var address = await db.Users.Where(u => u.Id == userId).Select(u => u.Email).SingleAsync(ct);
         await StageAsync($"email:permanent-offline-lock:{userId}", address, "SaveBite: pay at shop permanently restricted",
-            $"Repeated missed pickups have permanently disabled payment at the shop for your account. Full online payment is required. Completing recovery orders does not remove this permanent restriction. Penalty reference: {penaltyId}.\n{Link(NotificationActionUrls.CustomerTrustScorePenalties())}",
+            $"Repeated missed pickups have permanently disabled payment at the shop for your account. Full online payment is required. Completing recovery orders does not remove this permanent restriction. Penalty reference: {penaltyId}.",
             "offline-locked", userId, null, null, ct);
     }
 
     // Recheck at delivery too: a queue delay must not remind a completed task or an obsolete deadline.
     public async Task<bool> StillRelevantAsync(EmailNotificationEvent email, CancellationToken ct)
     {
+        if (email.ExpiresAt <= clock.GetUtcNow().UtcDateTime) return false;
+        if (email.BusinessKind == "pickup-reminder" || email.DeliveryKey?.StartsWith("pickup-email:", StringComparison.Ordinal) == true)
+        {
+            if (!PickupReminderPolicy.TryIdentifyEmail(email, out var orderId, out var deadline)) return false;
+            var order = await db.Orders.AsNoTracking().Include(o => o.Customer).SingleOrDefaultAsync(o => o.Id == orderId, ct);
+            return order != null && PickupReminderPolicy.CanDeliver(order, deadline, clock.GetUtcNow().UtcDateTime, email.To);
+        }
         if (email.BusinessKind == null) return true;
         if (email.BusinessSubjectId is not Guid id) return false;
         var now = clock.GetUtcNow().UtcDateTime;

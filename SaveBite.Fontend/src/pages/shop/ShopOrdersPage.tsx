@@ -81,11 +81,11 @@ function ShopOrdersPageContent() {
     const abort = new AbortController();
     const current = ++generation.current;
     void shopOrderApi
-      .page(shopId, status, trimmedSearch, page, abort.signal, searchDateParam)
+      .page(shopId, status, trimmedSearch, trimmedSearch ? 1 : page, abort.signal, searchDateParam)
       .then((next) => {
         if (current === generation.current && !abort.signal.aborted) {
           const lastPage = Math.max(1, next.page.totalPages);
-          if (page > lastPage) {
+          if (!trimmedSearch && page > lastPage) {
             setPage(lastPage);
             return;
           }
@@ -370,7 +370,7 @@ function ShopOrdersPageContent() {
           </article>
         ))
       )}
-      {!loading && data && !error && (
+      {!trimmedSearch && !input.trim() && !loading && data && !error && (
         <Pagination
           currentPage={data.page.page}
           totalPages={data.page.totalPages}

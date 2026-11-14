@@ -12,16 +12,16 @@ public sealed class OrderDeadlineRecoveryJob(IServiceScopeFactory scopes, TimePr
         var now = clock.GetUtcNow().UtcDateTime;
         await Group("remaining-payments", () => RecoveryBatch.RunAsync(scopes, logger, "remaining-payment", db => db.Orders
             .Where(o => o.Payments.Any(p => p.PaymentType == PaymentType.Remaining && p.Method == PaymentMethod.OnlinePayment
-                && p.Status == PaymentStatus.Pending && p.GatewayCreationAttempted)).Select(o => o.Id),
+                && p.Status == PaymentStatus.Pending && p.GatewayCreationAttempted && p.CreatedAt <= now.AddMinutes(-1))).Select(o => o.Id),
             async (sp, id) => { await sp.GetRequiredService<ICheckoutPaymentService>().ReconcileOrderAsync(id, ct: ct); }, ct), ct);
         await Group("checkout-payments", () => RecoveryBatch.RunAsync(scopes, logger, "checkout-payment", db => db.CheckoutSessions
-            .Where(s => s.Status == OrderStatus.AwaitingPayment && s.PaymentExpiresAt <= now).Select(s => s.Id),
-            (sp, id) => sp.GetRequiredService<ICheckoutPaymentService>().ExpireAsync(id, ct), ct), ct);
+            .Where(s => s.Status == OrderStatus.AwaitingPayment && s.CreatedAt <= now.AddMinutes(-1)).Select(s => s.Id),
+            async (sp, id) => { await sp.GetRequiredService<ICheckoutPaymentService>().ReconcileOrderAsync(id, ct: ct); }, ct), ct);
         await Group("payments", () => RecoveryBatch.RunAsync(scopes, logger, "order-payment", db => db.Orders
-            .Where(o => o.Status == OrderStatus.AwaitingPayment && o.PaymentExpiresAt <= now
+            .Where(o => o.Status == OrderStatus.AwaitingPayment && o.CreatedAt <= now.AddMinutes(-1)
                 && o.Payments.Any(p => p.Status == PaymentStatus.Pending && p.Amount > 0
                     && (p.PaymentType == PaymentType.Full || p.PaymentType == PaymentType.Deposit)))
-            .Select(o => o.Id), (sp, id) => sp.GetRequiredService<ICheckoutPaymentService>().ExpireAsync(id, ct), ct), ct);
+            .Select(o => o.Id), async (sp, id) => { await sp.GetRequiredService<ICheckoutPaymentService>().ReconcileOrderAsync(id, ct: ct); }, ct), ct);
         await Group("confirmation", () => RecoveryBatch.RunAsync(scopes, logger, "order-confirmation", db => db.Orders
             .Where(o => o.Status == OrderStatus.Pending && !o.PaymentReviewRequired
                 && o.Payments.Any(p => p.Status == PaymentStatus.Succeeded

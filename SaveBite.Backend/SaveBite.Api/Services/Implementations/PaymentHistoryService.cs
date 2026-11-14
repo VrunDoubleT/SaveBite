@@ -56,6 +56,9 @@ public sealed class PaymentHistoryService : IPaymentHistoryService
         ShopName = PurchaseSnapshots.ShopName(purchase), ShopLogoUrl = PurchaseSnapshots.ShopLogo(purchase),
         Type = payment.PaymentType.ToString(), Method = payment.Method.ToString(), Status = payment.Status.ToString(),
         Amount = payment.Amount, CollectedAmount = CheckoutOrderMapper.Collected(payment),
+        QrCode = payment.Status == PaymentStatus.Pending ? payment.GatewayQrCode : null,
+        GatewayOrderCode = payment.GatewayOrderCode?.ToString(),
+        IsSimulated = payment.GatewayTransactionId?.StartsWith(DevelopmentCheckoutGateway.Prefix) == true,
         CreatedAt = payment.CreatedAt, PaidAt = payment.PaidAt
         };
     }

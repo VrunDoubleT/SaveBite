@@ -15,6 +15,9 @@ public sealed class CustomerPaymentResponse
     public decimal CollectedAmount { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? PaidAt { get; init; }
+    public string? QrCode { get; init; }
+    public string? GatewayOrderCode { get; init; }
+    public bool IsSimulated { get; init; }
 }
 
 // Show a selected payment together with its recorded order details.

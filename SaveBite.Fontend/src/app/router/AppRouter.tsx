@@ -1,4 +1,5 @@
 import { DocumentTitle } from "./DocumentTitle";
+import { RouteScrollReset } from "./RouteScrollReset";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { routes } from "./routes";
 import { Outlet } from "react-router-dom";
@@ -8,6 +9,7 @@ function AppRouteHost() {
   return (
     <>
       <DocumentTitle />
+      <RouteScrollReset />
       <Outlet />
       <UploadDraftResume />
     </>

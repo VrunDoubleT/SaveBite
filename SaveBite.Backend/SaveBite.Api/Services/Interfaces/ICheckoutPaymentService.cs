@@ -11,5 +11,6 @@ public interface ICheckoutPaymentService
     Task<CheckoutOrderResponse> CancelAsync(Guid userId, Guid orderId, CancellationToken ct = default);
     Task WebhookAsync(JsonElement body, CancellationToken ct = default);
     Task<CheckoutOrderResponse> ReconcileOrderAsync(Guid orderId, bool createRemainingLink = false, CancellationToken ct = default);
+    Task<CheckoutOrderResponse> ReconcilePickupDeadlineAsync(Guid orderId, CancellationToken ct = default);
     Task ExpireAsync(Guid orderId, CancellationToken ct = default);
 }

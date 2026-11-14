@@ -5,7 +5,7 @@ import type { AdminUser, UserDetailsResponse } from "@/features/users/types/user
 import { getApiErrorMessage } from "@/shared/api";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 
-export const USER_PAGE_SIZE = 5;
+export const USER_PAGE_SIZE = 10;
 
 export interface UpdateUserStatusPayload {
   isSuspended: boolean;

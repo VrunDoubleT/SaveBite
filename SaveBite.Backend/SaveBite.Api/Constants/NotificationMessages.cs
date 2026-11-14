@@ -30,7 +30,7 @@ public static class NotificationMessages
 
         public const string PickupDeadlineApproachingTitle = "Pickup deadline approaching";
         public static string PickupDeadlineApproachingBody(string orderCode, string shopName, DateTime deadlineUtcPlus7, string shopAddress) =>
-            $"Order {orderCode} at {shopName} must be collected before {deadlineUtcPlus7:dd/MM/yyyy HH:mm} (UTC+7). Address: {shopAddress}. Please collect it before this hard deadline to avoid a missed pickup.";
+            $"Order {orderCode} at {shopName} must be collected before {deadlineUtcPlus7:dd/MM/yyyy HH:mm}. Address: {shopAddress}. Please collect it before this hard deadline to avoid a missed pickup.";
     }
 
     public static class Payments
@@ -51,7 +51,7 @@ public static class NotificationMessages
         public const string DestinationRequiredTitle = "Action required: provide your refund details";
         public static string DestinationRequiredBody(string orderCode, DateTime deadlineUtc) =>
             $"A refund is waiting for your receiving details for order {orderCode}. " +
-            $"Enter your bank account or upload a bank QR and confirm using the email code before {deadlineUtc.AddHours(7).ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)} (GMT+7). " +
+            $"Enter your bank account or upload a bank QR and confirm using the email code before {deadlineUtc.AddHours(7).ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)}. " +
             "If you miss this deadline, you lose eligibility for this refund.";
 
         public const string NewRefundRequestTitle = "New refund request";

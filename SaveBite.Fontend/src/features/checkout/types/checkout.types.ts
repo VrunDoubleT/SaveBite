@@ -37,6 +37,7 @@ export interface PickupEstimate {
   softDeadlineAt: string;
   hardDeadlineAt: string;
   dealEndsAt: string;
+  pickupCutoffAt?: string;
   bufferWasCapped: boolean;
 }
 export interface CheckoutRoute {

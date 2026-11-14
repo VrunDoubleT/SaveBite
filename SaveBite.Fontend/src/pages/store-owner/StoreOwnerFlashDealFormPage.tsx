@@ -1,4 +1,5 @@
-import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { PickupDeadlineField } from "@/features/flash-deals/components/PickupDeadlineField";
+import { FormPageSkeleton } from "@/shared/components/ui/PageLoadingSkeleton";
 import { resolveDealEnd } from "@/features/flash-deals/utils/flashDealTiming";
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -37,6 +38,7 @@ interface FormVariantState {
   soldQuantity?: number;
   reservedQuantity?: number;
   unsellableQuantity?: number;
+  pendingRestockQuantity?: number;
   status?: number; // 0: Active, 1: Hide
   isSelected: boolean;
 }
@@ -157,6 +159,8 @@ export function StoreOwnerFlashDealFormPage() {
   // Timing states (clean HH:mm, duration in minutes)
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
+  const [pickupMode, setPickupMode] = useState<"deal-end" | "custom">("deal-end");
+  const [pickupMinutes, setPickupMinutes] = useState<number | "">(15);
   const [durationMins, setDurationMins] = useState<number>(60);
   const [selectedDuration, setSelectedDuration] = useState<number | null>(60);
 
@@ -178,7 +182,10 @@ export function StoreOwnerFlashDealFormPage() {
 
   // Whether current deal is already active OnSale
   const isDealOnSale =
-    isEditMode && existingDeal?.status === FlashDealStatusEnum.OnSale && !isDealEnded;
+    isEditMode &&
+    (existingDeal?.status === FlashDealStatusEnum.OnSale ||
+      existingDeal?.status === FlashDealStatusEnum.SoldOut) &&
+    !isDealEnded;
 
   // Initial load
   useEffect(() => {
@@ -222,6 +229,9 @@ export function StoreOwnerFlashDealFormPage() {
           const end = new Date(deal.orderEndTime);
           setStartTime(formatTime(start));
           setEndTime(formatTime(end));
+          const pickup = new Date(deal.shopClosingTime);
+          setPickupMode(pickup.getTime() > end.getTime() ? "custom" : "deal-end");
+          setPickupMinutes(Math.round((pickup.getTime() - end.getTime()) / 60_000));
           const diff = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
           setDurationMins(diff > 0 ? diff : 60);
 
@@ -243,6 +253,7 @@ export function StoreOwnerFlashDealFormPage() {
                     soldQuantity: ex.soldQuantity,
                     reservedQuantity: ex.reservedQuantity,
                     unsellableQuantity: ex.unsellableQuantity,
+                    pendingRestockQuantity: ex.pendingRestockQuantity,
                     status: ex.status ?? FlashDealVariantStatusEnum.Active,
                     isSelected: true,
                   };
@@ -272,6 +283,7 @@ export function StoreOwnerFlashDealFormPage() {
                 soldQuantity: v.soldQuantity,
                 reservedQuantity: v.reservedQuantity,
                 unsellableQuantity: v.unsellableQuantity,
+                pendingRestockQuantity: v.pendingRestockQuantity,
                 status: v.status ?? FlashDealVariantStatusEnum.Active,
                 isSelected: true,
               })),
@@ -387,12 +399,46 @@ export function StoreOwnerFlashDealFormPage() {
         }
       }
 
+      let latestPickup = new Date(end.getTime() + 60 * 60_000);
+      const opening = shopOperatingHours?.openingTime?.slice(0, 5);
+      const closing = shopOperatingHours?.closingTime?.slice(0, 5);
+      if (opening && closing && opening !== closing) {
+        const shopClose = new Date(start);
+        const [hours, minutes] = closing.split(":").map(Number);
+        shopClose.setHours(hours, minutes, 0, 0);
+        if (opening > closing && formatTime(start) >= opening)
+          shopClose.setDate(shopClose.getDate() + 1);
+        if (shopClose < latestPickup) latestPickup = shopClose;
+      }
+      const closingTime = new Date(
+        end.getTime() +
+          (pickupMode === "deal-end" ? 0 : pickupMinutes === "" ? NaN : pickupMinutes * 60_000),
+      );
+      const committed = existingDeal?.minimumPickupDeadlineAt
+        ? new Date(existingDeal.minimumPickupDeadlineAt)
+        : null;
+      const minimumPickup = committed && committed > end ? committed : end;
+      const pickupError =
+        (pickupMode === "custom" && (pickupMinutes === "" || !Number.isInteger(pickupMinutes))) ||
+        !Number.isFinite(closingTime.getTime())
+          ? "Enter the number of extra pickup minutes."
+          : closingTime < minimumPickup
+            ? "Pickup cutoff cannot precede deal end or an existing order deadline."
+            : closingTime > latestPickup
+              ? "Pickup cutoff must be within 60 minutes after deal end and no later than shop closing."
+              : "";
+
       const isValid =
-        diffMs > 0 && isDurationValid && isAdvanceValid && !operatingHoursErrorMessage;
+        diffMs > 0 &&
+        isDurationValid &&
+        isAdvanceValid &&
+        !operatingHoursErrorMessage &&
+        !pickupError;
       const errorMessage =
         advanceErrorMessage ||
         durationErrorMessage ||
         operatingHoursErrorMessage ||
+        pickupError ||
         (diffMs <= 0 ? "End time must be after start time." : "");
 
       const hours = Math.floor(computedDurationMins / 60);
@@ -401,8 +447,6 @@ export function StoreOwnerFlashDealFormPage() {
       const isCurrentlyActive = isImmediate || (start <= now && end >= now);
       const isUpcoming = !isImmediate && start > now;
 
-      // Closing time is order cutoff + 30 mins
-      const closingTime = new Date(end.getTime() + 30 * 60 * 1000);
       const isNextDay = end.getDate() !== start.getDate();
 
       return {
@@ -418,12 +462,16 @@ export function StoreOwnerFlashDealFormPage() {
         isCurrentlyActive,
         isUpcoming,
         closingTime,
+        minimumPickup,
+        latestPickup,
         isImmediate,
         isNextDay,
       };
     },
     [
       nowMs,
+      pickupMode,
+      pickupMinutes,
       startTime,
       endTime,
       durationMins,
@@ -548,7 +596,11 @@ export function StoreOwnerFlashDealFormPage() {
         if (v.variantId !== variantId) return v;
         if (
           v.isSelected &&
-          (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) > 0
+          (v.soldQuantity ?? 0) +
+            (v.reservedQuantity ?? 0) +
+            (v.unsellableQuantity ?? 0) +
+            (v.pendingRestockQuantity ?? 0) >
+            0
         ) {
           toast.error(
             `Variant ${v.variantName} already has orders. Please switch its status to Hide instead.`,
@@ -566,7 +618,11 @@ export function StoreOwnerFlashDealFormPage() {
       prev.map((v) => {
         if (
           !selectAll &&
-          (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) > 0
+          (v.soldQuantity ?? 0) +
+            (v.reservedQuantity ?? 0) +
+            (v.unsellableQuantity ?? 0) +
+            (v.pendingRestockQuantity ?? 0) >
+            0
         ) {
           return v;
         }
@@ -656,10 +712,14 @@ export function StoreOwnerFlashDealFormPage() {
       }
       if (
         v.soldQuantity !== undefined &&
-        qtyNum < v.soldQuantity + (v.reservedQuantity || 0) + (v.unsellableQuantity || 0)
+        qtyNum <
+          v.soldQuantity +
+            (v.reservedQuantity || 0) +
+            (v.unsellableQuantity || 0) +
+            (v.pendingRestockQuantity || 0)
       ) {
         toast.error(
-          `Deal quantity for ${v.variantName} cannot be less than sold, reserved and stopped stock (${v.soldQuantity + (v.reservedQuantity || 0) + (v.unsellableQuantity || 0)}).`,
+          `Deal quantity for ${v.variantName} cannot be less than sold, reserved, stopped and pending decision stock (${v.soldQuantity + (v.reservedQuantity || 0) + (v.unsellableQuantity || 0) + (v.pendingRestockQuantity || 0)}).`,
         );
         return;
       }
@@ -683,9 +743,7 @@ export function StoreOwnerFlashDealFormPage() {
             status: v.status ?? FlashDealVariantStatusEnum.Active,
           })),
         });
-        toast.success(
-          "Flash deal updated successfully!",
-        );
+        toast.success("Flash deal updated successfully!");
       } else {
         await flashDealApi.createFlashDeal({
           productId: selectedProductId,
@@ -715,7 +773,7 @@ export function StoreOwnerFlashDealFormPage() {
   }
 
   if (initialLoading) {
-    return <LoadingSkeleton variant="form" label="Loading flash deal form" />;
+    return <FormPageSkeleton label="Loading flash deal form" />;
   }
 
   return (
@@ -740,7 +798,10 @@ export function StoreOwnerFlashDealFormPage() {
         </p>
       </div>
 
-      <fieldset disabled={shopSuspended || Boolean(isDealEnded)} className="space-y-6 disabled:opacity-60">
+      <fieldset
+        disabled={shopSuspended || Boolean(isDealEnded)}
+        className="space-y-6 disabled:opacity-60"
+      >
         {/* Block 1: Product Selection */}
         <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
           <h2 className="text-sm font-bold text-neutral-900">Product Information</h2>
@@ -1148,6 +1209,16 @@ export function StoreOwnerFlashDealFormPage() {
               </div>
             </div>
 
+            <PickupDeadlineField
+              mode={pickupMode}
+              setMode={setPickupMode}
+              minutes={pickupMinutes}
+              setMinutes={setPickupMinutes}
+              schedule={scheduleSummary}
+              operatingHours={shopOperatingHours}
+              minimumOrderDeadline={existingDeal?.minimumPickupDeadlineAt}
+            />
+
             {/* Live Schedule Summary inside this container */}
             <div
               className={`rounded-lg border p-3.5 text-xs transition-all ${
@@ -1171,15 +1242,15 @@ export function StoreOwnerFlashDealFormPage() {
                     </span>
                     <span className="text-neutral-400">➔</span>
                     <span>
-                      Cutoff: <strong>{endTime}</strong>{" "}
+                      Cutoff: <strong>{formatTime(scheduleSummary.end)}</strong>{" "}
                       {scheduleSummary.isNextDay && (
                         <strong className="text-amber-700">(Next Day)</strong>
                       )}
                     </span>
                   </div>
                   <div className="text-[11px] font-medium text-neutral-600">
-                    🔒 Store Closes: <strong>{formatTime(scheduleSummary.closingTime)}</strong>{" "}
-                    (includes 30m pickup buffer)
+                    Final pickup: <strong>{formatTime(scheduleSummary.closingTime)}</strong> (new
+                    orders stop at deal cutoff)
                   </div>
                 </div>
               ) : (
@@ -1265,7 +1336,10 @@ export function StoreOwnerFlashDealFormPage() {
                     : 0;
 
                 const hasOrders = Boolean(
-                  (v.soldQuantity ?? 0) + (v.reservedQuantity ?? 0) + (v.unsellableQuantity ?? 0) >
+                  (v.soldQuantity ?? 0) +
+                    (v.reservedQuantity ?? 0) +
+                    (v.unsellableQuantity ?? 0) +
+                    (v.pendingRestockQuantity ?? 0) >
                   0,
                 );
 
@@ -1414,7 +1488,8 @@ export function StoreOwnerFlashDealFormPage() {
                           {v.soldQuantity !== undefined ? (
                             <p className="mt-1 text-[10px] text-neutral-400">
                               Sold {v.soldQuantity}, reserved {v.reservedQuantity || 0}, stopped{" "}
-                              {v.unsellableQuantity || 0}
+                              {v.unsellableQuantity || 0}, pending stock decision{" "}
+                              {v.pendingRestockQuantity || 0}
                             </p>
                           ) : (
                             <p className="mt-1 text-[10px] text-neutral-400">

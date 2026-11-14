@@ -13,7 +13,7 @@ import type {
   ShopApplicationAdminFilter,
 } from "@/features/shop-applications/types/adminShopApplication.types";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 export function AdminShopApplicationsPage() {
   const [items, setItems] = useState<ShopApplication[]>([]);

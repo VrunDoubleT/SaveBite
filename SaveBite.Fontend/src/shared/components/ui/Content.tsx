@@ -126,7 +126,7 @@ export function Skeleton({ className = "", ...props }: ComponentProps<"div">) {
     <div
       {...props}
       aria-hidden="true"
-      className={`animate-pulse motion-reduce:animate-none rounded-md bg-neutral-200 ${className}`}
+      className={`max-w-full animate-pulse motion-reduce:animate-none rounded-md bg-neutral-200 ${className}`}
     />
   );
 }

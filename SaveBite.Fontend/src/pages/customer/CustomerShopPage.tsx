@@ -277,8 +277,8 @@ function ShopContent({ shopId }: { shopId: string }) {
       <div role="status" aria-label="Loading store" className="space-y-6 py-6 sm:py-8">
         <Skeleton className="h-5 w-40" />
         <div className="overflow-hidden rounded-lg border border-border-default bg-bg-surface">
-          <Skeleton className="h-40 rounded-none sm:h-48" />
-          <div className="space-y-4 p-6">
+          <Skeleton className="h-40 rounded-none sm:h-48 lg:h-52" />
+          <div className="space-y-5 p-4 sm:p-6">
             <Skeleton className="h-8 w-2/3" />
             <Skeleton className="h-5 w-1/2" />
             <Skeleton className="h-12" />

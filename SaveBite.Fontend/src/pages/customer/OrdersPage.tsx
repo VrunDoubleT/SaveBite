@@ -165,7 +165,7 @@ function CustomerOrders({
         </p>
         <span className="inline-flex items-center gap-1.5">
           <Clock3 size={14} aria-hidden="true" />
-          Pickup times · GMT+7
+          Pickup times
         </span>
       </div>
       {pageError && (
@@ -284,7 +284,7 @@ function CustomerOrders({
                 <details className="rounded-md bg-neutral-50 px-3">
                   <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-caption font-medium text-text-secondary">
                     <Clock3 size={14} aria-hidden="true" />
-                    Pickup times · GMT+7
+                    Pickup times
                     <ChevronDown size={15} aria-hidden="true" className="ml-auto" />
                   </summary>
                   <div className="pb-3">

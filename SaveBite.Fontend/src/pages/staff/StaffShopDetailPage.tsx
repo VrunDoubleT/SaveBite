@@ -1,3 +1,4 @@
+import { StaffShopDetailSkeleton } from "@/shared/components/ui/PageLoadingSkeleton";
 import { useEffect, useState } from "react";
 import { ArrowLeft, CalendarDays, Clock3, Mail, MapPin, Store, User } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -89,23 +90,7 @@ export function StaffShopDetailPage() {
     };
   }, [shopId]);
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-48 animate-pulse rounded-lg bg-neutral-200" />
-
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-2xs">
-          <div className="h-40 animate-pulse rounded-lg bg-neutral-100" />
-
-          <div className="mt-6 space-y-3">
-            <div className="h-6 w-1/3 animate-pulse rounded bg-neutral-100" />
-            <div className="h-4 w-2/3 animate-pulse rounded bg-neutral-100" />
-            <div className="h-4 w-1/2 animate-pulse rounded bg-neutral-100" />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <StaffShopDetailSkeleton />;
 
   if (error || !data) {
     return (

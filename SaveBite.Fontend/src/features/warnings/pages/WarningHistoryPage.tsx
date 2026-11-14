@@ -5,7 +5,7 @@ import type { Warning } from "../types/warning.types";
 import { Pagination } from "@/shared/components/pagination";
 import { WarningItems } from "../components/WarningItems";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 const solidPill =
   "inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.98]";

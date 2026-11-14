@@ -105,9 +105,10 @@ public sealed class CheckoutService : ICheckoutService
         var summary = CartService.ToResponse(state.Items).Shops.Single();
         var policy = CheckoutRules.Policy(state.Level, state.IsDefaultLevel, state.PermanentlyLocked, state.Recovering, summary.Subtotal);
         // Calculate the minimum soft deadline and buffered hard deadline, capped by the earliest pickup cutoff.
-        var pickup = CheckoutRules.Pickup(now, estimate.DistanceKm, estimate.EtaMinutes, EndTime(state));
+        var pickup = CheckoutRules.Pickup(now, estimate.DistanceKm, estimate.EtaMinutes, PickupCutoff(state))
+            with { DealEndsAt = state.Items.Min(i => i.FlashDealVariant.FlashDeal.OrderEndTime) };
         // Expire the quote within 60 seconds, GPS freshness and the latest feasible checkout time.
-        var expiresAt = new[] { now.AddSeconds(TimingConfiguration.Orders.QuoteLifetimeSeconds), request.Location.CapturedAt.AddMinutes(TimingConfiguration.Orders.LocationMaxAgeMinutes), pickup.DealEndsAt.AddMinutes(-Math.Max(CheckoutRules.MinimumPickupWindowMinutes, estimate.EtaMinutes)) }.Min();
+        var expiresAt = new[] { state.Items.Min(i => i.FlashDealVariant.FlashDeal.OrderEndTime), now.AddSeconds(TimingConfiguration.Orders.QuoteLifetimeSeconds), request.Location.CapturedAt.AddMinutes(TimingConfiguration.Orders.LocationMaxAgeMinutes), pickup.PickupCutoffAt.AddMinutes(-Math.Max(CheckoutRules.MinimumPickupWindowMinutes, estimate.EtaMinutes)) }.Min();
         if (expiresAt <= now) throw AppException.OrderClosed("There is not enough time left to confirm this quote before the pickup cutoff.");
         var configured = _paymentGateway.IsConfigured(state.PaymentConfig);
         // Return full checkout information to the UI, including the optional route for map display.
@@ -182,9 +183,9 @@ public sealed class CheckoutService : ICheckoutService
                 || summary.Subtotal != quote.TotalAmount || policy.RequiredDeposit != quote.RequiredDeposit)
                 throw AppException.Conflict("Cart prices, quantities or your deposit policy changed. Refresh checkout and review them before placing your order.");
             // Recheck feasibility with current time, but keep the pickup times already shown in the quote.
-            CheckoutRules.Pickup(now, quote.Pickup.DistanceKm, quote.Pickup.EtaMinutes, EndTime(state));
+            CheckoutRules.Pickup(now, quote.Pickup.DistanceKm, quote.Pickup.EtaMinutes, PickupCutoff(state));
             var pickup = quote.Pickup;
-            if (pickup.SoftDeadlineAt <= now || pickup.HardDeadlineAt <= pickup.SoftDeadlineAt || pickup.HardDeadlineAt > EndTime(state))
+            if (pickup.SoftDeadlineAt <= now || pickup.HardDeadlineAt <= pickup.SoftDeadlineAt || pickup.HardDeadlineAt > PickupCutoff(state))
                 throw AppException.OrderClosed("The quoted pickup deadlines are no longer valid. Refresh checkout.");
             // Enforce PayAtShop eligibility; OnlinePayment collects the full total and PayAtShop collects the fixed deposit.
             var method = request.PaymentMethod == "PayAtShop" ? PaymentMethod.PayAtShop : PaymentMethod.OnlinePayment;
@@ -269,10 +270,9 @@ public sealed class CheckoutService : ICheckoutService
         return result;
     }
 
-    // Use the earliest deal order cutoff or shop closing time across all items in the selected shop.
-    private static DateTime EndTime(CheckoutState state)
-        => state.Items.Min(x => x.FlashDealVariant.FlashDeal.OrderEndTime < x.FlashDealVariant.FlashDeal.ShopClosingTime
-            ? x.FlashDealVariant.FlashDeal.OrderEndTime : x.FlashDealVariant.FlashDeal.ShopClosingTime);
+    // Sale cutoff controls new orders; the owner-configured pickup cutoff controls collection.
+    private static DateTime PickupCutoff(CheckoutState state)
+        => state.Items.Min(x => x.FlashDealVariant.FlashDeal.ShopClosingTime);
 
     // Hash quote-sensitive data to detect changes without storing a full shop or item snapshot in Redis.
     // Redis data loss can overlap an uncommitted allocation; the DB unique constraint is the final arbiter.

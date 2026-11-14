@@ -14,7 +14,7 @@ import { RefundStatusBadge, RefundProgress } from "./RefundStatusBadge";
 const button =
   "rounded-lg bg-primary-700 px-4 py-2.5 text-xs font-semibold text-white hover:bg-primary-800 disabled:opacity-50";
 const card = "min-w-0 rounded-xl border border-neutral-200 bg-white p-4 sm:p-5";
-const time = (value?: string) => (value ? `${checkoutTime(value)} · GMT+7` : "—");
+const time = (value?: string) => (value ? `${checkoutTime(value)}` : "—");
 const historyLabels: Record<string, string> = {
   Requested: "Refund requested",
   DestinationProvided: "Destination provided",
@@ -437,7 +437,7 @@ export function ShopRefundCard({
       )}
       <section className={card}>
         <h2 className="text-sm font-semibold">Processing history</h2>
-        <p className="mt-1 text-xs text-neutral-500">Latest activity first · All times in GMT+7</p>
+        <p className="mt-1 text-xs text-neutral-500">Latest activity first</p>
         <ol className="mt-5">
           {[...refund.history].reverse().map((entry) => (
             <li key={entry.id} className="relative border-l border-neutral-200 pb-5 pl-5 last:pb-0">

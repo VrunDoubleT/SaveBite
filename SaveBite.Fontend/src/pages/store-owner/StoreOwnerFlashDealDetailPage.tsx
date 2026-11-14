@@ -1,4 +1,5 @@
-import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
+import { FlashDealDetailSkeleton } from "@/shared/components/ui/PageLoadingSkeleton";
 import { FlashDealStockHistory } from "@/features/restock/FlashDealStockHistory";
 import { useRestockWorkspace } from "@/features/restock/restockContext";
 import { useEffect, useState, useMemo } from "react";
@@ -38,6 +39,8 @@ export function StoreOwnerFlashDealDetailPage() {
 
   const [deal, setDeal] = useState<ShopFlashDealDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [inventoryRevision, setInventoryRevision] = useState(0);
+  useFlashDealRealtime("deal", id, () => setInventoryRevision((value) => value + 1), true);
 
   // Cancel modal state
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -79,7 +82,7 @@ export function StoreOwnerFlashDealDetailPage() {
     return () => {
       ignore = true;
     };
-  }, [id, stockRevision]);
+  }, [id, stockRevision, inventoryRevision]);
 
   function formatDateTime(dateStr?: string) {
     if (!dateStr) return "-";
@@ -99,26 +102,27 @@ export function StoreOwnerFlashDealDetailPage() {
   // Summary calculations
   const summary = useMemo(() => {
     if (!deal)
-      return { totalQty: 0, soldQty: 0, reservedQty: 0, remainingQty: 0, revenue: 0, percent: 0 };
+      return { totalQty: 0, soldQty: 0, pendingQty: 0, reservedQty: 0, remainingQty: 0, revenue: 0, percent: 0 };
     const totalQty = deal.variants.reduce((acc, v) => acc + v.totalQuantity, 0);
     const soldQty = deal.variants.reduce((acc, v) => acc + v.soldQuantity, 0);
+    const pendingQty = deal.variants.reduce((acc, v) => acc + (v.pendingRestockQuantity ?? 0), 0);
     const reservedQty = deal.variants.reduce((acc, v) => acc + v.reservedQuantity, 0);
     const remainingQty = deal.variants.reduce((acc, v) => acc + v.availableQuantity, 0);
     const revenue = deal.variants.reduce((acc, v) => acc + v.soldQuantity * v.dealPrice, 0);
     const percent = totalQty > 0 ? Math.round((soldQty / totalQty) * 100) : 0;
-    return { totalQty, soldQty, reservedQty, remainingQty, revenue, percent };
+    return { totalQty, soldQty, pendingQty, reservedQty, remainingQty, revenue, percent };
   }, [deal]);
 
   // Safety buffer minutes
   const safetyBuffer = useMemo(() => {
-    if (!deal) return 30;
+    if (!deal) return 0;
     try {
       const closing = new Date(deal.shopClosingTime).getTime();
       const orderEnd = new Date(deal.orderEndTime).getTime();
       const diffMins = Math.round((closing - orderEnd) / (1000 * 60));
-      return diffMins > 0 ? diffMins : 30;
+      return Number.isFinite(diffMins) ? Math.max(0, diffMins) : 0;
     } catch {
-      return 30;
+      return 0;
     }
   }, [deal]);
 
@@ -160,7 +164,7 @@ export function StoreOwnerFlashDealDetailPage() {
   }
 
   if (loading) {
-    return <LoadingSkeleton variant="detail" label="Loading flash deal" />;
+    return <FlashDealDetailSkeleton />;
   }
 
   if (!deal) {
@@ -181,7 +185,8 @@ export function StoreOwnerFlashDealDetailPage() {
 
   const isHidden = deal.status === FlashDealStatusEnum.Hidden;
   const isCancelled =
-    deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed ||
+    deal.status === FlashDealStatusEnum.Cancelled ||
+    deal.status === FlashDealStatusEnum.Closed ||
     new Date(deal.orderEndTime).getTime() <= Date.now();
 
   return (
@@ -325,14 +330,14 @@ export function StoreOwnerFlashDealDetailPage() {
         </div>
       </div>
 
-      {/* 5 Stats Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {/* Stock and revenue summary */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600">
               <Package className="size-5" />
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-medium text-neutral-500">Total Quantity</p>
               <p className="text-xl font-bold text-neutral-900">{summary.totalQty}</p>
             </div>
@@ -341,10 +346,10 @@ export function StoreOwnerFlashDealDetailPage() {
 
         <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
               <CheckCircle2 className="size-5" />
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-medium text-neutral-500">Sold ({summary.percent}%)</p>
               <p className="text-xl font-bold text-emerald-600">{summary.soldQty}</p>
             </div>
@@ -353,10 +358,22 @@ export function StoreOwnerFlashDealDetailPage() {
 
         <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+              <Clock className="size-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-neutral-500">Pending stock decision</p>
+              <p className="text-xl font-bold text-amber-600">{summary.pendingQty}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
               <Layers className="size-5" />
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-medium text-neutral-500">Remaining</p>
               <p className="text-xl font-bold text-blue-600">{summary.remainingQty}</p>
             </div>
@@ -365,24 +382,24 @@ export function StoreOwnerFlashDealDetailPage() {
 
         <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
               <Clock className="size-5" />
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-medium text-neutral-500">Reserved</p>
               <p className="text-xl font-bold text-amber-600">{summary.reservedQty}</p>
             </div>
           </div>
         </div>
 
-        <div className="col-span-2 rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs sm:col-span-1">
+        <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
               <DollarSign className="size-5" />
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-medium text-neutral-500">Est. Revenue</p>
-              <p className="text-xl font-bold text-neutral-900">
+              <p className="whitespace-nowrap text-base font-bold tabular-nums text-neutral-900 sm:text-lg">
                 {summary.revenue.toLocaleString("en-US")} VND
               </p>
             </div>
@@ -409,14 +426,14 @@ export function StoreOwnerFlashDealDetailPage() {
           </div>
 
           <div className="rounded-lg bg-neutral-50 p-3.5 border border-neutral-100">
-            <p className="text-[11px] text-neutral-400">Store Closing Time</p>
+            <p className="text-[11px] text-neutral-400">Final Pickup Deadline</p>
             <p className="mt-1 text-xs font-semibold text-neutral-800">
               {formatDateTime(deal.shopClosingTime)}
             </p>
           </div>
 
           <div className="rounded-lg bg-neutral-50 p-3.5 border border-neutral-100">
-            <p className="text-[11px] text-neutral-400">Safety Buffer</p>
+            <p className="text-[11px] text-neutral-400">Pickup Extension</p>
             <p className="mt-1 text-xs font-semibold text-neutral-800">{safetyBuffer} mins</p>
           </div>
         </div>
@@ -459,9 +476,12 @@ export function StoreOwnerFlashDealDetailPage() {
                 <th
                   scope="col"
                   className="px-4 py-3 font-medium"
-                  title="Includes stock held while awaiting a restock decision"
+                  title="Stock reserved for pending customer payments"
                 >
                   Reserved
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Pending stock decision
                 </th>
                 <th scope="col" className="px-4 py-3 font-medium">
                   Remaining
@@ -516,6 +536,9 @@ export function StoreOwnerFlashDealDetailPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-neutral-700">{v.reservedQuantity}</td>
+                    <td className="px-4 py-3.5 font-semibold text-amber-700">
+                      {v.pendingRestockQuantity ?? 0}
+                    </td>
                     <td className="px-4 py-3.5 font-semibold text-neutral-900">
                       {v.availableQuantity}
                     </td>

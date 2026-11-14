@@ -78,7 +78,7 @@ export function RefundCard({
         >
           {refund.isOverdue
             ? "The processing deadline has passed. This refund will be closed automatically."
-            : `Shop processing deadline: ${checkoutTime(refund.reviewDeadlineAt)} · GMT+7`}
+            : `Shop processing deadline: ${checkoutTime(refund.reviewDeadlineAt)}`}
         </p>
       )}
       {needsBank && <RefundDestinationForm refund={refund} busy={busy} mutate={mutate} />}
@@ -145,7 +145,7 @@ export function RefundCard({
                 {entry.actorName} · {entry.decision}
               </p>
               <p className="mt-1 text-text-secondary">{entry.note}</p>
-              <p className="mt-1 text-text-muted">{checkoutTime(entry.createdAt)} · GMT+7</p>
+              <p className="mt-1 text-text-muted">{checkoutTime(entry.createdAt)}</p>
             </li>
           ))}
         </ul>

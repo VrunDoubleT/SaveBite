@@ -39,7 +39,7 @@ export function DealStoreReviews({
   useEffect(() => {
     let active = true;
     shopApi
-      .getStoreReviews(shopId, { rating: rating ?? undefined, page, pageSize: 4 })
+      .getStoreReviews(shopId, { rating: rating ?? undefined, page, pageSize: 10 })
       .then((summary) => {
         if (active) {
           setResult({ key, summary, error: false });

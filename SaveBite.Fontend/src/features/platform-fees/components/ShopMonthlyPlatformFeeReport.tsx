@@ -11,7 +11,7 @@ interface ShopMonthlyPlatformFeeReportProps {
   shopId: string;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 const currentYear = new Date().getUTCFullYear();
 const currentMonth = new Date().getUTCMonth() + 1;
 const yearOptions = Array.from({ length: 6 }, (_, index) => currentYear - index);

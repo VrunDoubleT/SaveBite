@@ -1,41 +1,73 @@
 import { useEffect, useState } from "react";
-import { safePaymentUrl } from "@/features/checkout/utils/checkoutPolicy";
-export function PaymentQr({ value, url }: { value?: string; url?: string }) {
-  const [image, setImage] = useState("");
-  const link = safePaymentUrl(url);
-  const simulated = link?.startsWith("/checkout/simulation?") === true;
+import { Loader2 } from "lucide-react";
+
+// Compact preview for the shop workspace; the Show button opens the full payment dialog.
+export function PaymentQr({
+  value,
+  simulated,
+  processing,
+}: {
+  value?: string;
+  simulated?: boolean;
+  processing?: boolean;
+}) {
+  const [qr, setQr] = useState<{ value: string; image: string } | null>(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
-    let alive = true;
-    const target = value || (link ? new URL(link, window.location.origin).href : "");
-    if (target)
-      void import("qrcode")
-        .then(({ default: QRCode }) => QRCode.toDataURL(target, { width: 240, margin: 2 }))
-        .then((src) => {
-          if (alive) setImage(src);
-        })
-        .catch(() => {
-          if (alive) setImage("");
-        });
+    if (!value || simulated) return;
+    let active = true;
+    void import("qrcode")
+      .then(({ default: QRCode }) => QRCode.toDataURL(value, { width: 400, margin: 4 }))
+      .then((image) => {
+        if (active) {
+          setQr({ value, image });
+          setFailed(false);
+        }
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
     return () => {
-      alive = false;
+      active = false;
     };
-  }, [value, link]);
+  }, [value, simulated]);
+  const image = qr && qr.value === value ? qr.image : null;
   return (
-    <div className="space-y-2 rounded-lg border border-emerald-200 bg-white p-3 text-center">
-      {image && (
+    <div className="mt-3 space-y-2 rounded-lg border border-border-default bg-white p-3 text-center">
+      {processing ? (
+        <div
+          role="status"
+          className="flex min-h-48 flex-col items-center justify-center gap-3 text-sm text-text-secondary"
+        >
+          <Loader2
+            className="motion-safe:animate-spin text-primary-700"
+            size={28}
+            aria-hidden="true"
+          />
+          Processing payment…
+        </div>
+      ) : simulated ? (
+        <p className="py-6 text-sm text-amber-800">Test payment — no bank QR.</p>
+      ) : image ? (
         <img
           src={image}
           width={200}
           height={200}
-          className="mx-auto"
-          alt="Remaining payment QR code"
+          className="mx-auto h-auto max-w-full"
+          alt="Scan this bank QR to pay"
         />
+      ) : (
+        <p role="status" className="py-6 text-sm text-text-secondary">
+          {failed || !value ? "Payment QR unavailable." : "Loading payment QR…"}
+        </p>
       )}
-      <p className="text-xs text-neutral-500">
-        {simulated
-          ? "Test QR only. Use the simulation controls below to test the payment outcome."
-          : "Scan to pay. Payment is verified automatically before completion."}
-      </p>
+      {!processing && (
+        <p className="text-xs text-text-secondary">
+          {simulated
+            ? "Open the payment dialog to test the payment."
+            : "Scan with your banking app to pay the remaining balance."}
+        </p>
+      )}
     </div>
   );
 }

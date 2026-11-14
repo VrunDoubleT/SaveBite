@@ -23,10 +23,10 @@ function SkeletonRows() {
     <ul aria-hidden="true" className="divide-y divide-neutral-100">
       {Array.from({ length: 5 }).map((_, row) => (
         <li key={row} className="flex items-center gap-4 px-5 py-5">
-          <div className="size-10 animate-pulse rounded-full bg-neutral-100" />
+          <div className="size-10 animate-pulse rounded-full bg-neutral-100 motion-reduce:animate-none" />
           <div className="flex-1 space-y-2">
-            <div className="h-4 w-56 animate-pulse rounded bg-neutral-100" />
-            <div className="h-3 w-40 animate-pulse rounded bg-neutral-100" />
+            <div className="h-4 w-56 animate-pulse rounded bg-neutral-100 motion-reduce:animate-none" />
+            <div className="h-3 w-40 animate-pulse rounded bg-neutral-100 motion-reduce:animate-none" />
           </div>
         </li>
       ))}

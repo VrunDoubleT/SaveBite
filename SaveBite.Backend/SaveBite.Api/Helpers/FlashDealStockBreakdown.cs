@@ -9,7 +9,7 @@ public sealed class FlashDealStockDecisionRow
     public int Pending { get; init; }
 }
 public sealed record FlashDealStockDecisions(int StoppedQuantity, int PendingQuantity);
-public sealed record FlashDealStockBreakdown(int Sold, int Reserved, int Stopped, int Remaining)
+public sealed record FlashDealStockBreakdown(int Sold, int Reserved, int Stopped, int Remaining, int PendingRestock = 0)
 {
     public static IQueryable<FlashDealStockDecisionRow> Summarize(IQueryable<OrderItem> items, DateTime now)
         => items.GroupBy(i => i.FlashDealVariantId).Select(g => new FlashDealStockDecisionRow {
@@ -27,7 +27,7 @@ public sealed record FlashDealStockBreakdown(int Sold, int Reserved, int Stopped
         var stopped = decisions?.StoppedQuantity ?? 0;
         var pending = decisions?.PendingQuantity ?? 0;
         return new(Math.Max(0, variant.SoldQuantity - stopped - pending),
-            variant.ReservedQuantity + pending, stopped,
-            Math.Max(0, variant.TotalQuantity - variant.SoldQuantity - variant.ReservedQuantity));
+            variant.ReservedQuantity, stopped,
+            Math.Max(0, variant.TotalQuantity - variant.SoldQuantity - variant.ReservedQuantity), pending);
     }
 }

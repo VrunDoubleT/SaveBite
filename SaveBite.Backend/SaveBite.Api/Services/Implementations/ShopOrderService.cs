@@ -99,6 +99,8 @@ public sealed class ShopOrderService : IShopOrderService
             search = search.PadLeft(6, '0');
             orderDate ??= OrderBusinessDate.FromUtc(Now);
         }
+        // Exact pickup lookup returns one match, independently of the list page.
+        if (search != null) { page = 1; size = 1; }
         var result = await _shops.PageAsync(shopId, status, search, page, size, ct, orderDate);
         return new ShopOrderPageResponse
         {
@@ -488,29 +490,67 @@ public sealed class ShopOrderService : IShopOrderService
         }
     }
 
-    // Commit the NoShow state and durable broker event before notifying shop and customer subscribers.
+    // Decide pickup outcome at the deadline; paid Remaining is evidence of an at-shop visit.
     public async Task MarkNoShowAsync(Guid orderId, CancellationToken ct = default)
     {
+        var snapshot = await _orders.GetOrderAsync(orderId, null, ct);
+        if (snapshot == null || snapshot.Status is not (OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.ReadyForPickup)) return;
+        if (snapshot.HardDeadlineAt == null || snapshot.HardDeadlineAt > Now)
+            throw new InvalidOperationException("The pickup deadline has not been reached.");
+        if (snapshot.PaymentMethod == PaymentMethod.PayAtShop && snapshot.Payments.Any(p =>
+            p.PaymentType == PaymentType.Remaining && p.Status == PaymentStatus.Pending && p.GatewayCreationAttempted))
+            await _payments.ReconcilePickupDeadlineAsync(orderId, ct);
+
+        var reason = RealtimeEvents.OrderReasons.NoShow;
         var shopId = await _orders.WithOrderLockAsync(orderId, async () =>
         {
+            // Re-read under the lock: staff completion, webhook and deadline jobs can race.
             var order = await _orders.GetOrderAsync(orderId, null, ct);
             if (order == null || order.Status is not (OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.ReadyForPickup)) return (Guid?)null;
-            if (order.HardDeadlineAt == null) throw new InvalidOperationException("The order has no pickup deadline.");
-            if (order.HardDeadlineAt > Now) throw new InvalidOperationException("The NoShow job ran before its deadline.");
+            if (order.HardDeadlineAt == null || order.HardDeadlineAt > Now)
+                throw new InvalidOperationException("The pickup deadline has not been reached.");
+            var remaining = order.Payments.Where(p => p.PaymentType == PaymentType.Remaining
+                && p.Status == PaymentStatus.Succeeded && p.Amount > 0).OrderByDescending(p => p.PaidAt).FirstOrDefault();
+            if (order.PaymentMethod == PaymentMethod.PayAtShop)
+            {
+                if (order.Payments.Any(p => p.PaymentType == PaymentType.Remaining
+                    && p.Status == PaymentStatus.Pending && p.GatewayCreationAttempted))
+                    throw new InvalidOperationException("Remaining payment is unresolved; retry before deciding NoShow.");
+                var fullyPaid = remaining != null && CheckoutOrderMapper.RequiredPayment(order)?.Status == PaymentStatus.Succeeded
+                    && order.Payments.Where(p => p.Status == PaymentStatus.Succeeded).Sum(p => p.Amount) >= order.TotalAmount;
+                if (fullyPaid)
+                {
+                    if (order.PaymentReviewRequired)
+                        throw new InvalidOperationException("Paid Remaining requires review; do not penalize the customer.");
+                    order.CompletedAt = Now;
+                    order.RemainingAmount = 0;
+                    order.NoShow = false;
+                    // A forgotten confirmation must not make an on-time customer appear late.
+                    order.IsLateArrival = order.SoftDeadlineAt < (remaining!.PaidAt ?? Now);
+                    ChangeStatus(order, OrderStatus.Completed, null,
+                        "Automatically completed at pickup deadline: Remaining was fully paid but shop staff had not confirmed completion.");
+                    await _notifications.EnqueueAsync(NotificationTarget.User(order.Shop.OwnerUserId), new CreateNotificationCommand(
+                        NotificationType.OrderCompleted, "Paid order automatically completed — staff confirmation missed",
+                        $"Order {order.OrderCode} was fully paid through Remaining, but staff did not confirm completion before the pickup deadline. The system completed the order without a NoShow penalty. Please review and remind your staff.",
+                        NotificationActionUrls.StoreOwnerOrder(order.Id), $"order:{order.Id}:auto-completed-remaining:owner"), ct);
+                    await _orders.SaveAsync(ct);
+                    await _eventPublisher.QueueCompletedAsync(order, ct);
+                    reason = RealtimeEvents.OrderReasons.Complete;
+                    return (Guid?)order.ShopId;
+                }
+            }
             await _resale.BeginAsync(order, ct);
             order.NoShow = true;
             ChangeStatus(order, OrderStatus.NoShow, null, "Pickup deadline passed before collection.");
-            // The outbox and status commit together; retries cannot create a second business event.
             await _eventPublisher.QueueNoShowAsync(order, ct);
             await _orders.SaveAsync(ct);
             return (Guid?)order.ShopId;
         }, ct);
-        // Repeated or concurrent jobs that did not change the order must not send another event.
         if (shopId.HasValue)
         {
-            try { await _orderEvents.NotifyAsync(shopId.Value, orderId, RealtimeEvents.OrderReasons.NoShow, ct); }
+            try { await _orderEvents.NotifyAsync(shopId.Value, orderId, reason, ct); }
             catch (Exception ex) when (!ct.IsCancellationRequested)
-            { _logger.LogWarning(ex, "Could not notify subscribers after NoShow for order {OrderId}.", orderId); }
+            { _logger.LogWarning(ex, "Could not notify subscribers after pickup deadline for order {OrderId}.", orderId); }
         }
     }
 

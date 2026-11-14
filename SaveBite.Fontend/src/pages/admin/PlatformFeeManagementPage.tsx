@@ -1,3 +1,5 @@
+import { usePaymentUpdates } from "@/features/payments/hooks/usePaymentUpdates";
+import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
 import { TableSkeletonRows } from "@/shared/components/ui/LoadingSkeleton";
 import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { Link } from "react-router-dom";
@@ -140,6 +142,13 @@ export function PlatformFeeManagementPage() {
 
     return () => window.clearTimeout(timer);
   }, [loadStatements]);
+  usePaymentUpdates(
+    REALTIME_EVENTS.PLATFORM_FEE_CHANGED,
+    async () => {
+      await loadStatements();
+    },
+    () => true,
+  );
 
   return (
     <div className="space-y-6">

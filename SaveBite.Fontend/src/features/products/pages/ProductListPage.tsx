@@ -28,7 +28,7 @@ export function ProductListPage() {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 350);
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const pageSize = 10;
   const [categoryId, setCategoryId] = useState("");
   const [status, setStatus] = useState<number | "">("");
 

@@ -1,35 +1,19 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { useRealtimeSubscriptions } from "@/shared/realtime/realtimeContext";
 import { getApiErrorMessage } from "@/shared/api";
 import { getApiErrorStatus } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 import { shopOrderApi } from "../api/shopOrderApi";
-import { subscribeShopOrderEvents } from "../realtime/subscribeShopOrderEvents";
 import { subscribeShopPendingEvents } from "../realtime/subscribeShopPendingEvents";
 
-// The workspace switches subscriptions without opening another SignalR connection.
+// Order subscriptions live at session level so mobile navigation cannot unmount them.
 export function ShopOrderWorkspaceNotifications({
   shopId,
-  ordersPath,
 }: {
   shopId?: string;
   ordersPath: string;
 }) {
-  const { pathname } = useLocation();
-  const viewingOrders = pathname === ordersPath || pathname.startsWith(`${ordersPath}/`);
-  return (
-    <>
-      {viewingOrders && <ShopOrderLiveSubscription />}
-      <PendingOrdersBadge key={shopId ?? "owner"} shopId={shopId} />
-    </>
-  );
-}
-
-function ShopOrderLiveSubscription() {
-  const realtime = useRealtimeSubscriptions();
-  useEffect(() => subscribeShopOrderEvents(realtime), [realtime]);
-  return null;
+  return <PendingOrdersBadge key={shopId ?? "owner"} shopId={shopId} />;
 }
 
 function PendingOrdersBadge({ shopId: selectedShopId }: { shopId?: string }) {

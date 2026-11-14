@@ -33,11 +33,7 @@ import type {
   CheckoutQuote,
 } from "@/features/checkout/types/checkout.types";
 import { DepositPolicyPanel } from "@/features/checkout/components/DepositPolicyPanel";
-import {
-  checkoutSelection,
-  checkoutTime,
-  safePaymentUrl,
-} from "@/features/checkout/utils/checkoutPolicy";
+import { checkoutSelection, checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import { CartItemRow } from "@/features/cart/components/CartItemRow";
 import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
 import { useCartStore } from "@/features/cart/stores/cartStore";
@@ -189,14 +185,13 @@ function CheckoutFlow({ shopId }: { shopId: string }) {
       const order = await checkoutApi.place(quote.id, selection.method, requestId.current);
       if (!alive.current) return;
       void useCartStore.getState().refresh();
-      const destination = order.paymentStatus === "Succeeded" && !order.isCheckoutSession
-        ? APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id))
-        : order.paymentId
-        ? APP_PATHS.ACCOUNT_PAYMENT_DETAIL.replace(":paymentId", encodeURIComponent(order.paymentId))
-        : APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id));
+      const destination =
+        order.paymentStatus === "Succeeded" && !order.isCheckoutSession
+          ? APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id))
+          : order.paymentId
+            ? `${APP_PATHS.ACCOUNT_PAYMENT_DETAIL.replace(":paymentId", encodeURIComponent(order.paymentId))}?checkoutId=${encodeURIComponent(order.id)}`
+            : APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id));
       navigate(destination, { replace: true });
-      const url = safePaymentUrl(order.checkoutUrl);
-      if (order.paymentStatus === "Pending" && url) window.location.assign(url);
     } catch (error) {
       if (alive.current) {
         setError(getApiErrorMessage(error));
@@ -361,22 +356,26 @@ function CheckoutFlow({ shopId }: { shopId: string }) {
               </div>
               <details className="mt-3 rounded-md border border-border-default bg-neutral-50 px-3">
                 <summary className="min-h-11 cursor-pointer py-3 text-caption font-medium text-text-secondary">
-                  How pickup time is calculated · GMT+7
+                  How pickup time is calculated
                 </summary>
                 <p className="pb-3 text-caption leading-relaxed text-text-secondary">
                   Soft deadline = order time + max(travel time, 5 minutes). Buffer = max(30% of
                   travel time, 10 minutes), rounded up. At least 15 minutes must remain before the
-                  deal ends. Ordering near closing does not extend pickup time. Estimates are
-                  finalized when you place your order. All times are GMT+7.
+                  final pickup cutoff selected by the shop. New orders stop at deal end, even if
+                  pickup is later. Estimates are finalized when you place your order.
                   {quote && (
-                    <> The earliest deal ends at {checkoutTime(quote.pickup.dealEndsAt)}.</>
+                    <>
+                      {" "}
+                      The earliest final pickup cutoff is{" "}
+                      {checkoutTime(quote.pickup.pickupCutoffAt ?? quote.pickup.dealEndsAt)}.
+                    </>
                   )}
                 </p>
               </details>
               {gpsError && (
                 <p
                   role="alert"
-                  className="mt-3 rounded-md border border-danger-soft bg-danger-soft p-3 text-body text-danger-strong"
+                  className="mt-3 whitespace-pre-line rounded-md border border-danger-soft bg-danger-soft p-3 text-body leading-relaxed text-danger-strong"
                 >
                   {gpsError}
                 </p>

@@ -60,7 +60,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     try {
       const result = await notificationApi.getNotifications({
         page: 1,
-        pageSize: 30,
+        pageSize: 10,
         isUnreadOnly: activeFilter === "unread",
       });
       set({
@@ -84,7 +84,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       livePreviews: state.livePreviews.filter((n) => n.id !== notificationId),
       livePreview:
         state.livePreview?.id === notificationId
-          ? state.livePreviews.find((n) => n.id !== notificationId) ?? null
+          ? (state.livePreviews.find((n) => n.id !== notificationId) ?? null)
           : state.livePreview,
     }));
     try {
@@ -121,7 +121,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         livePreviews: state.livePreviews.filter((n) => n.id !== notificationId),
         livePreview:
           state.livePreview?.id === notificationId
-            ? state.livePreviews.find((n) => n.id !== notificationId) ?? null
+            ? (state.livePreviews.find((n) => n.id !== notificationId) ?? null)
             : state.livePreview,
       };
     });
@@ -155,7 +155,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     if (!payload?.notification) return;
     const notification = payload.notification;
     // Bỏ qua livePreview popup nếu có silent = true (để không nhảy popup sai danh mục filter trên trang flash deal)
+    const platformFeePaid = ["34", "PlatformFeePaid"].includes(
+      String(notification.type),
+    );
     const silent =
+      platformFeePaid ||
       notification.type === 24 ||
       notification.type === "StaffJoinedShop" ||
       Boolean(notification.silent);
@@ -209,8 +213,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             state.filter === "unread"
               ? []
               : state.items.map((n) => ({ ...n, isRead: true, readAt: nowIso })),
-          unreadCount:
-            typeof payload.unreadCount === "number" ? payload.unreadCount : 0,
+          unreadCount: typeof payload.unreadCount === "number" ? payload.unreadCount : 0,
         };
       }
 
@@ -219,9 +222,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           state.filter === "unread"
             ? state.items.filter((n) => n.id !== payload.notificationId)
             : state.items.map((n) =>
-                n.id === payload.notificationId
-                  ? { ...n, isRead: true, readAt: nowIso }
-                  : n,
+                n.id === payload.notificationId ? { ...n, isRead: true, readAt: nowIso } : n,
               ),
         unreadCount:
           typeof payload.unreadCount === "number" ? payload.unreadCount : state.unreadCount,

@@ -12,9 +12,17 @@ public sealed class DealInventoryService(AppDbContext db, IFlashDealRepository d
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE id = {dealId} FOR UPDATE", ct);
         var deal = await deals.GetActiveDealByIdAsync(dealId, ct);
-        if (deal == null || deal.Status is not (FlashDealStatus.OnSale or FlashDealStatus.SoldOut)) return;
+        if (deal == null) return;
         var now = clock.GetUtcNow().UtcDateTime;
-        if (now < deal.SaleStartTime || now >= deal.OrderEndTime || now >= deal.ShopClosingTime) return;
+        if (deal.Status is not (FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
+            || now < deal.SaleStartTime || now >= deal.OrderEndTime || now >= deal.ShopClosingTime)
+        {
+            // Stock decisions still update shop management after a deal ends or is hidden.
+            FlashDealRealtimeOutbox.Stage(db, deal.Id, deal.ShopId);
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return;
+        }
         var available = deal.Variants.Any(v => v.Status == FlashDealVariantStatus.Active && v.Variant.IsActive
             && (long)v.TotalQuantity - v.ReservedQuantity - v.SoldQuantity > 0);
         var target = available && deal.Product.DeletedAt == null && deal.Shop.Status == ShopStatus.Active

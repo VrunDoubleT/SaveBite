@@ -7,6 +7,7 @@ public static class RealtimeEvents
     public const string CustomerOrdersChanged = "customer.orders.changed";
     public const string ShopOrdersChanged = "shop.orders.changed";
     public const string ShopStatusChanged = "shop.status.changed";
+    public const string PaymentChanged = "payment.changed";
     public const string PlatformFeeChanged = "platform-fee.changed";
     public const string StaffInvitationsChanged = "staff.invitations.changed";
     public const string ShopStaffChanged = "shop.staff.changed";

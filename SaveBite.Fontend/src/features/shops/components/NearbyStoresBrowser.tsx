@@ -72,6 +72,7 @@ export function NearbyStoresBrowser(props: NearbyStoresMapSectionProps) {
   );
 }
 function NearbyStoresList({
+  showSkeleton = true,
   latitude,
   longitude,
   radiusInKm = 5,
@@ -140,7 +141,7 @@ function NearbyStoresList({
           shopName: effectiveKw ? undefined : propSelectedShop || undefined,
           onlyWithFlashDeals: onlyDeals,
           page,
-          pageSize: 8,
+          pageSize: 10,
         },
         controller.signal,
       )
@@ -275,9 +276,11 @@ function NearbyStoresList({
       </form>
       {waiting ? (
         <div role="status" aria-label="Loading nearby stores" className="grid gap-3 md:grid-cols-2">
-          {[1, 2, 3, 4].map((id) => (
-            <Skeleton key={id} className="h-28 rounded-lg" />
-          ))}
+          {showSkeleton ? (
+            [1, 2, 3, 4].map((id) => <Skeleton key={id} className="h-28 rounded-lg" />)
+          ) : (
+            <p className="text-sm text-text-secondary">Loading nearby stores…</p>
+          )}
         </div>
       ) : error ? (
         <ErrorState
@@ -357,7 +360,7 @@ function NearbyStoresList({
             currentPage={page}
             totalPages={result.totalPages}
             totalItems={result.totalItems}
-            pageSize={8}
+            pageSize={10}
             itemLabel="stores"
             hideOnSinglePage
             onPageChange={(next) => {

@@ -17,6 +17,7 @@ namespace SaveBite.Backend.Services.Implementations;
 // Reconcile provider payments, order submission, cancellation and reservation expiry.
 public sealed class CheckoutPaymentService : ICheckoutPaymentService
 {
+    private readonly IRealtimePublisher? _realtime;
     private readonly IAuditWriter _audit;
     private readonly IPayOsCredentialProtector _credentialProtector;
     private readonly OrderResaleService _resale;
@@ -39,8 +40,9 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         ILogger<CheckoutPaymentService> logger,
         OrderConfirmationScheduling confirmation,
         IShopOrderEventService shopOrderEvents,
-        INotificationQueue notifications, OrderResaleService resale, IAuditWriter audit, IPayOsCredentialProtector credentialProtector)
+        INotificationQueue notifications, OrderResaleService resale, IAuditWriter audit, IPayOsCredentialProtector credentialProtector, IRealtimePublisher? realtime = null)
     {
+        _realtime = realtime;
         _audit = audit;
         _credentialProtector = credentialProtector;
         _resale = resale;
@@ -60,6 +62,9 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     // Reconcile a trusted internal order operation without a customer ownership filter.
     public Task<CheckoutOrderResponse> ReconcileOrderAsync(Guid orderId, bool createRemainingLink = false, CancellationToken ct = default)
         => ProcessAsync(orderId, null, createRemainingLink, false, ct);
+    // At pickup cutoff, recover a missed Remaining webhook before deciding completion versus NoShow.
+    public Task<CheckoutOrderResponse> ReconcilePickupDeadlineAsync(Guid orderId, CancellationToken ct = default)
+        => ProcessAsync(orderId, null, false, false, ct, pickupDeadline: true);
     // Explicitly reconcile a customer-owned payment; call only from commands, never view endpoints.
     public Task<CheckoutOrderResponse> ReconcileAsync(Guid userId, Guid orderId, CancellationToken ct = default)
         => ProcessAsync(orderId, userId, false, false, ct);
@@ -87,8 +92,11 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         => ProcessAsync(orderId, userId, false, true, ct);
 
     // Apply explicit reconciliation, link creation, cancellation and expiry commands.
-    private async Task<CheckoutOrderResponse> ProcessAsync(Guid orderId, Guid? userId, bool createLink, bool cancel, CancellationToken ct, bool cancelExpirationJob = true)
+    private async Task<CheckoutOrderResponse> ProcessAsync(Guid orderId, Guid? userId, bool createLink, bool cancel, CancellationToken ct, bool cancelExpirationJob = true, GatewayPayment? verifiedPayment = null, bool pickupDeadline = false)
     {
+        Guid customerId = default;
+        List<Payment> changedPayments = [];
+        Dictionary<Guid, (PaymentStatus Status, decimal Collected, string? Qr, string? Url)> beforePayments = [];
         string? expirationJobId = null;
         var notifyShopPending = false;
         var notifyShopCancellation = false;
@@ -97,6 +105,9 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         var result = await _checkoutRepository.WithOrderLockAsync(orderId, async () =>
         {
             var order = await _checkoutRepository.GetOrderAsync(orderId, userId, ct) ?? throw AppException.NotFound("Order not found.");
+            customerId = order.CustomerId;
+            changedPayments = order.Payments.ToList();
+            beforePayments = changedPayments.ToDictionary(p => p.Id, p => (p.Status, p.CollectedAmount, p.GatewayQrCode, p.GatewayCheckoutUrl));
             expirationJobId = order.PaymentExpirationJobId;
             var cancellingPaymentOnly = cancel && order.Status == OrderStatus.AwaitingPayment;
             if (cancel && order.Status is (OrderStatus.Cancelled or OrderStatus.Expired)
@@ -112,9 +123,16 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             }
             // Reconcile any remaining-balance payment before processing the initial full payment or deposit.
             var remainingPaidCount = order.Payments.Count(x => x.PaymentType == PaymentType.Remaining && x.Status == PaymentStatus.Succeeded);
-            await ReconcileRemainingAsync(order, createLink, cancel, ct);
+            // The recovery sweep or a delayed webhook may reach this order before the NoShow job.
+            // Treat those cutoff lookups consistently while the order is still awaiting collection.
+            var atPickupCutoff = !cancel && order.PaymentMethod == PaymentMethod.PayAtShop
+                && order.HardDeadlineAt <= Now
+                && order.Status is (OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.ReadyForPickup);
+            await ReconcileRemainingAsync(order, createLink, cancel, ct, verifiedPayment, pickupDeadline || atPickupCutoff);
             notifyRemainingPayment = order.Payments.Count(x => x.PaymentType == PaymentType.Remaining && x.Status == PaymentStatus.Succeeded) > remainingPaidCount;
             var payment = CheckoutOrderMapper.RequiredPayment(order);
+            if (verifiedPayment != null && payment?.GatewayOrderCode != verifiedPayment.OrderCode)
+                return CheckoutOrderMapper.Map(order, now: Now);
             // Free-deposit and already-paid orders need no initial payment link or repeated inventory settlement.
             if (payment == null || payment.Amount == 0 || payment.Status == PaymentStatus.Succeeded)
             {
@@ -135,7 +153,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             {
                 await CloseAsync(order, payment, cancel ? OrderStatus.Cancelled : OrderStatus.Expired, ct);
             }
-            else if (!_paymentGateway.IsConfigured(config))
+            else if (verifiedPayment == null && !_paymentGateway.IsConfigured(config))
             {
                 message = "This shop's payment service is unavailable. Payment has not been confirmed. Please contact the shop or retry.";
             }
@@ -145,7 +163,8 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                 {
                     GatewayPayment status;
                     // Create a link only for a payable AwaitingPayment order without an existing checkout URL.
-                    if (createLink && !expired && order.Status == OrderStatus.AwaitingPayment && payment.Status == PaymentStatus.Pending && payment.GatewayCheckoutUrl == null)
+                    if (verifiedPayment != null) status = verifiedPayment;
+                    else if (createLink && !expired && order.Status == OrderStatus.AwaitingPayment && payment.Status == PaymentStatus.Pending && payment.GatewayCheckoutUrl == null)
                     {
                         CaptureCredentials(payment, order.Shop.PaymentConfig);
                         payment.GatewayCreationAttempted = true;
@@ -194,6 +213,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                     else
                     {
                         // Save provider link details on the existing Payment row instead of creating another payment.
+                        payment.GatewayQrCode = status.QrCode ?? payment.GatewayQrCode;
                         payment.GatewayTransactionId = status.LinkId ?? payment.GatewayTransactionId;
                         payment.GatewayCheckoutUrl = status.CheckoutUrl ?? payment.GatewayCheckoutUrl;
                         payment.UpdatedAt = Now;
@@ -201,6 +221,9 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                 }
                 catch (AppException ex)
                 {
+                    if (verifiedPayment != null) throw;
+                    _logger.LogWarning("Payment {PaymentId} for checkout {CheckoutId} remains unresolved ({ErrorCode}); inventory stays reserved until the provider confirms its state.",
+                        payment.Id, orderId, ex.ErrorCode);
                     message = ex.Message;
                     // Keep the reservation until a provider response resolves a possible in-flight payment.
                 }
@@ -208,6 +231,18 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             await _checkoutRepository.SaveAsync(ct);
             return CheckoutOrderMapper.Map(order, message, Now);
         }, ct);
+        // Publish only committed state. Both webhook and recovery use this path.
+        if (_realtime != null)
+        {
+            foreach (var payment in changedPayments.Where(p => !beforePayments.TryGetValue(p.Id, out var before)
+                || before != (p.Status, p.CollectedAmount, p.GatewayQrCode, p.GatewayCheckoutUrl)))
+            {
+                try { await _realtime.SendToUserAsync(customerId, RealtimeEvents.PaymentChanged,
+                    new { PaymentId = payment.Id, OrderId = payment.OrderId, CheckoutId = orderId, Status = payment.Status.ToString() }); }
+                catch (Exception ex) when (!ct.IsCancellationRequested)
+                { _logger.LogWarning(ex, "Could not publish payment {PaymentId}.", payment.Id); }
+            }
+        }
         // Notify detail subscribers only after the verified balance payment has committed.
         if (notifyRemainingPayment)
         {
@@ -436,21 +471,31 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
     }
 
     // Verify the separate PayAtShop balance payment before the shop can complete an order.
-    private async Task ReconcileRemainingAsync(Order order, bool createLink, bool cancel, CancellationToken ct)
+    private async Task ReconcileRemainingAsync(Order order, bool createLink, bool cancel, CancellationToken ct, GatewayPayment? verifiedPayment = null, bool pickupDeadline = false)
     {
-        if (!_paymentGateway.IsConfigured(order.Shop.PaymentConfig)) return;
+        if (verifiedPayment == null && !_paymentGateway.IsConfigured(order.Shop.PaymentConfig)) return;
         // Reconcile retained attempts as well so late payment on an old QR is never attributed to the new one.
         foreach (var payment in order.Payments.Where(x => x.PaymentType == PaymentType.Remaining
-            && x.Status != PaymentStatus.Succeeded && x.GatewayCreationAttempted).OrderBy(x => x.Status == PaymentStatus.Pending).ThenBy(x => x.CreatedAt).ThenBy(x => x.Id).ToList())
+            && x.Status != PaymentStatus.Succeeded && x.GatewayCreationAttempted
+            && (verifiedPayment == null || x.GatewayOrderCode == verifiedPayment.OrderCode)).OrderBy(x => x.Status == PaymentStatus.Pending).ThenBy(x => x.CreatedAt).ThenBy(x => x.Id).ToList())
         {
             try
             {
                 // Close balance-payment links when cancellation, pickup expiry or a terminal order state requires it.
-                var closed = cancel || payment.Status != PaymentStatus.Pending
+                var invalidAttempt = cancel || payment.Status != PaymentStatus.Pending
                     || order.Payments.Any(x => x.PaymentType == PaymentType.Remaining && x.Status == PaymentStatus.Succeeded)
-                    || order.HardDeadlineAt <= Now || order.Status is OrderStatus.Cancelled or OrderStatus.Rejected or OrderStatus.Expired or OrderStatus.NoShow or OrderStatus.Completed;
+                    || order.Status is OrderStatus.Cancelled or OrderStatus.Rejected or OrderStatus.Expired or OrderStatus.NoShow or OrderStatus.Completed;
+                var closed = invalidAttempt || order.HardDeadlineAt <= Now;
+                var requiresReview = invalidAttempt || (closed && !pickupDeadline);
                 GatewayPayment status;
-                if (closed && payment.Status != PaymentStatus.Pending)
+                if (verifiedPayment != null) status = verifiedPayment;
+                else if (closed && payment.Status != PaymentStatus.Pending)
+                {
+                    status = await _paymentGateway.GetAsync(payment, order.Shop.PaymentConfig!, ct);
+                    if (status.Status is not ("PAID" or "CANCELLED" or "EXPIRED" or "NOT_FOUND"))
+                        status = await _paymentGateway.CancelAsync(payment, order.Shop.PaymentConfig!, ct);
+                }
+                else if (closed && pickupDeadline && !invalidAttempt)
                 {
                     status = await _paymentGateway.GetAsync(payment, order.Shop.PaymentConfig!, ct);
                     if (status.Status is not ("PAID" or "CANCELLED" or "EXPIRED" or "NOT_FOUND"))
@@ -464,12 +509,12 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
                 }
                 else status = await _paymentGateway.GetAsync(payment, order.Shop.PaymentConfig!, ct);
                 payment.CollectedAmount = Math.Max(payment.CollectedAmount, status.AmountPaid);
-                order.PaymentReviewRequired |= closed && payment.CollectedAmount > 0;
+                order.PaymentReviewRequired |= requiresReview && payment.CollectedAmount > 0;
                 payment.GatewayQrCode = status.QrCode ?? payment.GatewayQrCode;
                 if (status.Status == "PAID" && status.AmountPaid >= payment.Amount)
                 {
                     payment.Status = PaymentStatus.Succeeded; payment.PaidAt = Now; payment.GatewayCheckoutUrl = null;
-                    order.PaymentReviewRequired |= closed || status.AmountPaid > payment.Amount;
+                    order.PaymentReviewRequired |= requiresReview || status.AmountPaid > payment.Amount;
                     ordersHistory("Remaining payment verified with the payment provider.");
                 }
                 else if (status.Status is "CANCELLED" or "EXPIRED" || (closed && status.Status == "NOT_FOUND"))
@@ -485,6 +530,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             }
             catch (AppException)
             {
+                if (verifiedPayment != null) throw;
                 if (cancel) throw AppException.ServiceUnavailable("The remaining payment must be closed before cancellation. Please retry.");
                 // The amount remains unverified; completion stays blocked until reconciliation succeeds.
             }
@@ -494,7 +540,7 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         { Id = Guid.NewGuid(), OrderId = order.Id, ToStatus = order.Status, Note = note, CreatedAt = Now });
     }
 
-    // Validate the notification signature and query authoritative provider state before updating the order.
+    // Settle signed notifications immediately; provider polling is the fallback for partial transfers.
     public async Task WebhookAsync(JsonElement body, CancellationToken ct = default)
     {
         if (body.ValueKind != JsonValueKind.Object || !body.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Object
@@ -516,8 +562,18 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             && _paymentGateway.IsConfigured(order.Shop.PaymentConfig))
             verified = _paymentGateway.VerifyWebhook(body, order.Shop.PaymentConfig!);
         if (!verified) throw AppException.Forbidden("Invalid payment notification signature.");
-        // Never accept success, amounts or order state from client URLs or the webhook alone.
-        await ProcessAsync(id.Value, null, false, false, ct);
+        if (!body.TryGetProperty("code", out var resultCode) || resultCode.GetString() != "00"
+            || !data.TryGetProperty("code", out var dataCode) || dataCode.GetString() != "00") return;
+        if (webhookPayment == null || !data.TryGetProperty("amount", out var amountValue)
+            || !amountValue.TryGetDecimal(out var amount) || amount <= 0)
+            throw AppException.BadRequest("Invalid payment notification amount.");
+        // A signed full transfer can settle immediately without a second provider request.
+        // Partial transfers need authoritative accumulated totals from the provider.
+        var verifiedPayment = amount >= webhookPayment.Amount
+            ? new GatewayPayment("PAID", gatewayCode, webhookPayment.Amount, amount,
+                webhookPayment.GatewayTransactionId, null)
+            : null;
+        await ProcessAsync(id.Value, null, false, false, ct, verifiedPayment: verifiedPayment);
     }
     // Process only the scheduled order and let Hangfire retry unresolved payment-provider failures.
     public async Task ExpireAsync(Guid orderId, CancellationToken ct = default)

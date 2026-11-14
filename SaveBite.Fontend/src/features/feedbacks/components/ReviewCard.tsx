@@ -78,7 +78,7 @@ export function ReviewCard({
           </div>
         </div>
         <time dateTime={review.createdAt} className="text-caption text-text-secondary">
-          {checkoutTime(review.createdAt)} · GMT+7
+          {checkoutTime(review.createdAt)}
         </time>
       </header>
       <div className="space-y-4 p-4 sm:p-5">
@@ -162,7 +162,7 @@ export function ReviewCard({
                 {review.reply.content}
               </p>
               <p className="mt-2 text-caption text-text-secondary">
-                {checkoutTime(review.reply.createdAt)} · GMT+7
+                {checkoutTime(review.reply.createdAt)}
               </p>
             </section>
           )}

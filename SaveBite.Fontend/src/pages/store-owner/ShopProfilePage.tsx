@@ -1,4 +1,4 @@
-import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { ShopProfileSkeleton } from "@/shared/components/ui/PageLoadingSkeleton";
 import { useCallback, useEffect, useState } from "react";
 import { Store } from "lucide-react";
 import { ownerShopApi } from "@/features/shops/api/ownerShopApi";
@@ -81,7 +81,7 @@ export function ShopProfilePage() {
     }
   }
 
-  if (loading && !shop) return <LoadingSkeleton variant="profile" label="Loading shop profile" />;
+  if (loading && !shop) return <ShopProfileSkeleton />;
   if (!shop)
     return (
       <section className="mx-auto max-w-3xl rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-2xs">

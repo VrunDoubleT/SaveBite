@@ -1,4 +1,4 @@
-import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { StaffDetailSkeleton } from "@/shared/components/ui/PageLoadingSkeleton";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Mail, UserRound } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -112,7 +112,7 @@ export function StaffDetailPage() {
     setPage(1);
   }
 
-  if (loading) return <LoadingSkeleton variant="profile" label="Loading staff details" />;
+  if (loading) return <StaffDetailSkeleton />;
 
   if (!staff) {
     return (

@@ -31,7 +31,7 @@ function FollowedShopsContent() {
   useEffect(() => {
     const controller = new AbortController();
     shopFollowApi
-      .list(page, 12, controller.signal)
+      .list(page, 10, controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return;
         if (page > 1 && result.items.length === 0) {
@@ -145,7 +145,7 @@ function FollowedShopsContent() {
         currentPage={page}
         totalPages={data.totalPages}
         totalItems={data.totalItems}
-        pageSize={12}
+        pageSize={10}
         itemLabel="stores"
         onPageChange={(next) => {
           setLoading(true);

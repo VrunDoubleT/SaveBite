@@ -34,6 +34,14 @@ public sealed class EmailDeliveryService(AppDbContext db, IEmailService smtp, Ti
             await db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
         }
+        // The message can become obsolete while waiting for the delivery lock.
+        // Re-read immediately before SMTP; stale messages are acknowledged without sending.
+        if (!await businessEmails.StillRelevantAsync(email, ct))
+        {
+            await db.Set<EmailDelivery>().Where(d => d.DeliveryKey == key).ExecuteUpdateAsync(
+                s => s.SetProperty(d => d.Status, "Skipped").SetProperty(d => d.UpdatedAt, clock.GetUtcNow().UtcDateTime), ct);
+            return;
+        }
         try
         {
             await smtp.SendAsync(email.To, email.Subject, email.Body, email.IsHtml, ct);

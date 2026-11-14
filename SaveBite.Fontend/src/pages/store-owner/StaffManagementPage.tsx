@@ -286,6 +286,8 @@ export function StaffManagementPage() {
       {/* Table */}
       {loading ? (
         <TableLoadingSkeleton
+          tableClassName="min-w-[720px]"
+          cellClassName="px-6 py-4"
           headers={["Staff", "Role", "Status", "Joined date", "Actions"]}
           label="Loading staff records"
         />

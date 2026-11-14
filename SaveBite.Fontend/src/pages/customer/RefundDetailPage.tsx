@@ -105,7 +105,7 @@ function RefundDetail({ refundId }: { refundId: string }) {
                   {refund.shopName}
                 </h2>
                 <p className="mt-1 text-caption text-text-secondary">
-                  Order {refund.orderCode} · Requested {checkoutTime(refund.createdAt)} · GMT+7
+                  Order {refund.orderCode} · Requested {checkoutTime(refund.createdAt)}
                 </p>
               </div>
             </div>

@@ -44,8 +44,8 @@ export function RefundDestinationForm({
     <div className="mt-4 border-t border-border-default pt-4">
       {refund.customerDetailsDeadlineAt && (
         <p className="mb-3 rounded-lg bg-accent-50 p-3 text-caption font-medium text-accent-700">
-          Confirm your refund destination by {checkoutTime(refund.customerDetailsDeadlineAt)} ·
-          GMT+7. After this deadline, you lose eligibility for this refund.
+          Confirm your refund destination by {checkoutTime(refund.customerDetailsDeadlineAt)}. After
+          this deadline, you lose eligibility for this refund.
         </p>
       )}
       <p className="text-caption text-text-secondary">
@@ -80,11 +80,12 @@ export function RefundDestinationForm({
               !qr && !/^[0-9]{1,50}$/.test(bank.accountNumber)
                 ? "Enter an account number containing 1–50 digits."
                 : undefined,
-            holder: !qr && !bank.accountHolder.trim()
-              ? "Enter the account holder's name."
-              : !qr && bank.accountHolder.trim().length > 150
-                ? "Use no more than 150 characters."
-                : undefined,
+            holder:
+              !qr && !bank.accountHolder.trim()
+                ? "Enter the account holder's name."
+                : !qr && bank.accountHolder.trim().length > 150
+                  ? "Use no more than 150 characters."
+                  : undefined,
             qr: qr && !files.length && !bank.qrImageUrl ? "Choose your bank QR image." : undefined,
           };
           setErrors(validation);
@@ -168,7 +169,8 @@ export function RefundDestinationForm({
             )}
             {bank.accountNumber && (
               <p className="rounded-lg bg-primary-50 p-3 text-caption text-primary-800">
-                {hasUploadedNewQr ? "Account detected" : "Saved refund account"}: {bank.bankName} · {bank.accountNumber}.
+                {hasUploadedNewQr ? "Account detected" : "Saved refund account"}: {bank.bankName} ·{" "}
+                {bank.accountNumber}.
                 {hasUploadedNewQr && " Please check the bank and account number."}
               </p>
             )}
@@ -209,27 +211,29 @@ export function RefundDestinationForm({
             </label>
           </>
         )}
-        {!qr && <label className="text-caption font-medium sm:col-span-2">
-          Account holder
-          <Input
-            variant="auth"
-            required
-            maxLength={150}
-            aria-invalid={!!errors.holder}
-            className="mt-2 min-h-11"
-            value={bank.accountHolder}
-            disabled={disabled}
-            onChange={(event) => {
-              setBank({ ...bank, accountHolder: event.target.value });
-              clear("holder");
-            }}
-          />
-          {errors.holder && (
-            <p role="alert" className="mt-1 text-caption text-danger-strong">
-              {errors.holder}
-            </p>
-          )}
-        </label>}
+        {!qr && (
+          <label className="text-caption font-medium sm:col-span-2">
+            Account holder
+            <Input
+              variant="auth"
+              required
+              maxLength={150}
+              aria-invalid={!!errors.holder}
+              className="mt-2 min-h-11"
+              value={bank.accountHolder}
+              disabled={disabled}
+              onChange={(event) => {
+                setBank({ ...bank, accountHolder: event.target.value });
+                clear("holder");
+              }}
+            />
+            {errors.holder && (
+              <p role="alert" className="mt-1 text-caption text-danger-strong">
+                {errors.holder}
+              </p>
+            )}
+          </label>
+        )}
         <CustomerActionButton
           type="submit"
           loading={busy}
@@ -285,7 +289,7 @@ export function RefundDestinationForm({
             Confirm destination
           </CustomerActionButton>
           <p className="w-full text-caption text-text-muted">
-            Code expires {checkoutTime(refund.confirmationExpiresAt)} · GMT+7
+            Code expires {checkoutTime(refund.confirmationExpiresAt)}
           </p>
         </CustomerMutationForm>
       )}

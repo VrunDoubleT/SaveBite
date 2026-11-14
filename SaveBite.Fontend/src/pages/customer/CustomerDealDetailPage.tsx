@@ -1,3 +1,4 @@
+import { PickupDeadlineNotice } from "@/features/flash-deals/components/PickupDeadlineNotice";
 import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
 import { ShopFollowControls } from "@/features/shop-follows/components/ShopFollowControls";
 import { markDealAsViewed } from "@/features/flash-deals/utils/viewedDeals";
@@ -14,18 +15,18 @@ import {
   Flame,
   Minus,
   Plus,
-  Package,
   Leaf,
   Star,
 } from "lucide-react";
 import {
+  IconButton,
+  Input,
   Badge,
   Button,
   ButtonLink,
   Card,
   EmptyState,
   ErrorState,
-  IconButton,
   MediaImage,
   PageHeader,
   Skeleton,
@@ -99,14 +100,16 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
   // Real-time synchronization when admin blocks the shop of this deal
   useEffect(() => {
     const handleShopStatus = (e: Event) => {
-      const detail = (e as CustomEvent<{
-        shopId?: string;
-        ShopId?: string;
-        status?: string;
-        Status?: string;
-        isBlocked?: boolean;
-        IsBlocked?: boolean;
-      }>).detail;
+      const detail = (
+        e as CustomEvent<{
+          shopId?: string;
+          ShopId?: string;
+          status?: string;
+          Status?: string;
+          isBlocked?: boolean;
+          IsBlocked?: boolean;
+        }>
+      ).detail;
       const rawShopId = detail?.shopId || detail?.ShopId;
       const rawStatus = detail?.status || detail?.Status;
       const isBlocked = detail?.isBlocked || detail?.IsBlocked;
@@ -720,16 +723,23 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
 
           <div className="space-y-3 border-t border-border-default pt-4">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-body font-semibold text-text-primary">Quantity</span>
+              <div className="space-y-1">
+                <label htmlFor="deal-quantity" className="text-sm font-semibold text-text-primary">
+                  Quantity
+                </label>
+                <p className="text-xs text-text-secondary">
+                  {activeVariant?.availableQuantity ?? 0} available
+                </p>
+              </div>
               <div
                 role="group"
                 aria-label="Quantity"
-                className="flex items-center gap-1 rounded-md border border-border-default bg-bg-surface p-1"
+                className="flex shrink-0 items-center overflow-hidden rounded-md border border-border-default bg-bg-surface"
               >
                 <IconButton
                   aria-label="Decrease quantity"
-                  className="size-11"
-                  disabled={quantity <= 1 || !isPurchasable}
+                  className="size-11 !rounded-none"
+                  disabled={quantity <= 1 || customerSuspended || !isPurchasable}
                   onClick={() => {
                     const next = Math.max(1, quantity - 1);
                     setQuantity(next);
@@ -738,8 +748,11 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                 >
                   <Minus className="size-4" aria-hidden="true" />
                 </IconButton>
-                <input
+                <Input
+                  id="deal-quantity"
                   type="number"
+                  inputMode="numeric"
+                  step={1}
                   min={1}
                   max={activeVariant?.availableQuantity ?? 99}
                   value={quantityInput}
@@ -778,12 +791,13 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                     }
                   }}
                   aria-label="Selected quantity"
-                  className="w-14 rounded-md border border-border-default bg-white py-1 text-center font-semibold tabular-nums text-text-primary focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+                  className="min-h-11 !w-12 !rounded-none !border-y-0 px-1 text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
                 <IconButton
                   aria-label="Increase quantity"
-                  className="size-11"
+                  className="size-11 !rounded-none"
                   disabled={
+                    customerSuspended ||
                     !isPurchasable ||
                     Boolean(activeVariant && quantity >= activeVariant.availableQuantity)
                   }
@@ -835,9 +849,9 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                   : "There are no portions available for this deal."}
               </p>
             )}
-            <p className="flex items-start justify-center gap-2 text-caption text-text-secondary">
-              <Package className="size-4 shrink-0 text-secondary-700" aria-hidden="true" />
-              Pick up before {formatTime(deal.shopClosingTime)}
+            <PickupDeadlineNotice deadline={deal.shopClosingTime} />
+            <p className="text-xs text-text-secondary">
+              Your order will have its own pickup deadline, no later than this time.
             </p>
           </div>
         </Card>
@@ -904,7 +918,7 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
               <dd className="font-medium text-text-primary">{formatTime(deal.orderEndTime)}</dd>
             </div>
             <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-secondary-700">Store closes</dt>
+              <dt className="text-secondary-700">Final pickup deadline</dt>
               <dd className="font-medium text-text-primary">{formatTime(deal.shopClosingTime)}</dd>
             </div>
           </dl>

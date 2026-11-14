@@ -1,3 +1,4 @@
+import { subscribeShopOrderEvents } from "@/features/shop-orders/realtime/subscribeShopOrderEvents";
 import { subscribeAccountEvents } from "@/features/auth/realtime/subscribeAccountEvents";
 import { RealtimeContext } from "@/shared/realtime/realtimeContext";
 import { createRealtimeSubscriptions } from "@/shared/realtime/realtimeSubscriptions";
@@ -20,6 +21,7 @@ export function RealtimeProvider({ children }: PropsWithChildren) {
     const client = createRealtimeClient();
     const detach = subscriptions.attach(client);
     const unsubscribeNotifications = subscribeNotificationEvents(client);
+    const unsubscribeShopOrders = subscribeShopOrderEvents(client);
     const unsubscribeFeedback = client.on(REALTIME_EVENTS.FEEDBACK_CHANGED, (event) => {
       const data = event.data as {
         feedbackId?: string;
@@ -44,6 +46,7 @@ export function RealtimeProvider({ children }: PropsWithChildren) {
       unsubscribeAccount();
       unsubscribeShopStatus();
       unsubscribeFeedback();
+      unsubscribeShopOrders();
       unsubscribeNotifications();
       detach();
       useShopOrderEventsStore.getState().reset();

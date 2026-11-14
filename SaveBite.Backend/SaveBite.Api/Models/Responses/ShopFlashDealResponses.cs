@@ -5,6 +5,7 @@ namespace SaveBite.Backend.Models.Responses;
 // Response item for shop flash deals list view.
 public class ShopFlashDealListItemResponse
 {
+    public int PendingRestockQuantity { get; set; }
     public int UnsellableQuantity { get; set; }
     public Guid Id { get; set; }
     public Guid ProductId { get; set; }
@@ -25,7 +26,7 @@ public class ShopFlashDealListItemResponse
     public int TotalQuantity { get; set; }
     public int ReservedQuantity { get; set; }
     public int SoldQuantity { get; set; }
-    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity - UnsellableQuantity);
+    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity - UnsellableQuantity - PendingRestockQuantity);
 
     public DateTime CreatedAt { get; set; }
 }
@@ -46,6 +47,8 @@ public class ShopFlashDealDetailResponse
     public DateTime SaleStartTime { get; set; }
     public DateTime OrderEndTime { get; set; }
     public DateTime ShopClosingTime { get; set; }
+
+    public DateTime? MinimumPickupDeadlineAt { get; set; }
 
     public FlashDealStatus Status { get; set; }
 
@@ -69,6 +72,7 @@ public class ShopFlashDealStatusHistoryResponse
 // Detailed response for each variant within a shop flash deal.
 public class ShopFlashDealVariantDetailResponse
 {
+    public int PendingRestockQuantity { get; set; }
     public int UnsellableQuantity { get; set; }
     public Guid Id { get; set; }
     public Guid VariantId { get; set; }
@@ -84,7 +88,7 @@ public class ShopFlashDealVariantDetailResponse
     public int TotalQuantity { get; set; }
     public int ReservedQuantity { get; set; }
     public int SoldQuantity { get; set; }
-    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity - UnsellableQuantity);
+    public int AvailableQuantity => Math.Max(0, TotalQuantity - SoldQuantity - ReservedQuantity - UnsellableQuantity - PendingRestockQuantity);
 
     public FlashDealVariantStatus Status { get; set; }
 }

@@ -29,11 +29,15 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
     public async Task BeginAsync(Order order, CancellationToken ct)
     {
         if (order.ResaleDecisionDeadlineAt.HasValue || order.Items.Count == 0) return;
-        if (order.InventoryReservationActive) await orders.CompleteInventoryAsync(order, true, ct);
+        var wasReserved = order.InventoryReservationActive;
+        if (wasReserved) await orders.CompleteInventoryAsync(order, true, ct);
         var now = clock.GetUtcNow().UtcDateTime;
         var deadline = now.AddMinutes(TimingConfiguration.Orders.ResaleDecisionMinutes);
         order.ResaleDecisionDeadlineAt = deadline;
         foreach (var item in order.Items) item.ResaleDecisionStatus = ResaleDecisionStatus.Pending;
+        // Already-paid stock also changes its displayed bucket when the decision window opens.
+        if (!wasReserved)
+            await LifecycleOutbox.InventoryAsync(db, order.Items.Select(i => i.FlashDealVariantId), order.Id, now, ct);
         order.ResaleDecisionJobId = SafeSchedule.Try(() => jobs.Schedule<ResaleDecisionExpirationJob>(
             job => job.ExecuteAsync(order.Id, CancellationToken.None), new DateTimeOffset(deadline)), logger, "resale-decision", order.Id);
     }
@@ -102,6 +106,7 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
             if (order.ResaleDecisionDeadlineAt <= now && order.Items.Any(i => i.ResaleDecisionStatus == ResaleDecisionStatus.Pending))
             {
                 Expire(order, now); expired = true;
+                await LifecycleOutbox.InventoryAsync(db, order.Items.Select(i => i.FlashDealVariantId), order.Id, now, ct);
                 await db.SaveChangesAsync(ct);
                 return Map(order);
             }
@@ -121,9 +126,12 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
             if (order.ResaleDecisionDeadlineAt <= now)
             {
                 Expire(order, now); expired = true;
+                await LifecycleOutbox.InventoryAsync(db, order.Items.Select(i => i.FlashDealVariantId), order.Id, now, ct);
                 await db.SaveChangesAsync(ct);
                 return Map(order);
             }
+            var changedVariantIds = order.Items.Where(i => i.ResaleDecisionStatus == ResaleDecisionStatus.Pending
+                && request.Items.Any(c => c.OrderItemId == i.Id)).Select(i => i.FlashDealVariantId).Distinct().ToArray();
             foreach (var choice in request.Items)
             {
                 var item = order.Items.Single(i => i.Id == choice.OrderItemId);
@@ -146,7 +154,7 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
                 item.ResaleDecisionStatus = ResaleDecisionStatus.Decided;
                 item.ResaleDecidedAt = now; item.ResaleDecidedBy = actor;
             }
-            if (variantIds.Length > 0) await LifecycleOutbox.InventoryAsync(db, variantIds, order.Id, now, ct);
+            if (changedVariantIds.Length > 0) await LifecycleOutbox.InventoryAsync(db, changedVariantIds, order.Id, now, ct);
             await db.SaveChangesAsync(ct);
             return Map(order);
         }, ct);
@@ -160,7 +168,11 @@ public sealed class OrderResaleService(AppDbContext db, ICheckoutRepository orde
             var order = await db.Orders.Include(o => o.Items).SingleOrDefaultAsync(o => o.Id == orderId, ct);
             var now = clock.GetUtcNow().UtcDateTime;
             if (order == null || order.ResaleDecisionDeadlineAt == null || order.ResaleDecisionDeadlineAt > now) return false;
+            var pendingVariants = order.Items.Where(i => i.ResaleDecisionStatus == ResaleDecisionStatus.Pending)
+                .Select(i => i.FlashDealVariantId).Distinct().ToArray();
+            if (pendingVariants.Length == 0) return false;
             Expire(order, now);
+            await LifecycleOutbox.InventoryAsync(db, pendingVariants, order.Id, now, ct);
             await db.SaveChangesAsync(ct);
             return true;
         }, ct);

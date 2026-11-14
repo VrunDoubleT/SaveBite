@@ -49,6 +49,7 @@ export function useFlashDealRealtime(
   kind: "shop" | "deal" | "all",
   id: string | undefined,
   refresh: (eventData?: FlashDealRealtimePayload) => void,
+  refreshOnSubscribe = false,
 ) {
   const [connectionStatus, setConnectionStatus] = useState<
     "connecting" | "connected" | "disconnected"
@@ -85,12 +86,9 @@ export function useFlashDealRealtime(
         await connection.invoke("WatchFeed");
       }
       if (!stopped) setConnectionStatus("connected");
-      // Only refresh on reconnect (not on initial mount when component already fetches data)
-      if (hasJoinedOnce) {
-        refreshSoon();
-      } else {
-        hasJoinedOnce = true;
-      }
+      // Shop management also re-reads after joining to cover updates during its initial request.
+      if (hasJoinedOnce || refreshOnSubscribe) refreshSoon();
+      hasJoinedOnce = true;
     };
     connection.on("ReceiveEvent", (event: RealtimeEvent<unknown>) => {
       if (event.version !== 1) return;
@@ -135,7 +133,10 @@ export function useFlashDealRealtime(
         const shopData = event.data as ShopStatusEventData | undefined;
         const changedShopId = shopData?.shopId ?? shopData?.ShopId;
         window.dispatchEvent(new CustomEvent("shop:status-changed", { detail: event.data }));
-        const isInactive = !shopData?.status || shopData.status.toLowerCase() !== "active" || Boolean(shopData.isBlocked ?? shopData.IsBlocked);
+        const isInactive =
+          !shopData?.status ||
+          shopData.status.toLowerCase() !== "active" ||
+          Boolean(shopData.isBlocked ?? shopData.IsBlocked);
         if (kind === "all") {
           refreshSoon();
         } else if (kind === "shop" && id && changedShopId?.toLowerCase() === id.toLowerCase()) {
@@ -205,6 +206,6 @@ export function useFlashDealRealtime(
       document.removeEventListener("visibilitychange", onVisible);
       void connection.stop();
     };
-  }, [kind, id]);
+  }, [kind, id, refreshOnSubscribe]);
   return connectionStatus;
 }

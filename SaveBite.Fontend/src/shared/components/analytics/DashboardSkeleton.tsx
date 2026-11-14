@@ -5,9 +5,12 @@ export function DashboardSkeleton({ label = "Loading analytics..." }: { label?: 
     <div className="space-y-6" role="status" aria-label={label}>
       <span className="sr-only">{label}</span>
       <div aria-hidden="true" className="space-y-6">
-        <div className="space-y-3 rounded-lg border border-border-default bg-bg-surface p-5">
-          <Skeleton className="h-8 w-72 max-w-full" />
-          <Skeleton className="h-4 w-96 max-w-full" />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 space-y-2">
+            <Skeleton className="h-8 w-72 max-w-full" />
+            <Skeleton className="h-4 w-96 max-w-full" />
+            <Skeleton className="h-7 w-48 max-w-full rounded-full" />
+          </div>
           <div className="flex flex-wrap gap-2 pt-2">
             {[0, 1, 2, 3].map((item) => (
               <Skeleton key={item} className="h-10 w-24" />

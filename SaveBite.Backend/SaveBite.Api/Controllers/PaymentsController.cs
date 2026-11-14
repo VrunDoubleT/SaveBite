@@ -1,3 +1,4 @@
+using SaveBite.Backend.Services.Implementations;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using System.IdentityModel.Tokens.Jwt;
@@ -18,11 +19,13 @@ public sealed class PaymentsController : ControllerBase
 {
     private readonly ICheckoutPaymentService _payments;
     private readonly IPaymentHistoryService _history;
+    private readonly PayOsWebhookDispatcher _webhooks;
 
-    public PaymentsController(ICheckoutPaymentService payments, IPaymentHistoryService history)
+    public PaymentsController(ICheckoutPaymentService payments, IPaymentHistoryService history, PayOsWebhookDispatcher webhooks)
     {
         _payments = payments;
         _history = history;
+        _webhooks = webhooks;
     }
 
     // List only the active customer's own payment records with numbered pagination and an optional status filter.
@@ -43,14 +46,14 @@ public sealed class PaymentsController : ControllerBase
     public async Task<ActionResult<ApiResponse<CheckoutOrderResponse>>> Reconcile(Guid orderId, CancellationToken ct)
         => Ok(ApiResponse<CheckoutOrderResponse>.Ok(await _payments.ReconcileAsync(UserId(), orderId, ct)));
 
-    // Verify the PayOS webhook signature and query the provider before applying payment and inventory changes.
+    // Dispatch the notification to the recorded payment handler for signature verification and settlement.
     [HttpPost("payos/webhook")]
     [HttpPost("~/api/checkout/payos/webhook")]
     [AllowAnonymous]
     [RequestSizeLimit(65536)]
     public async Task<ActionResult> Webhook([FromBody] JsonElement body, CancellationToken ct)
     {
-        await _payments.WebhookAsync(body, ct);
+        await _webhooks.DispatchAsync(body, ct);
         return Ok(new { code = "00", desc = "success" });
     }
 

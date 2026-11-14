@@ -18,7 +18,7 @@ import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { platformAnalyticsApi } from "@/features/admin-analytics/api/platformAnalyticsApi";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
 
 function ListSkeleton() {

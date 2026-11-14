@@ -237,7 +237,7 @@ function RefundRequestPage({ orderId }: { orderId: string }) {
             </div>
             {eligibility?.deadline && (
               <p className="text-caption text-text-secondary">
-                Request by {checkoutTime(new Date(eligibility.deadline).toISOString())} · GMT+7
+                Request by {checkoutTime(new Date(eligibility.deadline).toISOString())}
               </p>
             )}
           </Card>

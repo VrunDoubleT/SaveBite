@@ -1,4 +1,6 @@
-import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { PaymentStatusBadge } from "@/features/payments/components/PaymentStatusBadge";
+import { PaymentQr } from "@/features/shop-orders/components/PaymentQr";
+import { OrderDetailSkeleton } from "@/shared/components/ui/PageLoadingSkeleton";
 import { OrderResalePanel } from "@/features/shop-orders/components/OrderResalePanel";
 import { ShopOrderRefunds } from "@/features/refunds/components/ShopOrderRefunds";
 import { paymentMethodLabel } from "@/features/payments/utils/paymentLabels";
@@ -11,7 +13,7 @@ import { shopOrderApi } from "@/features/shop-orders/api/shopOrderApi";
 import type { ShopOrder } from "@/features/shop-orders/types/shopOrder.types";
 import { OrderStatusPanel } from "@/features/checkout/components/OrderStatusPanel";
 import { OrderPickupDeadlines } from "@/features/checkout/components/OrderPickupDeadlines";
-import { PaymentQr } from "@/features/shop-orders/components/PaymentQr";
+import { PaymentModal } from "@/features/payments/components/PaymentPanel";
 import { formatCartMoney as money } from "@/features/cart/utils/formatCartMoney";
 import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import { getApiErrorMessage } from "@/shared/api";
@@ -33,6 +35,7 @@ function ShopOrderDetailPageContent() {
   const [data, setData] = useState<ShopOrder | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
   const [handover, setHandover] = useState(false);
@@ -78,34 +81,6 @@ function ShopOrderDetailPageContent() {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
-  const hasPendingRemaining = data?.payments.some(p => p.type === "Remaining" && p.status === "Pending") ?? false;
-  useEffect(() => {
-    if (!shopId || !hasPendingRemaining || busy) return;
-    const abort = new AbortController();
-    let checking = false;
-    async function checkPayment() {
-      if (checking || inFlight.current || document.visibilityState !== "visible") return;
-      checking = true;
-      const current = ++revision.current;
-      try {
-        const next = await shopOrderApi.reconcilePayment(shopId, orderId, abort.signal);
-        if (!abort.signal.aborted && current === revision.current) { setData(next); setError(""); }
-      } catch (cause) {
-        if (!abort.signal.aborted && current === revision.current) setError(getApiErrorMessage(cause));
-      } finally { checking = false; }
-    }
-    void checkPayment();
-    const timer = window.setInterval(() => void checkPayment(), 5000);
-    const resume = () => { void checkPayment(); };
-    window.addEventListener("focus", resume);
-    document.addEventListener("visibilitychange", resume);
-    return () => {
-      abort.abort();
-      window.clearInterval(timer);
-      window.removeEventListener("focus", resume);
-      document.removeEventListener("visibilitychange", resume);
-    };
-  }, [shopId, orderId, hasPendingRemaining, busy]);
   async function act(action: string, body?: object) {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -166,7 +141,7 @@ function ShopOrderDetailPageContent() {
         error ? (
           <p className="text-sm text-neutral-500">Unable to load order.</p>
         ) : (
-          <LoadingSkeleton variant="detail" label="Loading order" />
+          <OrderDetailSkeleton />
         )
       ) : (
         <>
@@ -400,15 +375,31 @@ function ShopOrderDetailPageContent() {
                 </p>
                 <div className="my-3 space-y-3">
                   {data.payments.map((p) => (
-                    <div key={p.id} className="flex justify-between gap-2 text-xs">
-                      <div>
-                        <p className="font-semibold">{p.type}</p>
-                        <p className="mt-1 text-neutral-500">
-                          {paymentMethodLabel(p.method)} · {p.status}
-                          {p.paidAt ? ` · ${checkoutTime(p.paidAt)}` : ""}
-                        </p>
+                    <div
+                      key={p.id}
+                      className={`flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3 text-xs ${p.status === "Succeeded" ? "border-emerald-200 bg-emerald-50" : "border-neutral-200 bg-white"}`}
+                    >
+                      <div className="min-w-0 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold">{p.type}</p>
+                          <PaymentStatusBadge status={p.status} />
+                        </div>
+                        <p className="text-neutral-600">{paymentMethodLabel(p.method)}</p>
+                        {p.paidAt && (
+                          <p className="font-medium text-emerald-700">
+                            Paid at {checkoutTime(p.paidAt)}
+                          </p>
+                        )}
                       </div>
-                      <strong>{money(p.amount)}</strong>
+                      <strong
+                        className={
+                          p.status === "Succeeded"
+                            ? "text-sm text-emerald-800"
+                            : "text-sm text-neutral-900"
+                        }
+                      >
+                        {money(p.amount)}
+                      </strong>
                     </div>
                   ))}
                   {o.paymentMethod === "PayAtShop" && !remaining && (
@@ -430,7 +421,11 @@ function ShopOrderDetailPageContent() {
                     <button
                       disabled={busy || cashReceived}
                       className={`${button} w-full`}
-                      onClick={() => void act("remaining-payment")}
+                      onClick={() => {
+                        if (remaining?.status === "Pending" && remaining.checkoutUrl)
+                          setPaymentModalOpen(true);
+                        else void act("remaining-payment");
+                      }}
                     >
                       {remaining?.checkoutUrl
                         ? "Show remaining payment QR"
@@ -439,48 +434,35 @@ function ShopOrderDetailPageContent() {
                           : "Generate remaining payment QR"}
                     </button>
                   )}
-                {active && remaining?.status === "Pending" && remaining.checkoutUrl && (
-                  <div className="mt-3">
-                    <PaymentQr
-                      key={remaining.id}
-                      value={remaining.qrCode}
-                      url={remaining.checkoutUrl}
-                    />
-                    {remaining.checkoutUrl.startsWith("/checkout/simulation?") && (
-                      <div className="mt-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                        <p className="text-xs font-bold text-amber-800">
-                          DEVELOPMENT · SIMULATED REMAINING PAYMENT
-                        </p>
-                        <p className="text-xs text-amber-900">
-                          No real money is transferred. Success updates payment and notifies
-                          connected order pages.
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            disabled={busy || cashReceived}
-                            onClick={() => void simulateRemaining("paid")}
-                            className={button}
-                          >
-                            Simulate payment success
-                          </button>
-                          <button
-                            disabled={busy || cashReceived}
-                            onClick={() => void simulateRemaining("cancelled")}
-                            className="rounded-lg border border-amber-300 px-3 py-2 text-xs disabled:opacity-50"
-                          >
-                            Simulate cancellation
-                          </button>
-                          <button
-                            disabled={busy || cashReceived}
-                            onClick={() => void simulateRemaining("expired")}
-                            className="rounded-lg border border-amber-300 px-3 py-2 text-xs disabled:opacity-50"
-                          >
-                            Simulate expiry
-                          </button>
-                        </div>
-                      </div>
+                {remaining?.status === "Pending" && (
+                  <PaymentQr
+                    value={remaining.qrCode}
+                    simulated={remaining.checkoutUrl?.startsWith("/checkout/simulation?")}
+                    processing={!!o.hardDeadlineAt && Date.parse(o.hardDeadlineAt) <= now}
+                  />
+                )}
+                {remaining?.status === "Pending" && (
+                  <PaymentModal
+                    isOpen={paymentModalOpen}
+                    onClose={() => setPaymentModalOpen(false)}
+                    title="Pay remaining balance"
+                    amount={remaining.amount}
+                    qrCode={remaining.qrCode}
+                    reference={o.orderCode}
+                    expiresAt={o.hardDeadlineAt}
+                    isSimulated={remaining.checkoutUrl?.startsWith("/checkout/simulation?")}
+                  >
+                    {remaining.checkoutUrl?.startsWith("/checkout/simulation?") && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void simulateRemaining("paid")}
+                        className={button}
+                      >
+                        Confirm test payment
+                      </button>
                     )}
-                  </div>
+                  </PaymentModal>
                 )}
                 {o.paymentReviewRequired && (
                   <p className="mt-3 rounded-lg bg-red-50 p-3 text-xs text-red-700">

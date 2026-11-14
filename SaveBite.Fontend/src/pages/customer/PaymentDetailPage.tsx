@@ -1,3 +1,6 @@
+import { PaymentPanel } from "@/features/payments/components/PaymentPanel";
+import { usePaymentUpdates } from "@/features/payments/hooks/usePaymentUpdates";
+import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
 import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
 import { paymentTypeLabel, paymentMethodLabel } from "@/features/payments/utils/paymentLabels";
 import { useEffect, useRef, useState } from "react";
@@ -9,7 +12,7 @@ import type { CustomerPaymentDetail } from "@/features/payments/types/paymentHis
 import { PaymentStatusBadge } from "@/features/payments/components/PaymentStatusBadge";
 import { OrderPickupDeadlines } from "@/features/checkout/components/OrderPickupDeadlines";
 import { OrderPickupCode } from "@/features/checkout/components/OrderPickupCode";
-import { checkoutTime, safePaymentUrl } from "@/features/checkout/utils/checkoutPolicy";
+import { checkoutTime } from "@/features/checkout/utils/checkoutPolicy";
 import { CancelOrderAction } from "@/features/checkout/components/CancelOrderAction";
 import { orderApi } from "@/features/orders/api/orderApi";
 import { useCartStore } from "@/features/cart/stores/cartStore";
@@ -23,11 +26,18 @@ export function PaymentDetailPage() {
   const { paymentId = "" } = useParams();
   const [params] = useSearchParams();
   const checkoutId = params.get("checkoutId");
-  const cancelledReturn = params.get("cancelled") === "1";
   const userId = useAuthStore((state) => state.user?.id);
-  return <PaymentDetails key={`${userId}:${paymentId}`} paymentId={paymentId} checkoutId={checkoutId} cancelledReturn={cancelledReturn} />;
+  return (
+    <PaymentDetails key={`${userId}:${paymentId}`} paymentId={paymentId} checkoutId={checkoutId} />
+  );
 }
-function PaymentDetails({ paymentId, checkoutId, cancelledReturn }: { paymentId: string; checkoutId: string | null; cancelledReturn: boolean }) {
+function PaymentDetails({
+  paymentId,
+  checkoutId,
+}: {
+  paymentId: string;
+  checkoutId: string | null;
+}) {
   const navigate = useNavigate();
   const wasPending = useRef(false);
   const [data, setData] = useState<CustomerPaymentDetail | null>(null);
@@ -35,69 +45,86 @@ function PaymentDetails({ paymentId, checkoutId, cancelledReturn }: { paymentId:
   const [retry, setRetry] = useState(0);
   const [now, setNow] = useState(Date.now);
   const [cancelling, setCancelling] = useState(false);
+  const mounted = useRef(true);
   useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  usePaymentUpdates(
+    REALTIME_EVENTS.PAYMENT_CHANGED,
+    async (signal) => {
+      try {
+        const result = await paymentApi.detail(paymentId, signal);
+        if (mounted.current && !signal.aborted) {
+          setData(result);
+          setError("");
+        }
+      } catch (cause) {
+        if (mounted.current && !signal.aborted) setError(getApiErrorMessage(cause));
+      }
+    },
+    (event) => event.paymentId === paymentId,
+  );
+  useEffect(() => {
+    if (!retry) return;
     const abort = new AbortController();
-    // Verify the provider return before displaying the recorded payment.
-    const reconcile = checkoutId
-      ? paymentApi.reconcile(checkoutId, abort.signal)
-      : Promise.resolve();
-    void reconcile
-      .catch((cause) => {
-        if (abort.signal.aborted) throw cause;
-        // A webhook may already have committed success even if the return-page
-        // reconciliation request fails. Always read the durable payment receipt.
-        return undefined;
-      })
-      .then(() => paymentApi.detail(paymentId, abort.signal))
+    void paymentApi
+      .detail(paymentId, abort.signal)
       .then((result) => {
         if (!abort.signal.aborted) {
           setData(result);
           setError("");
         }
       })
-      .catch((e) => {
-        if (!abort.signal.aborted) setError(getApiErrorMessage(e));
+      .catch((cause) => {
+        if (!abort.signal.aborted) setError(getApiErrorMessage(cause));
       });
     return () => abort.abort();
-  }, [paymentId, checkoutId, retry]);
+  }, [retry, paymentId]);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
   const pending = data?.payment.status === "Pending";
-  const pendingCheckoutId = data?.order.id;
-  const paymentDeadline = data?.order.paymentExpiresAt;
-  useEffect(() => {
-    if (!pending || !pendingCheckoutId || cancelling) return;
-    const abort = new AbortController();
-    let reading = false;
-    const timer = window.setInterval(async () => {
-      if (reading || document.visibilityState !== "visible") return;
-      reading = true;
-      try {
-        if (paymentDeadline && Date.parse(paymentDeadline) <= Date.now())
-          await paymentApi.reconcile(pendingCheckoutId, abort.signal);
-        const next = await paymentApi.detail(paymentId, abort.signal);
-        if (!abort.signal.aborted) setData(next);
-      } catch (cause) {
-        if (!abort.signal.aborted) setError(getApiErrorMessage(cause));
-      } finally { reading = false; }
-    }, 5000);
-    return () => { abort.abort(); window.clearInterval(timer); };
-  }, [pending, pendingCheckoutId, paymentDeadline, paymentId, cancelling]);
   const payment = data?.payment,
     order = data?.order;
-  const hasOrder = Boolean(payment?.orderId) && !order?.isCheckoutSession
-    && !(["Cancelled", "Expired"].includes(payment?.status ?? "") && payment?.collectedAmount === 0);
-  const paymentUrl = safePaymentUrl(order?.checkoutUrl);
+  const paymentDeadline =
+    payment?.type === "Remaining" ? order?.hardDeadlineAt : order?.paymentExpiresAt;
+  const processing =
+    pending &&
+    payment?.method === "OnlinePayment" &&
+    !!paymentDeadline &&
+    Date.parse(paymentDeadline) <= now;
+  const hasOrder =
+    Boolean(payment?.orderId) &&
+    !order?.isCheckoutSession &&
+    !(["Cancelled", "Expired"].includes(payment?.status ?? "") && payment?.collectedAmount === 0);
   useEffect(() => {
     if (payment?.status === "Pending") wasPending.current = true;
     // Historical successful payments remain readable; only a newly completed payment redirects.
-    if ((checkoutId || wasPending.current) && !cancelledReturn && !cancelling
-      && payment?.status === "Succeeded" && payment.orderId && hasOrder && !order?.paymentReviewRequired) {
-      navigate(APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(payment.orderId)), { replace: true });
+    if (
+      (checkoutId || wasPending.current) &&
+      !cancelling &&
+      payment?.status === "Succeeded" &&
+      payment.orderId &&
+      hasOrder &&
+      !order?.paymentReviewRequired
+    ) {
+      navigate(APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(payment.orderId)), {
+        replace: true,
+      });
     }
-  }, [checkoutId, cancelledReturn, cancelling, payment?.status, payment?.orderId, hasOrder, order?.paymentReviewRequired, navigate]);
+  }, [
+    checkoutId,
+    cancelling,
+    payment?.status,
+    payment?.orderId,
+    hasOrder,
+    order?.paymentReviewRequired,
+    navigate,
+  ]);
   async function cancelPayment() {
     if (!order || cancelling) return;
     setCancelling(true);
@@ -107,11 +134,14 @@ function PaymentDetails({ paymentId, checkoutId, cancelledReturn }: { paymentId:
       setData(await paymentApi.detail(paymentId));
       setError("");
       void useCartStore.getState().refresh();
-    } catch (cause) { setError(getApiErrorMessage(cause)); }
-    finally { setCancelling(false); }
+    } catch (cause) {
+      setError(getApiErrorMessage(cause));
+    } finally {
+      setCancelling(false);
+    }
   }
   return (
-    <div className="min-w-0 space-y-4">
+    <div className="w-full min-w-0 space-y-5">
       {error && (
         <ErrorState
           title="Couldn't load payment details"
@@ -123,46 +153,79 @@ function PaymentDetails({ paymentId, checkoutId, cancelledReturn }: { paymentId:
       {payment && order && (
         <>
           <Card padding="none" aria-label="Payment details" className="overflow-hidden">
-            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
-              <h2 className="flex items-center gap-2 text-section font-semibold text-text-primary">
-                <CreditCard size={20} aria-hidden="true" className="text-primary-700" />
-                {paymentTypeLabel(payment.type)}
-              </h2>
-              <PaymentStatusBadge status={payment.status} />
-            </header>
-            <div className="space-y-3 p-4 sm:p-5">
-              {pending && order.isCheckoutSession && (
-                <div className="flex flex-wrap items-center gap-3">
-                  {paymentUrl && (!order.paymentExpiresAt || Date.parse(order.paymentExpiresAt) > now) && (
-                    <ButtonLink to={paymentUrl} variant="primary">Continue payment</ButtonLink>
-                  )}
-                  <CancelOrderAction order={order} now={now} busy={cancelling} onCancel={cancelPayment} />
-                </div>
-              )}
-              <AmountSummary
-                amounts={[
-                  { label: "Payment amount", amount: payment.amount },
-                  { label: "Amount collected", amount: payment.collectedAmount, tone: "primary" },
-                ]}
-              />
-              <dl className="grid gap-4 text-body sm:grid-cols-3">
-                {[
-                  ["Method", paymentMethodLabel(payment.method)],
-                  ["Created", checkoutTime(payment.createdAt)],
-                  ["Paid at", payment.paidAt ? checkoutTime(payment.paidAt) : "Not recorded"],
-                ].map(([label, value]) => (
-                  <div key={label}>
-                    <dt className="text-caption text-text-secondary">{label}</dt>
-                    <dd className="mt-1 font-medium text-text-primary [overflow-wrap:anywhere]">
-                      {value}
-                    </dd>
+            {!processing && (
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default bg-primary-50/50 p-4 sm:p-5">
+                <h2 className="flex items-center gap-2 text-section font-semibold text-text-primary">
+                  <CreditCard size={20} aria-hidden="true" className="text-primary-700" />
+                  {paymentTypeLabel(payment.type)}
+                </h2>
+                <PaymentStatusBadge status={payment.status} />
+              </header>
+            )}
+            {pending && payment.method === "OnlinePayment" && (
+              <PaymentPanel
+                amount={payment.amount}
+                qrCode={payment.qrCode}
+                reference={payment.gatewayOrderCode}
+                expiresAt={
+                  payment.type === "Remaining" ? order.hardDeadlineAt : order.paymentExpiresAt
+                }
+                isSimulated={payment.isSimulated}
+              >
+                {payment.isSimulated && (
+                  <button
+                    type="button"
+                    className="min-h-11 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white"
+                    onClick={() => {
+                      void paymentApi
+                        .simulate(order.id, "paid", payment.id)
+                        .then(() => paymentApi.detail(paymentId))
+                        .then(setData)
+                        .catch((cause) => setError(getApiErrorMessage(cause)));
+                    }}
+                  >
+                    Confirm test payment
+                  </button>
+                )}
+              </PaymentPanel>
+            )}
+            {!processing && (
+              <div className="space-y-3 p-4 sm:p-5">
+                {pending && order.isCheckoutSession && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <CancelOrderAction
+                      order={order}
+                      now={now}
+                      busy={cancelling}
+                      onCancel={cancelPayment}
+                    />
                   </div>
-                ))}
-              </dl>
-              <p className="break-all border-t border-border-default pt-3 text-caption text-text-muted">
-                Payment ID: {payment.id} · GMT+7
-              </p>
-            </div>
+                )}
+                <AmountSummary
+                  amounts={[
+                    { label: "Payment amount", amount: payment.amount },
+                    { label: "Amount collected", amount: payment.collectedAmount, tone: "primary" },
+                  ]}
+                />
+                <dl className="grid gap-4 text-body sm:grid-cols-3">
+                  {[
+                    ["Method", paymentMethodLabel(payment.method)],
+                    ["Created", checkoutTime(payment.createdAt)],
+                    ["Paid at", payment.paidAt ? checkoutTime(payment.paidAt) : "Not recorded"],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="text-caption text-text-secondary">{label}</dt>
+                      <dd className="mt-1 font-medium text-text-primary [overflow-wrap:anywhere]">
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="break-all border-t border-border-default pt-3 text-caption text-text-muted">
+                  Payment ID: {payment.id}
+                </p>
+              </div>
+            )}
           </Card>
           <Card padding="none" aria-label="Related order" className="overflow-hidden">
             <header className="flex items-center gap-3 border-b border-border-default bg-primary-50/40 p-4 sm:p-5">
@@ -191,7 +254,11 @@ function PaymentDetails({ paymentId, checkoutId, cancelledReturn }: { paymentId:
               <div className="flex flex-wrap items-start justify-between gap-3">
                 {hasOrder && <OrderPickupCode code={order.orderCode} compact showHint={false} />}
                 <ButtonLink
-                  to={hasOrder ? APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id)) : APP_PATHS.CART}
+                  to={
+                    hasOrder
+                      ? APP_PATHS.ORDER_DETAIL.replace(":orderId", encodeURIComponent(order.id))
+                      : APP_PATHS.CART
+                  }
                   variant="primary"
                   className="min-h-11"
                 >
@@ -233,7 +300,11 @@ function PaymentDetails({ paymentId, checkoutId, cancelledReturn }: { paymentId:
               <AmountSummary
                 amounts={[
                   { label: hasOrder ? "Order total" : "Checkout total", amount: order.totalAmount },
-                  { label: hasOrder ? "Paid for order" : "Amount paid", amount: order.paidAmount ?? 0, tone: "primary" },
+                  {
+                    label: hasOrder ? "Paid for order" : "Amount paid",
+                    amount: order.paidAmount ?? 0,
+                    tone: "primary",
+                  },
                   {
                     label: "Still due",
                     amount: order.outstandingAmount ?? 0,

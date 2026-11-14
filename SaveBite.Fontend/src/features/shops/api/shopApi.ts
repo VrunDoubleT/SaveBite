@@ -42,7 +42,7 @@ export const shopApi = {
       totalItems: data?.totalItems ?? 0,
       totalPages: data?.totalPages ?? 0,
       page: data?.page ?? 1,
-      pageSize: data?.pageSize ?? 6,
+      pageSize: data?.pageSize ?? 10,
       allStoresCount: data?.allStoresCount,
       flashDealsStoresCount: data?.flashDealsStoresCount,
       message: response.data.message,

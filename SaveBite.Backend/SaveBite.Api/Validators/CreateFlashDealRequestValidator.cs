@@ -47,7 +47,9 @@ public sealed class CreateFlashDealRequestValidator : AbstractValidator<CreateFl
         });
         RuleFor(x => x.ShopClosingTime)
             .GreaterThanOrEqualTo(x => x.OrderEndTime)
-            .WithMessage("Shop closing time must be on or after order end time.");
+            .WithMessage("Pickup cutoff must be on or after deal end time.")
+            .Must((request, cutoff) => cutoff <= request.OrderEndTime.AddMinutes(60))
+            .WithMessage("Pickup cutoff cannot exceed 60 minutes after deal end.");
 
         RuleForEach(x => x.Variants).ChildRules(v =>
         {
@@ -77,7 +79,9 @@ public sealed class UpdateFlashDealRequestValidator : AbstractValidator<UpdateFl
 
         RuleFor(x => x.ShopClosingTime)
             .GreaterThanOrEqualTo(x => x.OrderEndTime)
-            .WithMessage("Shop closing time must be on or after order end time.");
+            .WithMessage("Pickup cutoff must be on or after deal end time.")
+            .Must((request, cutoff) => cutoff <= request.OrderEndTime.AddMinutes(60))
+            .WithMessage("Pickup cutoff cannot exceed 60 minutes after deal end.");
 
         RuleFor(x => x.Variants)
             .NotEmpty().WithMessage("At least one variant must be included.");

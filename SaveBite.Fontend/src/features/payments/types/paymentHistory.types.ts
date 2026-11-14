@@ -13,6 +13,9 @@ export interface CustomerPayment {
   collectedAmount: number;
   createdAt: string;
   paidAt?: string;
+  qrCode?: string;
+  gatewayOrderCode?: string;
+  isSimulated?: boolean;
 }
 
 export interface CustomerPaymentPage {

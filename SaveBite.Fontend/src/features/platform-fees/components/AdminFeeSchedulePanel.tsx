@@ -9,7 +9,7 @@ import { getApiErrorMessage } from "@/shared/api/httpClient";
 import { toast } from "@/shared/stores/toastStore";
 import { Pagination } from "@/shared/components/pagination";
 
-const HISTORY_PAGE_SIZE = 5;
+const HISTORY_PAGE_SIZE = 10;
 interface FeeVersionForm {
   rate: string;
   mode: "scheduled" | "now";

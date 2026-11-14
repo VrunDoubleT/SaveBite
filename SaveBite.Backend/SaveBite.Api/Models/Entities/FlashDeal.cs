@@ -10,6 +10,7 @@ public class FlashDeal
 
     public DateTime SaleStartTime { get; set; }
     public DateTime OrderEndTime { get; set; }
+    // Owner-selected final pickup cutoff; not the shop operating closing time.
     public DateTime ShopClosingTime { get; set; }
 
     public FlashDealStatus Status { get; set; } = FlashDealStatus.Pending;

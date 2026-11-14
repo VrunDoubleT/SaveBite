@@ -251,7 +251,7 @@ export function CustomerOrderDetail({ orderId }: { orderId: string }) {
                     <p className="flex w-full items-center gap-1.5 text-caption text-text-secondary">
                       <Clock3 size={14} aria-hidden="true" />
                       <time dateTime={order.createdAt}>
-                        Placed {checkoutTime(order.createdAt)} · GMT+7
+                        Placed {checkoutTime(order.createdAt)}
                       </time>
                     </p>
                   )}
@@ -261,7 +261,7 @@ export function CustomerOrderDetail({ orderId }: { orderId: string }) {
                   <OrderStatusPanel order={order} compact />
                   <OrderPickupDeadlines order={order} now={now} compact />
                   <p className="text-caption text-text-secondary">
-                    GMT+7 · Pickup deadlines do not extend during payment.
+                    Pickup deadlines do not extend during payment.
                   </p>
                   <details className="group border-t border-border-default pt-2">
                     <summary className="min-h-8 cursor-pointer text-caption font-medium text-text-secondary">

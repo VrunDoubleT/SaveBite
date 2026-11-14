@@ -1,4 +1,6 @@
-import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { usePaymentUpdates } from "@/features/payments/hooks/usePaymentUpdates";
+import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
+import { StatementDetailSkeleton } from "@/shared/components/ui/PageLoadingSkeleton";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
@@ -59,6 +61,14 @@ export function PlatformFeeDetailPage() {
     void loadData();
   }, [loadData]);
 
+  usePaymentUpdates(
+    REALTIME_EVENTS.PLATFORM_FEE_CHANGED,
+    async () => {
+      await loadData();
+    },
+    (event) => event.statementId === statementId,
+  );
+
   // Handle Pay Online (UC-81)
   const handleOpenPayment = async () => {
     if (!shop?.id || !statement?.id) return;
@@ -81,8 +91,8 @@ export function PlatformFeeDetailPage() {
     }).format(amount);
   };
 
-  if (loading) {
-    return <LoadingSkeleton variant="detail" label="Loading statement details" />;
+  if (loading && !statement) {
+    return <StatementDetailSkeleton />;
   }
 
   if (!statement) {

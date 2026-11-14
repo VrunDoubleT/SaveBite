@@ -28,6 +28,7 @@ import { formatShopOperatingHours } from "../utils/shopOperatingHours";
 import type { LocationMode } from "@/features/flash-deals/hooks/useNearbyFlashDeals";
 
 export interface NearbyStoresMapSectionProps {
+  showSkeleton?: boolean;
   focusShop?: NearbyShop;
   latitude?: number | null;
   longitude?: number | null;
@@ -56,6 +57,7 @@ export interface NearbyStoresMapSectionProps {
 let cachedNearbyShops: NearbyShop[] = [];
 
 export function NearbyStoresMapSection({
+  showSkeleton = true,
   focusShop,
   latitude,
   longitude,
@@ -185,22 +187,24 @@ export function NearbyStoresMapSection({
       const activeFilter = filterOverride ?? storeFilter;
       try {
         const effectiveKeyword = searchQuery.trim() || undefined;
-        const res = await shopApi.getNearbyShops(
-          {
-            latitude: isSavedAddress ? undefined : (targetLat ?? undefined),
-            longitude: isSavedAddress ? undefined : (targetLng ?? undefined),
-            radiusInKm: Math.min(radiusInKm ?? 5, 20),
-            page: 1,
-            pageSize: 50,
-            keyword: effectiveKeyword,
-            category: effectiveKeyword ? undefined : category || undefined,
-            price: effectiveKeyword ? undefined : price || undefined,
-            distance: distance || undefined,
-            shopName: effectiveKeyword ? undefined : propSelectedShop || undefined,
-            onlyWithFlashDeals: activeFilter === "deals_only",
-          },
-          controller.signal,
-        );
+        const request = {
+          latitude: isSavedAddress ? undefined : (targetLat ?? undefined),
+          longitude: isSavedAddress ? undefined : (targetLng ?? undefined),
+          radiusInKm: Math.min(radiusInKm ?? 5, 20),
+          page: 1,
+          pageSize: 10,
+          keyword: effectiveKeyword,
+          category: effectiveKeyword ? undefined : category || undefined,
+          price: effectiveKeyword ? undefined : price || undefined,
+          distance: distance || undefined,
+          shopName: effectiveKeyword ? undefined : propSelectedShop || undefined,
+          onlyWithFlashDeals: activeFilter === "deals_only",
+        };
+        const res = await shopApi.getNearbyShops(request, controller.signal);
+        for (let page = 2; page <= res.totalPages; page++) {
+          const next = await shopApi.getNearbyShops({ ...request, page }, controller.signal);
+          res.shops.push(...next.shops);
+        }
         if (controller.signal.aborted) return;
         setSelectedShop((current) =>
           current && res.shops.some((shop) => shop.id === current.id) ? current : null,
@@ -1126,12 +1130,18 @@ export function NearbyStoresMapSection({
         {/* Loading overlay when fetching shops */}
         {isLoading && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-bg-surface/60 backdrop-blur-xs">
-            <LoadingSkeleton
-              variant="list"
-              rows={2}
-              label="Loading nearby stores"
-              className="w-full max-w-sm p-4"
-            />
+            {showSkeleton ? (
+              <LoadingSkeleton
+                variant="list"
+                rows={2}
+                label="Loading nearby stores"
+                className="w-full max-w-sm p-4"
+              />
+            ) : (
+              <p role="status" className="text-sm text-text-secondary">
+                Loading nearby stores…
+              </p>
+            )}
           </div>
         )}
 

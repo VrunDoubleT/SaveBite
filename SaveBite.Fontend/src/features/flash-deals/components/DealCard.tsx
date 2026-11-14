@@ -1,3 +1,4 @@
+import { PickupDeadlineNotice } from "./PickupDeadlineNotice";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Clock3, ImageOff, MapPin, Package, ShoppingBag, Sparkles } from "lucide-react";
@@ -86,7 +87,7 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
               </Badge>
             )}
             {isNew && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-md ring-1 ring-white/90 animate-pulse">
+              <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-md ring-1 ring-white/90 animate-pulse motion-reduce:animate-none">
                 <Sparkles className="size-3 shrink-0" aria-hidden="true" />
                 NEW
               </span>
@@ -145,6 +146,7 @@ export function DealCard({ deal, isSameShop = false }: DealCardProps) {
             )}
           </div>
         )}
+        <PickupDeadlineNotice deadline={deal.shopClosingTime} />
         <div className="mt-auto flex flex-wrap items-baseline gap-x-2 gap-y-1 pt-1 tabular-nums">
           <span className="text-section font-bold text-primary-700">
             {formatVnd(deal.minDealPrice)}

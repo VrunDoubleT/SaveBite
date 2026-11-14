@@ -482,6 +482,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 {
                     var reactivatedShopId = await SettleFeePaymentAsync(previous, collectedAmount, ct);
                     await settlement.CommitAsync(ct);
+                    await PublishPaidFeeAsync(previous.StatementId, ct);
                     if (reactivatedShopId.HasValue)
                         await _shopStatusEvents.NotifyChangedAsync(reactivatedShopId.Value, ShopStatus.Active.ToString(), ct);
                 }
@@ -682,6 +683,12 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 .Include(p => p.Shop)
                 .SingleOrDefaultAsync(p => p.Id == paymentId, ct);
 
+            if (freshPayment != null)
+            {
+                await _db.Entry(freshPayment).ReloadAsync(ct);
+                await _db.Entry(freshPayment.Statement).ReloadAsync(ct);
+                await _db.Entry(freshPayment.Shop).ReloadAsync(ct);
+            }
             if (freshPayment != null && freshPayment.Status == PaymentStatus.Pending)
             {
                 var reactivatedShopId = await SettleFeePaymentAsync(freshPayment, collectedAmount, ct);
@@ -701,6 +708,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
 
             var freshPayment = await _db.PlatformFeePayments.SingleOrDefaultAsync(p => p.Id == paymentId, ct);
+            if (freshPayment != null) await _db.Entry(freshPayment).ReloadAsync(ct);
             if (freshPayment != null && freshPayment.Status == PaymentStatus.Pending)
             {
                 freshPayment.Status = PaymentStatus.Expired;
@@ -718,6 +726,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
 
             var freshPayment = await _db.PlatformFeePayments.SingleOrDefaultAsync(p => p.Id == paymentId, ct);
+            if (freshPayment != null) await _db.Entry(freshPayment).ReloadAsync(ct);
             if (freshPayment != null && freshPayment.Status == PaymentStatus.Pending)
             {
                 freshPayment.Status = PaymentStatus.Cancelled;

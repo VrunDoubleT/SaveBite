@@ -1,3 +1,5 @@
+import { Pagination } from "@/shared/components/pagination";
+import { useFlashDealRealtime } from "@/features/flash-deals/hooks/useFlashDealRealtime";
 import { TableSkeletonRows } from "@/shared/components/ui/LoadingSkeleton";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -17,7 +19,11 @@ export function StaffFlashDealsPage() {
   const { shopId } = useParams<{ shopId: string }>();
   const navigate = useNavigate();
   const [deals, setDeals] = useState<ShopFlashDealListItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [inventoryRevision, setInventoryRevision] = useState(0);
+  useFlashDealRealtime("shop", shopId, () => setInventoryRevision((value) => value + 1), true);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [searchKeyword, setSearchKeyword] = useState("");
 
@@ -25,14 +31,14 @@ export function StaffFlashDealsPage() {
     let ignore = false;
     async function loadDeals() {
       try {
-        setLoading(true);
         const res = await flashDealApi.getShopFlashDeals({
-          page: 1,
-          pageSize: 50,
+          page,
+          pageSize: 10,
           shopId,
         });
         if (!ignore) {
           setDeals(res.items);
+          setTotalItems(res.totalItems);
         }
       } catch (error) {
         if (!ignore) toast.error(getApiErrorMessage(error));
@@ -44,7 +50,7 @@ export function StaffFlashDealsPage() {
     return () => {
       ignore = true;
     };
-  }, [shopId]);
+  }, [shopId, inventoryRevision, page]);
 
   // Compute status helpers
   function getDealState(deal: ShopFlashDealListItem): "pending" | "running" | "ended" | "hidden" {
@@ -325,6 +331,9 @@ export function StaffFlashDealsPage() {
                   Sales Progress
                 </th>
                 <th scope="col" className="px-4 py-3.5 font-medium">
+                  Pending stock decision
+                </th>
+                <th scope="col" className="px-4 py-3.5 font-medium">
                   Status & Visibility
                 </th>
                 <th scope="col" className="px-4 py-3.5 text-right font-medium">
@@ -334,10 +343,10 @@ export function StaffFlashDealsPage() {
             </thead>
             <tbody className="divide-y divide-neutral-200 bg-white">
               {loading ? (
-                <TableSkeletonRows columns={6} />
+                <TableSkeletonRows columns={7} />
               ) : filteredDeals.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-neutral-400">
+                  <td colSpan={7} className="py-12 text-center text-neutral-400">
                     <Sparkles className="mx-auto size-8 text-neutral-300" />
                     <p className="mt-2 text-sm font-medium text-neutral-600">
                       No flash deals found
@@ -431,6 +440,9 @@ export function StaffFlashDealsPage() {
                         </div>
                       </td>
 
+                      <td className="px-4 py-4 font-semibold text-amber-700">
+                        {deal.pendingRestockQuantity ?? 0}
+                      </td>
                       {/* Status & Visibility */}
                       <td className="px-4 py-4 whitespace-nowrap">
                         {isHidden ? (
@@ -492,13 +504,16 @@ export function StaffFlashDealsPage() {
           </table>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-neutral-200 px-4 py-3 text-xs text-neutral-500">
-          <span>
-            Showing {filteredDeals.length} of {deals.length} Flash Deal
-            {deals.length !== 1 ? "s" : ""}
-          </span>
+        <div className="border-t border-neutral-200 p-4">
+          <Pagination
+            currentPage={page}
+            totalPages={Math.max(1, Math.ceil(totalItems / 10))}
+            totalItems={totalItems}
+            pageSize={10}
+            onPageChange={setPage}
+          />
         </div>
+
       </div>
     </div>
   );

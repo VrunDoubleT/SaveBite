@@ -25,7 +25,7 @@ const decisions: Record<string, string> = {
   LegacySnapshot: "Imported refund record",
 };
 const card = "min-w-0 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm sm:p-5";
-const time = (value?: string) => (value ? `${checkoutTime(value)} · GMT+7` : "—");
+const time = (value?: string) => (value ? `${checkoutTime(value)}` : "—");
 
 export function CustomerRefundDetailContent({
   refund,

@@ -67,7 +67,7 @@ function SectionSkeleton() {
       {[0, 1].map((i) => (
         <div
           key={i}
-          className="animate-pulse rounded-xl border border-neutral-200 bg-white p-6 shadow-2xs"
+          className="animate-pulse rounded-xl border border-neutral-200 bg-white p-6 shadow-2xs motion-reduce:animate-none"
         >
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-lg bg-neutral-100" />

@@ -3,15 +3,9 @@ import type { ApiResponse } from "@/shared/types";
 import type { OrderRefund, ShopOrder, ShopOrderPage } from "../types/shopOrder.types";
 const base = API_ENDPOINTS.ORDERS.SHOP;
 export const shopOrderApi = {
-  async reconcilePayment(shopId: string, orderId: string, signal?: AbortSignal): Promise<ShopOrder> {
-    return (await httpClient.post<ApiResponse<ShopOrder>>(
-      `/orders/shops/${encodeURIComponent(shopId)}/${encodeURIComponent(orderId)}/payment-reconciliation`,
-      undefined, { signal },
-    )).data.data;
-  },
   async ownerShop(signal?: AbortSignal) {
-    return (await httpClient.get<ApiResponse<string>>(API_ENDPOINTS.ORDERS.MY_SHOP, { signal })).data
-      .data;
+    return (await httpClient.get<ApiResponse<string>>(API_ENDPOINTS.ORDERS.MY_SHOP, { signal }))
+      .data.data;
   },
   async page(
     shopId: string,
@@ -23,22 +17,40 @@ export const shopOrderApi = {
   ) {
     const result = (
       await httpClient.get<ApiResponse<ShopOrderPage>>(base(shopId), {
-        params: { status, search: search || undefined, page, pageSize: 10, ...(orderDate ? { orderDate } : {}) },
+        params: {
+          status,
+          search: search || undefined,
+          page,
+          pageSize: 10,
+          ...(orderDate ? { orderDate } : {}),
+        },
         signal,
       })
     ).data.data;
     const pagination = result?.page;
-    if (!pagination || !Number.isInteger(pagination.page) || pagination.page < 1
-      || !Number.isInteger(pagination.pageSize) || pagination.pageSize < 1
-      || !Number.isInteger(pagination.totalItems) || pagination.totalItems < 0
-      || !Number.isInteger(pagination.totalPages) || pagination.totalPages < 0) {
-      throw new Error("Shop order pagination data is outdated or invalid. Restart the backend to load the updated page-based API, then retry.");
+    if (
+      !pagination ||
+      !Number.isInteger(pagination.page) ||
+      pagination.page < 1 ||
+      !Number.isInteger(pagination.pageSize) ||
+      pagination.pageSize < 1 ||
+      !Number.isInteger(pagination.totalItems) ||
+      pagination.totalItems < 0 ||
+      !Number.isInteger(pagination.totalPages) ||
+      pagination.totalPages < 0
+    ) {
+      throw new Error(
+        "Shop order pagination data is outdated or invalid. Restart the backend to load the updated page-based API, then retry.",
+      );
     }
     return result;
   },
   async pendingCount(shopId: string, signal?: AbortSignal) {
-    const count = (await httpClient.get<ApiResponse<number>>(`${base(shopId)}/pending-count`, { signal })).data.data;
-    if (!Number.isInteger(count) || count < 0) throw new Error("The pending order count response is invalid.");
+    const count = (
+      await httpClient.get<ApiResponse<number>>(`${base(shopId)}/pending-count`, { signal })
+    ).data.data;
+    if (!Number.isInteger(count) || count < 0)
+      throw new Error("The pending order count response is invalid.");
     return count;
   },
   async detail(shopId: string, orderId: string, signal?: AbortSignal) {
@@ -57,8 +69,16 @@ export const shopOrderApi = {
       )
     ).data.data;
   },
-  async simulateRemaining(shopId: string, orderId: string, paymentId: string, outcome: "paid" | "cancelled" | "expired") {
-    await httpClient.post(`/payments/simulation/shops/${encodeURIComponent(shopId)}/${encodeURIComponent(orderId)}/remaining`, { paymentId, outcome });
+  async simulateRemaining(
+    shopId: string,
+    orderId: string,
+    paymentId: string,
+    outcome: "paid" | "cancelled" | "expired",
+  ) {
+    await httpClient.post(
+      `/payments/simulation/shops/${encodeURIComponent(shopId)}/${encodeURIComponent(orderId)}/remaining`,
+      { paymentId, outcome },
+    );
   },
   async refund(orderId: string, signal?: AbortSignal) {
     return (

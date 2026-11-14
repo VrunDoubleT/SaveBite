@@ -266,8 +266,10 @@ export function StoreOwnerStaffInvitationsPage() {
       {/* Table */}
       {loading ? (
         <TableLoadingSkeleton
+          tableClassName="min-w-[720px]"
+          cellClassName="px-6 py-4"
           headers={["Customer", "Status", "Sent date", "Expires", "Actions"]}
-          label="Loading staff records"
+          label="Loading staff invitations"
         />
       ) : invitations.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white py-16 text-center">

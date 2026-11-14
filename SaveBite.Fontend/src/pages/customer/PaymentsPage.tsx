@@ -86,7 +86,7 @@ export function PaymentsPage() {
         ]}
       />
       <p role="status" className="text-caption text-text-secondary">
-        {data ? `${data.totalItems} payments · Times are GMT+7` : "Payment history · GMT+7"}
+        {data ? `${data.totalItems} payments` : "Payment history"}
       </p>
       {!current && (
         <div role="status" aria-label="Loading payments" className="space-y-4">

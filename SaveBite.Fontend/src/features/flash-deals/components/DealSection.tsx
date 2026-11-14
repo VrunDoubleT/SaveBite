@@ -9,6 +9,7 @@ import { Button, IconButton, Input } from "@/shared/components/ui";
 interface DealSectionProps {
   deals: FlashDeal[];
   isLoading: boolean;
+  showSkeleton?: boolean;
   emptyMessage?: string;
   onRefresh: () => void;
   hasOlder?: boolean;
@@ -26,6 +27,7 @@ interface DealSectionProps {
 export function DealSection({
   deals,
   isLoading,
+  showSkeleton = true,
   emptyMessage,
   onRefresh,
   hasOlder = false,
@@ -169,7 +171,8 @@ export function DealSection({
       </div>
       <DealGrid
         deals={deals}
-        isLoading={isLoading}
+        isLoading={isLoading && deals.length === 0}
+        showSkeleton={showSkeleton}
         isCategoryMismatch={isCategoryMismatch}
         emptyMessage={
           isCategoryMismatch
@@ -182,7 +185,14 @@ export function DealSection({
         onClearSearch={searchKeyword ? onClearSearch : undefined}
         onClearCategory={selectedCategories.length > 0 ? onClearCategory : undefined}
       />
-      {isLoadingOlder && <LoadingSkeleton variant="cards" label="Loading more deals" />}
+      {isLoadingOlder &&
+        (showSkeleton ? (
+          <LoadingSkeleton variant="cards" label="Loading more deals" />
+        ) : (
+          <p role="status" className="text-sm text-text-secondary">
+            Loading more deals…
+          </p>
+        ))}
       {!isLoading && deals.length > 0 && (
         <div className="flex justify-center border-t border-border-default pt-5">
           {hasOlder ? (

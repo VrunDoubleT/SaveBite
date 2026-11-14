@@ -36,6 +36,7 @@ public sealed class PickupDeadlineReminderJob(ICheckoutRepository orders, INotif
                 PayloadJson = System.Text.Json.JsonSerializer.Serialize(new SaveBite.Backend.Messaging.Events.EmailNotificationEvent
                 {
                     DeliveryKey = key, ExpiresAt = deadline, To = order.Customer.Email,
+                    BusinessKind = "pickup-reminder", BusinessSubjectId = orderId, ExpectedDeadline = deadline,
                     Subject = "SaveBite: your pickup deadline is approaching", Body = body, IsHtml = false
                 })
             });

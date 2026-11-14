@@ -1,5 +1,4 @@
 using SaveBite.Backend.Configurations;
-using SaveBite.Backend.Constants;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
 using SaveBite.Backend.Helpers;
@@ -20,7 +19,7 @@ public sealed class BusinessEmailReminderService(AppDbContext db, BusinessEmailQ
             var deadline = refund.CustomerDetailsDeadlineAt!.Value;
             await emails.StageAsync($"email:refund-details:{id}:{deadline.Ticks}:{customer.Stage}", refund.Order.Customer.Email,
                 "SaveBite: complete your refund destination",
-                $"Your refund for order {refund.Order.OrderCode} is waiting for your receiving details and email confirmation. Complete both by {BusinessEmailQueue.DeadlineText(deadline)}. If your verification code expired, request a new code on the refund page.\n{emails.Link(NotificationActionUrls.CustomerRefund(id))}",
+                $"Your refund for order {refund.Order.OrderCode} is waiting for your receiving details and email confirmation. Complete both by {BusinessEmailQueue.DeadlineText(deadline)}. If your verification code expired, request a new code on the refund page.",
                 "refund-details", id, deadline, customer.ExpiresAt, ct);
         }
         if (EmailReminderRules.ShopTransfer(refund, now) is { } shop)
@@ -28,7 +27,7 @@ public sealed class BusinessEmailReminderService(AppDbContext db, BusinessEmailQ
             var deadline = refund.ReviewDeadlineAt!.Value;
             await emails.StageAsync($"email:refund-transfer:{id}:{deadline.Ticks}:{shop.Stage}", refund.Order.Shop.Owner.Email,
                 shop.Stage == "overdue" ? "SaveBite: mandatory refund is overdue" : "SaveBite: refund transfer deadline approaching",
-                $"The refund for order {refund.Order.OrderCode} at {refund.Order.Shop.Name} still has {refund.RequestedAmount - refund.TransferredAmount:N0} VND unpaid. Processing deadline: {BusinessEmailQueue.DeadlineText(deadline)}. Complete the transfer and record its reference in SaveBite.\n{emails.Link(NotificationActionUrls.StoreOwnerRefund(id))}",
+                $"The refund for order {refund.Order.OrderCode} at {refund.Order.Shop.Name} still has {refund.RequestedAmount - refund.TransferredAmount:N0} VND unpaid. Processing deadline: {BusinessEmailQueue.DeadlineText(deadline)}. Complete the transfer and record its reference in SaveBite.",
                 "refund-transfer", id, deadline, shop.ExpiresAt, ct, refund.RequestedAmount - refund.TransferredAmount);
         }
         await db.SaveChangesAsync(ct);
@@ -42,7 +41,7 @@ public sealed class BusinessEmailReminderService(AppDbContext db, BusinessEmailQ
         var deadline = EmailReminderRules.InvitationDeadline(invitation);
         await emails.StageAsync($"email:staff-invitation:{id}:{deadline.Ticks}:due-24h", invitation.InvitedUser.Email,
             "SaveBite: your staff invitation expires soon",
-            $"You have not responded to the staff invitation from {invitation.Shop.Name}. Accept or decline it before {BusinessEmailQueue.DeadlineText(deadline)}.\n{emails.Link(NotificationActionUrls.CustomerStaffInvitations())}",
+            $"You have not responded to the staff invitation from {invitation.Shop.Name}. Accept or decline it before {BusinessEmailQueue.DeadlineText(deadline)}.",
             "invitation", id, deadline, deadline, ct);
         await db.SaveChangesAsync(ct);
     }, ct);
@@ -57,7 +56,7 @@ public sealed class BusinessEmailReminderService(AppDbContext db, BusinessEmailQ
         var overdue = deadline <= now;
         await emails.StageAsync($"email:platform-fee:{id}:{fee.PaymentResumeRevision ?? 0}:{deadline.Ticks}:{(overdue ? "overdue" : "due")}", fee.Shop.Owner.Email,
             overdue ? "SaveBite: platform fee payment is overdue" : "SaveBite: platform fee payment is due soon",
-            $"Platform fee statement {fee.BillingMonth:D2}/{fee.BillingYear} for {fee.ShopNameSnapshot ?? fee.Shop.Name}: {fee.TotalFeeAmount:N0} VND. Deadline: {BusinessEmailQueue.DeadlineText(deadline)}. {(overdue ? "The payment deadline has passed. Resolve this bill to avoid or lift restrictions on your shop." : "Please complete payment before the deadline.")}\n{emails.Link(NotificationActionUrls.StoreOwnerPlatformFee(id))}",
+            $"Platform fee statement {fee.BillingMonth:D2}/{fee.BillingYear} for {fee.ShopNameSnapshot ?? fee.Shop.Name}: {fee.TotalFeeAmount:N0} VND. Deadline: {BusinessEmailQueue.DeadlineText(deadline)}. {(overdue ? "The payment deadline has passed. Resolve this bill to avoid or lift restrictions on your shop." : "Please complete payment before the deadline.")}",
             overdue ? "fee-overdue" : "fee-due", id, deadline, overdue ? null : deadline, ct, fee.TotalFeeAmount);
         await db.SaveChangesAsync(ct);
     }, ct);

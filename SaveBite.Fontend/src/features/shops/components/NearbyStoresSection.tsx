@@ -24,7 +24,7 @@ export function NearbyStoresSection({
   const [totalItems, setTotalItems] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pageSize = 6;
+  const pageSize = 10;
 
   const fetchShops = async (pageToFetch = currentPage) => {
     if (!isLocationReady || !latitude || !longitude) return;
@@ -104,7 +104,7 @@ export function NearbyStoresSection({
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="animate-pulse rounded-2xl border border-neutral-200 bg-white p-4"
+              className="animate-pulse rounded-2xl border border-neutral-200 bg-white p-4 motion-reduce:animate-none"
             >
               <div className="aspect-[16/9] w-full rounded-xl bg-neutral-200" />
               <div className="mt-4 flex items-center gap-3">
