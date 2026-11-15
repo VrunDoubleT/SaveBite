@@ -5,12 +5,15 @@ using SaveBite.Backend.Data;
 using SaveBite.Backend.BackgroundJobs.Jobs;
 namespace SaveBite.Backend.BackgroundJobs.Scheduling;
 
-public sealed class PenaltyRuleScheduler(AppDbContext db, IBackgroundJobClient jobs, TimeProvider clock) : IPenaltyRuleScheduler
+public sealed class PenaltyRuleScheduler(AppDbContext db, IBackgroundJobClient jobs, TimeProvider clock, ILogger<PenaltyRuleScheduler>? logger = null) : IPenaltyRuleScheduler
 {
     public void Cancel(string? startId, string? endId)
     {
-        if (startId != null) jobs.Delete(startId);
-        if (endId != null) jobs.Delete(endId);
+        foreach (var jobId in new[] { startId, endId }.Where(id => id != null))
+        {
+            try { jobs.Delete(jobId!); }
+            catch (Exception ex) { logger?.LogWarning(ex, "Could not delete obsolete penalty rule job {JobId}; deadline validation rejects it.", jobId); }
+        }
     }
 
     public async Task SyncAsync(Guid id, CancellationToken ct)
@@ -26,11 +29,13 @@ public sealed class PenaltyRuleScheduler(AppDbContext db, IBackgroundJobClient j
         {
             var now = clock.GetUtcNow().UtcDateTime;
             if (rule.EffectiveFrom <= now) rule.StartProcessedAt ??= now;
-            else rule.StartJobId = jobs.Schedule<PenaltyRuleBoundaryJob>(j => j.ExecuteAsync(id, rule.EffectiveFrom, false, CancellationToken.None), new DateTimeOffset(rule.EffectiveFrom));
+            else rule.StartJobId = SafeSchedule.Try(() => jobs.Schedule<PenaltyRuleBoundaryJob>(j => j.ExecuteAsync(id, rule.EffectiveFrom, false, CancellationToken.None), new DateTimeOffset(rule.EffectiveFrom)),
+                logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<PenaltyRuleScheduler>.Instance, "penalty-start", id);
             if (rule.EffectiveTo is DateTime until)
             {
                 if (until <= now) rule.EndProcessedAt ??= now;
-                else rule.EndJobId = jobs.Schedule<PenaltyRuleBoundaryJob>(j => j.ExecuteAsync(id, until, true, CancellationToken.None), new DateTimeOffset(until));
+                else rule.EndJobId = SafeSchedule.Try(() => jobs.Schedule<PenaltyRuleBoundaryJob>(j => j.ExecuteAsync(id, until, true, CancellationToken.None), new DateTimeOffset(until)),
+                    logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<PenaltyRuleScheduler>.Instance, "penalty-end", id);
             }
         }
         await db.SaveChangesAsync(ct);

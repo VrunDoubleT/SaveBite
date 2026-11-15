@@ -74,6 +74,7 @@ public class AppDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        await StageChangedFeePaymentLinksAsync(cancellationToken);
         _shopHistory.Stage(this, HistoryActorId());
         var actorValue = _httpContextAccessor?.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? _httpContextAccessor?.HttpContext?.User.FindFirstValue("sub");
@@ -81,6 +82,7 @@ public class AppDbContext : DbContext
             await UploadAttachmentTracker.StageAsync(this, actorId, cancellationToken);
 
         StageFlashDealRealtimeChanges();
+        await SaveBite.Backend.Services.Implementations.FeedbackRealtimeOutbox.StageAsync(this, cancellationToken);
         foreach (var entry in ChangeTracker.Entries<OrderEventOutbox>().Where(e => e.State == EntityState.Added))
             TrackNotificationOutbox(entry.Entity.Id);
         var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
@@ -88,6 +90,24 @@ public class AppDbContext : DbContext
         // Single-command SaveChanges may not create an explicit/implicit transaction.
         if (Database.CurrentTransaction == null) await FlushNotificationOutboxAsync();
         return result;
+    }
+
+    private async Task StageChangedFeePaymentLinksAsync(CancellationToken ct)
+    {
+        ChangeTracker.DetectChanges();
+        var changed = ChangeTracker.Entries<PlatformFeeStatement>()
+            .Where(e => e.State == EntityState.Modified
+                && e.Property(s => s.TotalFeeAmount).OriginalValue != e.Entity.TotalFeeAmount)
+            .Select(e => e.Entity.Id).ToArray();
+        if (changed.Length == 0) return;
+        var payments = await PlatformFeePayments.Where(p => changed.Contains(p.StatementId)
+            && p.Status == SaveBite.Backend.Models.Enums.PaymentStatus.Pending).ToListAsync(ct);
+        foreach (var payment in payments.Where(p => p.Status == SaveBite.Backend.Models.Enums.PaymentStatus.Pending))
+        {
+            payment.GatewayInvalidatedAt ??= DateTime.UtcNow;
+            payment.GatewayCheckoutUrl = null;
+            payment.GatewayQrCode = null;
+        }
     }
 
     // Users.

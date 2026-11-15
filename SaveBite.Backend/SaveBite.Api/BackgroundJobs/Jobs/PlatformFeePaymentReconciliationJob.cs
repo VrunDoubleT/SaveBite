@@ -21,8 +21,10 @@ public sealed class PlatformFeePaymentReconciliationJob(
         var now = clock.GetUtcNow().UtcDateTime;
         await RecoveryBatch.RunAsync(scopes, logger, "fee-payment-reconciliation",
             db => db.PlatformFeePayments.AsNoTracking()
-                .Where(p => p.Status == PaymentStatus.Pending && p.GatewayTransactionId != null
-                    && (p.CreatedAt <= now.AddMinutes(-1) || (p.GatewayExpiresAt != null && p.GatewayExpiresAt <= now)))
+                .Where(p => p.GatewayTransactionId != null && p.Status != PaymentStatus.Succeeded
+                    && ((p.GatewayInvalidatedAt != null && p.GatewayClosedAt == null)
+                        || (p.Status == PaymentStatus.Pending && (p.CreatedAt <= now.AddMinutes(-1)
+                            || (p.GatewayExpiresAt != null && p.GatewayExpiresAt <= now)))))
                 .Select(p => p.Id),
             (sp, id) => sp.GetRequiredService<IPlatformFeeStatementService>().ReconcilePendingPaymentAsync(id, ct), ct);
     }

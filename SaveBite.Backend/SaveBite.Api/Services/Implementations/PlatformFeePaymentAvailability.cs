@@ -63,7 +63,7 @@ public sealed class PlatformFeePaymentAvailability(AppDbContext db, IConfigurati
         await ResolveFeeSuspensionsAsync(ct);
     }
 
-    private async Task ResolveFeeSuspensionsAsync(CancellationToken ct)
+    public async Task ResolveFeeSuspensionsAsync(CancellationToken ct)
     {
         var now = clock.GetUtcNow().UtcDateTime;
         var shops = await db.Shops.Where(s => s.SuspendedForPlatformFees).ToListAsync(ct);

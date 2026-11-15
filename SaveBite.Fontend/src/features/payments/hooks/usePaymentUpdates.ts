@@ -6,6 +6,7 @@ export function usePaymentUpdates(
   type: string,
   refresh: (signal: AbortSignal) => Promise<unknown>,
   matches: (data: Record<string, unknown>) => boolean,
+  resourceKey?: string,
 ) {
   const realtime = useRealtimeSubscriptions();
   const latest = useRef({ refresh, matches });
@@ -59,5 +60,5 @@ export function usePaymentUpdates(
       document.removeEventListener("visibilitychange", visible);
       window.removeEventListener("focus", request);
     };
-  }, [realtime, type]);
+  }, [realtime, type, resourceKey]);
 }

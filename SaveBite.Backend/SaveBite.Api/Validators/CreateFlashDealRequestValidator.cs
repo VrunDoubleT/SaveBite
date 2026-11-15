@@ -51,6 +51,9 @@ public sealed class CreateFlashDealRequestValidator : AbstractValidator<CreateFl
             .Must((request, cutoff) => cutoff <= request.OrderEndTime.AddMinutes(60))
             .WithMessage("Pickup cutoff cannot exceed 60 minutes after deal end.");
 
+        RuleFor(x => x.Variants)
+            .Must(variants => variants == null || variants.Select(v => v.VariantId).Distinct().Count() == variants.Count)
+            .WithMessage("Each product variant can appear only once in a flash deal.");
         RuleForEach(x => x.Variants).ChildRules(v =>
         {
             v.RuleFor(x => x.VariantId).NotEmpty().WithMessage("Variant ID is required.");
@@ -86,8 +89,12 @@ public sealed class UpdateFlashDealRequestValidator : AbstractValidator<UpdateFl
         RuleFor(x => x.Variants)
             .NotEmpty().WithMessage("At least one variant must be included.");
 
+        RuleFor(x => x.Variants)
+            .Must(variants => variants == null || variants.Select(v => v.VariantId).Distinct().Count() == variants.Count)
+            .WithMessage("Each product variant can appear only once in a flash deal.");
         RuleForEach(x => x.Variants).ChildRules(v =>
         {
+            v.RuleFor(x => x.Status).IsInEnum();
             v.RuleFor(x => x.VariantId).NotEmpty().WithMessage("Variant ID is required.");
             v.RuleFor(x => x.DealPrice)
                 .GreaterThanOrEqualTo(MoneyLimits.MinAmountVnd).WithMessage($"Deal price must be at least {MoneyLimits.MinAmountVnd:N0} VND.")

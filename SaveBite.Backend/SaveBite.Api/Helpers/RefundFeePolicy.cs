@@ -14,7 +14,7 @@ public static class RefundFeePolicy
         order.IsPlatformFeeExempt = retained == 0;
         if (fee == null) return null;
         var remaining = Math.Max(0, fee.FeeAmount + fee.Adjustments.Sum(x => x.Amount));
-        var target = order.TotalAmount <= 0 ? 0 : decimal.Round(fee.FeeAmount * retained / order.TotalAmount, 2, MidpointRounding.AwayFromZero);
+        var target = order.TotalAmount <= 0 ? 0 : PlatformFeeAmounts.Round(fee.FeeAmount * retained / order.TotalAmount);
         var credit = Math.Max(0, remaining - target);
         if (credit == 0) return null;
         return new PlatformFeeAdjustment

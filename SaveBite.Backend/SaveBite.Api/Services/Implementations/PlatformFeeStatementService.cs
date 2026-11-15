@@ -21,20 +21,20 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
 {
     private readonly IRealtimePublisher? _feeRealtime;
 
-    private async Task PublishPaidFeeAsync(Guid statementId, CancellationToken ct)
+    private async Task PublishFeeStatementChangedAsync(Guid statementId, CancellationToken ct)
     {
         if (_feeRealtime == null) return;
         try
         {
             var statement = await _db.PlatformFeeStatements.AsNoTracking().Include(s => s.Shop)
-                .SingleOrDefaultAsync(s => s.Id == statementId && s.Status == PlatformFeeStatementStatus.Paid, ct);
+                .SingleOrDefaultAsync(s => s.Id == statementId, ct);
             if (statement == null) return;
             var recipients = await _db.Users.Where(u => u.Role == UserRole.Admin).Select(u => u.Id).ToListAsync(ct);
             recipients.Add(statement.Shop.OwnerUserId);
             foreach (var recipient in recipients.Distinct())
             {
                 try { await _feeRealtime.SendToUserAsync(recipient, RealtimeEvents.PlatformFeeChanged,
-                    new { StatementId = statement.Id, ShopId = statement.ShopId, Status = "Paid" }); }
+                    new { StatementId = statement.Id, ShopId = statement.ShopId, Status = statement.Status.ToString(), Amount = statement.TotalFeeAmount }); }
                 catch (Exception ex) { _logger.LogWarning(ex, "Could not publish paid fee {StatementId} to {UserId}.", statementId, recipient); }
             }
         }
@@ -44,7 +44,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
     {
         if (year < 1 || year > 9999 || month < 1 || month > 12)
             throw AppException.BadRequest("Select a valid billing year and month.");
-        var bills = await _db.PlatformFeeStatements.AsNoTracking()
+        var bills = await _db.PlatformFeeStatements.AsNoTracking().Include(s => s.Payments)
             .Where(s => (!year.HasValue || s.BillingYear == year) && (!month.HasValue || s.BillingMonth == month) && s.Status != PlatformFeeStatementStatus.Draft)
             .ToListAsync(ct);
         return PlatformFeePeriodStatistics.Calculate(bills, year, month, _timeProvider.GetUtcNow().UtcDateTime);
@@ -253,7 +253,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             p.Status,
             p.PaidAt,
             p.CreatedAt
-        )).ToList();
+        ) { GatewayInvalidatedAt = p.GatewayInvalidatedAt, CollectedAmount = p.CollectedAmount }).ToList();
         var historyItems = statement.Histories
             .OrderByDescending(h => h.CreatedAt)
             .Select(h => new PlatformFeeStatementHistoryItemResponse(
@@ -321,7 +321,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 p.Status,
                 p.PaidAt,
                 p.CreatedAt
-            )).ToList();
+            ) { GatewayInvalidatedAt = p.GatewayInvalidatedAt, CollectedAmount = p.CollectedAmount }).ToList();
             var historyItems = statement.Histories
                 .OrderByDescending(h => h.CreatedAt)
                 .Select(h => new PlatformFeeStatementHistoryItemResponse(
@@ -433,14 +433,70 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             throw AppException.BadRequest("The amount payable must be greater than 0.");
         }
 
+        var roundedFee = PlatformFeeAmounts.Round(statement.TotalFeeAmount);
+        if (roundedFee != statement.TotalFeeAmount)
+        {
+            var previousFee = statement.TotalFeeAmount;
+            var roundedAt = _timeProvider.GetUtcNow().UtcDateTime;
+            statement.TotalFeeAmount = roundedFee;
+            statement.UpdatedAt = roundedAt;
+            _db.PlatformFeeStatementHistories.Add(new PlatformFeeStatementHistory
+            {
+                Id = Guid.NewGuid(), StatementId = statement.Id,
+                PreviousAmount = previousFee, ChangeAmount = roundedFee - previousFee, NewAmount = roundedFee,
+                ChangeType = StatementChangeType.VndRounding,
+                Reason = "Rounded to whole VND; midpoint rounds up.", CreatedAt = roundedAt
+            });
+            if (roundedFee == 0)
+            {
+                statement.Status = PlatformFeeStatementStatus.Paid;
+                statement.PaidAt = roundedAt;
+                statement.DueAt = null;
+                statement.PaymentPauseReason = null;
+                statement.PaymentPausedAt = null;
+            }
+            await _repository.SaveChangesAsync(ct);
+            if (roundedFee == 0)
+            {
+                await _availability.ResolveFeeSuspensionsAsync(ct);
+                await InvalidateChangedPaymentLinksAsync(ct);
+                throw AppException.Conflict("The rounded fee is zero. Please refresh the settled statement.");
+            }
+        }
+
         if (!await _availability.IsReadyAsync(ct))
             throw new AppException("Platform payOS is unavailable.", ErrorCodes.PlatformPaymentUnavailable);
         if (statement.PaymentPauseReason != null)
             throw AppException.ServiceUnavailable("Payment restoration is being processed. Please retry shortly.");
 
+        var invalidated = await _db.PlatformFeePayments.AsNoTracking().Where(p => p.StatementId == statementId
+            && p.GatewayInvalidatedAt != null && p.GatewayClosedAt == null && p.Status != PaymentStatus.Succeeded)
+            .Select(p => p.Id).ToListAsync(ct);
+        foreach (var id in invalidated) await ReconcilePendingPaymentAsync(id, ct);
+        if (await _db.PlatformFeePayments.AsNoTracking().AnyAsync(p => p.StatementId == statementId
+            && p.GatewayInvalidatedAt != null && p.GatewayClosedAt == null && p.Status != PaymentStatus.Succeeded, ct))
+            throw AppException.ServiceUnavailable("The previous QR is being closed. Please retry after its payment status is confirmed.");
+        if (statement.Payments.Any(p => p.Status != PaymentStatus.Succeeded && p.CollectedAmount > 0))
+            throw AppException.Conflict("The previous fee payment has collected partial funds and needs review before replacement.");
+        if (statement.Status == PlatformFeeStatementStatus.Paid)
+            throw AppException.Conflict("Your payment has been confirmed. Please refresh the statement.");
+
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var paymentProvider = _configuration["Checkout:PaymentProvider"] ?? "PayOS";
         var credentials = paymentProvider == "PayOS" ? await _payOsConfig.GetCredentialsAsync(ct) : null;
+        var outstandingFee = Math.Max(0, statement.TotalFeeAmount - statement.Payments
+            .Where(p => p.Status == PaymentStatus.Succeeded).Sum(p => Math.Max(p.Amount, p.CollectedAmount)));
+        if (outstandingFee == 0)
+        {
+            statement.Status = PlatformFeeStatementStatus.Paid;
+            statement.PaidAt ??= now;
+            statement.UpdatedAt = now;
+            statement.PaymentPauseReason = null;
+            statement.PaymentPausedAt = null;
+            await _repository.SaveChangesAsync(ct);
+            await _availability.ResolveFeeSuspensionsAsync(ct);
+            throw AppException.Conflict("This fee has already been collected. Please refresh the statement.");
+        }
         var previous = statement.Payments.Where(p => p.Status == PaymentStatus.Pending)
             .OrderByDescending(p => p.CreatedAt).FirstOrDefault();
         if (previous != null && credentials != null && previous.GatewayTransactionId != null)
@@ -460,12 +516,27 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 // Same channel, rotated signing/access key: query with the newly verified credentials.
                 previousData = await _payOsApi.SendAsync(HttpMethod.Get,
                     $"v2/payment-requests/{previous.GatewayTransactionId}", credentials, null, ct);
+                previousCredentials = credentials;
             }
             var state = previousData.GetProperty("status").GetString();
             if (state != "NOT_FOUND" && (!previousData.TryGetProperty("orderCode", out var previousCode)
                 || previousCode.GetInt64().ToString() != previous.GatewayTransactionId
                 || !previousData.TryGetProperty("amount", out var previousAmount) || previousAmount.GetDecimal() != previous.Amount))
                 throw AppException.ServiceUnavailable("The payment provider returned mismatched payment data.");
+            if (state == "PENDING" && previous.Amount != outstandingFee)
+            {
+                previousData = await _payOsApi.SendAsync(HttpMethod.Post,
+                    $"v2/payment-requests/{previous.GatewayTransactionId}/cancel", previousCredentials,
+                    new { cancellationReason = "The fee statement amount changed." }, ct);
+                if (!previousData.TryGetProperty("orderCode", out var closedCode)
+                    || closedCode.GetInt64().ToString() != previous.GatewayTransactionId
+                    || !previousData.TryGetProperty("amount", out var closedAmount) || closedAmount.GetDecimal() != previous.Amount)
+                    throw AppException.ServiceUnavailable("The payment provider returned mismatched payment data.");
+                state = previousData.GetProperty("status").GetString();
+                if (previousData.TryGetProperty("amountPaid", out var partialPaid) && partialPaid.GetDecimal() > 0
+                    && state != "PAID")
+                    throw AppException.Conflict("The previous fee payment has collected funds and needs review before replacement.");
+            }
             if (state == "PENDING")
             {
                 var linkId = previousData.GetProperty("id").GetString();
@@ -482,7 +553,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 {
                     var reactivatedShopId = await SettleFeePaymentAsync(previous, collectedAmount, ct);
                     await settlement.CommitAsync(ct);
-                    await PublishPaidFeeAsync(previous.StatementId, ct);
+                    await PublishFeeStatementChangedAsync(previous.StatementId, ct);
                     if (reactivatedShopId.HasValue)
                         await _shopStatusEvents.NotifyChangedAsync(reactivatedShopId.Value, ShopStatus.Active.ToString(), ct);
                 }
@@ -490,7 +561,12 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             }
             if (state is not ("CANCELLED" or "EXPIRED" or "NOT_FOUND"))
                 throw AppException.ServiceUnavailable("The previous payment is still being verified. Please retry.");
+            if (previousData.TryGetProperty("amountPaid", out var closedPaid)
+                && closedPaid.ValueKind == JsonValueKind.Number && closedPaid.GetDecimal() > 0)
+                throw AppException.Conflict("The previous fee payment has collected funds and needs review before replacement.");
             previous.Status = PaymentStatus.Cancelled;
+            previous.GatewayCheckoutUrl = null;
+            previous.GatewayQrCode = null;
             previous.UpdatedAt = now;
         }
         var orderCode = (BitConverter.ToInt64(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8)) & 0x000FFFFFFFFFFFFF) + 1;
@@ -501,7 +577,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             Id = Guid.NewGuid(),
             StatementId = statement.Id,
             ShopId = shopId,
-            Amount = statement.TotalFeeAmount,
+            Amount = outstandingFee,
             PaymentMethod = PaymentMethod.OnlinePayment,
             ProtectedPayOsCredentials = credentials == null ? null : _credentialProtector.Protect(credentials),
             GatewayTransactionId = orderCodeStr,
@@ -529,7 +605,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             var frontend = _configuration["Checkout:FrontendBaseUrl"] ?? "http://localhost:5173";
             var returnUrl = $"{frontend.TrimEnd('/')}/store-owner/platform-fees";
             var cancelUrl = $"{frontend.TrimEnd('/')}/store-owner/platform-fees?cancelled=1";
-            var amount = (long)statement.TotalFeeAmount;
+            var amount = (long)payment.Amount;
             
             var description = $"FEE{orderCode % 10000000:0000000}";
             var signatureData = FormattableString.Invariant($"amount={amount}&cancelUrl={cancelUrl}&description={description}&orderCode={orderCode}&returnUrl={returnUrl}");
@@ -579,189 +655,134 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         ) { IsSimulated = paymentProvider == "Simulated" };
     }
 
-    // BR-097, BR-167, BR-195: Reconcile pending platform fee payments against authoritative provider data
+    // Durable invalidation is committed with the amount change. Retry provider closure after commit.
+    public async Task InvalidateChangedPaymentLinksAsync(CancellationToken ct = default)
+    {
+        var pending = await _db.PlatformFeePayments.AsNoTracking()
+            .Where(p => p.GatewayInvalidatedAt != null && p.GatewayClosedAt == null && p.Status != PaymentStatus.Succeeded)
+            .Select(p => new { p.Id, p.StatementId }).ToListAsync(ct);
+        foreach (var payment in pending) await ReconcilePendingPaymentAsync(payment.Id, ct);
+        // Hide stale QR in open views even if the provider is currently unreachable.
+        foreach (var statementId in pending.Select(p => p.StatementId).Distinct())
+            await PublishFeeStatementChangedAsync(statementId, ct);
+    }
+
     public async Task ReconcilePendingPaymentAsync(Guid paymentId, CancellationToken ct = default)
     {
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
-        var payment = await _db.PlatformFeePayments
-            .Include(p => p.Statement)
-            .Include(p => p.Shop)
-            .SingleOrDefaultAsync(p => p.Id == paymentId, ct);
-
-        if (payment == null || payment.Status != PaymentStatus.Pending || string.IsNullOrEmpty(payment.GatewayTransactionId))
-            return;
-
-        var paymentProvider = _configuration["Checkout:PaymentProvider"] ?? "PayOS";
-        if (paymentProvider == "Simulated")
+        Guid? reactivated = null;
+        Guid? statementId = null;
+        await using (var transaction = await _db.Database.BeginTransactionAsync(ct))
         {
-            if (payment.GatewayExpiresAt.HasValue && payment.GatewayExpiresAt.Value <= now)
-            {
-                await using var tx = await _db.Database.BeginTransactionAsync(ct);
-                payment.Status = PaymentStatus.Expired;
-                payment.GatewayCheckoutUrl = null;
-                payment.GatewayQrCode = null;
-                payment.UpdatedAt = now;
-                await _db.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-            }
-            return;
-        }
-
-        if (paymentProvider != "PayOS") return;
-
-        if (!await _availability.IsReadyAsync(ct))
-        {
-            _logger.LogWarning("Skipping platform fee payment reconciliation for {PaymentId}: Platform PayOS is not ready.", paymentId);
-            return;
-        }
-
-        PlatformPayOsCredentials credentials;
-        try
-        {
-            credentials = await _payOsConfig.GetCredentialsAsync(ct);
-        }
-        catch (AppException ex)
-        {
-            _logger.LogWarning(ex, "Could not get platform PayOS credentials to reconcile payment {PaymentId}.", paymentId);
-            return;
-        }
-
-        var paymentCredentials = payment.ProtectedPayOsCredentials == null ? credentials
-            : _credentialProtector.Unprotect(payment.ProtectedPayOsCredentials);
-
-        JsonElement data;
-        try
-        {
-            data = await _payOsApi.SendAsync(HttpMethod.Get,
-                $"v2/payment-requests/{payment.GatewayTransactionId}", paymentCredentials, null, ct);
-        }
-        catch (AppException ex) when (ex.ErrorCode == ErrorCodes.PaymentCredentialsInvalid && paymentCredentials != credentials)
-        {
-            try
-            {
-                data = await _payOsApi.SendAsync(HttpMethod.Get,
-                    $"v2/payment-requests/{payment.GatewayTransactionId}", credentials, null, ct);
-            }
-            catch (AppException innerEx)
-            {
-                _logger.LogWarning(innerEx, "Failed to reconcile platform fee payment {PaymentId} with rotated PayOS credentials.", paymentId);
-                return;
-            }
-        }
-        catch (AppException ex)
-        {
-            // Do not expire based only on time when provider communication fails. Keep pending and retry.
-            _logger.LogWarning(ex, "Failed to communicate with PayOS to reconcile platform fee payment {PaymentId}. Status left as Pending.", paymentId);
-            return;
-        }
-
-        if (!data.TryGetProperty("status", out var statusProp) || statusProp.ValueKind != JsonValueKind.String)
-            return;
-
-        var state = statusProp.GetString();
-        if (string.IsNullOrEmpty(state)) return;
-
-        if (state != "NOT_FOUND" && (!data.TryGetProperty("orderCode", out var actualCode)
-            || actualCode.GetInt64().ToString() != payment.GatewayTransactionId
-            || !data.TryGetProperty("amount", out var actualAmount) || actualAmount.GetDecimal() != payment.Amount))
-        {
-            _logger.LogWarning("PayOS returned mismatched payment data for platform fee payment {PaymentId}.", paymentId);
-            return;
-        }
-
-        if (state == "PAID")
-        {
-            var collectedAmount = data.TryGetProperty("amountPaid", out var paidProp) && paidProp.TryGetDecimal(out var ap)
-                ? ap
-                : payment.Amount;
-
-            await using var tx = await _db.Database.BeginTransactionAsync(ct);
+            // Serialize amount changes, creation, provider closure and webhook settlement.
             await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
-
-            var freshPayment = await _db.PlatformFeePayments
-                .Include(p => p.Statement)
-                .Include(p => p.Shop)
-                .SingleOrDefaultAsync(p => p.Id == paymentId, ct);
-
-            if (freshPayment != null)
+            var payment = await _db.PlatformFeePayments.Include(p => p.Statement).ThenInclude(s => s.Payments)
+                .Include(p => p.Shop).SingleOrDefaultAsync(p => p.Id == paymentId, ct);
+            if (payment == null) return;
+            await _db.Entry(payment).ReloadAsync(ct);
+            await _db.Entry(payment.Statement).ReloadAsync(ct);
+            await _db.Entry(payment.Shop).ReloadAsync(ct);
+            // Other receipts may have changed while this scoped context was waiting for the lock.
+            foreach (var receipt in payment.Statement.Payments.Where(p => p.Id != payment.Id).ToArray())
+                await _db.Entry(receipt).ReloadAsync(ct);
+            var invalidated = payment.GatewayInvalidatedAt != null && payment.GatewayClosedAt == null;
+            if (payment.Status == PaymentStatus.Succeeded || (payment.Status != PaymentStatus.Pending && !invalidated)) return;
+            statementId = payment.StatementId;
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            var mode = _configuration["Checkout:PaymentProvider"] ?? "PayOS";
+            if (mode == "Simulated")
             {
-                await _db.Entry(freshPayment).ReloadAsync(ct);
-                await _db.Entry(freshPayment.Statement).ReloadAsync(ct);
-                await _db.Entry(freshPayment.Shop).ReloadAsync(ct);
-            }
-            if (freshPayment != null && freshPayment.Status == PaymentStatus.Pending)
-            {
-                var reactivatedShopId = await SettleFeePaymentAsync(freshPayment, collectedAmount, ct);
-                await tx.CommitAsync(ct);
-                await PublishPaidFeeAsync(freshPayment.StatementId, ct);
-                if (reactivatedShopId.HasValue)
+                if (invalidated || payment.GatewayExpiresAt <= now)
                 {
-                    await _shopStatusEvents.NotifyChangedAsync(reactivatedShopId.Value, ShopStatus.Active.ToString(), ct);
-                }
-                _logger.LogInformation("Reconciled platform fee payment {PaymentId} to PAID; statement {StatementId} settled.",
-                    payment.Id, payment.StatementId);
-            }
-        }
-        else if (state == "EXPIRED")
-        {
-            await using var tx = await _db.Database.BeginTransactionAsync(ct);
-            await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
-
-            var freshPayment = await _db.PlatformFeePayments.SingleOrDefaultAsync(p => p.Id == paymentId, ct);
-            if (freshPayment != null) await _db.Entry(freshPayment).ReloadAsync(ct);
-            if (freshPayment != null && freshPayment.Status == PaymentStatus.Pending)
-            {
-                freshPayment.Status = PaymentStatus.Expired;
-                freshPayment.GatewayCheckoutUrl = null;
-                freshPayment.GatewayQrCode = null;
-                freshPayment.UpdatedAt = now;
-                await _db.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-                _logger.LogInformation("Reconciled platform fee payment {PaymentId} to EXPIRED per PayOS.", paymentId);
-            }
-        }
-        else if (state == "CANCELLED")
-        {
-            await using var tx = await _db.Database.BeginTransactionAsync(ct);
-            await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
-
-            var freshPayment = await _db.PlatformFeePayments.SingleOrDefaultAsync(p => p.Id == paymentId, ct);
-            if (freshPayment != null) await _db.Entry(freshPayment).ReloadAsync(ct);
-            if (freshPayment != null && freshPayment.Status == PaymentStatus.Pending)
-            {
-                freshPayment.Status = PaymentStatus.Cancelled;
-                freshPayment.GatewayCheckoutUrl = null;
-                freshPayment.GatewayQrCode = null;
-                freshPayment.UpdatedAt = now;
-                await _db.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-                _logger.LogInformation("Reconciled platform fee payment {PaymentId} to CANCELLED per PayOS.", paymentId);
-            }
-        }
-        else if (state == "NOT_FOUND")
-        {
-            if (payment.CreatedAt <= now.AddMinutes(-15) || (payment.GatewayExpiresAt.HasValue && payment.GatewayExpiresAt.Value <= now))
-            {
-                await using var tx = await _db.Database.BeginTransactionAsync(ct);
-                await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
-
-                var freshPayment = await _db.PlatformFeePayments.SingleOrDefaultAsync(p => p.Id == paymentId, ct);
-                if (freshPayment != null && freshPayment.Status == PaymentStatus.Pending)
-                {
-                    freshPayment.Status = PaymentStatus.Cancelled;
-                    freshPayment.GatewayCheckoutUrl = null;
-                    freshPayment.GatewayQrCode = null;
-                    freshPayment.UpdatedAt = now;
+                    payment.Status = invalidated ? PaymentStatus.Cancelled : PaymentStatus.Expired;
+                    payment.GatewayClosedAt = now;
+                    payment.GatewayCheckoutUrl = null;
+                    payment.GatewayQrCode = null;
                     await _db.SaveChangesAsync(ct);
-                    await tx.CommitAsync(ct);
-                    _logger.LogInformation("Platform fee payment {PaymentId} was NOT_FOUND on PayOS; marked Cancelled.", paymentId);
+                }
+                await transaction.CommitAsync(ct);
+            }
+            else if (mode == "PayOS" && payment.GatewayTransactionId != null)
+            {
+                try
+                {
+                    var original = payment.ProtectedPayOsCredentials == null
+                        ? await _payOsConfig.GetCredentialsAsync(ct)
+                        : _credentialProtector.Unprotect(payment.ProtectedPayOsCredentials);
+                    async Task<JsonElement> Send(HttpMethod method, string path, object? body = null)
+                    {
+                        try { return await _payOsApi.SendAsync(method, path, original, body, ct); }
+                        catch (AppException ex) when (ex.ErrorCode == ErrorCodes.PaymentCredentialsInvalid)
+                        {
+                            var current = await _payOsConfig.GetCredentialsAsync(ct);
+                            if (current.ClientId != original.ClientId || current == original) throw;
+                            return await _payOsApi.SendAsync(method, path, current, body, ct);
+                        }
+                    }
+                    void Validate(JsonElement value)
+                    {
+                        if (!value.TryGetProperty("status", out var status) || status.ValueKind != JsonValueKind.String)
+                            throw AppException.ServiceUnavailable("The payment provider returned incomplete payment data.");
+                        if (status.GetString() == "NOT_FOUND") return;
+                        if (!value.TryGetProperty("orderCode", out var code) || !code.TryGetInt64(out var actualCode)
+                            || actualCode.ToString() != payment.GatewayTransactionId
+                            || !value.TryGetProperty("amount", out var amount) || !amount.TryGetDecimal(out var actualAmount)
+                            || actualAmount != payment.Amount)
+                            throw AppException.ServiceUnavailable("The payment provider returned mismatched payment data.");
+                    }
+                    var path = $"v2/payment-requests/{payment.GatewayTransactionId}";
+                    var data = await Send(HttpMethod.Get, path);
+                    Validate(data);
+                    var state = data.GetProperty("status").GetString();
+                    var collected = data.TryGetProperty("amountPaid", out var paid) && paid.ValueKind == JsonValueKind.Number
+                        && paid.TryGetDecimal(out var received) ? received : (decimal?)null;
+                    var finalTotalsVerified = collected.HasValue;
+                    if (invalidated && state is not ("PAID" or "CANCELLED" or "EXPIRED" or "NOT_FOUND"))
+                    {
+                        // Cancellation can race a bank transfer: its verified result is authoritative.
+                        var closed = await Send(HttpMethod.Post, path + "/cancel",
+                            new { cancellationReason = "The fee statement amount changed." });
+                        Validate(closed);
+                        state = closed.GetProperty("status").GetString();
+                        finalTotalsVerified = closed.TryGetProperty("amountPaid", out var closingPaid)
+                            && closingPaid.ValueKind == JsonValueKind.Number && closingPaid.TryGetDecimal(out _);
+                        if (finalTotalsVerified)
+                            collected = Math.Max(collected ?? 0m, closingPaid.GetDecimal());
+                    }
+                    if (invalidated && state is ("CANCELLED" or "EXPIRED") && !finalTotalsVerified)
+                        throw AppException.ServiceUnavailable("The closed payment's collected amount could not be verified.");
+                    if (state == "PAID" && (!finalTotalsVerified || !collected.HasValue || collected < payment.Amount))
+                        throw AppException.ServiceUnavailable("The payment amount could not be verified.");
+                    await _db.Entry(payment).ReloadAsync(ct);
+                    if (payment.Status == PaymentStatus.Succeeded) return;
+                    payment.CollectedAmount = Math.Max(payment.CollectedAmount, collected ?? 0m);
+                    if (state == "PAID")
+                    {
+                        reactivated = await SettleFeePaymentAsync(payment, payment.CollectedAmount, ct);
+                        payment.GatewayClosedAt = now;
+                    }
+                    else if (state is "CANCELLED" or "EXPIRED"
+                        || (state == "NOT_FOUND" && (payment.CreatedAt <= now.AddMinutes(-15) || payment.GatewayExpiresAt <= now)))
+                    {
+                        payment.Status = state == "EXPIRED" ? PaymentStatus.Expired : PaymentStatus.Cancelled;
+                        payment.GatewayClosedAt = now;
+                        payment.GatewayCheckoutUrl = null;
+                        payment.GatewayQrCode = null;
+                    }
+                    payment.UpdatedAt = now;
+                    await _db.SaveChangesAsync(ct);
+                    await transaction.CommitAsync(ct);
+                }
+                catch (AppException ex)
+                {
+                    // The committed invalidation request survives rollback and will be retried.
+                    _logger.LogWarning("Fee payment {PaymentId} remains unresolved ({Code}); replacement is blocked until closure is verified.", paymentId, ex.ErrorCode);
+                    return;
                 }
             }
         }
-        else if (state == "PENDING")
-        {
-            _logger.LogDebug("Platform fee payment {PaymentId} is still PENDING on PayOS.", paymentId);
-        }
+        if (statementId.HasValue) await PublishFeeStatementChangedAsync(statementId.Value, ct);
+        if (reactivated.HasValue)
+            await _shopStatusEvents.NotifyChangedAsync(reactivated.Value, ShopStatus.Active.ToString(), ct);
     }
 
     // UC-151: Update Platform Fee Payment Status via Webhook (BR-097, BR-167, BR-195)
@@ -782,7 +803,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         await transaction.CommitAsync(ct);
         var statementId = await _db.PlatformFeePayments.AsNoTracking()
             .Where(p => p.GatewayTransactionId == gatewayCode).Select(p => (Guid?)p.StatementId).SingleOrDefaultAsync(ct);
-        if (statementId.HasValue) await PublishPaidFeeAsync(statementId.Value, ct);
+        if (statementId.HasValue) await PublishFeeStatementChangedAsync(statementId.Value, ct);
         if (reactivatedShopId.HasValue)
             await _shopStatusEvents.NotifyChangedAsync(reactivatedShopId.Value, ShopStatus.Active.ToString(), ct);
     }
@@ -822,7 +843,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         if (!body.TryGetProperty("code", out var resultCode) || resultCode.GetString() != "00"
             || !data.TryGetProperty("code", out var dataCode) || dataCode.GetString() != "00") return null;
         if (!data.TryGetProperty("amount", out var verifiedAmount) || !verifiedAmount.TryGetDecimal(out var receivedAmount)
-            || receivedAmount < payment.Amount || receivedAmount < payment.Statement.TotalFeeAmount)
+            || receivedAmount < payment.Amount)
             throw AppException.BadRequest("Payment amount does not match statement fee.");
 
         return await SettleFeePaymentAsync(payment, receivedAmount, ct);
@@ -831,20 +852,54 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
     // Shared by signed webhooks and authoritative provider polling after an uncertain create attempt.
     private async Task<Guid?> SettleFeePaymentAsync(PlatformFeePayment payment, decimal receivedAmount, CancellationToken ct)
     {
-        if (payment.Status == PaymentStatus.Succeeded || payment.Statement.Status == PlatformFeeStatementStatus.Paid)
+        var receiptChanged = payment.CollectedAmount < receivedAmount || payment.GatewayClosedAt == null;
+        payment.CollectedAmount = Math.Max(payment.CollectedAmount, receivedAmount);
+        payment.GatewayClosedAt ??= _timeProvider.GetUtcNow().UtcDateTime;
+        if (payment.Status == PaymentStatus.Succeeded)
         {
+            if (receiptChanged) await _repository.SaveChangesAsync(ct);
             await NotifyFeePaidAsync(payment.StatementId, ct);
             return null;
         }
-        if (receivedAmount < payment.Amount || receivedAmount < payment.Statement.TotalFeeAmount)
+        if (payment.Statement.Status == PlatformFeeStatementStatus.Paid)
+        {
+            // A separate old link may still receive money after another attempt settled the bill.
+            // Preserve that receipt for reconciliation instead of silently discarding it.
+            if (receivedAmount < payment.Amount)
+                throw AppException.BadRequest("Payment amount does not match the payment attempt.");
+            payment.Status = PaymentStatus.Succeeded;
+            payment.PaidAt = _timeProvider.GetUtcNow().UtcDateTime;
+            payment.UpdatedAt = payment.PaidAt.Value;
+            payment.GatewayCheckoutUrl = null;
+            payment.GatewayQrCode = null;
+            await _repository.SaveChangesAsync(ct);
+            _logger.LogWarning("Additional funds received for settled fee statement {StatementId}, payment {PaymentId}. Manual reconciliation is required.", payment.StatementId, payment.Id);
+            return null;
+        }
+        if (receivedAmount < payment.Amount)
             throw AppException.BadRequest("Payment amount does not match statement fee.");
         var now = _timeProvider.GetUtcNow().UtcDateTime;
 
-        // BR-097 & BR-167: Successful payment records against exactly one fee statement and marks it Paid
-        // Cancel older attempts first: the database still sees this tracked payment as Pending until save.
+        // A bill can increase after an older QR was issued. Preserve that verified receipt
+        // and collect only the outstanding difference, rather than stranding or charging it twice.
+        var collectedForStatement = Math.Max(payment.Amount, payment.CollectedAmount) + payment.Statement.Payments
+            .Where(p => p.Id != payment.Id && p.Status == PaymentStatus.Succeeded).Sum(p => Math.Max(p.Amount, p.CollectedAmount));
+        if (collectedForStatement < payment.Statement.TotalFeeAmount)
+        {
+            payment.Status = PaymentStatus.Succeeded;
+            payment.PaidAt = now;
+            payment.UpdatedAt = now;
+            payment.GatewayCheckoutUrl = null;
+            payment.GatewayQrCode = null;
+            await _repository.SaveChangesAsync(ct);
+            return null;
+        }
+        // Cancel older attempts only once the full statement has been collected.
         await _repository.CancelPendingPaymentsForStatementAsync(payment.StatementId, ct);
         payment.Status = PaymentStatus.Succeeded;
         payment.PaidAt = now;
+        payment.GatewayCheckoutUrl = null;
+        payment.GatewayQrCode = null;
         payment.UpdatedAt = now;
 
 
@@ -898,13 +953,15 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                 ?? throw new InvalidOperationException("An effective platform fee configuration is required.");
             _db.Add(new OrderPlatformFee { Id = Guid.NewGuid(), OrderId = order.Id, ShopId = order.ShopId,
                 FeeConfigId = config.Id, GrossAmount = order.TotalAmount, FeeRate = config.FeeRate,
-                FeeAmount = Math.Round(order.TotalAmount * config.FeeRate, 2, MidpointRounding.AwayFromZero),
+                FeeAmount = PlatformFeeAmounts.Round(order.TotalAmount * config.FeeRate),
                 CalculatedAt = asOf, CreatedAt = now, UpdatedAt = now });
             await _db.SaveChangesAsync(ct);
         }
         await RefundEventEffects.ReconcileFeesAsync(_db, order, _timeProvider.GetUtcNow().UtcDateTime, ct);
         await _db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
+        await transaction.DisposeAsync();
+        await InvalidateChangedPaymentLinksAsync(ct);
     }
 
     // BR-095, BR-193: Automatically mark overdue statements and suspend delinquent shops
@@ -950,6 +1007,9 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             await _availability.PauseOutstandingAsync(PlatformFeePaymentAvailability.MissingConfiguration, ct);
             return (0, Array.Empty<Guid>());
         }
+        // A refund credit or rounding can settle a bill without a payment webhook.
+        // Recover those fee-only suspensions using the same rules as payment restoration.
+        await _availability.ResolveFeeSuspensionsAsync(ct);
         var overdueStatements = await _repository.GetOverdueStatementsAsync(now, ct);
         var suspendedCount = 0;
         var suspendedShopIds = new List<Guid>();
@@ -1014,6 +1074,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
             await _db.SaveChangesAsync(ct);
         }
         await transaction.CommitAsync(ct);
+        await transaction.DisposeAsync();
+        await InvalidateChangedPaymentLinksAsync(ct);
         return result;
     }
 
@@ -1129,6 +1191,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                     if (!ReferenceEquals(applied, credit)) _db.Add(applied);
                     available += applied.Amount;
                 }
+                available = PlatformFeeAmounts.Round(available);
                 statement.TotalFeeAmount = available;
                 statement.UpdatedAt = now;
                 if (available == 0)
@@ -1140,7 +1203,7 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
                     statement.PaymentPausedAt = null;
                 }
                 if (isNew || previous != available)
-                    statement.Histories.Add(new PlatformFeeStatementHistory
+                    _db.PlatformFeeStatementHistories.Add(new PlatformFeeStatementHistory
                     {
                         Id = Guid.NewGuid(), StatementId = statement.Id,
                         PreviousAmount = previous, ChangeAmount = available - previous, NewAmount = available,

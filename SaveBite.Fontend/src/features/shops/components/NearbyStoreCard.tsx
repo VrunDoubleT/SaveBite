@@ -11,10 +11,11 @@ export function NearbyStoreCard({ shop }: NearbyStoreCardProps) {
   const fallbackCover =
     "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80";
 
-  const operatingHours = formatShopOperatingHours(shop.openingTime, shop.closingTime) ?? "08:00 - 21:30";
+  const operatingHours =
+    formatShopOperatingHours(shop.openingTime, shop.closingTime) ?? "08:00 - 21:30";
 
   const reviewCount = shop.totalReviews ?? 0;
-  const rating = shop.averageRating > 0 ? shop.averageRating : 4.5;
+  const rating = reviewCount > 0 ? shop.averageRating.toFixed(1) : "—";
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -43,9 +44,7 @@ export function NearbyStoreCard({ shop }: NearbyStoreCardProps) {
         {/* Status Badge: Open / Closed (Top Right) */}
         <span
           className={`absolute right-3 top-3 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold backdrop-blur-xs shadow-xs ${
-            shop.isOpen
-              ? "bg-emerald-600 text-white"
-              : "bg-neutral-900/85 text-neutral-200"
+            shop.isOpen ? "bg-emerald-600 text-white" : "bg-neutral-900/85 text-neutral-200"
           }`}
         >
           <span
@@ -65,11 +64,7 @@ export function NearbyStoreCard({ shop }: NearbyStoreCardProps) {
             {/* Store Avatar Logo */}
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs">
               {shop.logoUrl ? (
-                <img
-                  src={shop.logoUrl}
-                  alt={shop.name}
-                  className="h-full w-full object-cover"
-                />
+                <img src={shop.logoUrl} alt={shop.name} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-emerald-50 text-emerald-700">
                   <Store size={22} />

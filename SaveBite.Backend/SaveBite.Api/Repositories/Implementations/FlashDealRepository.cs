@@ -176,7 +176,7 @@ public sealed class FlashDealRepository : IFlashDealRepository
         Guid? excludeDealId = null,
         CancellationToken cancellationToken = default)
     {
-        var activeStatuses = new[] { FlashDealStatus.Pending, FlashDealStatus.OnSale, FlashDealStatus.Hidden };
+        var activeStatuses = new[] { FlashDealStatus.Pending, FlashDealStatus.OnSale, FlashDealStatus.Hidden, FlashDealStatus.SoldOut };
         var query = _context.Set<FlashDeal>()
             .AsNoTracking()
             .Where(d => d.ShopId == shopId

@@ -147,13 +147,15 @@ public sealed class ShopRepository : IShopRepository
             .AsNoTracking()
             .Where(f => f.Product.ShopId == shopId && f.Status == FeedbackStatus.Visible);
 
-        var totalReviews = await reviewsQuery.CountAsync(cancellationToken);
-        var avgRating = totalReviews > 0 ? await reviewsQuery.AverageAsync(f => f.Rating, cancellationToken) : 0.0;
-
+        // One grouped query gives count, average and histogram the same database snapshot.
+        // Separate queries can disagree if moderation commits between them.
         var breakdownGroups = await reviewsQuery
             .GroupBy(f => f.Rating)
             .Select(g => new { Rating = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Rating, x => x.Count, cancellationToken);
+        var totalReviews = breakdownGroups.Values.Sum();
+        var avgRating = totalReviews == 0 ? 0.0
+            : breakdownGroups.Sum(group => (double)group.Key * group.Value) / totalReviews;
 
         var breakdown = new Dictionary<int, int>();
         for (int i = 1; i <= 5; i++)

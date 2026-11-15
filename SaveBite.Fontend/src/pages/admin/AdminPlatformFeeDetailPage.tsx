@@ -452,7 +452,9 @@ function StatementDetail({ statementId }: { statementId: string }) {
                                 ? "Payment paused"
                                 : h.changeType === "PaymentResumed"
                                   ? "Payment restored"
-                                  : h.changeType}
+                                  : h.changeType === "VndRounding"
+                                    ? "VND rounding"
+                                    : h.changeType}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-slate-600">

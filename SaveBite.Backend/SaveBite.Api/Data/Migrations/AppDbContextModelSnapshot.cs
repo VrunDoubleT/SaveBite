@@ -1596,6 +1596,13 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("numeric(14,2)")
                         .HasColumnName("amount");
 
+                    b.Property<decimal>("CollectedAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("collected_amount");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1605,9 +1612,17 @@ namespace SaveBite.Backend.Data.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("gateway_checkout_url");
 
+                    b.Property<DateTime?>("GatewayClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("gateway_closed_at");
+
                     b.Property<DateTime?>("GatewayExpiresAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("gateway_expires_at");
+
+                    b.Property<DateTime?>("GatewayInvalidatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("gateway_invalidated_at");
 
                     b.Property<string>("GatewayQrCode")
                         .HasColumnType("text")

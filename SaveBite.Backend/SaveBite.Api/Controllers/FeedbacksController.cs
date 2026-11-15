@@ -70,7 +70,7 @@ public sealed class FeedbacksController : ControllerBase
         Guid feedbackId,
         CancellationToken ct)
     {
-        var result = await _feedbackService.GetFeedbackByIdAsync(feedbackId, ct);
+        var result = await _feedbackService.GetFeedbackByIdAsync(feedbackId, ct, GetAuthenticatedUserId());
         return Ok(ApiResponse<FeedbackResponses.FeedbackItemResponse>.Ok(result, "Retrieved feedback successfully."));
     }
 
@@ -119,9 +119,9 @@ public sealed class FeedbacksController : ControllerBase
         return Ok(ApiResponse<PagedResult<FeedbackResponses.FeedbackItemResponse>>.Ok(result, "Retrieved feedbacks successfully."));
     }
 
-    // Reply feedback (Store Owner, Staff, or Admin)
+    // Reply feedback (Store Owner or Staff)
     [HttpPost("{feedbackId:guid}/reply")]
-    [Authorize]
+    [StoreOwnerOrStaffActiveAccess]
     public async Task<ActionResult<ApiResponse<FeedbackResponses.FeedbackReplyResponse>>> ReplyFeedback(
         Guid feedbackId,
         [FromBody] FeedbackRequests.CreateFeedbackReplyRequest request,
@@ -131,9 +131,9 @@ public sealed class FeedbacksController : ControllerBase
         return Ok(ApiResponse<FeedbackResponses.FeedbackReplyResponse>.Ok(result, "Reply submitted successfully."));
     }
 
-    // Edit reply (Store Owner, Staff, or Admin)
+    // Edit reply (Store Owner or Staff)
     [HttpPut("{feedbackId:guid}/reply")]
-    [Authorize]
+    [StoreOwnerOrStaffActiveAccess]
     public async Task<ActionResult<ApiResponse<FeedbackResponses.FeedbackReplyResponse>>> EditReply(
         Guid feedbackId,
         [FromBody] FeedbackRequests.UpdateFeedbackReplyRequest request,
@@ -143,9 +143,9 @@ public sealed class FeedbacksController : ControllerBase
         return Ok(ApiResponse<FeedbackResponses.FeedbackReplyResponse>.Ok(result, "Reply updated successfully."));
     }
 
-    // Delete reply (Store Owner, Staff, or Admin)
+    // Delete reply (Store Owner or Staff)
     [HttpDelete("{feedbackId:guid}/reply")]
-    [Authorize]
+    [StoreOwnerOrStaffActiveAccess]
     public async Task<ActionResult<ApiResponse>> DeleteReply(
         Guid feedbackId,
         CancellationToken ct)

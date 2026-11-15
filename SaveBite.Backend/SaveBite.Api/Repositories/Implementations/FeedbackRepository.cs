@@ -198,7 +198,7 @@ public sealed class FeedbackRepository : IFeedbackRepository
     {
         var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
         if (user == null || user.Status != UserStatus.Active) return false;
-        if (user.Role == UserRole.Admin) return true;
+        if (user.Role is not (UserRole.StoreOwner or UserRole.Staff)) return false;
 
         var feedback = await _context.ProductFeedbacks
             .AsNoTracking()
@@ -212,7 +212,8 @@ public sealed class FeedbackRepository : IFeedbackRepository
         // Replies change data, so a suspended shop cannot reply even though it can read history.
         var isOwner = await _context.Shops.AsNoTracking().AnyAsync(
             s => s.Id == shopId && s.OwnerUserId == userId && s.Status == ShopStatus.Active, ct);
-        if (isOwner) return true;
+        if (isOwner && user.Role == UserRole.StoreOwner) return true;
+        if (user.Role != UserRole.Staff) return false;
 
         return await _context.ShopStaffMembers.AsNoTracking().AnyAsync(
             m => m.ShopId == shopId && m.UserId == userId

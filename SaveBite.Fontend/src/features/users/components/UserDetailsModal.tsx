@@ -1,4 +1,4 @@
-import { LoadingSkeleton } from "@/shared/components/ui/LoadingSkeleton";
+import { Skeleton } from "@/shared/components/ui";
 import { useState, type ReactNode } from "react";
 import { Clock, Repeat } from "lucide-react";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
@@ -23,7 +23,28 @@ export function UserDetailsModal({ isOpen, isLoading, data, onClose }: UserDetai
       maxWidthClass="max-w-2xl"
     >
       {isLoading ? (
-        <LoadingSkeleton variant="profile" label="Loading user profile" />
+        <div role="status" aria-label="Loading user profile" className="space-y-6">
+          <span className="sr-only">Loading user profile</span>
+          <div
+            aria-hidden="true"
+            className="flex flex-col items-start gap-5 rounded-xl border border-border-default p-5 sm:flex-row"
+          >
+            <Skeleton className="size-16 shrink-0 rounded-full" />
+            <div className="w-full space-y-3">
+              <Skeleton className="h-6 w-1/2" />
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-6 w-full" />
+            </div>
+          </div>
+          <div aria-hidden="true" className="space-y-5">
+            <div className="flex gap-4 border-b border-border-default pb-3">
+              <Skeleton className="h-5 w-28" />
+              <Skeleton className="h-5 w-28" />
+            </div>
+            <Skeleton className="h-28 w-full rounded-xl" />
+          </div>
+        </div>
       ) : data ? (
         <UserDetailsContent data={data} />
       ) : null}

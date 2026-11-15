@@ -342,7 +342,7 @@ public sealed class FlashDealService : IFlashDealService
             && deal.Shop?.Status == ShopStatus.Active && deal.Product?.Status == ProductStatus.Active;
         var isDealTimeValid = now >= deal.SaleStartTime.ToUniversalTime() && now < deal.OrderEndTime.ToUniversalTime() && now < deal.ShopClosingTime.ToUniversalTime();
 
-        var variants = deal.Variants.Select(v =>
+        var variants = deal.Variants.OrderBy(v => v.CreatedAt).ThenBy(v => v.Id).Select(v =>
         {
             var attrs = v.Variant?.VariantValues?
                 .Where(vv => vv.AttributeValue != null && vv.AttributeValue.Attribute != null)
@@ -351,9 +351,8 @@ public sealed class FlashDealService : IFlashDealService
                     vv => vv.AttributeValue.Value
                 ) ?? new Dictionary<string, string>();
 
-            var variantImg = v.Variant?.VariantValues?
-                .FirstOrDefault(vv => !string.IsNullOrEmpty(vv.AttributeValue?.ImageUrl))?
-                .AttributeValue?.ImageUrl;
+            var variantImg = ProductImages.ForVariant(v.Variant, deal.Product);
+
 
             var vName = attrs.Count > 0
                 ? string.Join(" - ", attrs.Values)
@@ -402,7 +401,7 @@ public sealed class FlashDealService : IFlashDealService
             }
         }
 
-        var primaryImage = deal.Product?.Images?.FirstOrDefault()?.ImageUrl
+        var primaryImage = ProductImages.Primary(deal.Product)
             ?? images.FirstOrDefault();
 
         var isDealPurchasable = isDealOnSale && isDealTimeValid && variants.Any(v => v.IsPurchasable);
@@ -483,6 +482,8 @@ public sealed class FlashDealService : IFlashDealService
         CreateFlashDealRequest request,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await LockProductScheduleAsync(request.ProductId, cancellationToken);
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var now = DateTime.UtcNow;
         var effectiveStartTime = request.IsImmediate ? now : request.SaleStartTime!.Value;
@@ -584,7 +585,6 @@ public sealed class FlashDealService : IFlashDealService
             });
         }
         Guid? openingMessageId = null;
-        await using (var transaction = await _db.Database.BeginTransactionAsync(cancellationToken))
         {
             await _dealRepository.AddAsync(deal, cancellationToken);
             if (isOpenNow && deal.Variants.Any(v => v.TotalQuantity > 0 && existingVariants[v.VariantId].IsActive))
@@ -596,6 +596,7 @@ public sealed class FlashDealService : IFlashDealService
             await _db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
+        await transaction.DisposeAsync();
         // Deliver before touching Hangfire: an immediate opening must not wait for scheduling or the lifecycle queue.
         if (openingMessageId.HasValue)
         {
@@ -629,6 +630,10 @@ public sealed class FlashDealService : IFlashDealService
         CancellationToken cancellationToken = default)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        var productId = await _db.FlashDeals.AsNoTracking().Where(d => d.Id == dealId)
+            .Select(d => (Guid?)d.ProductId).SingleOrDefaultAsync(cancellationToken)
+            ?? throw AppException.NotFound("Flash deal not found.");
+        await LockProductScheduleAsync(productId, cancellationToken);
         await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE id = {dealId} FOR UPDATE", cancellationToken);
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
@@ -658,7 +663,7 @@ public sealed class FlashDealService : IFlashDealService
         var hasOverlap = await _dealRepository.HasOverlappingDealAsync(
             shop.Id,
             deal.ProductId,
-            request.SaleStartTime,
+            deal.Status == FlashDealStatus.Pending ? request.SaleStartTime : deal.SaleStartTime,
             request.OrderEndTime,
             deal.Id,
             cancellationToken);
@@ -705,7 +710,7 @@ public sealed class FlashDealService : IFlashDealService
 
 
         }
-        else if (deal.Status is FlashDealStatus.OnSale or FlashDealStatus.SoldOut)
+        else if (deal.Status is FlashDealStatus.OnSale or FlashDealStatus.SoldOut or FlashDealStatus.Hidden)
         {
             if (request.OrderEndTime - deal.SaleStartTime > TimeSpan.FromMinutes(TimingConfiguration.FlashDeals.MaximumDurationMinutes))
             {
@@ -729,6 +734,8 @@ public sealed class FlashDealService : IFlashDealService
         {
             if (existingDealVariants.TryGetValue(reqVariant.VariantId, out var dealVariant))
             {
+                if (reqVariant.DealPrice >= dealVariant.OriginalPrice || dealVariant.OriginalPrice <= 0)
+                    throw AppException.BadRequest("Deal price must be less than the original price.");
                 if (reqVariant.TotalQuantity < dealVariant.SoldQuantity + dealVariant.ReservedQuantity)
                 {
                     throw AppException.BadRequest($"New total quantity cannot be less than already sold/reserved quantity ({dealVariant.SoldQuantity + dealVariant.ReservedQuantity}).");
@@ -769,10 +776,11 @@ public sealed class FlashDealService : IFlashDealService
         }
         await _dealRepository.UpdateAsync(deal, cancellationToken);
 
-        await RefreshScheduleAsync(deal, cancellationToken);
         LifecycleOutbox.InventoryDeals(_db, new[] { deal.Id }, null, DateTime.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        await transaction.DisposeAsync();
+        await RefreshScheduleAsync(deal, cancellationToken);
         return await BuildShopDetailAsync(deal, cancellationToken);
     }
     // 5. Cancel Flash Deal
@@ -917,6 +925,10 @@ public sealed class FlashDealService : IFlashDealService
     public async Task UnhideDealAsync(Guid userId, Guid dealId, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        var productId = await _db.FlashDeals.AsNoTracking().Where(d => d.Id == dealId)
+            .Select(d => (Guid?)d.ProductId).SingleOrDefaultAsync(cancellationToken)
+            ?? throw AppException.NotFound("Flash deal not found.");
+        await LockProductScheduleAsync(productId, cancellationToken);
         await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM flash_deals WHERE id = {dealId} FOR UPDATE", cancellationToken);
         var shop = await GetShopOrThrowAsync(userId, cancellationToken);
         var deal = await _dealRepository.GetShopDealByIdAsync(shop.Id, dealId, cancellationToken)
@@ -995,6 +1007,10 @@ public sealed class FlashDealService : IFlashDealService
         FlashDealPickupWindow.Validate(deal.SaleStartTime, deal.OrderEndTime, deal.ShopClosingTime,
             shop.OpeningTime, shop.ClosingTime, committedDeadline);
 
+        if (await _dealRepository.HasOverlappingDealAsync(shop.Id, deal.ProductId,
+            deal.SaleStartTime, deal.OrderEndTime, deal.Id, cancellationToken))
+            throw AppException.Conflict("Another flash deal overlaps with the resumed schedule.");
+
         var previousStatus = deal.Status;
         deal.Status = FlashDealStatus.OnSale;
 
@@ -1014,7 +1030,6 @@ public sealed class FlashDealService : IFlashDealService
             CreatedAt = now
         });
         await _dealRepository.UpdateAsync(deal, cancellationToken);
-        await RefreshScheduleAsync(deal, cancellationToken);
 
         if (deal.Status == FlashDealStatus.OnSale)
         {
@@ -1024,6 +1039,8 @@ public sealed class FlashDealService : IFlashDealService
         }
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        await transaction.DisposeAsync();
+        await RefreshScheduleAsync(deal, cancellationToken);
     }
 
     private async Task ApplyCustomerStockAsync(IEnumerable<FlashDealResponse> responses, CancellationToken ct)
@@ -1037,6 +1054,12 @@ public sealed class FlashDealService : IFlashDealService
             variant.PendingRestockQuantity = decision?.PendingQuantity ?? 0;
             variant.SoldQuantity = Math.Max(0, variant.SoldQuantity - variant.UnsellableQuantity - variant.PendingRestockQuantity);
         }
+    }
+
+    private Task LockProductScheduleAsync(Guid productId, CancellationToken ct)
+    {
+        var key = $"flash-deal-product:{productId}";
+        return _db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", ct);
     }
 
     private Task<DateTime?> LatestOrderPickupDeadlineAsync(Guid dealId, CancellationToken ct)

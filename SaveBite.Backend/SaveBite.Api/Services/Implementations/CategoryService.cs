@@ -114,6 +114,7 @@ public sealed class CategoryService : ICategoryService
             category.ImageUrl,
             category.IsActive
         };
+        category.IsActive = request.IsActive ?? category.IsActive;
         category.Name = request.Name.Trim();
         category.Description = request.Description?.Trim();
         category.ImageUrl = request.ImageUrl;

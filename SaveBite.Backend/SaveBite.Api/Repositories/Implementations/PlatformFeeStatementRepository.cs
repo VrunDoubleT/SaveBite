@@ -185,7 +185,7 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
     public async Task<PlatformFeePayment?> GetPaymentByGatewayCodeAsync(string orderCodeStr, CancellationToken ct = default)
     {
         return await _context.Set<PlatformFeePayment>()
-            .Include(p => p.Statement)
+            .Include(p => p.Statement).ThenInclude(s => s.Payments)
             .Include(p => p.Shop)
             .FirstOrDefaultAsync(p => p.GatewayTransactionId == orderCodeStr, ct);
     }
@@ -279,6 +279,9 @@ public sealed class PlatformFeeStatementRepository : IPlatformFeeStatementReposi
             foreach (var p in pendingPayments)
             {
                 p.Status = PaymentStatus.Cancelled;
+                if (p.GatewayClosedAt == null) p.GatewayInvalidatedAt ??= now;
+                p.GatewayCheckoutUrl = null;
+                p.GatewayQrCode = null;
                 p.UpdatedAt = now;
             }
         }

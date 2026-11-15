@@ -7,5 +7,6 @@ public enum StatementChangeType
     FullRefundDeduction,
     PriorPeriodCreditApplied,
     PaymentPaused,
-    PaymentResumed
+    PaymentResumed,
+    VndRounding
 }

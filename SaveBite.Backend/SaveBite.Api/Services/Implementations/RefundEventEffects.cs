@@ -6,7 +6,7 @@ using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Services.Interfaces;
 namespace SaveBite.Backend.Services.Implementations;
 
-public sealed class RefundEventEffects(AppDbContext db, TimeProvider clock, ITrustNotificationService notifications)
+public sealed class RefundEventEffects(AppDbContext db, TimeProvider clock, ITrustNotificationService notifications, IPlatformFeeStatementService? fees = null)
 {
     public async Task ApplyFeeAsync(Guid refundId, CancellationToken ct)
     {
@@ -18,6 +18,8 @@ public sealed class RefundEventEffects(AppDbContext db, TimeProvider clock, ITru
         await ReconcileFeesAsync(db, order, clock.GetUtcNow().UtcDateTime, ct);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
+        await transaction.DisposeAsync();
+        if (fees != null) await fees.InvalidateChangedPaymentLinksAsync(ct);
     }
 
     public static async Task LockOrderAsync(AppDbContext db, Guid orderId, CancellationToken ct)
@@ -39,7 +41,7 @@ public sealed class RefundEventEffects(AppDbContext db, TimeProvider clock, ITru
         foreach (var refund in order.Refunds.Where(f => f.TransferredAmount > 0).OrderBy(f => f.TransferredAt).ThenBy(f => f.Id))
         {
             refunded += refund.TransferredAmount;
-            var target = Math.Round(Math.Max(0, order.TotalAmount - refunded) * fee.FeeRate, 2, MidpointRounding.AwayFromZero);
+            var target = PlatformFeeAmounts.Round(Math.Max(0, order.TotalAmount - refunded) * fee.FeeRate);
             var effective = Math.Max(0, fee.FeeAmount + fee.Adjustments.Sum(a => a.Amount));
             var credit = Math.Max(0, effective - target);
             if (credit > 0)
@@ -52,7 +54,7 @@ public sealed class RefundEventEffects(AppDbContext db, TimeProvider clock, ITru
                     var previous = fee.Statement.TotalFeeAmount;
                     var applied = PlatformFeeCreditAllocator.Apply(adjustment, fee.Statement.Id, previous);
                     if (applied != null && !ReferenceEquals(applied, adjustment)) db.Add(applied);
-                    fee.Statement.TotalFeeAmount = previous + (applied?.Amount ?? 0m);
+                    fee.Statement.TotalFeeAmount = PlatformFeeAmounts.Round(previous + (applied?.Amount ?? 0m));
                     fee.Statement.UpdatedAt = now;
                     if (fee.Statement.TotalFeeAmount == 0)
                     {

@@ -187,6 +187,8 @@ public sealed class PlatformFeeAdjustmentItemResponse
 
 public sealed class PlatformFeePaymentItemResponse
 {
+    public DateTime? GatewayInvalidatedAt { get; set; }
+    public decimal CollectedAmount { get; set; }
     public Guid Id { get; set; }
     public decimal Amount { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]

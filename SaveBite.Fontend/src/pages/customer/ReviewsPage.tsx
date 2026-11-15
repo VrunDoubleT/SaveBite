@@ -7,7 +7,7 @@ import { AccountPagination as Pagination } from "@/shared/components/pagination"
 import { toast } from "@/shared/stores/toastStore";
 import { ErrorState } from "@/shared/components/ui";
 import { getApiErrorMessage } from "@/shared/api";
-import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
+import { emitFeedbackSync, subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 
 export function ReviewsPage() {
   const [searchParams] = useSearchParams();
@@ -107,6 +107,11 @@ export function ReviewsPage() {
   const handleDelete = async (id: string) => {
     try {
       await feedbackApi.deleteFeedback(id);
+      const removed = reviews.find((review) => review.id === id);
+      emitFeedbackSync("delete", id, {
+        shopId: removed?.shopId ?? undefined,
+        rating: removed?.rating,
+      });
       setReviews((prev) => prev.filter((item) => item.id !== id));
       setTotalItems((prev) => Math.max(0, prev - 1));
       toast.success("Review deleted successfully.");

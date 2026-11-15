@@ -18,6 +18,7 @@ public sealed class RabbitFailureRecoveryJob(IConnection connection, RabbitMqTop
         (RabbitMqQueues.CartFlashDealDeadLetterQueueName, RabbitMqQueues.CartFlashDealQueueName),
         (RabbitMqQueues.NotificationDeadLetterQueueName, RabbitMqQueues.NotificationQueueName),
         (RabbitMqQueues.UserTrustDeadLetterQueueName, RabbitMqQueues.UserTrustQueueName),
+        (RabbitMqQueues.TrustLevelReconcileDeadLetterQueueName, RabbitMqQueues.TrustLevelReconcileQueueName),
         (RabbitMqQueues.OrderTrustDeadLetterQueueName, RabbitMqQueues.OrderTrustQueueName),
         (RabbitMqQueues.OrderPlatformFeeDeadLetterQueueName, RabbitMqQueues.OrderPlatformFeeQueueName),
         (RabbitMqQueues.PlatformPayOsVerifiedDeadLetterQueueName, RabbitMqQueues.PlatformPayOsVerifiedQueueName),
@@ -31,7 +32,7 @@ public sealed class RabbitFailureRecoveryJob(IConnection connection, RabbitMqTop
     [DisableConcurrentExecution(TimingConfiguration.Jobs.ConcurrencyLockTimeoutSeconds)]
     public async Task ExecuteAsync(CancellationToken ct)
     {
-        await topology.Ready.WaitAsync(ct);
+        await topology.Ready.WaitAsync(TimeSpan.FromSeconds(10), ct);
         foreach (var (source, destination) in Queues)
         {
             await using var channel = await connection.CreateChannelAsync(new CreateChannelOptions(

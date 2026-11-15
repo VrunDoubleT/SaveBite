@@ -1,6 +1,7 @@
 using SaveBite.Backend.Models.Common;
 using Microsoft.EntityFrameworkCore;
 using SaveBite.Backend.Data;
+using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Repositories.Interfaces;
@@ -75,9 +76,26 @@ public sealed class CategoryRepository : ICategoryRepository
         _dbContext.Categories.Remove(category);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        return _dbContext.SaveChangesAsync(cancellationToken);
+        // Serialize category writes across API instances so concurrent hides/deletes
+        // cannot both remove the last remaining active categories.
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await _dbContext.Database.ExecuteSqlRawAsync(
+            "LOCK TABLE categories IN SHARE ROW EXCLUSIVE MODE", cancellationToken);
+        _dbContext.ChangeTracker.DetectChanges();
+        var changes = _dbContext.ChangeTracker.Entries<Category>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .ToList();
+        var changedIds = changes.Select(e => e.Entity.Id).ToList();
+        var hasActiveChange = changes.Any(e => e.State != EntityState.Deleted && e.Entity.IsActive);
+        var hasOtherActive = await _dbContext.Categories.AsNoTracking()
+            .AnyAsync(c => c.IsActive && !changedIds.Contains(c.Id), cancellationToken);
+        if (!hasActiveChange && !hasOtherActive)
+            throw AppException.Conflict("At least one category must remain active. Activate another category first.");
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public Task<List<Category>> GetActiveCategoriesAsync(CancellationToken cancellationToken = default)

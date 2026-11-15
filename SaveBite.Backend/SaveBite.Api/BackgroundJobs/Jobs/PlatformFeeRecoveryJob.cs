@@ -25,7 +25,8 @@ public sealed class PlatformFeeRecoveryJob(IServiceScopeFactory scopes, TimeProv
             .Where(s => s.Status != SaveBite.Backend.Models.Enums.PlatformFeeStatementStatus.Draft).Select(s => s.Id),
             (sp, id) => sp.GetRequiredService<IPlatformFeeStatementService>().RepairNotificationsAsync(id, ct), ct);
         await RecoveryBatch.RunAsync(scopes, logger, "fee-payment-reconciliation", db => db.PlatformFeePayments.AsNoTracking()
-            .Where(p => p.Status == SaveBite.Backend.Models.Enums.PaymentStatus.Pending && p.GatewayTransactionId != null).Select(p => p.Id),
+            .Where(p => p.GatewayTransactionId != null && (p.Status == SaveBite.Backend.Models.Enums.PaymentStatus.Pending
+                || (p.GatewayInvalidatedAt != null && p.GatewayClosedAt == null && p.Status != SaveBite.Backend.Models.Enums.PaymentStatus.Succeeded))).Select(p => p.Id),
             (sp, id) => sp.GetRequiredService<IPlatformFeeStatementService>().ReconcilePendingPaymentAsync(id, ct), ct);
         // Include previous month to pick up notifications and late items after older paid statements.
         foreach (var period in periods.Append(cutoff.AddMonths(-1).Year * 100 + cutoff.AddMonths(-1).Month).Distinct().OrderBy(p => p))

@@ -27,6 +27,7 @@ public sealed class FeedbackService : IFeedbackService
     private readonly IAdminAuditWriter _audit;
     private readonly IHubContext<FlashDealsHub, IApplicationClient>? _dealHub;
     private readonly IRealtimePublisher? _realtime;
+    private readonly ILogger<FeedbackService>? _logger;
 
     public FeedbackService(
         IFeedbackRepository feedbackRepo,
@@ -34,7 +35,7 @@ public sealed class FeedbackService : IFeedbackService
         SaveBite.Backend.Data.AppDbContext db,
         IAdminAuditWriter audit,
         IHubContext<FlashDealsHub, IApplicationClient>? dealHub = null,
-        IRealtimePublisher? realtime = null)
+        IRealtimePublisher? realtime = null, ILogger<FeedbackService>? logger = null)
     {
         _feedbackRepo = feedbackRepo;
         _notifications = notifications;
@@ -42,6 +43,7 @@ public sealed class FeedbackService : IFeedbackService
         _audit = audit;
         _dealHub = dealHub;
         _realtime = realtime;
+        _logger = logger;
     }
 
     public async Task<PagedResult<FeedbackResponse>> ListAsync(int page, int pageSize, FeedbackStatus? status, string? search, CancellationToken ct = default)
@@ -69,8 +71,12 @@ public sealed class FeedbackService : IFeedbackService
 
     private async Task<ModerationActionResponse> ModerateAsync(Guid adminId, Guid feedbackId, bool restore, string? reason, CancellationToken ct)
     {
-        return await NotificationTransaction.RunAsync(_db, async () =>
+        object? committedEvent = null;
+        Guid? committedShopId = null;
+        Guid customerId = default;
+        var result = await NotificationTransaction.RunAsync(_db, async () =>
         {
+            await LockFeedbackAsync(feedbackId, ct);
             var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct)
                 ?? throw AppException.NotFound("Feedback not found.");
             if (restore ? feedback.Status != FeedbackStatus.HiddenByAdmin : feedback.Status != FeedbackStatus.Visible)
@@ -153,21 +159,9 @@ public sealed class FeedbackService : IFeedbackService
                 action = restore ? "restore" : "hide"
             };
 
-            if (_realtime != null)
-            {
-                await _realtime.SendToAllAsync(RealtimeEvents.FeedbackChanged, eventData);
-                await _realtime.SendToUserAsync(feedback.UserId, RealtimeEvents.FeedbackChanged, eventData);
-            }
-
-            if (_dealHub != null)
-            {
-                var envelope = new RealtimeEvent(Guid.NewGuid(), RealtimeEvents.FeedbackChanged, 1, DateTime.UtcNow, eventData);
-                await _dealHub.Clients.All.ReceiveEvent(envelope);
-                if (shopId.HasValue && shopId.Value != Guid.Empty)
-                {
-                    await _dealHub.Clients.Group(FlashDealsHub.ShopGroup(shopId.Value)).ReceiveEvent(envelope);
-                }
-            }
+            committedEvent = eventData;
+            committedShopId = shopId;
+            customerId = feedback.UserId;
 
             return new ModerationActionResponse
             {
@@ -176,6 +170,30 @@ public sealed class FeedbackService : IFeedbackService
             };
 
         }, ct);
+        // Broadcast committed moderation only. A transport failure must not undo moderation.
+        if (committedEvent != null)
+        {
+            try
+            {
+                if (_realtime != null)
+                {
+                    await _realtime.SendToAllAsync(RealtimeEvents.FeedbackChanged, committedEvent);
+                    await _realtime.SendToUserAsync(customerId, RealtimeEvents.FeedbackChanged, committedEvent);
+                }
+                if (_dealHub != null)
+                {
+                    var envelope = new RealtimeEvent(Guid.NewGuid(), RealtimeEvents.FeedbackChanged, 1, DateTime.UtcNow, committedEvent);
+                    await _dealHub.Clients.All.ReceiveEvent(envelope);
+                    if (committedShopId.HasValue)
+                        await _dealHub.Clients.Group(FlashDealsHub.ShopGroup(committedShopId.Value)).ReceiveEvent(envelope);
+                }
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                _logger?.LogWarning(ex, "Feedback {FeedbackId} moderation committed; realtime refresh failed.", feedbackId);
+            }
+        }
+        return result;
     }
 
     // Add Feedback
@@ -183,6 +201,7 @@ public sealed class FeedbackService : IFeedbackService
     {
         return await NotificationTransaction.RunAsync(_db, async () =>
         {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM order_items WHERE id = {request.OrderItemId} FOR UPDATE", ct);
             var orderItem = await _feedbackRepo.GetOrderItemWithOrderAsync(request.OrderItemId, ct);
             if (orderItem is null)
                 throw AppException.NotFound("Order item not found.");
@@ -256,19 +275,19 @@ public sealed class FeedbackService : IFeedbackService
         pageSize = Math.Clamp(pageSize, 1, 50);
 
         var pagedFeedbacks = await _feedbackRepo.GetCustomerFeedbackHistoryAsync(userId, page, pageSize, targetFeedbackId, ct);
-        var responseItems = pagedFeedbacks.Items.Select(MapToResponse).ToList();
+        var responseItems = pagedFeedbacks.Items.Select(f => MapToResponse(f)).ToList();
 
         return PagedResult<FeedbackResponses.FeedbackItemResponse>.Create(responseItems, pagedFeedbacks.Page, pagedFeedbacks.PageSize, pagedFeedbacks.TotalItems);
     }
 
     // Get Single Feedback Detail
-    public async Task<FeedbackResponses.FeedbackItemResponse> GetFeedbackByIdAsync(Guid feedbackId, CancellationToken ct = default)
+    public async Task<FeedbackResponses.FeedbackItemResponse> GetFeedbackByIdAsync(Guid feedbackId, CancellationToken ct = default, Guid? viewerUserId = null)
     {
         var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct);
         if (feedback is null || feedback.Status != FeedbackStatus.Visible)
             throw AppException.NotFound("Feedback not found.");
 
-        return MapToResponse(feedback);
+        return MapToResponse(feedback, feedback.UserId == viewerUserId);
     }
 
     // Edit Feedback
@@ -276,6 +295,7 @@ public sealed class FeedbackService : IFeedbackService
     {
         return await NotificationTransaction.RunAsync(_db, async () =>
         {
+            await LockFeedbackAsync(feedbackId, ct);
             var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct);
             if (feedback is null)
                 throw AppException.NotFound("Feedback not found.");
@@ -341,29 +361,34 @@ public sealed class FeedbackService : IFeedbackService
     // Delete Feedback (Soft Delete)
     public async Task DeleteFeedbackAsync(Guid userId, Guid feedbackId, CancellationToken ct = default)
     {
-        var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct);
-        if (feedback is null)
-            throw AppException.NotFound("Feedback not found.");
+        await NotificationTransaction.RunAsync(_db, async () =>
+        {
+            await LockFeedbackAsync(feedbackId, ct);
+            var feedback = await _feedbackRepo.GetByIdAsync(feedbackId, ct);
+            if (feedback is null)
+                throw AppException.NotFound("Feedback not found.");
 
-        if (feedback.UserId != userId)
-            throw AppException.Forbidden("You do not have permission to delete this feedback.");
+            if (feedback.UserId != userId)
+                throw AppException.Forbidden("You do not have permission to delete this feedback.");
 
-        if (feedback.Status != FeedbackStatus.Visible)
-            return;
+            if (feedback.Status != FeedbackStatus.Visible)
+                return;
 
-        var now = DateTime.UtcNow;
-        feedback.Status = FeedbackStatus.HiddenByCustomer;
-        feedback.HiddenAt = now;
-        feedback.UpdatedAt = now;
+            var now = DateTime.UtcNow;
+            feedback.Status = FeedbackStatus.HiddenByCustomer;
+            feedback.HiddenAt = now;
+            feedback.UpdatedAt = now;
 
-        await _feedbackRepo.UpdateAsync(feedback, ct);
+            await _feedbackRepo.UpdateAsync(feedback, ct);
+        }, ct);
     }
 
-    // Reply Feedback (Shop & Admin)
+    // Reply Feedback (Store Owner & Staff)
     public async Task<FeedbackResponses.FeedbackReplyResponse> ReplyFeedbackAsync(Guid userId, Guid feedbackId, FeedbackRequests.CreateFeedbackReplyRequest request, CancellationToken ct = default)
     {
         return await NotificationTransaction.RunAsync(_db, async () =>
         {
+            await LockFeedbackAsync(feedbackId, ct);
             var canManage = await _feedbackRepo.CanManageFeedbackReplyAsync(userId, feedbackId, ct);
             if (!canManage)
                 throw AppException.Forbidden("You do not have permission to reply to this shop's feedback.");
@@ -407,7 +432,6 @@ public sealed class FeedbackService : IFeedbackService
     }
 
     // FIX-42: record in the shop's staff activity log that a staff member replied to a customer review.
-    // Admins replying from the admin side are not shop members, so they are skipped.
     private async Task AddReplyActivityLogAsync(Guid userId, ProductFeedback feedback, DateTime now, CancellationToken ct)
     {
         var shop = feedback.OrderItem.Order.Shop;
@@ -451,41 +475,45 @@ public sealed class FeedbackService : IFeedbackService
         await _db.SaveChangesAsync(ct);
     }
 
-    // Edit Reply (Shop & Admin)
+    // Edit Reply (Store Owner & Staff)
     public async Task<FeedbackResponses.FeedbackReplyResponse> EditFeedbackReplyAsync(Guid userId, Guid feedbackId, FeedbackRequests.UpdateFeedbackReplyRequest request, CancellationToken ct = default)
     {
-        var canManage = await _feedbackRepo.CanManageFeedbackReplyAsync(userId, feedbackId, ct);
-        if (!canManage)
-            throw AppException.Forbidden("You do not have permission to edit replies for this shop's feedback.");
+        return await NotificationTransaction.RunAsync(_db, async () =>
+        {
+            await LockFeedbackAsync(feedbackId, ct);
+            var canManage = await _feedbackRepo.CanManageFeedbackReplyAsync(userId, feedbackId, ct);
+            if (!canManage)
+                throw AppException.Forbidden("You do not have permission to edit replies for this shop's feedback.");
 
-        var existingReply = await _feedbackRepo.GetReplyByFeedbackIdAsync(feedbackId, ct);
-        if (existingReply is null)
-            throw AppException.NotFound("Reply not found.");
+            var existingReply = await _feedbackRepo.GetReplyByFeedbackIdAsync(feedbackId, ct);
+            if (existingReply is null)
+                throw AppException.NotFound("Reply not found.");
 
-        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
-        if (user != null && user.Role != UserRole.Admin && existingReply.RepliedByUserId != userId)
-            throw AppException.Forbidden("You can only edit your own reply.");
+            if (existingReply.RepliedByUserId != userId)
+                throw AppException.Forbidden("You can only edit your own reply.");
 
-        existingReply.Content = request.Content.Trim();
-        existingReply.UpdatedAt = DateTime.UtcNow;
+            existingReply.Content = request.Content.Trim();
+            existingReply.UpdatedAt = DateTime.UtcNow;
 
-        await _feedbackRepo.UpdateReplyAsync(existingReply, ct);
+            await _feedbackRepo.UpdateReplyAsync(existingReply, ct);
 
-        return new FeedbackResponses.FeedbackReplyResponse(
-            existingReply.Id,
-            existingReply.Content,
-            existingReply.CreatedAt,
-            existingReply.UpdatedAt,
-            existingReply.RepliedByUser?.FullName ?? "Shop",
-            existingReply.RepliedByUserId
-        );
+            return new FeedbackResponses.FeedbackReplyResponse(
+                existingReply.Id,
+                existingReply.Content,
+                existingReply.CreatedAt,
+                existingReply.UpdatedAt,
+                existingReply.RepliedByUser?.FullName ?? "Shop",
+                existingReply.RepliedByUserId
+            );
+        }, ct);
     }
 
-    // Delete Reply (Shop & Admin)
+    // Delete Reply (Store Owner & Staff)
     public async Task DeleteFeedbackReplyAsync(Guid userId, Guid feedbackId, CancellationToken ct = default)
     {
         await NotificationTransaction.RunAsync(_db, async () =>
         {
+            await LockFeedbackAsync(feedbackId, ct);
             var canManage = await _feedbackRepo.CanManageFeedbackReplyAsync(userId, feedbackId, ct);
             if (!canManage)
                 throw AppException.Forbidden("You do not have permission to delete replies for this shop's feedback.");
@@ -496,7 +524,7 @@ public sealed class FeedbackService : IFeedbackService
 
             var isOwner = false;
             var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
-            if (user != null && user.Role != UserRole.Admin)
+            if (user != null)
             {
                 isOwner = await _feedbackRepo.IsShopOwnerForFeedbackAsync(userId, feedbackId, ct);
                 if (!isOwner && existingReply.RepliedByUserId != userId)
@@ -534,7 +562,7 @@ public sealed class FeedbackService : IFeedbackService
             throw AppException.NotFound("No shop found associated with your account.");
 
         var paged = await _feedbackRepo.GetShopFeedbacksAsync(shopId.Value, request, ct);
-        var responseItems = paged.Items.Select(MapToResponse).ToList();
+        var responseItems = paged.Items.Select(f => MapToResponse(f)).ToList();
 
         return PagedResult<FeedbackResponses.FeedbackItemResponse>.Create(responseItems, paged.Page, paged.PageSize, paged.TotalItems);
     }
@@ -543,16 +571,25 @@ public sealed class FeedbackService : IFeedbackService
     public async Task<PagedResult<FeedbackResponses.FeedbackItemResponse>> GetAdminFeedbacksAsync(Guid userId, FeedbackRequests.ShopFeedbacksQueryRequest request, CancellationToken ct = default)
     {
         var paged = await _feedbackRepo.GetAdminFeedbacksAsync(request, ct);
-        var responseItems = paged.Items.Select(MapToResponse).ToList();
+        var responseItems = paged.Items.Select(f => MapToResponse(f)).ToList();
 
         return PagedResult<FeedbackResponses.FeedbackItemResponse>.Create(responseItems, paged.Page, paged.PageSize, paged.TotalItems);
     }
 
-    private static FeedbackResponses.FeedbackItemResponse MapToResponse(ProductFeedback f)
+    private async Task LockFeedbackAsync(Guid feedbackId, CancellationToken ct)
+    {
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM product_feedbacks WHERE id = {feedbackId} FOR UPDATE", ct);
+        var tracked = _db.ProductFeedbacks.Local.FirstOrDefault(f => f.Id == feedbackId);
+        if (tracked != null) await _db.Entry(tracked).ReloadAsync(ct);
+        foreach (var reply in _db.ProductFeedbackReplies.Local.Where(r => r.ProductFeedbackId == feedbackId).ToArray())
+            await _db.Entry(reply).ReloadAsync(ct);
+    }
+
+    private static FeedbackResponses.FeedbackItemResponse MapToResponse(ProductFeedback f, bool includePurchase = true)
     {
         return new FeedbackResponses.FeedbackItemResponse(
             f.Id,
-            f.OrderItemId,
+            includePurchase ? f.OrderItemId : Guid.Empty,
             f.ProductId,
             f.OrderItem?.ProductNameSnapshot ?? f.Product?.Name ?? string.Empty,
             f.OrderItem?.VariantNameSnapshot,
@@ -567,15 +604,18 @@ public sealed class FeedbackService : IFeedbackService
                 f.Reply.CreatedAt,
                 f.Reply.UpdatedAt,
                 f.Reply.RepliedByUser?.FullName ?? "Shop", f.Reply.RepliedByUserId),
-            f.OrderItem?.OrderId ?? Guid.Empty,
-            f.OrderItem?.Order?.OrderCode ?? string.Empty,
+            includePurchase ? f.OrderItem?.OrderId ?? Guid.Empty : Guid.Empty,
+            includePurchase ? f.OrderItem?.Order?.OrderCode ?? string.Empty : string.Empty,
             f.OrderItem?.Order is { } purchase ? PurchaseSnapshots.ShopName(purchase) : f.Product?.Shop?.Name ?? string.Empty,
             f.OrderItem?.Order is { } purchaseLogo ? PurchaseSnapshots.ShopLogo(purchaseLogo) : f.Product?.Shop?.LogoUrl,
             f.OrderItem is { } purchasedItem ? PurchaseSnapshots.ProductImage(purchasedItem, f.Product) : null,
             f.Images?.OrderBy(image => image.SortOrder).Select(image => image.ImageUrl).ToList() ?? new List<string>(),
             f.Product?.ShopId ?? f.OrderItem?.Order?.ShopId,
             f.User?.FullName,
-            f.User?.AvatarUrl
+            f.User?.AvatarUrl,
+            f.EditCount,
+            includePurchase && f.Status == FeedbackStatus.Visible && f.EditCount < 3
+                && f.CreatedAt.AddDays(30) >= DateTime.UtcNow
         );
     }
 }

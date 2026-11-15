@@ -180,7 +180,7 @@ public sealed class ShopService : IShopService
                 OpeningTime = shop.OpeningTime,
                 ClosingTime = shop.ClosingTime,
                 IsOpen = item.IsOpen,
-                AverageRating = stat.TotalCount > 0 ? Math.Round(stat.AvgRating, 1) : 5.0,
+                AverageRating = stat.TotalCount > 0 ? Math.Round(stat.AvgRating, 1) : 0.0,
                 TotalReviews = stat.TotalCount,
                 FlashDealCount = dealCount
             });

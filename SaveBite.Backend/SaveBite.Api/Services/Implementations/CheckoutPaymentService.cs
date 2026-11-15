@@ -133,6 +133,14 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             var payment = CheckoutOrderMapper.RequiredPayment(order);
             if (verifiedPayment != null && payment?.GatewayOrderCode != verifiedPayment.OrderCode)
                 return CheckoutOrderMapper.Map(order, now: Now);
+            // A later transfer can add funds to an already-settled QR. Retain the provider's
+            // cumulative total without settling inventory or submitting the order again.
+            if (verifiedPayment != null && payment?.Status == PaymentStatus.Succeeded)
+            {
+                payment.CollectedAmount = Math.Max(payment.CollectedAmount, verifiedPayment.AmountPaid);
+                order.PaymentReviewRequired |= payment.CollectedAmount > payment.Amount;
+                await _checkoutRepository.SaveAsync(ct);
+            }
             // Free-deposit and already-paid orders need no initial payment link or repeated inventory settlement.
             if (payment == null || payment.Amount == 0 || payment.Status == PaymentStatus.Succeeded)
             {
@@ -476,11 +484,18 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
         if (verifiedPayment == null && !_paymentGateway.IsConfigured(order.Shop.PaymentConfig)) return;
         // Reconcile retained attempts as well so late payment on an old QR is never attributed to the new one.
         foreach (var payment in order.Payments.Where(x => x.PaymentType == PaymentType.Remaining
-            && x.Status != PaymentStatus.Succeeded && x.GatewayCreationAttempted
+            && (x.Status != PaymentStatus.Succeeded || verifiedPayment != null) && x.GatewayCreationAttempted
             && (verifiedPayment == null || x.GatewayOrderCode == verifiedPayment.OrderCode)).OrderBy(x => x.Status == PaymentStatus.Pending).ThenBy(x => x.CreatedAt).ThenBy(x => x.Id).ToList())
         {
             try
             {
+                if (payment.Status == PaymentStatus.Succeeded && verifiedPayment != null)
+                {
+                    payment.CollectedAmount = Math.Max(payment.CollectedAmount, verifiedPayment.AmountPaid);
+                    order.PaymentReviewRequired |= payment.CollectedAmount > payment.Amount;
+                    await _checkoutRepository.SaveAsync(ct);
+                    continue;
+                }
                 // Close balance-payment links when cancellation, pickup expiry or a terminal order state requires it.
                 var invalidAttempt = cancel || payment.Status != PaymentStatus.Pending
                     || order.Payments.Any(x => x.PaymentType == PaymentType.Remaining && x.Status == PaymentStatus.Succeeded)
@@ -573,6 +588,10 @@ public sealed class CheckoutPaymentService : ICheckoutPaymentService
             ? new GatewayPayment("PAID", gatewayCode, webhookPayment.Amount, amount,
                 webhookPayment.GatewayTransactionId, null)
             : null;
+        // A subsequent notification may be a retry or a genuinely additional transfer.
+        // Only authoritative cumulative provider totals distinguish those cases safely.
+        if (webhookPayment.Status == PaymentStatus.Succeeded)
+            verifiedPayment = await _paymentGateway.GetAsync(webhookPayment, webhookConfig!, ct);
         await ProcessAsync(id.Value, null, false, false, ct, verifiedPayment: verifiedPayment);
     }
     // Process only the scheduled order and let Hangfire retry unresolved payment-provider failures.

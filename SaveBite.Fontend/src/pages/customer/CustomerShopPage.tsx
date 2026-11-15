@@ -91,46 +91,7 @@ function ShopContent({ shopId }: { shopId: string }) {
   useEffect(() => {
     return subscribeFeedbackSync((detail) => {
       if (!detail?.shopId || detail.shopId.toLowerCase() === shopId.toLowerCase()) {
-        if (detail?.action === "hide" && detail.feedbackId) {
-          setReviewsSummary((prev) => {
-            if (!prev) return prev;
-            const target = prev.reviews.items.find((r) => r.id === detail.feedbackId);
-            const rating = detail.rating ?? target?.rating;
-            const updatedItems = prev.reviews.items.filter((r) => r.id !== detail.feedbackId);
-            const newTotal = Math.max(0, prev.totalReviews - 1);
-            const breakdown = { ...prev.ratingBreakdown };
-            if (rating && breakdown[rating]) {
-              breakdown[rating] = Math.max(0, breakdown[rating] - 1);
-            }
-            let sumRating = 0;
-            let sumCount = 0;
-            for (let s = 1; s <= 5; s++) {
-              const c = breakdown[s] ?? 0;
-              sumRating += s * c;
-              sumCount += c;
-            }
-            const newAvg = sumCount > 0 ? sumRating / sumCount : 0;
-            setProfile((prevProf) => {
-              if (!prevProf) return prevProf;
-              return {
-                ...prevProf,
-                averageRating: newAvg,
-                totalReviews: newTotal,
-              };
-            });
-            return {
-              ...prev,
-              averageRating: newAvg,
-              totalReviews: newTotal,
-              ratingBreakdown: breakdown,
-              reviews: {
-                ...prev.reviews,
-                items: updatedItems,
-                totalItems: Math.max(0, prev.reviews.totalItems - 1),
-              },
-            };
-          });
-        }
+        // Sync events can be replayed; server aggregates are the source of truth.
         setReviewsAttempt((v) => v + 1);
         setProfileAttempt((v) => v + 1);
       }

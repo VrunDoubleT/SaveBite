@@ -1,7 +1,7 @@
 import { usePaymentUpdates } from "@/features/payments/hooks/usePaymentUpdates";
 import { REALTIME_EVENTS } from "@/shared/realtime/realtime.types";
 import { StatementDetailSkeleton } from "@/shared/components/ui/PageLoadingSkeleton";
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -41,32 +41,34 @@ export function PlatformFeeDetailPage() {
   const [paymentData, setPaymentData] = useState<PlatformFeePaymentLinkResponse | null>(null);
   const [isCreatingLink, setIsCreatingLink] = useState(false);
 
-  const loadData = useCallback(async () => {
-    if (!statementId) return;
-    setLoading(true);
-    try {
-      const shopData = await ownerShopApi.getMyShopProfile();
-      setShop(shopData);
+  const loadData = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!statementId) return;
+      setLoading(true);
+      try {
+        const shopData = await ownerShopApi.getMyShopProfile();
+        if (signal?.aborted) return;
+        setShop(shopData);
 
-      const stmtData = await platformFeeApi.getStatementDetail(shopData.id, statementId);
-      setStatement(stmtData);
-    } catch (error) {
-      toast.error(getApiErrorMessage(error) || "Unable to load fee statement details.");
-    } finally {
-      setLoading(false);
-    }
-  }, [statementId]);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+        const stmtData = await platformFeeApi.getStatementDetail(shopData.id, statementId);
+        if (!signal?.aborted) setStatement(stmtData);
+      } catch (error) {
+        if (!signal?.aborted)
+          toast.error(getApiErrorMessage(error) || "Unable to load fee statement details.");
+      } finally {
+        if (!signal?.aborted) setLoading(false);
+      }
+    },
+    [statementId],
+  );
 
   usePaymentUpdates(
     REALTIME_EVENTS.PLATFORM_FEE_CHANGED,
-    async () => {
-      await loadData();
+    async (signal) => {
+      await loadData(signal);
     },
     (event) => event.statementId === statementId,
+    statementId,
   );
 
   // Handle Pay Online (UC-81)
@@ -475,7 +477,9 @@ export function PlatformFeeDetailPage() {
                             ? "Payment paused"
                             : h.changeType === "PaymentResumed"
                               ? "Payment restored"
-                              : h.changeType}
+                              : h.changeType === "VndRounding"
+                                ? "VND rounding"
+                                : h.changeType}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-slate-600">{formatVnd(h.previousAmount)}</td>

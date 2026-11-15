@@ -144,56 +144,19 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
           setError(null);
           if (!data) return;
           if (data.variants && data.variants.length > 0) {
-            // Find default variant preference: Regular & Non-spicy (or lowest deal price)
+            // Prefer the first available variant in the API's stable order.
             const defaultVar =
-              data.variants.find((v) => {
-                const attrs = v.attributes || {};
-                const sizeVal = (attrs["Size"] || attrs["size"] || "").toLowerCase();
-                const spiceVal = (
-                  attrs["Spice Level"] ||
-                  attrs["Độ cay"] ||
-                  attrs["spice"] ||
-                  ""
-                ).toLowerCase();
-                return (
-                  (sizeVal.includes("regular") ||
-                    sizeVal.includes("small") ||
-                    sizeVal.includes("thường") ||
-                    sizeVal.includes("nhỏ")) &&
-                  (spiceVal.includes("none") ||
-                    spiceVal.includes("mild") ||
-                    spiceVal.includes("không"))
-                );
-              }) || [...data.variants].sort((a, b) => a.dealPrice - b.dealPrice)[0];
+              data.variants.find((variant) => variant.isPurchasable === true) ??
+              data.variants.find(
+                (variant) => variant.availableQuantity > 0 && variant.status === 0,
+              ) ??
+              data.variants[0];
 
             setSelectedVariant(defaultVar);
-            if (defaultVar.imageUrl) {
-              setActiveImgUrl(defaultVar.imageUrl);
-            } else if (data.productImageUrl) {
-              setActiveImgUrl(data.productImageUrl);
-            }
-
-            // Set initial attribute values
-            const initialAttrs: Record<string, string> = {};
-            if (defaultVar.attributes) {
-              Object.assign(initialAttrs, defaultVar.attributes);
-            }
-            data.attributeGroups?.forEach((g) => {
-              if (!initialAttrs[g.name] && g.values.length > 0) {
-                const preferred =
-                  g.values.find((val) => {
-                    const vLow = val.toLowerCase();
-                    return (
-                      vLow.includes("regular") ||
-                      vLow.includes("none") ||
-                      vLow.includes("thường") ||
-                      vLow.includes("không")
-                    );
-                  }) || g.values[0];
-                initialAttrs[g.name] = preferred;
-              }
-            });
-            setSelectedAttributes(initialAttrs);
+            setActiveImgUrl(defaultVar.imageUrl || data.productImageUrl || "");
+            setSelectedAttributes({ ...defaultVar.attributes });
+            setQuantity(1);
+            setQuantityInput("1");
           }
         }
       })
@@ -337,9 +300,8 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
       setQuantity(1);
       setQuantityInput("1");
       // Switch active image immediately if variant has specific image
-      if (matched.imageUrl) {
-        setActiveImgUrl(matched.imageUrl);
-      }
+      setSelectedAttributes({ ...matched.attributes });
+      setActiveImgUrl(matched.imageUrl || deal.productImageUrl || "");
     }
   };
 
@@ -347,12 +309,8 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
     setSelectedVariant(v);
     setQuantity(1);
     setQuantityInput("1");
-    if (v.attributes) {
-      setSelectedAttributes({ ...v.attributes });
-    }
-    if (v.imageUrl) {
-      setActiveImgUrl(v.imageUrl);
-    }
+    setSelectedAttributes({ ...v.attributes });
+    setActiveImgUrl(v.imageUrl || deal?.productImageUrl || "");
   };
 
   const handleAddToCart = async () => {
@@ -549,12 +507,6 @@ function DealDetailContent({ id, onRetry }: { id?: string; onRetry: () => void }
                   aria-pressed={img === mainImage}
                   onClick={() => {
                     setActiveImgUrl(img);
-                    const matchedVar = deal.variants.find((v) => v.imageUrl === img);
-                    if (matchedVar) {
-                      setSelectedVariant(matchedVar);
-                      if (matchedVar.attributes)
-                        setSelectedAttributes({ ...matchedVar.attributes });
-                    }
                   }}
                   className="size-16 overflow-hidden !p-0 aria-pressed:border-primary-700 aria-pressed:ring-2 aria-pressed:ring-primary-200"
                 >

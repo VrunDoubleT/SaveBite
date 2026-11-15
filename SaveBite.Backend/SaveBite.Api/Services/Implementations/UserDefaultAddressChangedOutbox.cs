@@ -31,7 +31,7 @@ public static class UserDefaultAddressChangedOutbox
         {
             Id = Guid.NewGuid(),
             OrderId = null,
-            EventKey = $"user-default-address:{userId:N}:{addressVersion}",
+            EventKey = $"user-default-address:{userId:N}:{addressId:N}:{addressVersion}:{isDeleted}",
             RoutingKey = RabbitMqRoutingKeys.UserDefaultAddressChanged,
             PayloadJson = JsonSerializer.Serialize(evt),
             CreatedAt = DateTime.UtcNow

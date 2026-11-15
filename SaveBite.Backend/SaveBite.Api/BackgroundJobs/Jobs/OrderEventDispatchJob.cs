@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using SaveBite.Backend.Data;
 using SaveBite.Backend.Messaging.Constants;
 using SaveBite.Backend.Messaging.Events;
 using SaveBite.Backend.Messaging.Interfaces;
@@ -17,6 +19,7 @@ public sealed class OrderEventDispatchJob
     private readonly Microsoft.AspNetCore.SignalR.IHubContext<SaveBite.Backend.Hubs.FlashDealsHub, SaveBite.Backend.Hubs.IApplicationClient>? _dealHub;
     private readonly IRealtimePublisher? _realtime;
     private readonly ILocationService? _locationService;
+    private readonly AppDbContext? _db;
 
     public OrderEventDispatchJob(
         IOrderEventRepository events,
@@ -25,7 +28,7 @@ public sealed class OrderEventDispatchJob
         SaveBite.Backend.Messaging.Configuration.RabbitMqTopologyState topology,
         IRealtimePublisher? realtime = null,
         Microsoft.AspNetCore.SignalR.IHubContext<SaveBite.Backend.Hubs.FlashDealsHub, SaveBite.Backend.Hubs.IApplicationClient>? dealHub = null,
-        ILocationService? locationService = null)
+        ILocationService? locationService = null, AppDbContext? db = null)
     {
         _dealHub = dealHub;
         _realtime = realtime;
@@ -34,15 +37,19 @@ public sealed class OrderEventDispatchJob
         _publisher = publisher;
         _clock = clock;
         _locationService = locationService;
+        _db = db;
     }
 
     // Broker failures bubble up to Hangfire retry; a duplicate delivery remains safe for the consumer.
     public async Task ExecuteAsync(Guid messageId, CancellationToken ct)
     {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(20));
+        ct = timeout.Token;
         await _events.DispatchAsync(messageId, async message =>
         {
             if (!message.RoutingKey.StartsWith("internal.", StringComparison.Ordinal))
-                await _topology.Ready.WaitAsync(ct);
+                await _topology.Ready.WaitAsync(TimeSpan.FromSeconds(10), ct);
             switch (message.RoutingKey)
             {
                 case SaveBite.Backend.Services.Implementations.FlashDealRealtimeOutbox.Route:
@@ -64,31 +71,33 @@ public sealed class OrderEventDispatchJob
                             ?? throw new InvalidOperationException("Invalid shop deal opening event."), ct);
                     break;
                 case RabbitMqRoutingKeys.UserDefaultAddressChanged:
-                    if (_locationService != null)
-                    {
-                        var addressEvt = JsonSerializer.Deserialize<UserDefaultAddressChangedEvent>(message.PayloadJson)
-                            ?? throw new InvalidOperationException("Invalid default address event.");
-                        if (addressEvt.IsDeleted || !addressEvt.IsDefault)
-                        {
-                            await _locationService.RemoveDefaultAddressAsync(addressEvt.UserId, ct);
-                        }
-                        else
-                        {
-                            await _locationService.SyncDefaultAddressAsync(
-                                addressEvt.UserId,
-                                addressEvt.Latitude,
-                                addressEvt.Longitude,
-                                addressEvt.AddressVersion,
-                                ct);
-                        }
-                    }
+                    var location = _locationService ?? throw new InvalidOperationException("Location service is required.");
+                    var db = _db ?? throw new InvalidOperationException("The business DbContext is required.");
+                    var addressEvt = JsonSerializer.Deserialize<UserDefaultAddressChangedEvent>(message.PayloadJson)
+                        ?? throw new InvalidOperationException("Invalid default address event.");
+                    // Outbox IDs do not encode event order. Serialize deliveries per user and
+                    // project the latest committed default instead of replaying stale coordinates/deletes.
+                    var locationKey = $"default-address-sync:{addressEvt.UserId}";
+                    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({locationKey}, 0))", ct);
+                    var current = await db.UserAddresses.AsNoTracking()
+                        .SingleOrDefaultAsync(a => a.UserId == addressEvt.UserId && a.IsDefault, ct);
+                    if (current == null) await location.RemoveDefaultAddressAsync(addressEvt.UserId, ct);
+                    else await location.SyncDefaultAddressAsync(current.UserId, current.Latitude, current.Longitude, current.AddressVersion, ct);
+                    break;
+                case SaveBite.Backend.Services.Implementations.FeedbackRealtimeOutbox.Route:
+                    var feedback = JsonSerializer.Deserialize<JsonElement>(message.PayloadJson);
+                    await (_realtime ?? throw new InvalidOperationException("Realtime publisher is required."))
+                        .SendToAllAsync(SaveBite.Backend.Constants.RealtimeEvents.FeedbackChanged, feedback).WaitAsync(ct);
+                    await (_dealHub ?? throw new InvalidOperationException("Public deal hub is required."))
+                        .Clients.All.ReceiveEvent(new SaveBite.Backend.Models.DTOs.RealtimeEvent(message.Id,
+                            SaveBite.Backend.Constants.RealtimeEvents.FeedbackChanged, 1, _clock.GetUtcNow().UtcDateTime, feedback)).WaitAsync(ct);
                     break;
                 case "internal.cart.refresh":
                     var refresh = JsonSerializer.Deserialize<CartRefreshEvent>(message.PayloadJson)
                         ?? throw new InvalidOperationException("Invalid cart refresh request.");
                     await (_realtime ?? throw new InvalidOperationException("Realtime publisher is required."))
                         .SendToUserAsync(refresh.UserId, SaveBite.Backend.Constants.RealtimeEvents.CartChanged,
-                            new SaveBite.Backend.Models.DTOs.CartChangedEvent(SaveBite.Backend.Constants.RealtimeEvents.CartReasons.DealUnavailable));
+                            new SaveBite.Backend.Models.DTOs.CartChangedEvent(SaveBite.Backend.Constants.RealtimeEvents.CartReasons.DealUnavailable)).WaitAsync(ct);
                     break;
                 case RabbitMqRoutingKeys.EmailRoutingKey:
                     await _publisher.PublishAsync(message.RoutingKey,

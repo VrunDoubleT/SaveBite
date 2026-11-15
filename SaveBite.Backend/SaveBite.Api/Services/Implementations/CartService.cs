@@ -212,8 +212,7 @@ public sealed class CartService : ICartService
                 // Build the variant label from its attributes and prefer a variant image over a product image.
                 var values = variant.Variant.VariantValues.OrderBy(x => x.AttributeValue.Attribute.Name).ToList();
                 var name = values.Count > 0 ? string.Join(" / ", values.Select(x => x.AttributeValue.Value)) : variant.Variant.Sku ?? "Default";
-                var image = values.Select(x => x.AttributeValue.ImageUrl).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x))
-                    ?? product.Images.OrderBy(x => x.Id).Select(x => x.ImageUrl).FirstOrDefault();
+                var image = SaveBite.Backend.Helpers.ProductImages.ForVariant(variant.Variant, product);
                 var available = AvailableQuantity(variant);
                 var reason = UnavailableReason(variant, now);
                 // Allow reducing an excessive quantity while the variant itself remains purchasable.

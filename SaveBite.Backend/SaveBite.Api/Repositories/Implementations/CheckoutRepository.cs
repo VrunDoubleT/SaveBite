@@ -48,6 +48,8 @@ public sealed partial class CheckoutRepository : ICheckoutRepository
 
     private IQueryable<Order> Orders => _dbContext.Orders.Include(x => x.Customer).Include(x => x.Items).ThenInclude(x => x.FlashDealVariant)
         .ThenInclude(x => x.FlashDeal).ThenInclude(x => x.Product).ThenInclude(x => x.Images).Include(x => x.Payments)
+        .Include(x => x.Items).ThenInclude(x => x.FlashDealVariant).ThenInclude(x => x.Variant)
+            .ThenInclude(x => x.VariantValues).ThenInclude(x => x.AttributeValue).ThenInclude(x => x.Attribute)
         .Include(x => x.Items).ThenInclude(x => x.Feedback)
         .Include(x => x.Shop).ThenInclude(x => x.PaymentConfig).AsSplitQuery();
     // Find a previous checkout by request or quote ID to prevent duplicate orders.

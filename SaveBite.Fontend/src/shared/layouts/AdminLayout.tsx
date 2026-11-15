@@ -15,6 +15,8 @@ import {
 import { APP_PATHS } from "@/app/router/paths";
 import { WorkspaceLayout } from "@/shared/layouts/WorkspaceLayout";
 
+import { AdminShopApplicationsBadge } from "@/features/shop-applications/components/AdminShopApplicationsBadge";
+
 const navigation = [
   {
     to: APP_PATHS.ADMIN_ANALYTICS,
@@ -44,6 +46,7 @@ const navigation = [
   {
     to: APP_PATHS.ADMIN_SHOP_APPLICATIONS,
     label: "Store Applications",
+    badge: <AdminShopApplicationsBadge />,
     icon: ClipboardCheck,
   },
   {

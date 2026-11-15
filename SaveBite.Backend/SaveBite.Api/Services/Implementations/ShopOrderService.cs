@@ -218,13 +218,22 @@ public sealed class ShopOrderService : IShopOrderService
                     throw AppException.Conflict("The online payment request has not been closed. Retry before accepting cash.");
             }
         }
-        else
+        // Retain the provider attempt and its code for delayed notifications. Cash is a separate receipt.
+        if (payment?.GatewayCreationAttempted == true)
+        {
+            payment.Status = PaymentStatus.Cancelled;
+            payment.GatewayCheckoutUrl = null;
+            payment.GatewayQrCode = null;
+            payment.UpdatedAt = Now;
+            payment = null;
+        }
+        if (payment == null)
         {
             payment = new Payment { Id = Guid.NewGuid(), OrderId = order.Id, PaymentType = PaymentType.Remaining, CreatedAt = Now };
             order.Payments.Add(payment);
             _shops.AddPayment(payment);
         }
-        // Reuse the selected unpaid attempt as the cash receipt while retaining earlier attempt history.
+        // The selected attempt is reused only if it was never sent to the provider.
         payment.Method = PaymentMethod.Cash;
         payment.Amount = amount;
         payment.CollectedAmount = amount;

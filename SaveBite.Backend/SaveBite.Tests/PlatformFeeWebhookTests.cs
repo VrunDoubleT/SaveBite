@@ -29,6 +29,19 @@ public class PlatformFeeWebhookTests
         Assert.Equal(1, repository.Saves);
     }
 
+    [Fact]
+    public async Task SeparatePaidAttemptIsRecordedEvenWhenStatementWasAlreadySettled()
+    {
+        var (service, repository) = Fixture();
+        repository.Payment.Statement.Status = PlatformFeeStatementStatus.Paid;
+        await Deliver(service, Body(50000));
+        Assert.Equal(PaymentStatus.Succeeded, repository.Payment.Status);
+        Assert.NotNull(repository.Payment.PaidAt);
+        Assert.Equal(1, repository.Saves);
+        await Deliver(service, Body(50000));
+        Assert.Equal(1, repository.Saves);
+    }
+
     [Theory]
     [InlineData(50000, "wrong-checksum")]
     [InlineData(49999, "checksum")]

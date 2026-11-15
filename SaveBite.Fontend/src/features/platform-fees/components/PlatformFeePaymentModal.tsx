@@ -48,6 +48,16 @@ function ActiveFeePayment({
         window.dispatchEvent(new Event("store-owner-actions-changed"));
         onPaymentSuccess?.();
         onClose();
+      } else if (!signal.aborted && !completed.current) {
+        const receipt = statement.payments.find((payment) => payment.id === paymentData.paymentId);
+        if (receipt?.gatewayInvalidatedAt) {
+          completed.current = true;
+          toast.info(
+            "The statement amount changed. This QR is no longer valid. Please create a new payment QR.",
+          );
+          onPaymentSuccess?.();
+          onClose();
+        }
       }
     },
     (data) => data.statementId === paymentData.statementId,

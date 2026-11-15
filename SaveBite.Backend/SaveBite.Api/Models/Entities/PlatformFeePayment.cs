@@ -9,6 +9,9 @@ public class PlatformFeePayment
     public Guid ShopId { get; set; }
 
     public decimal Amount { get; set; }
+    public decimal CollectedAmount { get; set; }
+    public DateTime? GatewayInvalidatedAt { get; set; }
+    public DateTime? GatewayClosedAt { get; set; }
     public PaymentMethod PaymentMethod { get; set; }
     public string? GatewayTransactionId { get; set; }
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;

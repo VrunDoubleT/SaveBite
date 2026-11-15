@@ -1267,7 +1267,7 @@ export function NearbyStoresMapSection({
                       <span className="flex items-center gap-0.5 font-bold text-accent-500">
                         <Star size={12} className="fill-accent-300 text-accent-300" />
                         <span>
-                          {selectedShop.averageRating > 0 ? selectedShop.averageRating : "5.0"}
+                          {selectedShop.totalReviews > 0 ? selectedShop.averageRating.toFixed(1) : "—"}
                         </span>
                       </span>
                       <span>•</span>

@@ -6,6 +6,8 @@ import type { CategoryFormData } from "@/features/categories/schemas/category.sc
 import { getApiErrorMessage } from "@/shared/api";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 
+import { toast } from "@/shared/stores/toastStore";
+
 export const CATEGORY_PAGE_SIZE = 10;
 
 export type SaveCategoryResult = "success" | "duplicate" | "error";
@@ -73,6 +75,9 @@ export function useCategoryManagement() {
     try {
       if (editingId) await categoryApi.updateCategory(editingId, data);
       else await categoryApi.createCategory(data);
+      toast.success(
+        editingId ? "Category updated successfully." : "Category created successfully.",
+      );
       await fetchCategories();
       return "success";
     } catch (error) {
@@ -80,6 +85,7 @@ export function useCategoryManagement() {
       const lower = message.toLowerCase();
       if (lower.includes("exist") || lower.includes("duplicate")) return "duplicate";
       setErrorMessage(message);
+      toast.error(message);
       return "error";
     }
   };
@@ -97,9 +103,13 @@ export function useCategoryManagement() {
   const toggleStatus = async (id: string, currentStatus: boolean) => {
     try {
       await categoryApi.toggleStatus(id, !currentStatus);
+      toast.success(
+        currentStatus ? "Category deactivated successfully." : "Category activated successfully.",
+      );
       await fetchCategories();
     } catch (error) {
-      setErrorMessage(getApiErrorMessage(error));
+      const message = getApiErrorMessage(error);
+      toast.error(message);
     }
   };
 

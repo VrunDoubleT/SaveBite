@@ -112,9 +112,9 @@ public static class HangfireExtensions
         recurring.AddOrUpdate<PenaltyRuleRecoveryJob>("penalty-rule-schedule-recovery", job => job.ExecuteAsync(CancellationToken.None), "* * * * *");
         recurring.AddOrUpdate<BusinessEmailReminderJob>("business-email-reminders", job => job.ExecuteAsync(CancellationToken.None), TimingConfiguration.EmailReminders.ScanCron);
         var jobs = app.Services.GetRequiredService<IBackgroundJobClient>();
-        jobs.Enqueue<BusinessEmailReminderJob>(job => job.ExecuteAsync(CancellationToken.None));
-        jobs.Enqueue<PenaltyRuleRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None));
         var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("BackgroundJobStartup");
+        SafeSchedule.Try(() => jobs.Enqueue<BusinessEmailReminderJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "email-startup", Guid.Empty);
+        SafeSchedule.Try(() => jobs.Enqueue<PenaltyRuleRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "penalty-startup", Guid.Empty);
         SafeSchedule.Try(() => jobs.Enqueue<RefundDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "refund-startup", Guid.Empty);
         SafeSchedule.Try(() => jobs.Enqueue<StaffInvitationRecoveryJob>(job => job.ExecuteAsync(true, CancellationToken.None)), logger, "invitation-startup", Guid.Empty);
         SafeSchedule.Try(() => jobs.Enqueue<OrderDeadlineRecoveryJob>(job => job.ExecuteAsync(CancellationToken.None)), logger, "order-startup", Guid.Empty);

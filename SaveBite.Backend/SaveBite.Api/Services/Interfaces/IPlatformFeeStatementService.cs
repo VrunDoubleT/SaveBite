@@ -7,6 +7,8 @@ namespace SaveBite.Backend.Services.Interfaces;
 
 public interface IPlatformFeeStatementService
 {
+    Task InvalidateChangedPaymentLinksAsync(CancellationToken ct = default);
+
     Task<PlatformFeePeriodStatisticsResponse> GetPeriodStatisticsAsync(int? year, int? month, CancellationToken ct = default);
     Task RepairNotificationsAsync(Guid statementId, CancellationToken ct = default);
 

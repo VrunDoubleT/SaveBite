@@ -102,6 +102,8 @@ export interface PlatformFeeAdjustmentItem {
 }
 
 export interface PlatformFeePaymentItem {
+  gatewayInvalidatedAt?: string | null;
+  collectedAmount?: number;
   id: string;
   amount: number;
   paymentMethod: string;

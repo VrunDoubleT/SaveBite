@@ -275,10 +275,44 @@ public class CheckoutSessionTests
         Assert.Equal(PaymentStatus.Succeeded, payment.Status);
         Assert.Equal(10000, payment.CollectedAmount);
         Assert.Equal(OrderStatus.Confirmed, order.Status);
-        Assert.Equal(0, gateway.Reads);
+        Assert.Equal(1, gateway.Reads); // A duplicate checks cumulative funds without publishing again.
         var evt = Assert.Single(realtime.Events);
         Assert.Equal(RealtimeEvents.PaymentChanged, evt.Type);
         Assert.Equal(payment.Id, evt.Data.GetProperty("PaymentId").GetGuid());
+    }
+
+    [Fact]
+    public async Task SubsequentTransferOnSettledQrRecordsCumulativeMoneyWithoutResubmittingOrder()
+    {
+        var (service, order, gateway, realtime) = WebhookFixture();
+        var payment = order.Payments.Last();
+        var body = SignedWebhook(payment.GatewayOrderCode!.Value, payment.Amount);
+        await service.WebhookAsync(body);
+        Assert.Equal(0, gateway.Reads);
+        gateway.PaidTotal = payment.Amount * 2;
+        await service.WebhookAsync(body);
+        Assert.Equal(payment.Amount * 2, payment.CollectedAmount);
+        Assert.True(order.PaymentReviewRequired);
+        Assert.Equal(OrderStatus.Confirmed, order.Status);
+        Assert.Equal(2, realtime.Events.Count);
+    }
+
+    [Fact]
+    public async Task LateOnlinePaymentAfterCashIsRetainedAndFlaggedForReview()
+    {
+        var (service, order, gateway, realtime) = WebhookFixture();
+        var originalQr = order.Payments.Last();
+        originalQr.Status = PaymentStatus.Cancelled;
+        order.Status = OrderStatus.Completed;
+        order.Payments.Add(new Payment { Id = Guid.NewGuid(), OrderId = order.Id, Amount = 10000,
+            CollectedAmount = 10000, Status = PaymentStatus.Succeeded, PaymentType = PaymentType.Remaining,
+            Method = PaymentMethod.Cash, CreatedAt = Now });
+        await service.WebhookAsync(SignedWebhook(originalQr.GatewayOrderCode!.Value, 10000));
+        Assert.Equal(PaymentStatus.Succeeded, originalQr.Status);
+        Assert.Equal(10000, originalQr.CollectedAmount);
+        Assert.True(order.PaymentReviewRequired);
+        Assert.Equal(OrderStatus.Completed, order.Status);
+        Assert.Equal(2, order.Payments.Count(p => p.PaymentType == PaymentType.Remaining && p.Status == PaymentStatus.Succeeded));
     }
 
     [Fact]
@@ -300,7 +334,7 @@ public class CheckoutSessionTests
         await service.WebhookAsync(body);
         Assert.Equal(PaymentStatus.Succeeded, payment.Status);
         Assert.Equal(OrderStatus.Pending, order.Status);
-        Assert.Equal(0, gateway.Reads);
+        Assert.Equal(1, gateway.Reads);
         Assert.Single(realtime.Events);
     }
 
@@ -353,9 +387,15 @@ public class CheckoutSessionTests
     private sealed class WebhookGateway : ICheckoutPaymentGateway
     {
         public int Reads;
+        public decimal? PaidTotal;
         public bool IsConfigured(ShopPaymentConfig? config) => true;
         public bool VerifyWebhook(JsonElement body, ShopPaymentConfig config) => PayOsCheckoutGateway.VerifyWebhookData(body, "checksum");
-        public Task<GatewayPayment> GetAsync(Payment payment, ShopPaymentConfig config, CancellationToken ct) { Reads++; throw new InvalidOperationException("A full signed webhook must not poll PayOS."); }
+        public Task<GatewayPayment> GetAsync(Payment payment, ShopPaymentConfig config, CancellationToken ct)
+        {
+            Reads++;
+            return Task.FromResult(new GatewayPayment("PAID", payment.GatewayOrderCode!.Value, payment.Amount,
+                PaidTotal ?? payment.Amount, null, null));
+        }
         public Task<GatewayPayment> CreateAsync(Order order, Payment payment, ShopPaymentConfig config, CancellationToken ct) => throw new NotSupportedException();
         public Task<GatewayPayment> CancelAsync(Payment payment, ShopPaymentConfig config, CancellationToken ct) => throw new NotSupportedException();
     }
