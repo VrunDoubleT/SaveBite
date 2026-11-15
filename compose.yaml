@@ -1,0 +1,29 @@
+name: savebite
+services:
+  savebite:
+    image: savebite:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 90s
+    environment:
+      SAVEBITE_ENABLE_CLOUDFLARE: ${SAVEBITE_ENABLE_CLOUDFLARE:-true}
+    ports:
+      - '127.0.0.1:${HTTP_PORT:-8088}:80'
+      - '127.0.0.1:${LOCAL_POSTGRES_PORT:-5433}:5432'
+      - '127.0.0.1:${LOCAL_REDIS_PORT:-6380}:6379'
+      - '127.0.0.1:${LOCAL_RABBITMQ_PORT:-5673}:5672'
+      - '127.0.0.1:${LOCAL_RABBITMQ_UI_PORT:-15673}:15672'
+      - '127.0.0.1:${LOCAL_MINIO_PORT:-9002}:9000'
+      - '127.0.0.1:${LOCAL_MINIO_CONSOLE_PORT:-9003}:9001'
+    volumes:
+      - savebite_data:/var/lib/savebite
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  savebite_data:

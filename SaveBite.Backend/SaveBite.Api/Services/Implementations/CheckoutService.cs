@@ -33,6 +33,7 @@ public sealed class CheckoutService : ICheckoutService
     private readonly OrderConfirmationScheduling _confirmation;
     private readonly ICheckoutPaymentExpirationScheduler _paymentExpirationScheduler;
     private readonly IShopOrderEventService _shopOrderEvents;
+    private readonly IConfiguration _configuration;
 
     public CheckoutService(
         ICheckoutRepository repository,
@@ -45,8 +46,10 @@ public sealed class CheckoutService : ICheckoutService
         ICheckoutPaymentExpirationScheduler paymentExpirationScheduler,
         OrderConfirmationScheduling confirmation,
         IShopOrderEventService shopOrderEvents,
-        IOrderCodeCache orderCodes)
+        IOrderCodeCache orderCodes,
+        IConfiguration? configuration = null)
     {
+        _configuration = configuration ?? new ConfigurationBuilder().Build();
         _orderCodes = orderCodes;
         _checkoutRepository = repository;
         _travelTimeService = travel;
@@ -199,8 +202,10 @@ public sealed class CheckoutService : ICheckoutService
                 throw AppException.Conflict("This order does not have valid VND payment amounts.");
             if (total < MoneyLimits.MinAmountVnd || (online > 0 && online < MoneyLimits.MinAmountVnd))
                 throw AppException.Conflict($"Order and payment amounts must be at least {MoneyLimits.MinAmountVnd:N0} VND.");
+            if (online > 0) DeploymentEndpoint.EnsurePaymentCreationEnabled(_configuration);
             if (online > 0 && !_paymentGateway.IsConfigured(state.PaymentConfig))
                 throw AppException.ServiceUnavailable("This shop has not configured online payments yet. No order was created.");
+            if (online > 0) await _paymentGateway.EnsureReadyAsync(state.PaymentConfig!, ct);
             // Persist the agreed amounts and absolute pickup deadlines; payment expires within 120 seconds or the hard deadline.
             var order = new Order
             {

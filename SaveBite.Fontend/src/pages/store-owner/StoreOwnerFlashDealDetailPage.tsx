@@ -102,7 +102,15 @@ export function StoreOwnerFlashDealDetailPage() {
   // Summary calculations
   const summary = useMemo(() => {
     if (!deal)
-      return { totalQty: 0, soldQty: 0, pendingQty: 0, reservedQty: 0, remainingQty: 0, revenue: 0, percent: 0 };
+      return {
+        totalQty: 0,
+        soldQty: 0,
+        pendingQty: 0,
+        reservedQty: 0,
+        remainingQty: 0,
+        revenue: 0,
+        percent: 0,
+      };
     const totalQty = deal.variants.reduce((acc, v) => acc + v.totalQuantity, 0);
     const soldQty = deal.variants.reduce((acc, v) => acc + v.soldQuantity, 0);
     const pendingQty = deal.variants.reduce((acc, v) => acc + (v.pendingRestockQuantity ?? 0), 0);
@@ -185,9 +193,8 @@ export function StoreOwnerFlashDealDetailPage() {
 
   const isHidden = deal.status === FlashDealStatusEnum.Hidden;
   const isCancelled =
-    deal.status === FlashDealStatusEnum.Cancelled ||
-    deal.status === FlashDealStatusEnum.Closed ||
-    new Date(deal.orderEndTime).getTime() <= Date.now();
+    deal.status === FlashDealStatusEnum.Cancelled || deal.status === FlashDealStatusEnum.Closed;
+  const isEnded = isCancelled || new Date(deal.orderEndTime).getTime() <= Date.now();
 
   return (
     <div className="space-y-6">
@@ -202,7 +209,7 @@ export function StoreOwnerFlashDealDetailPage() {
       </button>
 
       {/* Prominent Warning Banner if Deal is Hidden */}
-      {isHidden && (
+      {isHidden && !isEnded && (
         <div className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 ring-1 ring-amber-500/20">
@@ -243,7 +250,7 @@ export function StoreOwnerFlashDealDetailPage() {
               <EyeOff className="size-3.5 text-amber-700" />
               Hidden from customers
             </span>
-          ) : isCancelled ? (
+          ) : isEnded ? (
             <span className="inline-flex items-center rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600 ring-1 ring-inset ring-neutral-500/20">
               Ended
             </span>
@@ -254,7 +261,7 @@ export function StoreOwnerFlashDealDetailPage() {
             </span>
           )}
 
-          {!isCancelled && (
+          {!isEnded && (
             <>
               {/* High-visibility Hide / Unhide button */}
               {isHidden ? (
@@ -281,18 +288,21 @@ export function StoreOwnerFlashDealDetailPage() {
             </>
           )}
 
-          {/* Ended deals cannot be edited. */}
-          <button
-            type="button"
-            disabled={shopSuspended || isCancelled}
-            onClick={() => navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id))}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Edit2 className="size-3.5" />
-            <span>Edit</span>
-          </button>
+          {!isEnded && (
+            <button
+              type="button"
+              disabled={shopSuspended}
+              onClick={() =>
+                navigate(APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id))
+              }
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Edit2 className="size-3.5" />
+              <span>Edit</span>
+            </button>
+          )}
 
-          {!isCancelled && (
+          {!isEnded && (
             <button
               type="button"
               disabled={shopSuspended}

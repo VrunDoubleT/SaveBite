@@ -14,7 +14,7 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
         var envPath = Path.GetFullPath(Path.Combine(projectDirectory, "../.env"));
         if (File.Exists(envPath))
         {
-            Env.Load(envPath);
+            Env.NoClobber().Load(envPath);
         }
 
         var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")

@@ -9,6 +9,7 @@ using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Requests;
 using SaveBite.Backend.Models.Responses;
 using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.Payments.Webhooks;
 
 namespace SaveBite.Backend.Services.Implementations;
 
@@ -22,13 +23,14 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
     private readonly TimeProvider _clock;
     private readonly IPayOsCredentialsValidator _validator;
     private readonly IPayOsCredentialProtector _paymentProtector;
+    private readonly PayOsWebhookReadiness _webhooks;
 
     public PlatformPayOsConfigService(
         AppDbContext db,
         IConfiguration configuration,
         IDataProtectionProvider protectionProvider,
         IAdminAuditWriter audit,
-        TimeProvider clock, IPayOsCredentialsValidator validator, IPayOsCredentialProtector paymentProtector)
+        TimeProvider clock, IPayOsCredentialsValidator validator, IPayOsCredentialProtector paymentProtector, PayOsWebhookReadiness webhooks)
     {
         _db = db;
         _configuration = configuration;
@@ -37,15 +39,17 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
         _clock = clock;
         _validator = validator;
         _paymentProtector = paymentProtector;
+        _webhooks = webhooks;
     }
 
     public async Task<PlatformPayOsConfigResponse> GetAdminConfigAsync(CancellationToken cancellationToken = default)
     {
         var stored = await GetStoredConfigAsync(cancellationToken);
         if (stored is not null)
-            return ToResponse(stored);
+            return await ToResponseAsync(stored, cancellationToken);
 
         var credentials = GetEnvironmentCredentials();
+        var ready = await _webhooks.IsPlatformReadyAsync(cancellationToken);
         return new PlatformPayOsConfigResponse(
             Mask(credentials.ClientId),
             !string.IsNullOrWhiteSpace(credentials.ClientId),
@@ -53,7 +57,7 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
             !string.IsNullOrWhiteSpace(credentials.ChecksumKey),
             null,
             null,
-            null);
+            null) { IsVerified = ready, PaymentsAvailable = ready };
     }
 
     public async Task<IReadOnlyList<PlatformPayOsConfigHistoryResponse>> GetHistoryAsync(CancellationToken cancellationToken = default)
@@ -111,7 +115,7 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
         {
             await _validator.ValidatePlatformAsync(newCredentials, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return ToResponse(config);
+            return await ToResponseAsync(config, cancellationToken);
         }
 
         if (creatingDatabaseConfig && fields.Count == 0)
@@ -192,7 +196,7 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         config.UpdatedByUser = await _db.Users.SingleAsync(x => x.Id == adminId, cancellationToken);
-        return ToResponse(config);
+        return await ToResponseAsync(config, cancellationToken);
     }
 
     public async Task<PlatformPayOsCredentials> GetCredentialsAsync(CancellationToken cancellationToken = default)
@@ -229,7 +233,7 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
         }
     }
 
-    private PlatformPayOsConfigResponse ToResponse(PlatformPayOsConfig config)
+    private async Task<PlatformPayOsConfigResponse> ToResponseAsync(PlatformPayOsConfig config, CancellationToken ct)
         => new(
             Mask(config.ClientId),
             !string.IsNullOrWhiteSpace(config.ClientId),
@@ -238,7 +242,7 @@ public sealed class PlatformPayOsConfigService : IPlatformPayOsConfigService
             config.UpdatedAt,
             config.UpdatedByUserId,
             config.UpdatedByUser?.FullName)
-        { IsVerified = config.VerifiedAt != null, PaymentsAvailable = config.VerifiedAt != null && !config.IsInvalid };
+        { IsVerified = config.VerifiedAt != null, PaymentsAvailable = await _webhooks.IsPlatformReadyAsync(ct) };
 
     private (string ClientId, string ApiKey, string ChecksumKey, bool HasAny, bool HasAllCredentials) GetEnvironmentCredentials()
     {

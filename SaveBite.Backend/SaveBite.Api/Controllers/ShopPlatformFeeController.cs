@@ -107,7 +107,7 @@ public sealed class ShopPlatformFeeController : ControllerBase
     [RequestSizeLimit(65536)]
     public async Task<ActionResult> FeeWebhook([FromBody] JsonElement body, CancellationToken ct)
     {
-        await _webhooks.DispatchAsync(body, ct);
+        await _webhooks.DispatchAsync(body, ct, platformFees: true);
         return Ok(new { code = "00", desc = "success" });
     }
 

@@ -12,13 +12,11 @@ public static class EnvironmentExtensions
                 builder.Environment.ContentRootPath,
                 "../.env"));
 
-        if (!File.Exists(envPath))
+        if (File.Exists(envPath))
         {
-            throw new FileNotFoundException(
-                $"The .env file was not found: {envPath}");
+            // Docker/host environment takes precedence over the local fallback file.
+            Env.NoClobber().Load(envPath);
         }
-
-        Env.Load(envPath);
 
         // Reload environment variables after DotNetEnv has populated them.
         // Nested configuration keys use double underscores, for example.
@@ -26,9 +24,12 @@ public static class EnvironmentExtensions
         builder.Configuration.AddEnvironmentVariables();
 
         // Read application port.
-        var port = Environment.GetEnvironmentVariable("API_PORT");
+        var port = builder.Configuration["API_PORT"];
 
-        if (!string.IsNullOrWhiteSpace(port))
+        if (string.IsNullOrWhiteSpace(builder.Configuration["ASPNETCORE_URLS"])
+            && string.IsNullOrWhiteSpace(builder.Configuration["DOTNET_URLS"])
+            && string.IsNullOrWhiteSpace(builder.Configuration["urls"])
+            && !string.IsNullOrWhiteSpace(port))
         {
             if (!int.TryParse(port, out var portNumber))
             {
@@ -43,7 +44,7 @@ public static class EnvironmentExtensions
             }
 
             builder.WebHost.UseUrls(
-                $"http://localhost:{portNumber}");
+                $"http://0.0.0.0:{portNumber}");
         }
 
         return builder;

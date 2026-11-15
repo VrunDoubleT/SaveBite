@@ -6,6 +6,7 @@ using System.Text.Json;
 using SaveBite.Backend.Exceptions;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.Payments.Webhooks;
 
 namespace SaveBite.Backend.Services.Implementations;
 
@@ -15,16 +16,20 @@ public sealed class PayOsCheckoutGateway : ICheckoutPaymentGateway
     private readonly IPayOsApiClient _api;
     private readonly IPayOsCredentialProtector _protector;
     private readonly IConfiguration _configuration;
+    private readonly PayOsWebhookReadiness _webhooks;
 
     public PayOsCheckoutGateway(
         IPayOsApiClient api,
         IPayOsCredentialProtector protector,
-        IConfiguration configuration)
+        IConfiguration configuration, PayOsWebhookReadiness webhooks)
     {
         _api = api;
         _protector = protector;
         _configuration = configuration;
+        _webhooks = webhooks;
     }
+
+    public Task EnsureReadyAsync(ShopPaymentConfig config, CancellationToken ct) => _webhooks.EnsureShopReadyAsync(config, ct);
 
     // Require non-placeholder PayOS credentials before accepting real online payments.
     public bool IsConfigured(ShopPaymentConfig? config)
@@ -34,9 +39,11 @@ public sealed class PayOsCheckoutGateway : ICheckoutPaymentGateway
     // Create a signed PayOS payment link using the recorded amount and payment deadline.
     public async Task<GatewayPayment> CreateAsync(Order order, Payment payment, ShopPaymentConfig config, CancellationToken ct)
     {
+        DeploymentEndpoint.EnsurePaymentCreationEnabled(_configuration);
         EnsureReal(payment);
         config = PaymentConfig(payment, config);
-        var frontend = _configuration["Checkout:FrontendBaseUrl"] ?? "http://localhost:5173";
+        await EnsureReadyAsync(config, ct);
+        var frontend = DeploymentEndpoint.Resolve(_configuration, "Checkout:FrontendBaseUrl", "http://localhost:5173");
         if (!Uri.TryCreate(frontend, UriKind.Absolute, out var baseUri) || baseUri.Scheme is not ("https" or "http"))
             throw AppException.ServiceUnavailable("The payment return address is not configured.");
         var returnUrl = $"{frontend.TrimEnd('/')}/account/payments/{payment.Id}?checkoutId={order.Id}";

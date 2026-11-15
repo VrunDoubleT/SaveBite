@@ -51,6 +51,7 @@ public static class DatabaseExtensions
             context,
             scope.ServiceProvider.GetRequiredService<TimeProvider>(),
             scope.ServiceProvider.GetRequiredService<IPasswordHasherService>(),
+            app.Configuration,
             ct);
         await TrustEarningDefaults.EnsureAsync(context, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);
         await TrustLevelDefaults.EnsureAsync(context, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);

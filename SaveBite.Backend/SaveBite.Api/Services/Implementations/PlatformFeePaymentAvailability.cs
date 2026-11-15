@@ -7,20 +7,22 @@ using SaveBite.Backend.Models.DTOs;
 using SaveBite.Backend.Models.Entities;
 using SaveBite.Backend.Models.Enums;
 using SaveBite.Backend.Services.Interfaces;
+using SaveBite.Backend.Payments.Webhooks;
 
 namespace SaveBite.Backend.Services.Implementations;
 
 // All callers serialize billing/configuration with advisory lock 728194602.
 public sealed class PlatformFeePaymentAvailability(AppDbContext db, IConfiguration configuration,
-    INotificationQueue notifications, TimeProvider clock, IShopStatusEventService shopEvents)
+    INotificationQueue notifications, TimeProvider clock, IShopStatusEventService shopEvents, PayOsWebhookReadiness webhooks)
 {
     public const string MissingConfiguration = "PayOsNotVerified";
     public const string InvalidConfiguration = "PayOsCredentialsInvalid";
 
     public async Task<bool> IsReadyAsync(CancellationToken ct)
     {
+        if (!configuration.GetValue("Deployment:PaymentCreationEnabled", true)) return false;
         if (configuration["Checkout:PaymentProvider"] == "Simulated") return true;
-        return await db.PlatformPayOsConfigs.AnyAsync(c => c.VerifiedAt != null && !c.IsInvalid, ct);
+        return await webhooks.IsPlatformReadyAsync(ct);
     }
 
     public async Task PauseAsync(PlatformFeeStatement statement, string reason, CancellationToken ct)
@@ -87,9 +89,10 @@ public sealed class PlatformFeePaymentAvailability(AppDbContext db, IConfigurati
     {
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(728194602)", ct);
+        if (!await IsReadyAsync(ct)) return;
         var config = await db.PlatformPayOsConfigs.SingleOrDefaultAsync(ct);
         // Redelivered/obsolete events cannot extend deadlines or reopen a new outage.
-        if (config == null || config.Revision != revision || config.VerifiedAt == null || config.IsInvalid) return;
+        if (config == null ? revision != 0 : config.Revision != revision || config.VerifiedAt == null || config.IsInvalid) return;
         var now = clock.GetUtcNow().UtcDateTime;
         var statements = await db.PlatformFeeStatements.Where(s => s.PaymentPauseReason != null
             && s.TotalFeeAmount > 0 && s.Status != PlatformFeeStatementStatus.Paid).ToListAsync(ct);
