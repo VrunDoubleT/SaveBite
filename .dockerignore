@@ -1,0 +1,10 @@
+.git
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.env*
+!/.env
+!SaveBite.Backend/.env
+**/appsettings*.json
+!SaveBite.Backend/SaveBite.Api/appsettings.json

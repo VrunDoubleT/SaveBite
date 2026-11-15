@@ -526,7 +526,8 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         if (paymentProvider == "PayOS")
         {
             var checksumKey = credentials!.ChecksumKey;
-            var frontend = _configuration["Checkout:FrontendBaseUrl"] ?? "http://localhost:5173";
+            DeploymentEndpoint.EnsurePaymentCreationEnabled(_configuration);
+            var frontend = DeploymentEndpoint.Resolve(_configuration, "Checkout:FrontendBaseUrl", "http://localhost:5173");
             var returnUrl = $"{frontend.TrimEnd('/')}/store-owner/platform-fees";
             var cancelUrl = $"{frontend.TrimEnd('/')}/store-owner/platform-fees?cancelled=1";
             var amount = (long)statement.TotalFeeAmount;
@@ -608,12 +609,6 @@ public sealed class PlatformFeeStatementService : IPlatformFeeStatementService
         }
 
         if (paymentProvider != "PayOS") return;
-
-        if (!await _availability.IsReadyAsync(ct))
-        {
-            _logger.LogWarning("Skipping platform fee payment reconciliation for {PaymentId}: Platform PayOS is not ready.", paymentId);
-            return;
-        }
 
         PlatformPayOsCredentials credentials;
         try

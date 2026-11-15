@@ -95,7 +95,6 @@ export function ShopContentManagement({ shop: s }: { shop: ShopContentManagement
   const documents = s.documents ?? [];
   const address = [s.addressLine, s.ward, s.district, s.city].filter(Boolean).join(", ");
   const openingHours = formatShopOperatingHours(s.openingTime, s.closingTime);
-  const hasCoordinates = s.latitude != null && s.longitude != null;
 
   return (
     <div className="space-y-6">
@@ -165,19 +164,6 @@ export function ShopContentManagement({ shop: s }: { shop: ShopContentManagement
           <Section
             icon={MapPin}
             title="Location"
-            aside={
-              hasCoordinates && (
-                <a
-                  className={ACTION_BUTTON}
-                  href={`https://www.google.com/maps?q=${s.latitude},${s.longitude}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Navigation className="size-3.5" />
-                  View on map
-                </a>
-              )
-            }
           >
             <InfoTile icon={MapPin} label="Address" value={address || "—"} />
             <div className="grid gap-3 sm:grid-cols-2">

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.DataProtection;
 using SaveBite.Backend.Services.Implementations;
 using SaveBite.Backend.Services.Interfaces;
 using SaveBite.Backend.Uploads;
+using SaveBite.Backend.Payments.Webhooks;
 
 namespace SaveBite.Backend.Extensions;
 
@@ -12,6 +13,10 @@ public static class ServiceExtensions
         this IServiceCollection services)
     {
         services.AddDataProtection().SetApplicationName("SaveBite");
+        services.AddScoped<IPayOsAccountSource, PayOsAccountSource>();
+        services.AddScoped<PayOsWebhookEndpoint>();
+        services.AddScoped<PayOsWebhookReadiness>();
+        services.AddScoped<PayOsWebhookSynchronizer>();
         services.AddScoped<OrderConfirmationScheduling>();
         services.AddScoped<UploadService>();
         services.AddScoped<OrderResaleService>();

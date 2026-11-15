@@ -11,38 +11,16 @@ public sealed class PayOsCredentialsValidator(IPayOsApiClient api, IConfiguratio
     : IPayOsCredentialsValidator
 {
     public Task ValidateShopAsync(PlatformPayOsCredentials credentials, CancellationToken ct = default)
-        => ValidateAndRegisterAsync(credentials, false, ct);
+        => ValidateAsync(credentials, ct);
 
     public Task ValidatePlatformAsync(PlatformPayOsCredentials credentials, CancellationToken ct = default)
-        => ValidateAndRegisterAsync(credentials, true, ct);
-
-    private async Task ValidateAndRegisterAsync(PlatformPayOsCredentials credentials, bool platformFees, CancellationToken ct)
-    {
-        await ValidateAsync(credentials, ct);
-        var url = PayOsWebhookAddress.Resolve(configuration, platformFees);
-        try
-        {
-            var result = await api.SendAsync(HttpMethod.Post, "confirm-webhook", credentials, new { webhookUrl = url }, ct);
-            if (!result.TryGetProperty("webhookUrl", out var confirmed) || confirmed.GetString() != url)
-                throw AppException.ServiceUnavailable("PayOS did not confirm the configured webhook URL.");
-        }
-        catch (AppException ex)
-        {
-            var local = new Uri(url).IsLoopback;
-            throw new AppException(
-                $"PayOS webhook registration failed for {url}. "
-                    + (local ? "Set Checkout:BackendBaseUrl to a public backend URL; PayOS cannot reach localhost. "
-                        : "Check that this URL reaches the backend and the Cloudflare tunnel is running. ")
-                    + ex.Message,
-                ex.ErrorCode, ex.StatusCode);
-        }
-    }
+        => ValidateAsync(credentials, ct);
 
     public async Task ValidateAsync(PlatformPayOsCredentials credentials, CancellationToken ct = default)
     {
         if (new[] { credentials.ClientId, credentials.ApiKey, credentials.ChecksumKey }.Any(string.IsNullOrWhiteSpace))
             throw AppException.BadRequest("Client ID, API Key and Checksum Key are required.");
-        var frontend = configuration["Checkout:FrontendBaseUrl"] ?? "http://localhost:5173";
+        var frontend = DeploymentEndpoint.Resolve(configuration, "Checkout:FrontendBaseUrl", "http://localhost:5173");
         if (!Uri.TryCreate(frontend, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
             throw AppException.ServiceUnavailable("The payment return address is not configured.");
         // Random 52-bit order codes avoid collisions with normal payments and concurrent probes.

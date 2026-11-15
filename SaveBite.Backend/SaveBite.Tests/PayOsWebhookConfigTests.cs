@@ -18,7 +18,7 @@ public class PayOsWebhookConfigTests
     [Fact] public void PublicUrlOverridesLocalPort() => Assert.Equal(
         "https://backend.example.com/api/payments/payos/webhook", PayOsWebhookAddress.Resolve(Config("https://backend.example.com/")));
 
-    [Fact] public async Task ShopKeysRegisterWebhookButPlatformValidationDoesNot()
+    [Fact] public async Task CredentialValidationLeavesWebhookRegistrationToTheBackgroundWorker()
     {
         var api = new FakeApi();
         var validator = new PayOsCredentialsValidator(api, Config("https://backend.example.com"), TimeProvider.System);
@@ -26,11 +26,8 @@ public class PayOsWebhookConfigTests
         await validator.ValidateAsync(credentials);
         Assert.Equal(0, api.Registrations);
         await validator.ValidateShopAsync(credentials);
-        Assert.Equal(1, api.Registrations);
-        Assert.Equal("https://backend.example.com/api/payments/payos/webhook", api.Webhook);
         await validator.ValidatePlatformAsync(credentials);
-        Assert.Equal(2, api.Registrations);
-        Assert.Equal("https://backend.example.com/api/platform-fees/payos/webhook", api.Webhook);
+        Assert.Equal(0, api.Registrations);
     }
 
     private sealed class FakeApi : IPayOsApiClient

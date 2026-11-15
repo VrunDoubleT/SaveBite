@@ -8,11 +8,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		compose.yaml = compose.yaml
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaveBite.Api.Tests", "SaveBite.Api.Tests\SaveBite.Api.Tests.csproj", "{C27DBBC8-DE81-4CB4-9DBB-1507877B53BF}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaveBite.RedisSync", "tool\SaveBite.RedisSync.csproj", "{7BBB33FA-A41C-4EEA-AC02-D41D33A761B4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaveBite.Tests", "SaveBite.Tests\SaveBite.Tests.csproj", "{36FA2363-DAF2-4124-B61E-39C108AF4AB0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaveBite.Deployment", "..\deployment\SaveBite.Deployment\SaveBite.Deployment.csproj", "{05179088-668E-4E32-A806-6984EAE2B2E8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,10 +24,6 @@ Global
 		{CF873DA2-375A-4FDD-BE30-E5B9EA59DF59}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CF873DA2-375A-4FDD-BE30-E5B9EA59DF59}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CF873DA2-375A-4FDD-BE30-E5B9EA59DF59}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C27DBBC8-DE81-4CB4-9DBB-1507877B53BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C27DBBC8-DE81-4CB4-9DBB-1507877B53BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C27DBBC8-DE81-4CB4-9DBB-1507877B53BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C27DBBC8-DE81-4CB4-9DBB-1507877B53BF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{7BBB33FA-A41C-4EEA-AC02-D41D33A761B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{7BBB33FA-A41C-4EEA-AC02-D41D33A761B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7BBB33FA-A41C-4EEA-AC02-D41D33A761B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -36,5 +32,9 @@ Global
 		{36FA2363-DAF2-4124-B61E-39C108AF4AB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{36FA2363-DAF2-4124-B61E-39C108AF4AB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{36FA2363-DAF2-4124-B61E-39C108AF4AB0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{05179088-668E-4E32-A806-6984EAE2B2E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{05179088-668E-4E32-A806-6984EAE2B2E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{05179088-668E-4E32-A806-6984EAE2B2E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{05179088-668E-4E32-A806-6984EAE2B2E8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

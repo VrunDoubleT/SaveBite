@@ -601,20 +601,21 @@ export function StoreOwnerFlashDealsPage() {
                             <Eye className="size-3.5" />
                           </button>
 
-                          {/* Ended deals cannot be edited. */}
-                          <button
-                            type="button"
-                            disabled={shopSuspended || state === "ended"}
-                            title={state === "ended" ? "Ended deals cannot be edited" : "Edit deal"}
-                            onClick={() =>
-                              navigate(
-                                APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id),
-                              )
-                            }
-                            className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-2xs transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <Edit2 className="size-3.5" />
-                          </button>
+                          {state !== "ended" && (
+                            <button
+                              type="button"
+                              disabled={shopSuspended}
+                              title="Edit deal"
+                              onClick={() =>
+                                navigate(
+                                  APP_PATHS.STORE_OWNER_FLASH_DEAL_EDIT.replace(":id", deal.id),
+                                )
+                              }
+                              className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-500 shadow-2xs transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Edit2 className="size-3.5" />
+                            </button>
+                          )}
 
                           {/* Cancel - Opens Confirmation Modal */}
                           {state !== "ended" && (
@@ -647,7 +648,6 @@ export function StoreOwnerFlashDealsPage() {
             onPageChange={setPage}
           />
         </div>
-
       </div>
 
       {/* Pop-up Modal for Hide / Unhide Deal */}

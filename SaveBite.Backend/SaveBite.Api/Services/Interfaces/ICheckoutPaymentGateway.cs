@@ -9,6 +9,7 @@ public sealed record GatewayPayment(string Status, long OrderCode, decimal Amoun
 public interface ICheckoutPaymentGateway
 {
     bool IsConfigured(ShopPaymentConfig? config);
+    Task EnsureReadyAsync(ShopPaymentConfig config, CancellationToken ct) => Task.CompletedTask;
     Task<GatewayPayment> CreateAsync(Order order, Payment payment, ShopPaymentConfig config, CancellationToken ct);
     Task<GatewayPayment> GetAsync(Payment payment, ShopPaymentConfig config, CancellationToken ct);
     Task<GatewayPayment> CancelAsync(Payment payment, ShopPaymentConfig config, CancellationToken ct);

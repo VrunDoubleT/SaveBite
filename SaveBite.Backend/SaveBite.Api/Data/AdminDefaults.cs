@@ -14,6 +14,7 @@ public static class AdminDefaults
         AppDbContext db,
         TimeProvider clock,
         IPasswordHasherService passwordHasher,
+        IConfiguration configuration,
         CancellationToken ct = default)
     {
         var strategy = db.Database.CreateExecutionStrategy();
@@ -24,18 +25,23 @@ public static class AdminDefaults
 
             if (!await db.Users.AnyAsync(x => x.Role == UserRole.Admin, ct))
             {
-                if (await db.Users.AnyAsync(x => x.Email.ToLower() == DefaultEmail, ct))
+                var email = (configuration["BootstrapAdmin:Email"] ?? DefaultEmail).Trim().ToLowerInvariant();
+                var password = configuration["BootstrapAdmin:Password"];
+                if (configuration.GetValue<bool>("Deployment:Containerized") && string.IsNullOrWhiteSpace(password))
+                    throw new InvalidOperationException("Configure BootstrapAdmin:Password before initializing a container database.");
+                password ??= DefaultPassword;
+                if (await db.Users.AnyAsync(x => x.Email.ToLower() == email, ct))
                 {
                     throw new InvalidOperationException(
-                        "Cannot initialize the default admin: admin@gmail.com belongs to a non-admin account.");
+                        "Cannot initialize the bootstrap admin: its email belongs to a non-admin account.");
                 }
 
                 var now = clock.GetUtcNow().UtcDateTime;
                 db.Users.Add(new User
                 {
                     Id = Guid.NewGuid(),
-                    Email = DefaultEmail,
-                    PasswordHash = passwordHasher.HashPassword(DefaultPassword),
+                    Email = email,
+                    PasswordHash = passwordHasher.HashPassword(password),
                     FullName = "SaveBite Admin",
                     EmailVerifiedAt = now,
                     Status = UserStatus.Active,

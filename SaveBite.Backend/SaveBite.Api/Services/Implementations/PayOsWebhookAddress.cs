@@ -6,7 +6,7 @@ public static class PayOsWebhookAddress
 {
     public static string Resolve(IConfiguration configuration, bool platformFees = false)
     {
-        var backend = configuration["Checkout:BackendBaseUrl"]?.Trim();
+        var backend = DeploymentEndpoint.Resolve(configuration, "Checkout:BackendBaseUrl").Trim();
         if (string.IsNullOrEmpty(backend))
         {
             if (!int.TryParse(configuration["API_PORT"], out var port) || port is < 1 or > 65535)

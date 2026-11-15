@@ -7,6 +7,8 @@ public static class ApplicationPipelineExtensions
 {
     public static WebApplication UseApplicationPipeline(this WebApplication app)
     {
+        if (app.Configuration.GetValue<bool>("Deployment:BehindProxy"))
+            app.UseForwardedHeaders();
         app.UseExceptionHandler();
 
         if (app.Environment.IsDevelopment())
@@ -16,7 +18,8 @@ public static class ApplicationPipelineExtensions
         }
 
         app.UseSerilogRequestLogging();
-        app.UseHttpsRedirection();
+        if (!app.Configuration.GetValue<bool>("Deployment:BehindProxy"))
+            app.UseHttpsRedirection();
         app.UseCors();
         app.UseAuthentication();
         app.UseAuthorization();
@@ -24,6 +27,8 @@ public static class ApplicationPipelineExtensions
 
         app.MapControllers();
         app.MapRealtime();
+        app.MapGet("/api/health/live", () => Results.Text("Healthy"));
+        app.MapHealthChecks("/api/health/ready");
         return app;
     }
 }
