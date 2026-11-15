@@ -58,11 +58,20 @@ export interface ShopFeedbacksQueryParams {
   pageSize?: number;
   rating?: number;
   hasReply?: boolean;
+  needsReplyOnly?: boolean;
   shopId?: string;
   isToday?: boolean;
 }
 
+export interface ShopFeedbackSummary {
+  totalReviews: number;
+  averageRating: number;
+  needsReply: number;
+  replied: number;
+}
+
 export interface FeedbackHistoryResponse {
+  summary?: ShopFeedbackSummary;
   items: FeedbackItem[];
   page: number;
   pageSize: number;

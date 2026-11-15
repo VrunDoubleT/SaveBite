@@ -328,21 +328,12 @@ public sealed class FlashDealService : IFlashDealService
 
     public static FlashDealResponse MapToResponse(FlashDeal deal)
     {
-        var attributeGroups = deal.Product?.Attributes?
-            .Select(a => new DealAttributeGroupResponse
-            {
-                Name = a.Name,
-                Values = a.Values.Select(v => v.Value).Distinct().ToList()
-            })
-            .Where(g => g.Values.Count > 0)
-            .ToList() ?? new List<DealAttributeGroupResponse>();
-
         var now = DateTime.UtcNow;
         var isDealOnSale = deal.Status == FlashDealStatus.OnSale
             && deal.Shop?.Status == ShopStatus.Active && deal.Product?.Status == ProductStatus.Active;
         var isDealTimeValid = now >= deal.SaleStartTime.ToUniversalTime() && now < deal.OrderEndTime.ToUniversalTime() && now < deal.ShopClosingTime.ToUniversalTime();
 
-        var variants = deal.Variants.OrderBy(v => v.CreatedAt).ThenBy(v => v.Id).Select(v =>
+        var variants = deal.Variants.Where(v => v.Status == FlashDealVariantStatus.Active && v.Variant?.IsActive == true).OrderBy(v => v.CreatedAt).ThenBy(v => v.Id).Select(v =>
         {
             var attrs = v.Variant?.VariantValues?
                 .Where(vv => vv.AttributeValue != null && vv.AttributeValue.Attribute != null)
@@ -383,6 +374,11 @@ public sealed class FlashDealService : IFlashDealService
                 IsPurchasable = isVariantPurchasable
             };
         }).ToList();
+
+        var attributeGroups = variants.SelectMany(v => v.Attributes)
+            .GroupBy(a => a.Key)
+            .Select(g => new DealAttributeGroupResponse { Name = g.Key, Values = g.Select(a => a.Value).Distinct().ToList() })
+            .ToList();
 
         var minPrice = variants.Count > 0 ? variants.Min(v => v.DealPrice) : 0;
         var maxOriginal = variants.Count > 0 ? variants.Max(v => v.OriginalPrice) : 0;
@@ -1199,6 +1195,7 @@ public sealed class FlashDealService : IFlashDealService
                     ? string.Join(" - ", v.VariantValues.Where(vv => vv.AttributeValue != null).Select(vv => vv.AttributeValue!.Value))
                     : (v.Sku ?? "Default"),
                 OriginalPrice = v.OriginalPrice,
+                DealPrice = v.DealPrice,
                 ImageUrl = v.VariantValues.FirstOrDefault(vv => !string.IsNullOrEmpty(vv.AttributeValue?.ImageUrl))?.AttributeValue?.ImageUrl
             }).ToList()
         }).ToList();

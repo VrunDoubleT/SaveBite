@@ -10,7 +10,7 @@ import {
   Star,
   Trash2,
 } from "lucide-react";
-import type { FeedbackItem } from "../types/feedback.types";
+import type { FeedbackItem, ShopFeedbackSummary } from "../types/feedback.types";
 import { Pagination } from "@/shared/components/pagination";
 import { SharedModal } from "@/shared/components/modal/BaseModal";
 import { toast } from "@/shared/stores/toastStore";
@@ -25,6 +25,7 @@ interface ShopFeedbackManagementPanelProps {
   page: number;
   pageSize: number;
   totalItems: number;
+  summary?: ShopFeedbackSummary;
   totalPages: number;
   activeRating: number | null;
   onRatingChange: (rating: number | null) => void;
@@ -48,6 +49,7 @@ export function ShopFeedbackManagementPanel({
   page,
   pageSize,
   totalItems,
+  summary,
   totalPages,
   activeRating,
   onRatingChange,
@@ -140,7 +142,9 @@ export function ShopFeedbackManagementPanel({
     }
   };
 
-  const needsReplyCount = feedbacks.filter((f) => !f.reply).length;
+  const needsReplyCount =
+    summary?.needsReply ??
+    feedbacks.filter((f) => !f.reply && (f.rating === 1 || f.rating === 2)).length;
   const repliedCount = feedbacks.filter((f) => Boolean(f.reply)).length;
   const fiveStarsCount = feedbacks.filter((f) => f.rating === 5).length;
 
@@ -163,7 +167,7 @@ export function ShopFeedbackManagementPanel({
             </span>
             <div>
               <p className="text-xs font-medium text-neutral-500">Total reviews</p>
-              <p className="text-xl font-bold text-neutral-900">{totalItems}</p>
+              <p className="text-xl font-bold text-neutral-900">{summary?.totalReviews ?? totalItems}</p>
             </div>
           </div>
         </div>
@@ -174,7 +178,7 @@ export function ShopFeedbackManagementPanel({
               <Pencil className="size-5" />
             </span>
             <div>
-              <p className="text-xs font-medium text-neutral-500">Needs reply</p>
+              <p className="text-xs font-medium text-neutral-500">Unanswered</p>
               <p className="text-xl font-bold text-amber-600">{needsReplyCount}</p>
             </div>
           </div>
@@ -187,7 +191,7 @@ export function ShopFeedbackManagementPanel({
             </span>
             <div>
               <p className="text-xs font-medium text-neutral-500">Replied</p>
-              <p className="text-xl font-bold text-emerald-600">{repliedCount}</p>
+              <p className="text-xl font-bold text-emerald-600">{summary?.replied ?? repliedCount}</p>
             </div>
           </div>
         </div>
@@ -198,8 +202,8 @@ export function ShopFeedbackManagementPanel({
               <Star className="size-5 fill-amber-400" />
             </span>
             <div>
-              <p className="text-xs font-medium text-neutral-500">5-Star reviews</p>
-              <p className="text-xl font-bold text-neutral-900">{fiveStarsCount}</p>
+              <p className="text-xs font-medium text-neutral-500">{summary ? "Average rating" : "5-Star reviews"}</p>
+              <p className="text-xl font-bold text-neutral-900">{summary ? `${summary.averageRating.toFixed(1)} / 5` : fiveStarsCount}</p>
             </div>
           </div>
         </div>
@@ -218,7 +222,7 @@ export function ShopFeedbackManagementPanel({
                 : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
-            All Reviews
+            All Reviews ({summary?.totalReviews ?? totalItems})
           </button>
           <button
             type="button"
@@ -229,7 +233,7 @@ export function ShopFeedbackManagementPanel({
                 : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
-            Needs Reply
+            Unanswered · 1–2 stars ({needsReplyCount})
           </button>
           <button
             type="button"
@@ -240,7 +244,7 @@ export function ShopFeedbackManagementPanel({
                 : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
             }`}
           >
-            Replied
+            Replied ({summary?.replied ?? repliedCount})
           </button>
           {onTodayToggle && (
             <button
@@ -438,7 +442,7 @@ export function ShopFeedbackManagementPanel({
                         item.reply?.repliedByUserId &&
                         item.reply.repliedByUserId.toLowerCase() === currentUser.id.toLowerCase(),
                       );
-                      const canEditReply = isOwnReply;
+                      const canEditReply = isStoreOwner || isOwnReply;
                       const canDeleteReply = isStoreOwner || (isStaff && isOwnReply);
 
                       return (

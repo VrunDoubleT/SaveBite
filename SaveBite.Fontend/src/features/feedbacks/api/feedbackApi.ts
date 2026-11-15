@@ -1,3 +1,4 @@
+import { emitFeedbackSync } from "../utils/feedbackSync";
 import { API_ENDPOINTS, httpClient } from "@/shared/api";
 import type { ApiResponse } from "@/shared/types";
 import type {
@@ -78,10 +79,11 @@ export const feedbackApi = {
   // View Feedbacks for Shop (Store Owner & Staff)
   async getShopFeedbacks(
     params: ShopFeedbacksQueryParams = {},
+    signal?: AbortSignal,
   ): Promise<FeedbackHistoryResponse> {
     const response = await httpClient.get<ApiResponse<FeedbackHistoryResponse>>(
       API_ENDPOINTS.FEEDBACKS.SHOP,
-      { params },
+      { params, signal },
     );
     return response.data.data;
   },
@@ -106,6 +108,7 @@ export const feedbackApi = {
       API_ENDPOINTS.FEEDBACKS.REPLY(feedbackId),
       input,
     );
+    emitFeedbackSync("reply", feedbackId);
     return response.data.data;
   },
 
@@ -118,11 +121,13 @@ export const feedbackApi = {
       API_ENDPOINTS.FEEDBACKS.REPLY(feedbackId),
       input,
     );
+    emitFeedbackSync("edit-reply", feedbackId);
     return response.data.data;
   },
 
   // Delete Reply (Shop & Admin)
   async deleteReply(feedbackId: string): Promise<void> {
     await httpClient.delete(API_ENDPOINTS.FEEDBACKS.REPLY(feedbackId));
+    emitFeedbackSync("delete-reply", feedbackId);
   },
 };

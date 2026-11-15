@@ -263,7 +263,7 @@ export function StoreOwnerFlashDealFormPage() {
                     sku: pv.sku,
                     variantName: pv.variantName || pv.sku || "Default",
                     originalPrice: pv.originalPrice,
-                    dealPrice: Math.max(MIN_AMOUNT_VND, Math.round(pv.originalPrice * 0.7)),
+                    dealPrice: pv.dealPrice,
                     totalQuantity: 50,
                     status: FlashDealVariantStatusEnum.Active,
                     isSelected: false,
@@ -315,6 +315,7 @@ export function StoreOwnerFlashDealFormPage() {
 
     if (isEditMode && existingDeal) {
       return {
+        hasActiveDeal: false,
         id: existingDeal.productId,
         name: existingDeal.productName,
         description: existingDeal.description,
@@ -325,6 +326,7 @@ export function StoreOwnerFlashDealFormPage() {
           sku: v.sku,
           variantName: v.variantName || v.sku || "Default",
           originalPrice: v.originalPrice,
+          dealPrice: v.dealPrice,
           imageUrl: v.imageUrl,
         })),
       };
@@ -581,7 +583,7 @@ export function StoreOwnerFlashDealFormPage() {
         sku: v.sku,
         variantName: v.variantName || v.sku || "Default",
         originalPrice: v.originalPrice,
-        dealPrice: Math.max(MIN_AMOUNT_VND, Math.round(v.originalPrice * 0.7)), // Suggest 30% discount default (never below the system minimum)
+        dealPrice: v.dealPrice,
         totalQuantity: 50,
         isSelected: true,
         status: FlashDealVariantStatusEnum.Active,

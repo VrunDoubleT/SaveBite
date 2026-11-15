@@ -4,6 +4,12 @@ namespace SaveBite.Backend.Models.Responses;
 
 public static class FeedbackResponses
 {
+    public sealed class ShopFeedbackResponse : SaveBite.Backend.Models.Common.PagedResult<FeedbackItemResponse>
+    {
+        public ShopFeedbackSummary Summary { get; init; } = new(0, 0, 0, 0);
+    }
+    public sealed record ShopFeedbackSummary(int TotalReviews, double AverageRating, int NeedsReply, int Replied);
+
     public sealed record FeedbackItemResponse(
         Guid Id,
         Guid OrderItemId,

@@ -1,8 +1,18 @@
+import { subscribeProductSync } from "../utils/productSync";
 import { useCallback, useEffect, useReducer, useState } from "react";
 import { getApiErrorMessage } from "@/shared/api";
 
-export function useProductResource<T>(key: string, load: (signal: AbortSignal) => Promise<T>) {
+export function useProductResource<T>(
+  key: string,
+  load: (signal: AbortSignal) => Promise<T>,
+  refreshOnProductChange = false,
+) {
   const [revision, reload] = useReducer((n: number) => n + 1, 0);
+  // Only list/summary consumers opt in. Refreshing workspace options would
+  // unmount its Outlet and discard files and unsaved form values.
+  useEffect(() => {
+    if (refreshOnProductChange) return subscribeProductSync(() => reload());
+  }, [refreshOnProductChange]);
   const requestKey = `${key}:${revision}`;
   const [result, setResult] = useState<{ key: string; data?: T; error?: string }>();
   useEffect(() => {

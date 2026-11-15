@@ -84,6 +84,7 @@ export function DealStoreReviews({
         />
       ) : (
         <StoreReviewList
+          shopName={shopName}
           summary={result?.summary ?? null}
           isLoading={isLoading}
           activeRatingFilter={rating}

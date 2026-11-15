@@ -7,11 +7,36 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace SaveBite.Backend.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Final : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:PostgresExtension:unaccent", ",,");
+
+            migrationBuilder.CreateTable(
+                name: "audit_log_archives",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Year = table.Column<int>(type: "integer", nullable: false),
+                    Month = table.Column<int>(type: "integer", nullable: false),
+                    IsTest = table.Column<bool>(type: "boolean", nullable: false),
+                    ObjectKey = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    RecordCount = table.Column<long>(type: "bigint", nullable: false),
+                    Bytes = table.Column<long>(type: "bigint", nullable: false),
+                    Sha256 = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    Error = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    CompletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_audit_log_archives", x => x.Id);
+                });
+
             migrationBuilder.CreateTable(
                 name: "categories",
                 columns: table => new
@@ -62,6 +87,28 @@ namespace SaveBite.Backend.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "payos_webhook_sync_states",
+                columns: table => new
+                {
+                    AccountId = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    CredentialVersion = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    WebhookUrl = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: false),
+                    EndpointSession = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    Status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    CredentialsVerified = table.Column<bool>(type: "boolean", nullable: false),
+                    Attempts = table.Column<int>(type: "integer", nullable: false),
+                    NextAttemptAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    LastAttemptAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    SucceededAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    LastErrorCode = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_payos_webhook_sync_states", x => x.AccountId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "trust_levels",
                 columns: table => new
                 {
@@ -76,6 +123,19 @@ namespace SaveBite.Backend.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_trust_levels", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "trust_policy_version",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false),
+                    current_version = table.Column<long>(type: "bigint", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_trust_policy_version", x => x.id);
                 });
 
             migrationBuilder.CreateTable(
@@ -200,6 +260,31 @@ namespace SaveBite.Backend.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "deal_notification_recipients",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    publication_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    location_source = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    location_version = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    sent_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    error_message = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_deal_notification_recipients", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_deal_notification_recipients_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "notifications",
                 columns: table => new
                 {
@@ -233,14 +318,34 @@ namespace SaveBite.Backend.Data.Migrations
                     fee_rate = table.Column<decimal>(type: "numeric(7,6)", precision: 7, scale: 6, nullable: false),
                     effective_from = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     effective_to = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: false),
+                    lifecycle_status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Published"),
+                    reason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    replaces_config_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    closed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    closed_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    closure_reason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    activation_processed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_platform_fee_configs", x => x.id);
                     table.CheckConstraint("ck_platform_fee_effective_period", "\"effective_to\" IS NULL OR \"effective_to\" > \"effective_from\"");
+                    table.CheckConstraint("ck_platform_fee_lifecycle", "lifecycle_status IN ('Published', 'Cancelled', 'Superseded')");
                     table.CheckConstraint("ck_platform_fee_rate", "\"fee_rate\" BETWEEN 0 AND 1");
+                    table.ForeignKey(
+                        name: "FK_platform_fee_configs_platform_fee_configs_replaces_config_id",
+                        column: x => x.replaces_config_id,
+                        principalTable: "platform_fee_configs",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_platform_fee_configs_users_closed_by",
+                        column: x => x.closed_by,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_platform_fee_configs_users_created_by",
                         column: x => x.created_by,
@@ -279,7 +384,10 @@ namespace SaveBite.Backend.Data.Migrations
                     protected_api_key = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     protected_checksum_key = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     updated_by_user_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    revision = table.Column<long>(type: "bigint", nullable: false),
+                    verified_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    is_invalid = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -306,7 +414,11 @@ namespace SaveBite.Backend.Data.Migrations
                     effective_from = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     effective_to = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     created_by_user_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    start_job_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    end_job_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    start_processed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    end_processed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -434,15 +546,13 @@ namespace SaveBite.Backend.Data.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
                     rule_type = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
                     score_delta = table.Column<int>(type: "integer", nullable: false),
-                    effective_from = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    effective_to = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: false),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_trust_score_rules", x => x.id);
-                    table.CheckConstraint("ck_trust_score_rule_period", "\"effective_to\" IS NULL OR \"effective_to\" > \"effective_from\"");
                     table.ForeignKey(
                         name: "FK_trust_score_rules_users_created_by",
                         column: x => x.created_by,
@@ -488,6 +598,7 @@ namespace SaveBite.Backend.Data.Migrations
                     latitude = table.Column<double>(type: "double precision", nullable: false),
                     longitude = table.Column<double>(type: "double precision", nullable: false),
                     is_default = table.Column<bool>(type: "boolean", nullable: false),
+                    address_version = table.Column<long>(type: "bigint", nullable: false, defaultValue: 1L),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -554,6 +665,7 @@ namespace SaveBite.Backend.Data.Migrations
                     trust_level_id = table.Column<Guid>(type: "uuid", nullable: false),
                     current_score = table.Column<int>(type: "integer", nullable: false),
                     is_offline_locked_permanently = table.Column<bool>(type: "boolean", nullable: false),
+                    applied_policy_version = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -676,6 +788,8 @@ namespace SaveBite.Backend.Data.Migrations
                     closing_time = table.Column<TimeOnly>(type: "time without time zone", nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     suspended_for_platform_fees = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    suspended_by_admin = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    suspended_for_overdue_refunds = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -723,10 +837,43 @@ namespace SaveBite.Backend.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "checkout_sessions",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    customer_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    shop_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    quote_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    request_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    snapshot_json = table.Column<string>(type: "jsonb", nullable: false),
+                    payment_expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_checkout_sessions", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_checkout_sessions_shops_shop_id",
+                        column: x => x.shop_id,
+                        principalTable: "shops",
+                        principalColumn: "id");
+                    table.ForeignKey(
+                        name: "FK_checkout_sessions_users_customer_id",
+                        column: x => x.customer_id,
+                        principalTable: "users",
+                        principalColumn: "id");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "orders",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    shop_name_snapshot = table.Column<string>(type: "text", nullable: true),
+                    shop_address_snapshot = table.Column<string>(type: "text", nullable: true),
+                    shop_logo_url_snapshot = table.Column<string>(type: "text", nullable: true),
+                    snapshot_captured_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     order_date = table.Column<DateOnly>(type: "date", nullable: false, computedColumnSql: "(created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date", stored: true),
                     order_code = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     customer_id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -792,6 +939,10 @@ namespace SaveBite.Backend.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    shop_name_snapshot = table.Column<string>(type: "text", nullable: true),
+                    shop_address_snapshot = table.Column<string>(type: "text", nullable: true),
+                    shop_logo_url_snapshot = table.Column<string>(type: "text", nullable: true),
+                    snapshot_captured_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     shop_id = table.Column<Guid>(type: "uuid", nullable: false),
                     billing_year = table.Column<int>(type: "integer", nullable: false),
                     billing_month = table.Column<short>(type: "smallint", nullable: false),
@@ -800,6 +951,9 @@ namespace SaveBite.Backend.Data.Migrations
                     issued_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     due_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     paid_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    payment_pause_reason = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: true),
+                    payment_paused_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    payment_resume_revision = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -807,6 +961,7 @@ namespace SaveBite.Backend.Data.Migrations
                 {
                     table.PrimaryKey("PK_platform_fee_statements", x => x.id);
                     table.CheckConstraint("ck_platform_fee_statement_month", "\"billing_month\" BETWEEN 1 AND 12");
+                    table.CheckConstraint("ck_platform_fee_statement_paused_deadline", "payment_pause_reason IS NULL OR due_at IS NULL");
                     table.CheckConstraint("ck_platform_fee_statement_total", "\"total_fee_amount\" >= 0");
                     table.ForeignKey(
                         name: "FK_platform_fee_statements_shops_shop_id",
@@ -816,7 +971,7 @@ namespace SaveBite.Backend.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Products",
+                name: "products",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
@@ -832,14 +987,14 @@ namespace SaveBite.Backend.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Products", x => x.id);
+                    table.PrimaryKey("PK_products", x => x.id);
                     table.ForeignKey(
-                        name: "FK_Products_categories_category_id",
+                        name: "FK_products_categories_category_id",
                         column: x => x.category_id,
                         principalTable: "categories",
                         principalColumn: "id");
                     table.ForeignKey(
-                        name: "FK_Products_shops_shop_id",
+                        name: "FK_products_shops_shop_id",
                         column: x => x.shop_id,
                         principalTable: "shops",
                         principalColumn: "id");
@@ -924,6 +1079,42 @@ namespace SaveBite.Backend.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "shop_status_histories",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    shop_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    from_status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    to_status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    was_suspended_by_admin = table.Column<bool>(type: "boolean", nullable: false),
+                    was_suspended_for_platform_fees = table.Column<bool>(type: "boolean", nullable: false),
+                    was_suspended_for_overdue_refunds = table.Column<bool>(type: "boolean", nullable: false),
+                    suspended_by_admin = table.Column<bool>(type: "boolean", nullable: false),
+                    suspended_for_platform_fees = table.Column<bool>(type: "boolean", nullable: false),
+                    suspended_for_overdue_refunds = table.Column<bool>(type: "boolean", nullable: false),
+                    changed_by_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    changed_by_user_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    reason = table.Column<string>(type: "text", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_shop_status_histories", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_shop_status_histories_shops_shop_id",
+                        column: x => x.shop_id,
+                        principalTable: "shops",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_shop_status_histories_users_changed_by_user_id",
+                        column: x => x.changed_by_user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "staff_invitations",
                 columns: table => new
                 {
@@ -975,7 +1166,8 @@ namespace SaveBite.Backend.Data.Migrations
                     lock_ends_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    recovered_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    recovered_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    superseded_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1031,7 +1223,8 @@ namespace SaveBite.Backend.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
-                    order_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    order_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    checkout_session_id = table.Column<Guid>(type: "uuid", nullable: true),
                     payment_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     method = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
@@ -1043,12 +1236,18 @@ namespace SaveBite.Backend.Data.Migrations
                     gateway_transaction_id = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     paid_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    protected_payos_credentials = table.Column<string>(type: "text", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_payments", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_payments_checkout_sessions_checkout_session_id",
+                        column: x => x.checkout_session_id,
+                        principalTable: "checkout_sessions",
+                        principalColumn: "id");
                     table.ForeignKey(
                         name: "FK_payments_orders_order_id",
                         column: x => x.order_id,
@@ -1219,10 +1418,17 @@ namespace SaveBite.Backend.Data.Migrations
                     statement_id = table.Column<Guid>(type: "uuid", nullable: false),
                     shop_id = table.Column<Guid>(type: "uuid", nullable: false),
                     amount = table.Column<decimal>(type: "numeric(14,2)", precision: 14, scale: 2, nullable: false),
+                    collected_amount = table.Column<decimal>(type: "numeric(14,2)", precision: 14, scale: 2, nullable: false, defaultValue: 0m),
+                    gateway_invalidated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    gateway_closed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     payment_method = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     gateway_transaction_id = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     paid_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    gateway_checkout_url = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    gateway_qr_code = table.Column<string>(type: "text", nullable: true),
+                    gateway_expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    protected_payos_credentials = table.Column<string>(type: "text", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -1279,6 +1485,9 @@ namespace SaveBite.Backend.Data.Migrations
                     order_end_time = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     shop_closing_time = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    feed_published_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    visibility_version = table.Column<long>(type: "bigint", nullable: false, defaultValue: 1L),
+                    publication_id = table.Column<Guid>(type: "uuid", nullable: false),
                     open_job_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     end_job_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     lifecycle_synced_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -1289,9 +1498,9 @@ namespace SaveBite.Backend.Data.Migrations
                 {
                     table.PrimaryKey("PK_flash_deals", x => x.id);
                     table.ForeignKey(
-                        name: "FK_flash_deals_Products_product_id",
+                        name: "FK_flash_deals_products_product_id",
                         column: x => x.product_id,
-                        principalTable: "Products",
+                        principalTable: "products",
                         principalColumn: "id");
                     table.ForeignKey(
                         name: "FK_flash_deals_shops_shop_id",
@@ -1313,9 +1522,9 @@ namespace SaveBite.Backend.Data.Migrations
                 {
                     table.PrimaryKey("PK_product_attributes", x => x.id);
                     table.ForeignKey(
-                        name: "FK_product_attributes_Products_product_id",
+                        name: "FK_product_attributes_products_product_id",
                         column: x => x.product_id,
-                        principalTable: "Products",
+                        principalTable: "products",
                         principalColumn: "id");
                 });
 
@@ -1333,9 +1542,9 @@ namespace SaveBite.Backend.Data.Migrations
                 {
                     table.PrimaryKey("PK_product_images", x => x.id);
                     table.ForeignKey(
-                        name: "FK_product_images_Products_product_id",
+                        name: "FK_product_images_products_product_id",
                         column: x => x.product_id,
-                        principalTable: "Products",
+                        principalTable: "products",
                         principalColumn: "id");
                 });
 
@@ -1356,9 +1565,9 @@ namespace SaveBite.Backend.Data.Migrations
                     table.PrimaryKey("PK_product_variants", x => x.id);
                     table.CheckConstraint("ck_product_variants_prices", "\"original_price\" > 0 AND \"deal_price\" >= 0 AND \"deal_price\" < \"original_price\"");
                     table.ForeignKey(
-                        name: "FK_product_variants_Products_product_id",
+                        name: "FK_product_variants_products_product_id",
                         column: x => x.product_id,
-                        principalTable: "Products",
+                        principalTable: "products",
                         principalColumn: "id");
                 });
 
@@ -1695,6 +1904,8 @@ namespace SaveBite.Backend.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    product_image_url_snapshot = table.Column<string>(type: "text", nullable: true),
+                    snapshot_captured_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     order_id = table.Column<Guid>(type: "uuid", nullable: false),
                     flash_deal_variant_id = table.Column<Guid>(type: "uuid", nullable: false),
                     product_name_snapshot = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
@@ -1749,15 +1960,15 @@ namespace SaveBite.Backend.Data.Migrations
                     table.CheckConstraint("product_feedbacks_hidden_at_check", "(\"status\" = 'Visible' AND \"hidden_at\" IS NULL) OR (\"status\" <> 'Visible' AND \"hidden_at\" IS NOT NULL)");
                     table.CheckConstraint("product_feedbacks_rating_check", "\"rating\" BETWEEN 1 AND 5");
                     table.ForeignKey(
-                        name: "FK_product_feedbacks_Products_product_id",
-                        column: x => x.product_id,
-                        principalTable: "Products",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
                         name: "FK_product_feedbacks_order_items_order_item_id",
                         column: x => x.order_item_id,
                         principalTable: "order_items",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_product_feedbacks_products_product_id",
+                        column: x => x.product_id,
+                        principalTable: "products",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
@@ -1942,15 +2153,15 @@ namespace SaveBite.Backend.Data.Migrations
                     table.CheckConstraint("product_content_revisions_number_check", "\"revision_number\" >= 1");
                     table.CheckConstraint("product_content_revisions_review_check", "(\"status\" = 'Pending' AND \"reviewed_by_user_id\" IS NULL AND \"reviewed_at\" IS NULL) OR (\"status\" IN ('Approved', 'NeedsRevision', 'Suspended') AND \"reviewed_by_user_id\" IS NOT NULL AND \"reviewed_at\" IS NOT NULL)");
                     table.ForeignKey(
-                        name: "FK_product_content_revisions_Products_product_id",
-                        column: x => x.product_id,
-                        principalTable: "Products",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
                         name: "FK_product_content_revisions_categories_category_id",
                         column: x => x.category_id,
                         principalTable: "categories",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_product_content_revisions_products_product_id",
+                        column: x => x.product_id,
+                        principalTable: "products",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
@@ -1989,15 +2200,15 @@ namespace SaveBite.Backend.Data.Migrations
                 {
                     table.PrimaryKey("PK_product_warnings", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_product_warnings_Products_ProductId",
-                        column: x => x.ProductId,
-                        principalTable: "Products",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
                         name: "FK_product_warnings_product_content_revisions_BaselineRevision~",
                         column: x => x.BaselineRevisionId,
                         principalTable: "product_content_revisions",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_product_warnings_products_ProductId",
+                        column: x => x.ProductId,
+                        principalTable: "products",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
@@ -2014,6 +2225,11 @@ namespace SaveBite.Backend.Data.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            migrationBuilder.InsertData(
+                table: "trust_policy_version",
+                columns: new[] { "id", "current_version", "updated_at" },
+                values: new object[] { 1, 1L, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc) });
+
             migrationBuilder.CreateIndex(
                 name: "IX_account_status_logs_admin_id",
                 table: "account_status_logs",
@@ -2023,6 +2239,11 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "IX_account_status_logs_user_id",
                 table: "account_status_logs",
                 column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_audit_log_archives_Year_Month_IsTest",
+                table: "audit_log_archives",
+                columns: new[] { "Year", "Month", "IsTest" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_audit_logs_action_created_at",
@@ -2054,6 +2275,44 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "IX_cart_items_flash_deal_variant_id",
                 table: "cart_items",
                 column: "flash_deal_variant_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_checkout_sessions_customer_id_quote_id",
+                table: "checkout_sessions",
+                columns: new[] { "customer_id", "quote_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_checkout_sessions_customer_id_request_id",
+                table: "checkout_sessions",
+                columns: new[] { "customer_id", "request_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_checkout_sessions_shop_id",
+                table: "checkout_sessions",
+                column: "shop_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_checkout_sessions_status_payment_expires_at",
+                table: "checkout_sessions",
+                columns: new[] { "status", "payment_expires_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_deal_notification_recipients_pub_status",
+                table: "deal_notification_recipients",
+                columns: new[] { "publication_id", "status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_deal_notification_recipients_user_id",
+                table: "deal_notification_recipients",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_deal_notification_recipients_pub_user",
+                table: "deal_notification_recipients",
+                columns: new[] { "publication_id", "user_id" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_email_deliveries_delivery_key",
@@ -2100,6 +2359,11 @@ namespace SaveBite.Backend.Data.Migrations
                 column: "product_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_flash_deals_publication_id",
+                table: "flash_deals",
+                column: "publication_id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_flash_deals_shop_id",
                 table: "flash_deals",
                 column: "shop_id");
@@ -2108,6 +2372,11 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "ix_flash_deals_status_created_at",
                 table: "flash_deals",
                 columns: new[] { "status", "created_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_flash_deals_status_feed_published_at_id",
+                table: "flash_deals",
+                columns: new[] { "status", "feed_published_at", "id" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_flash_deals_status_order_end_time",
@@ -2255,6 +2524,11 @@ namespace SaveBite.Backend.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_payments_checkout_session_id",
+                table: "payments",
+                column: "checkout_session_id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_payments_gateway_order_code",
                 table: "payments",
                 column: "gateway_order_code",
@@ -2271,6 +2545,11 @@ namespace SaveBite.Backend.Data.Migrations
                 column: "order_id",
                 unique: true,
                 filter: "\"payment_type\" = 'Remaining' AND \"status\" = 'Pending'");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_payos_webhook_sync_states_Status_NextAttemptAt",
+                table: "payos_webhook_sync_states",
+                columns: new[] { "Status", "NextAttemptAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_platform_fee_adjustments_order_fee_id",
@@ -2293,9 +2572,26 @@ namespace SaveBite.Backend.Data.Migrations
                 column: "statement_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_platform_fee_configs_closed_by",
+                table: "platform_fee_configs",
+                column: "closed_by");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_platform_fee_configs_created_by",
                 table: "platform_fee_configs",
                 column: "created_by");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_platform_fee_configs_replaces_config_id",
+                table: "platform_fee_configs",
+                column: "replaces_config_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_platform_fee_published_start",
+                table: "platform_fee_configs",
+                column: "effective_from",
+                unique: true,
+                filter: "lifecycle_status = 'Published'");
 
             migrationBuilder.CreateIndex(
                 name: "IX_platform_fee_payments_gateway_transaction_id",
@@ -2461,13 +2757,13 @@ namespace SaveBite.Backend.Data.Migrations
                 column: "ShopId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Products_category_id",
-                table: "Products",
+                name: "IX_products_category_id",
+                table: "products",
                 column: "category_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Products_shop_id_deleted_at_created_at",
-                table: "Products",
+                name: "IX_products_shop_id_deleted_at_created_at",
+                table: "products",
                 columns: new[] { "shop_id", "deleted_at", "created_at" });
 
             migrationBuilder.CreateIndex(
@@ -2537,7 +2833,7 @@ namespace SaveBite.Backend.Data.Migrations
                 table: "refunds",
                 column: "order_id",
                 unique: true,
-                filter: "\"status\" IN ('AwaitingCustomerDetails', 'PendingVerification', 'AwaitingTransfer')");
+                filter: "\"status\" IN ('AwaitingCustomerDetails', 'PendingVerification', 'AwaitingTransfer', 'Overdue')");
 
             migrationBuilder.CreateIndex(
                 name: "ux_refunds_shop_cancellation_per_order",
@@ -2547,16 +2843,15 @@ namespace SaveBite.Backend.Data.Migrations
                 filter: "\"refund_type\" = 'ShopCancellation'");
 
             migrationBuilder.CreateIndex(
+                name: "ix_shop_application_current_document",
+                table: "shop_application_documents",
+                columns: new[] { "application_id", "document_type" },
+                filter: "\"is_current\" = TRUE AND \"document_type\" <> 'Other'");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_shop_application_documents_uploaded_by",
                 table: "shop_application_documents",
                 column: "uploaded_by");
-
-            migrationBuilder.CreateIndex(
-                name: "ux_shop_application_current_document",
-                table: "shop_application_documents",
-                columns: new[] { "application_id", "document_type" },
-                unique: true,
-                filter: "\"is_current\" = TRUE AND \"document_type\" <> 'Other'");
 
             migrationBuilder.CreateIndex(
                 name: "IX_shop_application_review_logs_admin_id",
@@ -2599,6 +2894,16 @@ namespace SaveBite.Backend.Data.Migrations
                 table: "shop_staff",
                 columns: new[] { "shop_id", "user_id" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_shop_status_histories_changed_by_user_id",
+                table: "shop_status_histories",
+                column: "changed_by_user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_shop_status_histories_shop_id_created_at",
+                table: "shop_status_histories",
+                columns: new[] { "shop_id", "created_at" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_shops_application_id",
@@ -2714,6 +3019,12 @@ namespace SaveBite.Backend.Data.Migrations
                 column: "created_by");
 
             migrationBuilder.CreateIndex(
+                name: "IX_trust_score_rules_rule_type",
+                table: "trust_score_rules",
+                column: "rule_type",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_upload_assets_session_id",
                 table: "upload_assets",
                 column: "session_id");
@@ -2782,6 +3093,11 @@ namespace SaveBite.Backend.Data.Migrations
                 column: "user_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_user_trust_scores_applied_policy_version",
+                table: "user_trust_scores",
+                column: "applied_policy_version");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_user_trust_scores_trust_level_id",
                 table: "user_trust_scores",
                 column: "trust_level_id");
@@ -2837,15 +3153,19 @@ namespace SaveBite.Backend.Data.Migrations
                 table: "shops");
 
             migrationBuilder.DropForeignKey(
-                name: "FK_product_content_revisions_Products_product_id",
-                table: "product_content_revisions");
-
-            migrationBuilder.DropForeignKey(
-                name: "FK_product_warnings_Products_ProductId",
+                name: "FK_product_warnings_shops_ShopId",
                 table: "product_warnings");
 
             migrationBuilder.DropForeignKey(
-                name: "FK_product_warnings_shops_ShopId",
+                name: "FK_products_shops_shop_id",
+                table: "products");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_product_content_revisions_products_product_id",
+                table: "product_content_revisions");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_product_warnings_products_ProductId",
                 table: "product_warnings");
 
             migrationBuilder.DropForeignKey(
@@ -2860,10 +3180,16 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "account_status_logs");
 
             migrationBuilder.DropTable(
+                name: "audit_log_archives");
+
+            migrationBuilder.DropTable(
                 name: "audit_logs");
 
             migrationBuilder.DropTable(
                 name: "cart_items");
+
+            migrationBuilder.DropTable(
+                name: "deal_notification_recipients");
 
             migrationBuilder.DropTable(
                 name: "email_deliveries");
@@ -2888,6 +3214,9 @@ namespace SaveBite.Backend.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "payments");
+
+            migrationBuilder.DropTable(
+                name: "payos_webhook_sync_states");
 
             migrationBuilder.DropTable(
                 name: "platform_fee_adjustments");
@@ -2944,6 +3273,9 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "shop_staff");
 
             migrationBuilder.DropTable(
+                name: "shop_status_histories");
+
+            migrationBuilder.DropTable(
                 name: "staff_activity_logs");
 
             migrationBuilder.DropTable(
@@ -2960,6 +3292,9 @@ namespace SaveBite.Backend.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "trust_order_processing");
+
+            migrationBuilder.DropTable(
+                name: "trust_policy_version");
 
             migrationBuilder.DropTable(
                 name: "trust_progress_history");
@@ -2981,6 +3316,9 @@ namespace SaveBite.Backend.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "user_trust_scores");
+
+            migrationBuilder.DropTable(
+                name: "checkout_sessions");
 
             migrationBuilder.DropTable(
                 name: "order_platform_fees");
@@ -3043,13 +3381,13 @@ namespace SaveBite.Backend.Data.Migrations
                 name: "users");
 
             migrationBuilder.DropTable(
-                name: "Products");
-
-            migrationBuilder.DropTable(
                 name: "shops");
 
             migrationBuilder.DropTable(
                 name: "shop_applications");
+
+            migrationBuilder.DropTable(
+                name: "products");
 
             migrationBuilder.DropTable(
                 name: "categories");

@@ -489,7 +489,8 @@ public sealed class FeedbackService : IFeedbackService
             if (existingReply is null)
                 throw AppException.NotFound("Reply not found.");
 
-            if (existingReply.RepliedByUserId != userId)
+            if (existingReply.RepliedByUserId != userId
+                && !await _feedbackRepo.IsShopOwnerForFeedbackAsync(userId, feedbackId, ct))
                 throw AppException.Forbidden("You can only edit your own reply.");
 
             existingReply.Content = request.Content.Trim();
@@ -555,16 +556,37 @@ public sealed class FeedbackService : IFeedbackService
     }
 
     // View Feedback for Shop
-    public async Task<PagedResult<FeedbackResponses.FeedbackItemResponse>> GetShopFeedbacksAsync(Guid userId, FeedbackRequests.ShopFeedbacksQueryRequest request, CancellationToken ct = default)
+    public async Task<FeedbackResponses.ShopFeedbackResponse> GetShopFeedbacksAsync(Guid userId, FeedbackRequests.ShopFeedbacksQueryRequest request, CancellationToken ct = default)
     {
         var shopId = await _feedbackRepo.GetShopIdForUserAsync(userId, ct);
+        if (request.ShopId.HasValue)
+        {
+            var requestedShopId = request.ShopId.Value;
+            var canRead = await _db.Shops.AsNoTracking().AnyAsync(s =>
+                s.Id == requestedShopId && s.OwnerUserId == userId, ct)
+                || await _db.ShopStaffMembers.AsNoTracking().AnyAsync(m =>
+                    m.ShopId == requestedShopId && m.UserId == userId && m.Status == ShopStaffStatus.Active, ct);
+            if (!canRead)
+                throw AppException.Forbidden("You do not have permission to view this shop's feedback.");
+            shopId = requestedShopId;
+        }
         if (!shopId.HasValue)
             throw AppException.NotFound("No shop found associated with your account.");
 
         var paged = await _feedbackRepo.GetShopFeedbacksAsync(shopId.Value, request, ct);
         var responseItems = paged.Items.Select(f => MapToResponse(f)).ToList();
 
-        return PagedResult<FeedbackResponses.FeedbackItemResponse>.Create(responseItems, paged.Page, paged.PageSize, paged.TotalItems);
+        var summary = await _db.ProductFeedbacks.AsNoTracking()
+            .Where(f => f.Product.ShopId == shopId.Value && f.Status == FeedbackStatus.Visible)
+            .GroupBy(f => 1)
+            .Select(g => new FeedbackResponses.ShopFeedbackSummary(g.Count(), g.Average(f => (double)f.Rating),
+                g.Count(f => f.Reply == null && (f.Rating == 1 || f.Rating == 2)), g.Count(f => f.Reply != null)))
+            .SingleOrDefaultAsync(ct) ?? new FeedbackResponses.ShopFeedbackSummary(0, 0, 0, 0);
+        return new FeedbackResponses.ShopFeedbackResponse
+        {
+            Items = responseItems, Page = paged.Page, PageSize = paged.PageSize,
+            TotalItems = paged.TotalItems, Summary = summary
+        };
     }
 
     // View Feedback for Admin

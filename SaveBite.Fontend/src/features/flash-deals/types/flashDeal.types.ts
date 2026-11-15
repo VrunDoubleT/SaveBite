@@ -186,6 +186,7 @@ export interface ShopEligibleProductVariant {
   sku?: string;
   variantName: string;
   originalPrice: number;
+  dealPrice: number;
   imageUrl?: string;
 }
 

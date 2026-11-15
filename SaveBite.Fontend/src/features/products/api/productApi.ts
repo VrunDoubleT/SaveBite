@@ -1,3 +1,4 @@
+import { emitProductSync } from "../utils/productSync";
 import type { AdminProductSummary } from "../types/product.types";
 import { API_ENDPOINTS, httpClient } from "@/shared/api";
 import type { ApiResponse } from "@/shared/types";
@@ -48,9 +49,9 @@ export const productApi = {
     ).data.data;
   },
   async create(body: FormData) {
-    return (
-      await httpClient.post<ApiResponse<Product>>(API_ENDPOINTS.PRODUCTS.BASE, body, uploadConfig)
-    ).data.data;
+    const response = await httpClient.post<ApiResponse<Product>>(API_ENDPOINTS.PRODUCTS.BASE, body, uploadConfig);
+    emitProductSync("create", response.data.data.id);
+    return response.data.data;
   },
   async update(id: string, body: { name: string; description: string; categoryId: string }) {
     return (await httpClient.put<ApiResponse<Product>>(API_ENDPOINTS.PRODUCTS.DETAIL(id), body))

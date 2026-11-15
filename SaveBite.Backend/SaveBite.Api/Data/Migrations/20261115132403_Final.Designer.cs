@@ -12,8 +12,8 @@ using SaveBite.Backend.Data;
 namespace SaveBite.Backend.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261115111035_InvalidateFeeQrWhenStatementAmountChanges")]
-    partial class InvalidateFeeQrWhenStatementAmountChanges
+    [Migration("20261115132403_Final")]
+    partial class Final
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1344,6 +1344,61 @@ namespace SaveBite.Backend.Data.Migrations
                     b.HasIndex("OrderId");
 
                     b.ToTable("order_status_history", (string)null);
+                });
+
+            modelBuilder.Entity("SaveBite.Backend.Models.Entities.PayOsWebhookSyncState", b =>
+                {
+                    b.Property<string>("AccountId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CredentialVersion")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("CredentialsVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("EndpointSession")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("SucceededAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WebhookUrl")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.HasKey("AccountId");
+
+                    b.HasIndex("Status", "NextAttemptAt");
+
+                    b.ToTable("payos_webhook_sync_states", (string)null);
                 });
 
             modelBuilder.Entity("SaveBite.Backend.Models.Entities.Payment", b =>

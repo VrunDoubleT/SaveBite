@@ -37,7 +37,7 @@ public interface IFeedbackService
     Task DeleteFeedbackReplyAsync(Guid userId, Guid feedbackId, CancellationToken ct = default);
 
     // View Feedback for Shop
-    Task<PagedResult<FeedbackResponses.FeedbackItemResponse>> GetShopFeedbacksAsync(Guid userId, FeedbackRequests.ShopFeedbacksQueryRequest request, CancellationToken ct = default);
+    Task<FeedbackResponses.ShopFeedbackResponse> GetShopFeedbacksAsync(Guid userId, FeedbackRequests.ShopFeedbacksQueryRequest request, CancellationToken ct = default);
 
     // View Feedback for Admin
     Task<PagedResult<FeedbackResponses.FeedbackItemResponse>> GetAdminFeedbacksAsync(Guid userId, FeedbackRequests.ShopFeedbacksQueryRequest request, CancellationToken ct = default);

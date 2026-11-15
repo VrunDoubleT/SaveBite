@@ -1,3 +1,4 @@
+import { ShopReviewsBadge } from "@/features/feedbacks/components/ShopReviewsBadge";
 import { RestockWorkspaceProvider } from "@/features/restock/RestockWorkspaceProvider";
 import { RestockBadge } from "@/features/restock/RestockBadge";
 import { ShopOrderWorkspaceNotifications } from "@/features/shop-orders/components/ShopOrderWorkspaceNotifications";
@@ -39,6 +40,7 @@ export function StaffLayout() {
     {
       to: `${APP_PATHS.STAFF}/shops/${shopId}/reviews`,
       label: "Reviews",
+      badge: <ShopReviewsBadge shopId={shopId} />,
       end: false,
       icon: Star,
     },

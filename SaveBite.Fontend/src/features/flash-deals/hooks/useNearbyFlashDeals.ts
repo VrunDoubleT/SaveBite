@@ -1,3 +1,4 @@
+import { subscribeProductSync } from "@/features/products/utils/productSync";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   flashDealApi,
@@ -644,6 +645,8 @@ export function useNearbyFlashDeals() {
     }, 0);
     return () => clearTimeout(timer);
   }, [isLocationReady, fetchInitialDeals]);
+
+  useEffect(() => subscribeProductSync(() => { void fetchInitialDeals(); }), [fetchInitialDeals]);
 
   return {
     deals,

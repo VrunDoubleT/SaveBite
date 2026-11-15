@@ -1,3 +1,4 @@
+import { ShopReviewsBadge } from "@/features/feedbacks/components/ShopReviewsBadge";
 import { StoreOwnerActionBadge } from "@/shared/components/navigation/StoreOwnerActionBadge";
 import { RestockWorkspaceProvider } from "@/features/restock/RestockWorkspaceProvider";
 import { RestockBadge } from "@/features/restock/RestockBadge";
@@ -82,6 +83,7 @@ const navigation = [
   {
     to: APP_PATHS.STORE_OWNER_REVIEWS,
     label: "Reviews",
+    badge: <ShopReviewsBadge />,
     end: false,
     icon: Star,
   },

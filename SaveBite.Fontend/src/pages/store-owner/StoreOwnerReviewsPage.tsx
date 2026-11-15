@@ -1,14 +1,17 @@
+import { useParams } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { feedbackApi } from "@/features/feedbacks/api/feedbackApi";
 import { ShopFeedbackManagementPanel } from "@/features/feedbacks/components/ShopFeedbackManagementPanel";
-import type { FeedbackItem } from "@/features/feedbacks/types/feedback.types";
+import type { FeedbackItem, ShopFeedbackSummary } from "@/features/feedbacks/types/feedback.types";
 import { getApiErrorMessage } from "@/shared/api";
 import { toast } from "@/shared/stores/toastStore";
 import { subscribeFeedbackSync } from "@/features/feedbacks/utils/feedbackSync";
 import { useShopSuspended } from "@/shared/hooks/useShopSuspended";
 
 export function StoreOwnerReviewsPage() {
+  const { shopId } = useParams<{ shopId: string }>();
   const shopSuspended = useShopSuspended();
+  const [summary, setSummary] = useState<ShopFeedbackSummary>();
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -24,13 +27,16 @@ export function StoreOwnerReviewsPage() {
       if (!silent) setIsLoading(true);
       try {
         const response = await feedbackApi.getShopFeedbacks({
+          shopId,
           page,
           pageSize,
           rating: activeRating ?? undefined,
           hasReply: activeReplyFilter ?? undefined,
+          needsReplyOnly: activeReplyFilter === false || undefined,
           isToday: isToday || undefined,
         });
 
+        setSummary(response.summary);
         setFeedbacks(response.items);
         setTotalItems(response.totalItems);
         setTotalPages(response.totalPages);
@@ -40,7 +46,7 @@ export function StoreOwnerReviewsPage() {
         if (!silent) setIsLoading(false);
       }
     },
-    [page, pageSize, activeRating, activeReplyFilter, isToday],
+    [shopId, page, pageSize, activeRating, activeReplyFilter, isToday],
   );
 
   useEffect(() => {
@@ -66,7 +72,8 @@ export function StoreOwnerReviewsPage() {
 
   const handleReplyFilterChange = (hasReply: boolean | null) => {
     setActiveReplyFilter(hasReply);
-    if (hasReply === null) {
+    if (hasReply === false) setActiveRating(null);
+    if (hasReply !== true) {
       setIsToday(false);
     }
     setPage(1);
@@ -114,6 +121,7 @@ export function StoreOwnerReviewsPage() {
         isLoading={isLoading}
         page={page}
         pageSize={pageSize}
+        summary={summary}
         totalItems={totalItems}
         totalPages={totalPages}
         activeRating={activeRating}

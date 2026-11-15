@@ -100,12 +100,12 @@ public sealed class FeedbacksController : ControllerBase
     // View feedback for shop (Store Owner & Staff)
     [HttpGet("shop")]
     [StoreOwnerOrStaffAnyStatusAccess]
-    public async Task<ActionResult<ApiResponse<PagedResult<FeedbackResponses.FeedbackItemResponse>>>> GetShopFeedbacks(
+    public async Task<ActionResult<ApiResponse<FeedbackResponses.ShopFeedbackResponse>>> GetShopFeedbacks(
         [FromQuery] FeedbackRequests.ShopFeedbacksQueryRequest request,
         CancellationToken ct)
     {
         var result = await _feedbackService.GetShopFeedbacksAsync(GetAuthenticatedUserId(), request, ct);
-        return Ok(ApiResponse<PagedResult<FeedbackResponses.FeedbackItemResponse>>.Ok(result, "Retrieved shop feedbacks successfully."));
+        return Ok(ApiResponse<FeedbackResponses.ShopFeedbackResponse>.Ok(result, "Retrieved shop feedbacks successfully."));
     }
 
     // View feedback for admin (Admin)

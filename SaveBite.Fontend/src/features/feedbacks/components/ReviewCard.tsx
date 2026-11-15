@@ -153,10 +153,7 @@ export function ReviewCard({
             <section className="rounded-md border border-primary-100 bg-primary-50/50 p-3">
               <p className="flex flex-wrap items-center gap-2 text-caption font-semibold text-primary-800">
                 <MessageSquareQuote size={16} aria-hidden="true" />
-                Response from shop{" "}
-                {review.reply.repliedByName && (
-                  <span className="font-normal">· {review.reply.repliedByName}</span>
-                )}
+                Response from {review.shopName?.trim() || "shop"}
               </p>
               <p className="mt-2 whitespace-pre-wrap text-body text-text-primary [overflow-wrap:anywhere]">
                 {review.reply.content}

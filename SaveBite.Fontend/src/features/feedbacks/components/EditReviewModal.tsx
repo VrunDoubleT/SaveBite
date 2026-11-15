@@ -475,7 +475,7 @@ function EditReviewContent({
               }}
               onCancel={onClose}
               reply={feedback.reply}
-              editCount={feedback.editCount}
+              shopName={feedback.shopName}
               canEdit={feedback.canEdit}
             />
           </div>

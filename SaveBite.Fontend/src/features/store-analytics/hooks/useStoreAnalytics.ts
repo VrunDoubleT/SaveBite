@@ -1,3 +1,4 @@
+import { subscribeProductSync } from "@/features/products/utils/productSync";
 import { useEffect, useState } from "react";
 import { storeAnalyticsApi } from "../api/storeAnalyticsApi";
 import type { StoreDashboardAnalytics } from "../types/storeAnalytics.types";
@@ -10,6 +11,8 @@ export function useStoreAnalytics() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => subscribeProductSync(() => setReloadKey((key) => key + 1)), []);
 
   const { rangeError, query } = period;
   const queryKey = JSON.stringify(query);

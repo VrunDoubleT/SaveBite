@@ -33,6 +33,7 @@ public static class FeedbackRequests
         public int PageSize { get; set; } = 10;
         public int? Rating { get; set; }
         public bool? HasReply { get; set; }
+        public bool NeedsReplyOnly { get; set; }
         public Guid? ShopId { get; set; }
         public bool? IsToday { get; set; }
     }

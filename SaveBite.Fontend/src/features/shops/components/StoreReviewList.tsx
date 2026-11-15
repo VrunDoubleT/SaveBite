@@ -14,6 +14,7 @@ import {
 } from "@/shared/components/ui";
 
 interface StoreReviewListProps {
+  shopName: string;
   summary: StoreReviewsSummary | null;
   isLoading: boolean;
   activeRatingFilter: number | null;
@@ -48,6 +49,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export function StoreReviewList({
+  shopName,
   summary,
   isLoading,
   activeRatingFilter,
@@ -192,7 +194,12 @@ export function StoreReviewList({
       ) : (
         <div className="space-y-4">
           {visibleReviews.map((review) => (
-            <ReviewItemCard key={review.id} review={review} onSelectImage={setSelectedImage} />
+            <ReviewItemCard
+              key={review.id}
+              review={review}
+              shopName={shopName}
+              onSelectImage={setSelectedImage}
+            />
           ))}
         </div>
       )}
@@ -227,9 +234,11 @@ export function StoreReviewList({
 
 function ReviewItemCard({
   review,
+  shopName,
   onSelectImage,
 }: {
   review: StoreReview;
+  shopName: string;
   onSelectImage: (url: string) => void;
 }) {
   return (
@@ -304,7 +313,7 @@ function ReviewItemCard({
         <div className="space-y-2 rounded-md border border-primary-100 bg-primary-50 p-4">
           <div className="flex flex-wrap items-center gap-2 text-caption text-primary-700">
             <MessageSquare className="size-4" aria-hidden="true" />
-            <span className="font-semibold">Store response</span>
+            <span className="font-semibold">Response from {shopName.trim() || "shop"}</span>
             <time dateTime={review.reply.createdAt} className="text-text-secondary">
               {formatDate(review.reply.createdAt)}
             </time>

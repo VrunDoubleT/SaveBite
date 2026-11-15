@@ -536,6 +536,7 @@ function ShopContent({ shopId }: { shopId: string }) {
                 />
               ) : (
                 <StoreReviewList
+                  shopName={shopName}
                   summary={reviewsSummary}
                   isLoading={isReviewsLoading}
                   activeRatingFilter={reviewRatingFilter}

@@ -1,7 +1,7 @@
 name: savebite
 services:
   savebite:
-    image: savebite:local
+    image: savebite:1.0.0
     build:
       context: .
       dockerfile: Dockerfile

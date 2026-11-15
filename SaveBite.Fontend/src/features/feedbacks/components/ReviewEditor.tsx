@@ -25,6 +25,7 @@ export function ReviewEditor({
   onSave,
   onCancel,
   reply,
+  shopName,
   editCount,
   canEdit,
 }: {
@@ -42,6 +43,7 @@ export function ReviewEditor({
   onSave: () => Promise<void>;
   onCancel: () => void;
   reply?: FeedbackReply | null;
+  shopName?: string;
   editCount?: number;
   canEdit?: boolean;
 }) {
@@ -199,8 +201,7 @@ export function ReviewEditor({
           <div className="rounded-md border border-primary-100 bg-primary-50/50 p-4">
             <p className="flex flex-wrap items-center gap-2 text-caption font-semibold text-primary-800">
               <MessageSquareQuote size={16} aria-hidden="true" />
-              Shop response{" "}
-              {reply.repliedByName && <span className="font-normal">· {reply.repliedByName}</span>}
+              Response from {shopName?.trim() || "shop"}
             </p>
             <p className="mt-2 whitespace-pre-wrap text-body text-text-primary [overflow-wrap:anywhere]">
               {reply.content}

@@ -44,7 +44,7 @@ export function ProductListPage() {
   );
 
   const loadSummary = useCallback((signal: AbortSignal) => productApi.summary(signal), []);
-  const { data: summary } = useProductResource(`${shop.id}:product-summary`, loadSummary);
+  const { data: summary } = useProductResource(`${shop.id}:product-summary`, loadSummary, true);
   const load = useCallback(
     (signal: AbortSignal) =>
       productApi.list(
@@ -60,6 +60,7 @@ export function ProductListPage() {
   const { data, loading, error, reload } = useProductResource(
     `${shop.id}:${JSON.stringify(query)}`,
     load,
+    true,
   );
   const filtered = Boolean(debouncedSearch.trim() || categoryId || status !== "");
   return (

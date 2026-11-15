@@ -227,6 +227,9 @@ public sealed class FeedbackRepository : IFeedbackRepository
             .AsNoTracking()
             .Where(f => f.Product.ShopId == shopId && f.Status == FeedbackStatus.Visible);
 
+        if (request.NeedsReplyOnly)
+            query = query.Where(f => f.Reply == null && (f.Rating == 1 || f.Rating == 2));
+
         if (request.Rating is >= 1 and <= 5)
         {
             query = query.Where(f => f.Rating == request.Rating.Value);

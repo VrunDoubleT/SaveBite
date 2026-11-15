@@ -111,5 +111,6 @@ public class ShopEligibleProductVariantResponse
     public string? Sku { get; set; }
     public string VariantName { get; set; } = string.Empty;
     public decimal OriginalPrice { get; set; }
+    public decimal DealPrice { get; set; }
     public string? ImageUrl { get; set; }
 }
