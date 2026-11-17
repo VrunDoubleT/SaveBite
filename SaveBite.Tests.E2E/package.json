@@ -15,6 +15,8 @@
     "test:profile:ghost": "playwright test tests/profile --project=ghost --workers=1",
     "test:discovery": "playwright test tests/discovery --project=chromium --workers=1",
     "test:discovery:ghost": "playwright test tests/discovery --project=ghost --workers=1",
+    "test:cart": "playwright test tests/cart-checkout --project=chromium --workers=1",
+    "test:cart:ghost": "playwright test tests/cart-checkout --project=ghost --workers=1",
     "test:realtime": "playwright test tests/realtime --project=chromium --workers=1",
     "test:realtime:demo": "playwright test tests/realtime --project=ghost --workers=1",
     "test:debug": "playwright test --debug",

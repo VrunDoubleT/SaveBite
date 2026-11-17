@@ -5,6 +5,10 @@ export abstract class BasePage {
 
   async goto(path: string = "/"): Promise<void> {
     await this.page.goto(path, { waitUntil: "domcontentloaded" });
+    const sessionChecking = this.page.locator("text=/Checking your session/i");
+    if (await sessionChecking.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await sessionChecking.waitFor({ state: "detached", timeout: 30_000 }).catch(() => {});
+    }
   }
 
   async waitForPageLoad(): Promise<void> {
