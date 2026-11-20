@@ -128,7 +128,8 @@ export async function getVietmapStyle(
   tilemapKey: string = VIETMAP_CONFIG.TILEMAP_API_KEY,
 ): Promise<any> {
   const styleUrl = `${VIETMAP_CONFIG.STYLE_BASE_URL}?apikey=${encodeURIComponent(tilemapKey.trim())}`;
-  const response = await fetch(styleUrl);
+  // Allow the existing OpenStreetMap fallback to run if the style server stalls.
+  const response = await fetch(styleUrl, { signal: AbortSignal.timeout(25000) });
   if (!response.ok) {
     throw new Error(`Failed to load basemap: HTTP ${response.status}`);
   }

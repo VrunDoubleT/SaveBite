@@ -1,0 +1,114 @@
+<mxGraphModel grid="1" gridSize="10" guides="1" page="0" background="#ffffff">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="home" parent="1" value="Customer Home Screen" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fontSize=16;fillColor=#ffffff;strokeColor=#000000;labelBackgroundColor=none;">
+      <mxGeometry as="geometry" x="30" y="340" width="240" height="60" />
+    </mxCell>
+    <mxCell id="profile" parent="1" value="Profile Screen" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fontSize=16;fillColor=#ffffff;strokeColor=#000000;labelBackgroundColor=none;">
+      <mxGeometry as="geometry" x="450" y="340" width="240" height="60" />
+    </mxCell>
+    <mxCell id="workspace" parent="1" value="Workspace Screen" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fontSize=16;fillColor=#ffffff;strokeColor=#000000;labelBackgroundColor=none;">
+      <mxGeometry as="geometry" x="900" y="340" width="240" height="60" />
+    </mxCell>
+    <mxCell id="deals" parent="1" value="Flash Deals Screen" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fontSize=16;fillColor=#ffffff;strokeColor=#000000;labelBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1400" y="100" width="240" height="60" />
+    </mxCell>
+    <mxCell id="detail" parent="1" value="Flash Deal Details Screen" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fontSize=16;fillColor=#ffffff;strokeColor=#000000;labelBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1900" y="100" width="240" height="60" />
+    </mxCell>
+    <mxCell id="restock" parent="1" value="Restock Screen" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fontSize=16;fillColor=#ffffff;strokeColor=#000000;labelBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1400" y="340" width="240" height="60" />
+    </mxCell>
+    <mxCell id="orders" parent="1" value="Orders Screen" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fontSize=16;fillColor=#ffffff;strokeColor=#000000;labelBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1400" y="580" width="240" height="60" />
+    </mxCell>
+    <mxCell id="order" parent="1" value="Order Details Screen" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fontSize=16;fillColor=#ffffff;strokeColor=#000000;labelBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1900" y="580" width="240" height="60" />
+    </mxCell>
+    <mxCell id="reviews" parent="1" value="Reviews Screen" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fontSize=16;fillColor=#ffffff;strokeColor=#000000;labelBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1400" y="820" width="240" height="60" />
+    </mxCell>
+    <mxCell id="info" parent="1" value="Shop and Staff Info Screen" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fontSize=16;fillColor=#ffffff;strokeColor=#000000;labelBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1400" y="1060" width="240" height="60" />
+    </mxCell>
+    <mxCell id="account" parent="1" source="home" target="profile" value="" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#000000;jumpStyle=arc;jumpSize=8;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+      <mxGeometry as="geometry" relative="1" />
+    </mxCell>
+    <mxCell id="label_account" parent="1" value="Select Account avatar in header" vertex="1" connectable="0" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Times New Roman;fontSize=14;fillColor=none;strokeColor=none;labelBackgroundColor=none;fontBackgroundColor=none;">
+      <mxGeometry as="geometry" x="280" y="310" width="160" height="52" />
+    </mxCell>
+    <mxCell id="work" parent="1" source="profile" target="workspace" value="" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#000000;jumpStyle=arc;jumpSize=8;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+      <mxGeometry as="geometry" relative="1" />
+    </mxCell>
+    <mxCell id="label_work" parent="1" value="Select Workspace in account sidebar" vertex="1" connectable="0" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Times New Roman;fontSize=14;fillColor=none;strokeColor=none;labelBackgroundColor=none;fontBackgroundColor=none;">
+      <mxGeometry as="geometry" x="705" y="310" width="180" height="52" />
+    </mxCell>
+    <mxCell id="open" parent="1" source="workspace" target="deals" value="" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#000000;jumpStyle=arc;jumpSize=8;exitX=1;exitY=0.2;entryX=0;entryY=0.5;">
+      <mxGeometry as="geometry" relative="1">
+        <Array as="points">
+          <mxPoint x="1230" y="352" />
+          <mxPoint x="1230" y="130" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="label_open" parent="1" value="Select a store / Open Flash Deals by default" vertex="1" connectable="0" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Times New Roman;fontSize=14;fillColor=none;strokeColor=none;labelBackgroundColor=none;fontBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1240" y="65" width="150" height="60" />
+    </mxCell>
+    <mxCell id="restock_nav" parent="1" source="deals" target="restock" value="" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#000000;jumpStyle=arc;jumpSize=8;exitX=0.2;exitY=1;entryX=0.2;entryY=0;">
+      <mxGeometry as="geometry" relative="1" />
+    </mxCell>
+    <mxCell id="label_restock_nav" parent="1" value="Select Restock in sidebar" vertex="1" connectable="0" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Times New Roman;fontSize=14;fillColor=none;strokeColor=none;labelBackgroundColor=none;fontBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1225" y="220" width="205" height="52" />
+    </mxCell>
+    <mxCell id="orders_nav" parent="1" source="deals" target="orders" value="" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#000000;jumpStyle=arc;jumpSize=8;exitX=0.5;exitY=1;entryX=0.5;entryY=0;">
+      <mxGeometry as="geometry" relative="1">
+        <Array as="points">
+          <mxPoint x="1520" y="195" />
+          <mxPoint x="1690" y="195" />
+          <mxPoint x="1690" y="540" />
+          <mxPoint x="1520" y="540" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="label_orders_nav" parent="1" value="Select Orders in sidebar" vertex="1" connectable="0" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Times New Roman;fontSize=14;fillColor=none;strokeColor=none;labelBackgroundColor=none;fontBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1695" y="410" width="190" height="52" />
+    </mxCell>
+    <mxCell id="reviews_nav" parent="1" source="deals" target="reviews" value="" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#000000;jumpStyle=arc;jumpSize=8;exitX=0;exitY=0.8;entryX=0;entryY=0.5;">
+      <mxGeometry as="geometry" relative="1">
+        <Array as="points">
+          <mxPoint x="1190" y="148" />
+          <mxPoint x="1190" y="850" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="label_reviews_nav" parent="1" value="Select Reviews in sidebar" vertex="1" connectable="0" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Times New Roman;fontSize=14;fillColor=none;strokeColor=none;labelBackgroundColor=none;fontBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1200" y="790" width="190" height="52" />
+    </mxCell>
+    <mxCell id="info_nav" parent="1" source="deals" target="info" value="" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#000000;jumpStyle=arc;jumpSize=8;exitX=0.8;exitY=1;entryX=0.8;entryY=0;">
+      <mxGeometry as="geometry" relative="1">
+        <Array as="points">
+          <mxPoint x="1592" y="185" />
+          <mxPoint x="2300" y="185" />
+          <mxPoint x="2300" y="1010" />
+          <mxPoint x="1592" y="1010" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="label_info_nav" parent="1" value="Select Shop and Staff Info in sidebar" vertex="1" connectable="0" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Times New Roman;fontSize=14;fillColor=none;strokeColor=none;labelBackgroundColor=none;fontBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1690" y="955" width="260" height="52" />
+    </mxCell>
+    <mxCell id="deal_detail" parent="1" source="deals" target="detail" value="" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#000000;jumpStyle=arc;jumpSize=8;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+      <mxGeometry as="geometry" relative="1" />
+    </mxCell>
+    <mxCell id="label_deal_detail" parent="1" value="Select a flash deal" vertex="1" connectable="0" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Times New Roman;fontSize=14;fillColor=none;strokeColor=none;labelBackgroundColor=none;fontBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1655" y="65" width="230" height="52" />
+    </mxCell>
+    <mxCell id="order_detail" parent="1" source="orders" target="order" value="" edge="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#000000;jumpStyle=arc;jumpSize=8;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+      <mxGeometry as="geometry" relative="1" />
+    </mxCell>
+    <mxCell id="label_order_detail" parent="1" value="Select View details" vertex="1" connectable="0" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Times New Roman;fontSize=14;fillColor=none;strokeColor=none;labelBackgroundColor=none;fontBackgroundColor=none;">
+      <mxGeometry as="geometry" x="1655" y="545" width="230" height="52" />
+    </mxCell>
+  </root>
+</mxGraphModel>

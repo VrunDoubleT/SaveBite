@@ -196,7 +196,12 @@ export function FilterSidebar({
             Searching in {filters.category.length} selected categories
           </p>
         ) : null}
-        <div className="clear-both space-y-0.5">
+        <div
+          className="clear-both max-h-56 space-y-0.5 overflow-y-auto overscroll-contain pr-1"
+          role="region"
+          aria-label="Category options"
+          tabIndex={0}
+        >
           {isCategoriesLoading && !categoryList.length ? (
             <div role="status" aria-label="Loading categories" className="space-y-3">
               {showSkeleton ? (

@@ -178,7 +178,7 @@ function PaymentDetails({
                     className="min-h-11 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white"
                     onClick={() => {
                       void paymentApi
-                        .simulate(order.id, "paid", payment.id)
+                        .simulate(order.id, "paid", payment.type === "Remaining" ? payment.id : undefined)
                         .then(() => paymentApi.detail(paymentId))
                         .then(setData)
                         .catch((cause) => setError(getApiErrorMessage(cause)));

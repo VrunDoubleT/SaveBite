@@ -77,8 +77,8 @@ export function AddressLocationMap({ point, disabled, onSelect }: Props) {
     const fallback = () => {
       if (disposed) return;
       sdk
-        .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        .tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+          attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS and the GIS User Community',
           maxZoom: 19,
         })
         .addTo(map);

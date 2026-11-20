@@ -1,5 +1,5 @@
 import { CustomerActionButton } from "@/shared/components/CustomerMutationControls";
-import { Badge, Card, EmptyState, ErrorState, Skeleton } from "@/shared/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorState, Modal, Skeleton } from "@/shared/components/ui";
 import { toast } from "@/shared/stores/toastStore";
 import { useEffect, useState } from "react";
 import { MapPin, Navigation, Pencil, Plus, Star, Trash2 } from "lucide-react";
@@ -217,6 +217,7 @@ interface AddressItemProps {
 }
 
 function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [pendingAction, setPendingAction] = useState<"default" | "delete" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -302,7 +303,7 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
             <CustomerActionButton
               variant="secondary"
               type="button"
-              onClick={() => void runAction("delete", onDelete)}
+              onClick={() => setConfirmDelete(true)}
               disabled={isBusy}
               className="min-h-11 text-danger-strong hover:bg-danger-soft"
               loading={pendingAction === "delete"}
@@ -313,7 +314,28 @@ function AddressItem({ address, onEdit, onSetDefault, onDelete }: AddressItemPro
           )}
         </div>
 
-        {actionError && (
+        <Modal
+          isOpen={confirmDelete}
+          onClose={() => { if (!isBusy) setConfirmDelete(false); }}
+          closeOnClickOutside={!isBusy}
+          title="Delete address?"
+        >
+          <p className="text-body text-text-secondary">
+            Delete this saved address? This action cannot be undone.
+          </p>
+          <p className="mt-3 text-body font-medium">{formatAddress(address)}</p>
+          {actionError && <p role="alert" className="mt-3 text-danger-strong">{actionError}</p>}
+          <div className="mt-5 flex justify-end gap-3">
+            <Button variant="secondary" disabled={isBusy} onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <CustomerActionButton variant="danger" loading={pendingAction === "delete"} disabled={isBusy}
+              onClick={() => void runAction("delete", onDelete)}>
+              Delete address
+            </CustomerActionButton>
+          </div>
+        </Modal>
+        {actionError && !confirmDelete && (
           <p role="alert" className="mt-2 text-body text-danger-strong">
             {actionError}
           </p>
